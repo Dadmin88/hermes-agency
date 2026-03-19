@@ -131,9 +131,10 @@ def card_to_oasf_record(
     if card.peer_id:
         record["locators"].append({"type": "url", "urls": [f"p2p://{card.peer_id}"]})
 
-    # DID locator
+    # DID locator — handle both "did:key:z..." and "key:z..." formats
     if card.did_key:
-        record["locators"].append({"type": "url", "urls": [f"did:{card.did_key}"]})
+        did_str = card.did_key if card.did_key.startswith("did:") else f"did:{card.did_key}"
+        record["locators"].append({"type": "url", "urls": [did_str]})
 
     return record
 
@@ -187,5 +188,5 @@ def _apply_locators(card: AgentCard, locators: list[dict[str, Any]]) -> None:
                 if url.startswith("p2p://") and not card.peer_id:
                     card.peer_id = url[len("p2p://") :]
                 elif url.startswith("did:") and not card.did_key:
-                    # Store the full DID value after "did:" prefix.
-                    card.did_key = url[len("did:") :]
+                    # Store the full DID string (e.g., "did:key:z6Mk...").
+                    card.did_key = url

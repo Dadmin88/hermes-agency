@@ -179,10 +179,14 @@ def did_web_to_url(did_web: str) -> str:
 
     # Everything after "did:web:" is colon-separated path segments.
     specific_id = did_web[len("did:web:") :]
+    if not specific_id:
+        raise ValueError("did:web identifier has empty domain")
     parts = specific_id.split(":")
 
     # First segment is the domain (percent-decoded).
     domain = _pct_decode(parts[0])
+    if not domain:
+        raise ValueError("did:web identifier has empty domain")
 
     if len(parts) == 1:
         # Domain-only → /.well-known/did.json

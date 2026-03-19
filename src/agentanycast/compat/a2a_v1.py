@@ -80,11 +80,12 @@ def _part_to_a2a_json(part: Part) -> dict[str, Any]:
         d["type"] = "data"
         d["data"] = {"raw": part.raw.hex()}
     if part.metadata:
-        d["metadata"] = part.metadata
+        d["metadata"] = dict(part.metadata)  # copy to avoid mutating source
     # media_type at top level for non-file parts
     if part.media_type and part.url is None:
-        d["metadata"] = d.get("metadata") or {}
-        d["metadata"]["media_type"] = part.media_type
+        meta = dict(d.get("metadata") or {})
+        meta["media_type"] = part.media_type
+        d["metadata"] = meta
     return d
 
 

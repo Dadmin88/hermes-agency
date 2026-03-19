@@ -56,7 +56,7 @@ class TestCardToOASFRecord:
             "version": "2.0.0",
             "skills": [Skill(id="echo", description="Echo input")],
             "peer_id": "12D3KooWExample",
-            "did_key": "key:z6MkExample",
+            "did_key": "did:key:z6MkExample",
         }
         defaults.update(overrides)
         return AgentCard(**defaults)
@@ -201,7 +201,7 @@ class TestCardFromOASFWithModule:
             ],
         }
         card = card_from_oasf_record(record)
-        assert card.did_key == "key:z6MkTest"
+        assert card.did_key == "did:key:z6MkTest"
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +270,7 @@ class TestRoundTrip:
                 Skill(id="echo", description="Echo back"),
             ],
             peer_id="12D3KooWRoundTrip",
-            did_key="key:z6MkRoundTrip",
+            did_key="did:key:z6MkRoundTrip",
         )
         record = card_to_oasf_record(original, authors=["Test <t@t.com>"])
         restored = card_from_oasf_record(record)
