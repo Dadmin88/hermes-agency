@@ -101,7 +101,7 @@ def _proto_card_to_python(pb_card: agent_card_pb2.AgentCard) -> AgentCard:
         version=pb_card.version,
         protocol_version=pb_card.protocol_version,
         skills=skills,
-        peer_id=p2p.peer_id if p2p else None,
+        peer_id=(p2p.peer_id or None) if p2p else None,
         supported_transports=list(p2p.supported_transports) if p2p else [],
         relay_addresses=list(p2p.relay_addresses) if p2p else [],
         did_key=p2p.did_key if p2p and p2p.did_key else None,

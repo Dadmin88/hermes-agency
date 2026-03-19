@@ -67,12 +67,15 @@ class AgentCard:
             "protocol_version": self.protocol_version,
             "skills": [s.to_dict() for s in self.skills],
         }
-        if self.peer_id:
-            p2p: dict[str, Any] = {
-                "peer_id": self.peer_id,
-                "supported_transports": self.supported_transports,
-                "relay_addresses": self.relay_addresses,
-            }
+        has_p2p = self.peer_id or self.did_key or self.did_web or self.did_dns
+        if has_p2p:
+            p2p: dict[str, Any] = {}
+            if self.peer_id:
+                p2p["peer_id"] = self.peer_id
+            if self.supported_transports:
+                p2p["supported_transports"] = self.supported_transports
+            if self.relay_addresses:
+                p2p["relay_addresses"] = self.relay_addresses
             if self.did_key:
                 p2p["did_key"] = self.did_key
             if self.did_web:

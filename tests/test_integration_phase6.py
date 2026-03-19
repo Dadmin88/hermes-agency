@@ -65,11 +65,13 @@ class TestDIDCardIntegration:
         assert card.peer_id == "12D3KooWTest"
         assert card.did_key is None
 
-    def test_card_did_key_without_peer_id_is_dropped(self) -> None:
-        """When peer_id is None, did_key is silently omitted from serialization."""
+    def test_card_did_key_without_peer_id_is_preserved(self) -> None:
+        """Identity fields (did_key, did_web, did_dns) are preserved even without peer_id."""
         card = AgentCard(name="NoPeer", did_key="did:key:z6MkTest")
         d = card.to_dict()
-        assert "agentanycast" not in d  # entire P2P block is omitted
+        assert "agentanycast" in d  # P2P block present for identity fields
+        assert d["agentanycast"]["did_key"] == "did:key:z6MkTest"
+        assert "peer_id" not in d["agentanycast"]
 
 
 # ── MCP + Card integration ────────────────────────────────────────────
