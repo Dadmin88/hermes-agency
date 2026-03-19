@@ -1,109 +1,202 @@
 # AgentAnycast Python SDK
 
-> Python SDK for AgentAnycast — the decentralized P2P runtime for the A2A (Agent-to-Agent) protocol. Build P2P agents with `async/await`, framework adapters, and MCP bridging.
+> Python SDK for AgentAnycast — the decentralized P2P runtime for the A2A (Agent-to-Agent) protocol. Async/await API, framework adapters (CrewAI, LangGraph, Google ADK, OpenAI Agents), MCP bridging, CLI.
 
-## Documentation
-
-- [Getting Started](https://github.com/AgentAnycast/agentanycast/blob/main/docs/getting-started.md): Install and run your first P2P agent in 5 minutes
-- [Python SDK Reference](https://github.com/AgentAnycast/agentanycast/blob/main/docs/python-sdk.md): Complete API docs — Node, AgentCard, Task, IncomingTask
-- [Examples](https://github.com/AgentAnycast/agentanycast/blob/main/docs/examples.md): CrewAI, LangGraph, MCP tool mapping, streaming
-- [Architecture](https://github.com/AgentAnycast/agentanycast/blob/main/docs/architecture.md): Sidecar daemon + SDK design
-- [Protocol Reference](https://github.com/AgentAnycast/agentanycast/blob/main/docs/protocol.md): Wire format, task lifecycle, 16 gRPC RPCs
-
-## Quick Install
+## Install
 
 ```bash
-pip install agentanycast
-
-# With framework adapters
-pip install agentanycast[crewai]
-pip install agentanycast[langgraph]
-pip install agentanycast[adapters]  # all adapters
-
-# Development
-pip install -e ".[dev]"
+pip install agentanycast               # Core SDK
+pip install agentanycast[crewai]       # + CrewAI adapter
+pip install agentanycast[langgraph]    # + LangGraph adapter
+pip install agentanycast[adk]          # + Google ADK adapter
+pip install agentanycast[openai-agents] # + OpenAI Agents adapter
+pip install agentanycast[adapters]     # All adapters
+pip install -e ".[dev]"               # Development (pytest, ruff, mypy)
 ```
 
-## Key APIs
+The Go daemon binary is auto-downloaded on first run. Override with `daemon_bin=` or `daemon_path=`.
 
-### Node — main entry point
+## Node — Core API
 
 ```python
 from agentanycast import Node, AgentCard, Skill
 
-card = AgentCard(name="MyAgent", skills=[Skill(id="echo", description="Echo service")])
-async with Node(card=card) as node:
+card = AgentCard(
+    name="MyAgent",
+    description="Helpful assistant",
+    skills=[Skill(id="qa", description="Answer questions")],
+)
+
+async with Node(card=card, relay="/ip4/.../p2p/12D3KooW...") as node:
+    print(f"PeerID: {node.peer_id}")
+    print(f"DID: {node.did_key}")
+
+    # Register task handler
     @node.on_task
     async def handle(task):
-        user_msg = task.messages[-1].parts[0].text
-        await task.complete(artifacts=[{"parts": [{"text": f"Echo: {user_msg}"}]}])
+        text = task.messages[-1].parts[0].text
+        await task.update_status("working")
+        await task.complete(artifacts=[{"parts": [{"text": f"Answer: {text}"}]}])
+
     await node.serve_forever()
 ```
 
-### Three addressing modes for send_task
+Node constructor parameters: `card`, `relay`, `key_path`, `daemon_addr`, `daemon_bin`, `daemon_path`, `home`.
+
+## AgentCard and Skill
 
 ```python
+from agentanycast import AgentCard, Skill
+
+skill = Skill(
+    id="translate",
+    description="Translate text between languages",
+    input_schema='{"type": "object", "properties": {"text": {"type": "string"}}}',
+    output_schema='{"type": "object", "properties": {"result": {"type": "string"}}}',
+)
+card = AgentCard(name="Translator", version="1.0.0", skills=[skill])
+```
+
+## IncomingTask — Server-Side API
+
+Methods available on the `task` object received in `@node.on_task`:
+- `task.task_id` — unique task identifier
+- `task.peer_id` — originator PeerID
+- `task.messages` — list of Message objects
+- `task.target_skill_id` — which skill was requested
+- `task.sender_card` — AgentCard of the sender (if available)
+- `await task.update_status("working")` — update status
+- `await task.complete(artifacts=[...])` — mark completed with results
+- `await task.fail("error message")` — mark failed
+- `await task.request_input(message=...)` — request additional input
+
+## Three send_task Modes
+
+```python
+msg = {"role": "user", "parts": [{"text": "Hello"}]}
+
 # Direct — known peer
-result = await node.send_task(peer_id="12D3KooW...", message="Hello")
+handle = await node.send_task(msg, peer_id="12D3KooW...")
 
-# Anycast — skill-based routing
-result = await node.send_task(skill="translate", message="Hello")
+# Anycast — skill-based routing via relay registry
+handle = await node.send_task(msg, skill="translate")
 
-# HTTP Bridge — standard A2A endpoint
-result = await node.send_task(url="https://agent.example.com", message="Hello")
+# HTTP Bridge — standard HTTP A2A endpoint
+handle = await node.send_task(msg, url="https://agent.example.com")
 ```
 
-### Framework adapters
+## TaskHandle — Client-Side API
 
 ```python
-# CrewAI
+handle = await node.send_task(msg, skill="translate")
+result = await handle.wait()             # Block until terminal status
+print(handle.status)                     # TaskStatus enum
+print(handle.artifacts[0].parts[0].text) # Access result text
+await handle.cancel()                    # Cancel the task
+```
+
+## Discovery
+
+```python
+agents = await node.discover("translate", tags={"lang": "en"}, limit=10)
+for agent in agents:
+    print(agent["peer_id"], agent["agent_name"])
+```
+
+## Framework Adapters
+
+### CrewAI
+
+```python
+from crewai import Crew
+from agentanycast import AgentCard, Skill
 from agentanycast.adapters.crewai import serve_crew
-await serve_crew(crew, card=card)
 
-# LangGraph
+crew = Crew(agents=[...], tasks=[...])
+card = AgentCard(name="Research Crew", skills=[Skill(id="research", description="Research any topic")])
+await serve_crew(crew, card=card, relay="/ip4/.../p2p/12D3KooW...")
+```
+
+### LangGraph
+
+```python
+from langgraph.graph import StateGraph
 from agentanycast.adapters.langgraph import serve_graph
-await serve_graph(graph, card=card)
+
+compiled = StateGraph(...).compile()
+card = AgentCard(name="QA Agent", skills=[Skill(id="qa", description="Answer questions")])
+await serve_graph(compiled, card=card, relay="/ip4/.../p2p/12D3KooW...")
 ```
 
-### MCP bridging
+### Google ADK
 
 ```python
-from agentanycast.mcp import mcp_tool_to_skill, skill_to_mcp_tool
-skill = mcp_tool_to_skill(mcp_tool)
+from google.adk.agents import Agent
+from agentanycast.adapters.adk import serve_adk_agent
+
+agent = Agent(name="helper", model="gemini-2.0-flash", instruction="You are a helpful assistant.")
+card = AgentCard(name="Helper", skills=[Skill(id="help", description="General help")])
+await serve_adk_agent(agent, card=card, relay="/ip4/.../p2p/12D3KooW...")
+```
+
+### OpenAI Agents
+
+```python
+from agents import Agent
+from agentanycast.adapters.openai_agents import serve_openai_agent
+
+agent = Agent(name="helper", instructions="You are a helpful assistant.", model="gpt-4o")
+card = AgentCard(name="Helper", skills=[Skill(id="help", description="General help")])
+await serve_openai_agent(agent, card=card, relay="/ip4/.../p2p/12D3KooW...")
+```
+
+## MCP Bridging
+
+```python
+from agentanycast import MCPTool, mcp_tool_to_skill, skill_to_mcp_tool, mcp_tools_to_agent_card
+
+# MCP Tool -> A2A Skill
+tool = MCPTool(name="get_weather", description="Get weather", input_schema={"type": "object"})
+skill = mcp_tool_to_skill(tool)
+
+# A2A Skill -> MCP Tool
 tool = skill_to_mcp_tool(skill)
+
+# Wrap all MCP tools as a single AgentCard
+card = mcp_tools_to_agent_card("WeatherServer", [tool1, tool2], description="Weather tools")
 ```
 
-### DID identity
+## DID Identity
 
 ```python
-from agentanycast.did import peer_id_to_did_key, did_key_to_peer_id
-did = peer_id_to_did_key("12D3KooW...")
-peer_id = did_key_to_peer_id("did:key:z6Mk...")
+from agentanycast import peer_id_to_did_key, did_key_to_peer_id
+
+did = peer_id_to_did_key("12D3KooW...")          # -> "did:key:z6Mk..."
+peer_id = did_key_to_peer_id("did:key:z6Mk...")  # -> "12D3KooW..."
 ```
 
-### CLI
+## CLI
 
 ```bash
-agentanycast demo              # Start echo agent
-agentanycast discover <skill>  # Find agents by skill
-agentanycast send <target> "msg"  # Send task to peer/skill/URL
-agentanycast status            # Daemon status
-agentanycast info              # Node info (PeerID, DID, addresses)
+agentanycast demo                    # Start echo agent
+agentanycast discover <skill>        # Find agents by skill
+agentanycast send <target> "msg"     # Send task (peer_id, skill, or URL)
+agentanycast status                  # Daemon status
+agentanycast info                    # Node info (PeerID, DID, addresses)
 ```
 
 ## Key Concepts
 
 - **Sidecar daemon**: Go binary auto-downloaded on first run; SDK communicates via gRPC over Unix socket
-- **AgentCard**: Declares agent identity, skills, and capabilities (A2A standard)
-- **IncomingTask**: Server-side task handle with `complete()`, `fail()`, `update()`, `send_artifact()`
-- **TaskHandle**: Client-side handle returned by `send_task()` with status and result access
-- **Streaming**: Chunked artifact delivery for large payloads via `send_artifact()`
+- **AgentCard**: A2A-standard agent identity with name, skills, and P2P extensions (peer_id, did_key)
 - **Offline queue**: Messages queued when peer is offline, delivered on reconnection
+- **Streaming**: Chunked artifact delivery for large payloads via `send_artifact()`
+- **Noise_XX**: All peer connections are end-to-end encrypted; no plaintext transport path
 
 ## Related Repositories
 
-- [agentanycast](https://github.com/AgentAnycast/agentanycast): Documentation hub
-- [agentanycast-ts](https://github.com/AgentAnycast/agentanycast-ts): TypeScript SDK
-- [agentanycast-node](https://github.com/AgentAnycast/agentanycast-node): Go daemon
-- [agentanycast-relay](https://github.com/AgentAnycast/agentanycast-relay): Relay server
-- [agentanycast-proto](https://github.com/AgentAnycast/agentanycast-proto): Protobuf definitions
+- [agentanycast](https://github.com/AgentAnycast/agentanycast) — Docs and issue tracker
+- [agentanycast-ts](https://github.com/AgentAnycast/agentanycast-ts) — TypeScript SDK
+- [agentanycast-node](https://github.com/AgentAnycast/agentanycast-node) — Go daemon
+- [agentanycast-relay](https://github.com/AgentAnycast/agentanycast-relay) — Relay server
+- [agentanycast-proto](https://github.com/AgentAnycast/agentanycast-proto) — Protobuf definitions

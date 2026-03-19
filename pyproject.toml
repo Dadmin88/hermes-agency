@@ -14,8 +14,8 @@ authors = [
 ]
 keywords = [
     "a2a", "a2a-protocol", "agent", "agent-communication", "p2p", "libp2p",
-    "grpc", "mcp", "crewai", "langgraph", "zero-config", "end-to-end-encryption",
-    "nat-traversal", "decentralized", "noise-protocol", "did",
+    "grpc", "mcp", "crewai", "langgraph", "google-adk", "openai-agents", "zero-config",
+    "end-to-end-encryption", "nat-traversal", "decentralized", "noise-protocol", "did",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -48,7 +48,9 @@ agentanycast = "agentanycast.cli.main:main"
 [project.optional-dependencies]
 crewai = ["crewai>=0.80"]
 langgraph = ["langgraph>=0.2"]
-adapters = ["crewai>=0.80", "langgraph>=0.2"]
+adk = ["google-adk>=1.0"]
+openai-agents = ["openai-agents>=0.10"]
+adapters = ["crewai>=0.80", "langgraph>=0.2", "google-adk>=1.0", "openai-agents>=0.10"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -83,7 +85,7 @@ module = "base58"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["grpc", "grpc.*", "grpc.aio", "grpc.aio.*", "google.protobuf.*", "crewai", "crewai.*", "langgraph", "langgraph.*"]
+module = ["grpc", "grpc.*", "grpc.aio", "grpc.aio.*", "google.protobuf.*", "crewai", "crewai.*", "langgraph", "langgraph.*", "google.adk", "google.adk.*", "google.genai", "google.genai.*", "agents", "agents.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
