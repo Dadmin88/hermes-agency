@@ -16,8 +16,10 @@ pip install agentanycast
 With framework adapters:
 
 ```bash
-pip install agentanycast[crewai]      # CrewAI integration
-pip install agentanycast[langgraph]   # LangGraph integration
+pip install agentanycast[crewai]         # CrewAI integration
+pip install agentanycast[langgraph]      # LangGraph integration
+pip install agentanycast[google-adk]     # Google ADK integration
+pip install agentanycast[openai-agents]  # OpenAI Agents SDK integration
 ```
 
 ## How It Works
@@ -111,8 +113,6 @@ await node.send_task(url="https://agent.example.com", message=msg)
 ```python
 # Find all agents offering a skill
 agents = await node.discover("translate")
-for agent in agents:
-    print(f"{agent.name}: {agent.skills}")
 
 # With tag filtering
 agents = await node.discover("translate", tags={"lang": "fr"})
@@ -120,42 +120,42 @@ agents = await node.discover("translate", tags={"lang": "fr"})
 
 ## Framework Adapters
 
-### CrewAI
-
-Expose a CrewAI crew as a P2P agent:
+Expose existing agent frameworks as P2P agents with one function call:
 
 ```python
+# CrewAI
 from agentanycast.adapters.crewai import serve_crew
-
 await serve_crew(crew, card=card, relay="...")
-```
 
-### LangGraph
-
-Expose a LangGraph graph as a P2P agent:
-
-```python
+# LangGraph
 from agentanycast.adapters.langgraph import serve_graph
-
 await serve_graph(compiled_graph, card=card, relay="...")
+
+# Google ADK
+from agentanycast.adapters.adk import serve_adk_agent
+await serve_adk_agent(agent, card=card, relay="...")
+
+# OpenAI Agents SDK
+from agentanycast.adapters.openai_agents import serve_openai_agent
+await serve_openai_agent(agent, card=card, relay="...")
 ```
 
 ## Interoperability
 
 ### W3C DID
 
-Convert between libp2p Peer IDs and W3C Decentralized Identifiers:
-
 ```python
 from agentanycast.did import peer_id_to_did_key, did_key_to_peer_id
+from agentanycast.did import did_web_to_url, url_to_did_web
 
-did = peer_id_to_did_key("12D3KooW...")    # "did:key:z6Mk..."
+did = peer_id_to_did_key("12D3KooW...")      # "did:key:z6Mk..."
 pid = did_key_to_peer_id("did:key:z6Mk...")  # "12D3KooW..."
+
+url = did_web_to_url("did:web:example.com:agents:myagent")
+# "https://example.com/agents/myagent/did.json"
 ```
 
 ### MCP (Model Context Protocol)
-
-Map MCP tools to A2A skills:
 
 ```python
 from agentanycast.mcp import mcp_tools_to_agent_card
@@ -163,9 +163,27 @@ from agentanycast.mcp import mcp_tools_to_agent_card
 card = mcp_tools_to_agent_card(mcp_tools, name="MCPAgent")
 ```
 
-### AGNTCY Directory
+### A2A v1.0 Protocol Compatibility
 
-Query the AGNTCY agent directory for cross-ecosystem discovery:
+```python
+from agentanycast.compat.a2a_v1 import task_to_a2a_json, task_from_a2a_json
+
+# Convert internal Task ↔ official A2A v1.0 JSON format
+a2a_json = task_to_a2a_json(task)
+task = task_from_a2a_json(a2a_json)
+```
+
+### OASF (Open Agentic Schema Framework)
+
+```python
+from agentanycast.compat.oasf import card_to_oasf_record, card_from_oasf_record
+
+# Convert AgentCard ↔ OASF records for AGNTCY Agent Directory
+record = card_to_oasf_record(card, authors=["org"])
+card = card_from_oasf_record(record)
+```
+
+### AGNTCY Directory
 
 ```python
 from agentanycast.compat.agntcy import AGNTCYDirectory
