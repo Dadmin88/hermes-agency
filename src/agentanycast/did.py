@@ -1,4 +1,4 @@
-"""Bidirectional conversion between libp2p PeerIDs and W3C did:key identifiers.
+"""Bidirectional conversion between libp2p PeerIDs and W3C DID identifiers.
 
 The did:key method encodes an Ed25519 public key as::
 
@@ -6,11 +6,17 @@ The did:key method encodes an Ed25519 public key as::
 
 where the multicodec prefix for Ed25519 is ``0xed01`` (varint-encoded 0xed).
 
-This module provides pure-Python implementations that produce identical
-output to the Go daemon's ``crypto.PeerIDToDIDKey`` / ``DIDKeyToPeerID``.
+This module also provides helpers for the ``did:web`` method, which maps
+a DID to an HTTPS URL hosting the DID document.
+
+Pure-Python implementations that produce identical output to the Go
+daemon's ``crypto.PeerIDToDIDKey`` / ``DIDKeyToPeerID``.
 """
 
 from __future__ import annotations
+
+from urllib.parse import quote as _pct_encode
+from urllib.parse import unquote as _pct_decode
 
 import base58
 
@@ -142,3 +148,94 @@ def _encode_libp2p_pubkey_proto(pubkey: bytes) -> bytes:
     # Field 1 (KeyType=Ed25519=1): tag=0x08, value=0x01
     # Field 2 (Data): tag=0x12, length, data
     return bytes([0x08, 0x01, 0x12, len(pubkey)]) + pubkey
+
+
+# ── did:web helpers ──────────────────────────────────────────────────
+
+
+def did_web_to_url(did_web: str) -> str:
+    """Convert a ``did:web`` identifier to its HTTPS resolution URL.
+
+    Follows the `did:web Method Specification
+    <https://w3c-ccg.github.io/did-method-web/>`_:
+
+    * ``did:web:example.com`` → ``https://example.com/.well-known/did.json``
+    * ``did:web:example.com:agents:myagent`` →
+      ``https://example.com/agents/myagent/did.json``
+
+    Percent-encoded characters in the DID are decoded for the URL path.
+
+    Args:
+        did_web: A ``did:web:...`` string.
+
+    Returns:
+        The HTTPS URL where the DID document should be hosted.
+
+    Raises:
+        ValueError: If *did_web* does not start with ``did:web:``.
+    """
+    if not did_web.startswith("did:web:"):
+        raise ValueError(f"invalid did:web format: {did_web}")
+
+    # Everything after "did:web:" is colon-separated path segments.
+    specific_id = did_web[len("did:web:") :]
+    parts = specific_id.split(":")
+
+    # First segment is the domain (percent-decoded).
+    domain = _pct_decode(parts[0])
+
+    if len(parts) == 1:
+        # Domain-only → /.well-known/did.json
+        return f"https://{domain}/.well-known/did.json"
+
+    # Additional segments form the path, each percent-decoded.
+    path = "/".join(_pct_decode(p) for p in parts[1:])
+    return f"https://{domain}/{path}/did.json"
+
+
+def url_to_did_web(url: str) -> str:
+    """Convert an HTTPS URL to a ``did:web`` identifier.
+
+    Reverse of :func:`did_web_to_url`. The URL must use ``https://`` and
+    the path must end with ``did.json`` (either at ``/.well-known/did.json``
+    for domain-only DIDs or at ``<path>/did.json`` for path-based DIDs).
+
+    Args:
+        url: An HTTPS URL pointing to a DID document.
+
+    Returns:
+        The corresponding ``did:web:...`` string.
+
+    Raises:
+        ValueError: If the URL is not a valid ``did:web`` resolution URL.
+    """
+    if not url.startswith("https://"):
+        raise ValueError(f"did:web URLs must use HTTPS: {url}")
+
+    # Strip scheme.
+    rest = url[len("https://") :]
+
+    # Split domain and path.
+    slash_idx = rest.find("/")
+    if slash_idx == -1:
+        raise ValueError(f"URL missing path component: {url}")
+
+    domain = rest[:slash_idx]
+    path = rest[slash_idx + 1 :]
+
+    # Percent-encode the domain (colons in port become %3A).
+    encoded_domain = _pct_encode(domain, safe="")
+
+    if path == ".well-known/did.json":
+        # Domain-only DID.
+        return f"did:web:{encoded_domain}"
+
+    if not path.endswith("/did.json"):
+        raise ValueError(f"URL path must end with /did.json: {url}")
+
+    # Strip trailing /did.json, split into segments.
+    path_part = path[: -len("/did.json")]
+    segments = path_part.split("/")
+    encoded_segments = [_pct_encode(s, safe="") for s in segments]
+
+    return f"did:web:{encoded_domain}:" + ":".join(encoded_segments)

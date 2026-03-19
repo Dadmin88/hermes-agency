@@ -61,6 +61,41 @@ def test_agent_card_with_did_key():
     assert restored.peer_id == "12D3KooWTest"
 
 
+def test_agent_card_with_identity_fields():
+    card = AgentCard(
+        name="IdentityTest",
+        peer_id="12D3KooWTest",
+        did_key="did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        did_web="did:web:example.com:agents:myagent",
+        did_dns="did:dns:example.com",
+        verifiable_credentials=['{"type": "VerifiableCredential"}'],
+    )
+    d = card.to_dict()
+    p2p = d["agentanycast"]
+    assert p2p["did_web"] == "did:web:example.com:agents:myagent"
+    assert p2p["did_dns"] == "did:dns:example.com"
+    assert p2p["verifiable_credentials"] == ['{"type": "VerifiableCredential"}']
+
+    restored = AgentCard.from_dict(d)
+    assert restored.did_web == "did:web:example.com:agents:myagent"
+    assert restored.did_dns == "did:dns:example.com"
+    assert restored.verifiable_credentials == ['{"type": "VerifiableCredential"}']
+
+
+def test_agent_card_identity_fields_default_empty():
+    card = AgentCard(name="Minimal", peer_id="12D3KooWTest")
+    d = card.to_dict()
+    p2p = d["agentanycast"]
+    assert "did_web" not in p2p
+    assert "did_dns" not in p2p
+    assert "verifiable_credentials" not in p2p
+
+    restored = AgentCard.from_dict(d)
+    assert restored.did_web is None
+    assert restored.did_dns is None
+    assert restored.verifiable_credentials == []
+
+
 def test_agent_card_without_p2p_extension():
     card = AgentCard(name="Simple")
     d = card.to_dict()

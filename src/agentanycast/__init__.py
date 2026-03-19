@@ -14,7 +14,12 @@ if _generated_pkg not in __path__:
 del _pathlib, _generated_pkg
 
 from agentanycast.card import AgentCard, Skill  # noqa: E402
-from agentanycast.did import did_key_to_peer_id, peer_id_to_did_key  # noqa: E402
+from agentanycast.did import (  # noqa: E402
+    did_key_to_peer_id,
+    did_web_to_url,
+    peer_id_to_did_key,
+    url_to_did_web,
+)
 from agentanycast.exceptions import (  # noqa: E402
     AgentAnycastError,
     BridgeConnectionError,
@@ -101,6 +106,9 @@ __all__ = [
     # v0.3: DID utilities
     "peer_id_to_did_key",
     "did_key_to_peer_id",
+    # v0.5: did:web utilities
+    "did_web_to_url",
+    "url_to_did_web",
     # v0.3: MCP interop
     "MCPTool",
     "mcp_tool_to_skill",

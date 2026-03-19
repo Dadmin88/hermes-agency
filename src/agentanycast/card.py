@@ -54,6 +54,10 @@ class AgentCard:
     relay_addresses: list[str] = field(default_factory=list)
     # v0.3: W3C DID (did:key) derived from the node's Ed25519 public key.
     did_key: str | None = None
+    # v0.5: Additional identity fields
+    did_web: str | None = None
+    did_dns: str | None = None
+    verifiable_credentials: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -71,6 +75,12 @@ class AgentCard:
             }
             if self.did_key:
                 p2p["did_key"] = self.did_key
+            if self.did_web:
+                p2p["did_web"] = self.did_web
+            if self.did_dns:
+                p2p["did_dns"] = self.did_dns
+            if self.verifiable_credentials:
+                p2p["verifiable_credentials"] = list(self.verifiable_credentials)
             d["agentanycast"] = p2p
         return d
 
@@ -88,4 +98,7 @@ class AgentCard:
             supported_transports=p2p.get("supported_transports", []),
             relay_addresses=p2p.get("relay_addresses", []),
             did_key=p2p.get("did_key"),
+            did_web=p2p.get("did_web"),
+            did_dns=p2p.get("did_dns"),
+            verifiable_credentials=p2p.get("verifiable_credentials", []),
         )
