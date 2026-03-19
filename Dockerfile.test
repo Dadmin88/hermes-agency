@@ -1,15 +1,50 @@
 # Test runner image for Docker Compose integration tests.
+#
+# Multi-stage build: copy relay and node binaries from their integration images
+# so that ALL integration tests can run (not just docker_e2e tests).
+
+# Stage 1: Build relay binary
+FROM golang:1.24-alpine AS relay-builder
+RUN apk add --no-cache git
+WORKDIR /src
+COPY agentanycast-proto/ /src/agentanycast-proto/
+COPY agentanycast-relay/go.mod agentanycast-relay/go.sum /src/agentanycast-relay/
+WORKDIR /src/agentanycast-relay
+RUN go mod download
+COPY agentanycast-relay/ /src/agentanycast-relay/
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /relay ./cmd/relay
+
+# Stage 2: Build node binary
+FROM golang:1.25-alpine AS node-builder
+RUN apk add --no-cache git
+WORKDIR /src
+COPY agentanycast-proto/ /src/agentanycast-proto/
+COPY agentanycast-node/go.mod agentanycast-node/go.sum /src/agentanycast-node/
+WORKDIR /src/agentanycast-node
+RUN go mod download
+COPY agentanycast-node/ /src/agentanycast-node/
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /agentanycastd ./cmd/agentanycastd
+
+# Stage 3: Python test runner with binaries
 FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install the relay and node binaries.
+COPY --from=relay-builder /relay /usr/local/bin/agentanycast-relay
+COPY --from=node-builder /agentanycastd /usr/local/bin/agentanycastd
+
+# Tell the conftest fixtures where the binaries are.
+ENV RELAY_BINARY=/usr/local/bin/agentanycast-relay
+ENV NODE_BINARY=/usr/local/bin/agentanycastd
+
 # Install the SDK with dev dependencies.
-COPY pyproject.toml README.md ./
-COPY src/ src/
-COPY tests/ tests/
-COPY conftest.py ./
+COPY agentanycast-python/pyproject.toml agentanycast-python/README.md ./
+COPY agentanycast-python/src/ src/
+COPY agentanycast-python/tests/ tests/
+COPY agentanycast-python/conftest.py ./
 
 RUN pip install --no-cache-dir -e ".[dev]"
 
-# Default: run integration tests.
+# Default: run ALL integration tests.
 CMD ["pytest", "tests/integration/", "-m", "integration", "-v", "--tb=short"]
