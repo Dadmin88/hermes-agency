@@ -1,4 +1,4 @@
-"""LangGraph adapter — expose a LangGraph Graph as a P2P A2A agent.
+"""LangGraph adapter -- expose a LangGraph Graph as a P2P A2A agent.
 
 Usage:
     from langgraph.graph import StateGraph
@@ -19,7 +19,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from agentanycast.adapters._base import BaseAdapter
+from agentanycast.card import AgentCard, Skill
+
+if TYPE_CHECKING:
+    from langgraph.graph.state import CompiledStateGraph
 
 try:
     import langgraph  # noqa: F401
@@ -29,19 +35,18 @@ except ImportError as _err:
         "Install with: pip install agentanycast[langgraph]"
     ) from _err
 
-from agentanycast.adapters._base import BaseAdapter
-from agentanycast.card import AgentCard
-
 logger = logging.getLogger(__name__)
 
 
 class LangGraphAdapter(BaseAdapter):
     """Wraps a compiled LangGraph graph as an A2A agent."""
 
-    def __init__(self, graph: Any, *, input_key: str = "input", **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self, graph: CompiledStateGraph, *, input_key: str = "input", **kwargs: Any
+    ) -> None:
         self._graph = graph
         self._input_key = input_key
+        super().__init__(**kwargs)
 
     async def _invoke(
         self,
@@ -64,7 +69,7 @@ class LangGraphAdapter(BaseAdapter):
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, lambda: self._graph.invoke(state))
 
-        # Extract output — LangGraph returns a dict of final state.
+        # Extract output -- LangGraph returns a dict of final state.
         if isinstance(result, dict):
             # Common output patterns: "output", "response", "result", or last message
             for key in ("output", "response", "result", "answer"):
@@ -79,15 +84,28 @@ class LangGraphAdapter(BaseAdapter):
             return result
         return str(result)
 
+    @classmethod
+    def _build_default_card(cls, framework_obj: Any = None) -> AgentCard | None:
+        """Build an AgentCard from LangGraph graph metadata."""
+        if framework_obj is None:
+            return None
+        graph = framework_obj
+        name = "LangGraph Agent"
+        skills: list[Skill] = []
+        # Extract node names as skills (excluding internal __start__/__end__).
+        nodes = getattr(graph, "nodes", None) or {}
+        for node_name in nodes:
+            if not node_name.startswith("__"):
+                skills.append(Skill(id=node_name, description=node_name))
+        return AgentCard(name=name, skills=skills)
+
 
 async def serve_graph(
-    graph: Any,
+    graph: CompiledStateGraph,
     *,
-    card: AgentCard,
-    relay: str | None = None,
-    key_path: str | None = None,
-    home: str | None = None,
+    card: AgentCard | None = None,
     input_key: str = "input",
+    **node_kwargs: Any,
 ) -> None:
     """Serve a LangGraph graph as a P2P A2A agent.
 
@@ -97,13 +115,14 @@ async def serve_graph(
 
     Args:
         graph: A compiled LangGraph graph (result of ``StateGraph.compile()``).
-        card: AgentCard describing the agent and its skills.
-        relay: Relay server multiaddr.
-        key_path: Path to libp2p identity key.
-        home: Data directory for daemon state.
+        card: AgentCard describing the agent and its skills. If ``None``,
+            an AgentCard is auto-generated from graph node names.
         input_key: Key name for text input in the graph state dict.
+        **node_kwargs: Additional keyword arguments forwarded to
+            :class:`~agentanycast.node.Node` (e.g. ``relay``, ``key_path``,
+            ``home``).
     """
-    adapter = LangGraphAdapter(
-        graph, card=card, relay=relay, key_path=key_path, home=home, input_key=input_key
-    )
+    if card is None:
+        card = LangGraphAdapter._build_default_card(graph)
+    adapter = LangGraphAdapter(graph, card=card, input_key=input_key, **node_kwargs)
     await adapter.serve()

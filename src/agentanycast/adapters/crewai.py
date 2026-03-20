@@ -1,4 +1,4 @@
-"""CrewAI adapter — expose a CrewAI Crew as a P2P A2A agent.
+"""CrewAI adapter -- expose a CrewAI Crew as a P2P A2A agent.
 
 Usage:
     from crewai import Crew
@@ -18,18 +18,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from agentanycast.adapters._base import BaseAdapter
+from agentanycast.card import AgentCard, Skill
+
+if TYPE_CHECKING:
+    from crewai import Crew
 
 try:
-    from crewai import Crew  # noqa: F401
+    from crewai import Crew as _Crew  # noqa: F401
 except ImportError as _err:
     raise ImportError(
         "CrewAI adapter requires the 'crewai' package. "
         "Install with: pip install agentanycast[crewai]"
     ) from _err
-
-from agentanycast.adapters._base import BaseAdapter
-from agentanycast.card import AgentCard
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +40,9 @@ logger = logging.getLogger(__name__)
 class CrewAIAdapter(BaseAdapter):
     """Wraps a CrewAI Crew as an A2A agent."""
 
-    def __init__(self, crew: Any, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, crew: Crew, **kwargs: Any) -> None:
         self._crew = crew
+        super().__init__(**kwargs)
 
     async def _invoke(self, input_text: str, input_data: dict[str, Any] | None) -> str:
         """Run the Crew with the given input.
@@ -58,14 +61,27 @@ class CrewAIAdapter(BaseAdapter):
             return str(result.raw)
         return str(result)
 
+    @classmethod
+    def _build_default_card(cls, framework_obj: Any = None) -> AgentCard | None:
+        """Build an AgentCard from CrewAI Crew metadata."""
+        if framework_obj is None:
+            return None
+        crew = framework_obj
+        name = getattr(crew, "name", None) or "CrewAI Agent"
+        skills: list[Skill] = []
+        agents = getattr(crew, "agents", None) or []
+        if agents:
+            role = getattr(agents[0], "role", None)
+            if role:
+                skills.append(Skill(id=role.lower().replace(" ", "_"), description=role))
+        return AgentCard(name=name, skills=skills)
+
 
 async def serve_crew(
-    crew: Any,
+    crew: Crew,
     *,
-    card: AgentCard,
-    relay: str | None = None,
-    key_path: str | None = None,
-    home: str | None = None,
+    card: AgentCard | None = None,
+    **node_kwargs: Any,
 ) -> None:
     """Serve a CrewAI Crew as a P2P A2A agent.
 
@@ -75,10 +91,13 @@ async def serve_crew(
 
     Args:
         crew: A CrewAI ``Crew`` instance.
-        card: AgentCard describing the agent and its skills.
-        relay: Relay server multiaddr.
-        key_path: Path to libp2p identity key.
-        home: Data directory for daemon state.
+        card: AgentCard describing the agent and its skills. If ``None``,
+            an AgentCard is auto-generated from the crew metadata.
+        **node_kwargs: Additional keyword arguments forwarded to
+            :class:`~agentanycast.node.Node` (e.g. ``relay``, ``key_path``,
+            ``home``).
     """
-    adapter = CrewAIAdapter(crew, card=card, relay=relay, key_path=key_path, home=home)
+    if card is None:
+        card = CrewAIAdapter._build_default_card(crew)
+    adapter = CrewAIAdapter(crew, card=card, **node_kwargs)
     await adapter.serve()

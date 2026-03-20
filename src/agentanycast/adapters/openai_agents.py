@@ -1,4 +1,4 @@
-"""OpenAI Agents SDK adapter — expose an OpenAI Agent as a P2P A2A agent.
+"""OpenAI Agents SDK adapter -- expose an OpenAI Agent as a P2P A2A agent.
 
 Usage:
     from agents import Agent
@@ -21,18 +21,22 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from agentanycast.adapters._base import BaseAdapter
+from agentanycast.card import AgentCard, Skill
+
+if TYPE_CHECKING:
+    from agents import Agent
 
 try:
-    from agents import Agent, Runner  # noqa: F401
+    from agents import Agent as _Agent  # noqa: F401
+    from agents import Runner
 except ImportError as _err:
     raise ImportError(
         "OpenAI Agents adapter requires the 'openai-agents' package. "
         "Install with: pip install agentanycast[openai-agents]"
     ) from _err
-
-from agentanycast.adapters._base import BaseAdapter
-from agentanycast.card import AgentCard
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +44,9 @@ logger = logging.getLogger(__name__)
 class OpenAIAgentsAdapter(BaseAdapter):
     """Wraps an OpenAI Agents SDK Agent as an A2A agent."""
 
-    def __init__(self, agent: Any, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, agent: Agent, **kwargs: Any) -> None:
         self._agent = agent
+        super().__init__(**kwargs)
 
     async def _invoke(self, input_text: str, input_data: dict[str, Any] | None) -> str:
         """Run the OpenAI Agent with the given input.
@@ -59,14 +63,25 @@ class OpenAIAgentsAdapter(BaseAdapter):
             return ""
         return str(result.final_output)
 
+    @classmethod
+    def _build_default_card(cls, framework_obj: Any = None) -> AgentCard | None:
+        """Build an AgentCard from OpenAI Agent metadata."""
+        if framework_obj is None:
+            return None
+        agent = framework_obj
+        name = getattr(agent, "name", None) or "OpenAI Agent"
+        instructions = getattr(agent, "instructions", None) or ""
+        # Use first sentence of instructions as skill description.
+        description = instructions.split(".")[0].strip() if instructions else name
+        skills = [Skill(id=name.lower().replace(" ", "_"), description=description)]
+        return AgentCard(name=name, skills=skills)
+
 
 async def serve_openai_agent(
-    agent: Any,
+    agent: Agent,
     *,
-    card: AgentCard,
-    relay: str | None = None,
-    key_path: str | None = None,
-    home: str | None = None,
+    card: AgentCard | None = None,
+    **node_kwargs: Any,
 ) -> None:
     """Serve an OpenAI Agent as a P2P A2A agent.
 
@@ -76,10 +91,13 @@ async def serve_openai_agent(
 
     Args:
         agent: An OpenAI Agents SDK ``Agent`` instance.
-        card: AgentCard describing the agent and its skills.
-        relay: Relay server multiaddr.
-        key_path: Path to libp2p identity key.
-        home: Data directory for daemon state.
+        card: AgentCard describing the agent and its skills. If ``None``,
+            an AgentCard is auto-generated from agent metadata.
+        **node_kwargs: Additional keyword arguments forwarded to
+            :class:`~agentanycast.node.Node` (e.g. ``relay``, ``key_path``,
+            ``home``).
     """
-    adapter = OpenAIAgentsAdapter(agent, card=card, relay=relay, key_path=key_path, home=home)
+    if card is None:
+        card = OpenAIAgentsAdapter._build_default_card(agent)
+    adapter = OpenAIAgentsAdapter(agent, card=card, **node_kwargs)
     await adapter.serve()

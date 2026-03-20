@@ -78,8 +78,6 @@ def test_base_adapter_init(mock_node_cls: MagicMock) -> None:
     mock_node_cls.assert_called_once_with(
         card=card,
         relay="/ip4/1.2.3.4/tcp/9000",
-        key_path=None,
-        home=None,
     )
 
 
@@ -136,14 +134,7 @@ async def test_handle_task_extracts_data(mock_node_cls: MagicMock) -> None:
     assert adapter.received_data == {"param": 42}
 
 
-def test_base_adapter_invoke_not_implemented() -> None:
-    """BaseAdapter._invoke() should raise NotImplementedError."""
-
-    async def run() -> None:
-        adapter = BaseAdapter.__new__(BaseAdapter)
-        with pytest.raises(NotImplementedError):
-            await adapter._invoke("test", None)
-
-    import asyncio
-
-    asyncio.run(run())
+def test_base_adapter_is_abstract() -> None:
+    """BaseAdapter cannot be instantiated directly (ABC with abstract _invoke)."""
+    with pytest.raises(TypeError, match="abstract"):
+        BaseAdapter(card=_make_card())  # type: ignore[abstract]
