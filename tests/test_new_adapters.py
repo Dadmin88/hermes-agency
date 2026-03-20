@@ -1,4 +1,4 @@
-"""Tests for Google ADK and OpenAI Agents SDK adapters."""
+"""Tests for Google ADK, OpenAI Agents SDK, Claude Agent SDK, and Strands adapters."""
 
 from __future__ import annotations
 
@@ -270,3 +270,213 @@ def _make_openai_adapter(
                 adapter = OpenAIAgentsAdapter(agent_mock, card=_make_card())
 
     return adapter, runner_cls_mock
+
+
+# ---------------------------------------------------------------------------
+# Claude Agent SDK Adapter
+# ---------------------------------------------------------------------------
+
+
+class TestClaudeAgentAdapter:
+    """Tests for the Claude Agent SDK adapter."""
+
+    def test_claude_import_error(self) -> None:
+        """Verify helpful ImportError when claude-agent-sdk not installed."""
+        mods_to_hide = [k for k in sys.modules if k.startswith("claude_agent_sdk")]
+        saved = {k: sys.modules.pop(k) for k in mods_to_hide}
+        sys.modules.pop("agentanycast.adapters.claude_agent", None)
+
+        with patch.dict(sys.modules, {"claude_agent_sdk": None}, clear=False):
+            with pytest.raises(ImportError, match="claude-agent-sdk"):
+                importlib.import_module("agentanycast.adapters.claude_agent")
+
+        sys.modules.pop("agentanycast.adapters.claude_agent", None)
+        sys.modules.update(saved)
+
+    @pytest.mark.asyncio
+    async def test_invoke_returns_result(self) -> None:
+        """ClaudeAgentAdapter._invoke collects the final result."""
+        adapter, query_mock = _make_claude_adapter()
+
+        query_mock.side_effect = _async_iter_messages([
+            MagicMock(result="Hello from Claude"),
+        ])
+
+        result = await adapter._invoke("hi", None)
+        assert result == "Hello from Claude"
+
+    @pytest.mark.asyncio
+    async def test_invoke_empty_result(self) -> None:
+        """ClaudeAgentAdapter._invoke returns empty string when no result."""
+        adapter, query_mock = _make_claude_adapter()
+
+        query_mock.side_effect = _async_iter_messages([
+            MagicMock(spec=[]),  # No 'result' attribute.
+        ])
+
+        result = await adapter._invoke("hi", None)
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_invoke_with_prompt_template(self) -> None:
+        """ClaudeAgentAdapter._invoke prepends prompt template."""
+        adapter, query_mock = _make_claude_adapter(prompt_template="Be helpful.")
+
+        query_mock.side_effect = _async_iter_messages([
+            MagicMock(result="Helped!"),
+        ])
+
+        result = await adapter._invoke("question", None)
+        assert result == "Helped!"
+        # Verify the query was called with prepended text.
+        call_kwargs = query_mock.call_args
+        assert "Be helpful." in call_kwargs.kwargs.get("prompt", "")
+
+    @pytest.mark.asyncio
+    async def test_invoke_falls_back_to_data(self) -> None:
+        """ClaudeAgentAdapter._invoke uses stringified data when text is empty."""
+        adapter, query_mock = _make_claude_adapter()
+
+        query_mock.side_effect = _async_iter_messages([])
+
+        result = await adapter._invoke("", {"key": "value"})
+        assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# Strands Adapter
+# ---------------------------------------------------------------------------
+
+
+class TestStrandsAdapter:
+    """Tests for the AWS Strands Agent adapter."""
+
+    def test_strands_import_error(self) -> None:
+        """Verify helpful ImportError when strands-agents not installed."""
+        mods_to_hide = [k for k in sys.modules if k.startswith("strands")]
+        saved = {k: sys.modules.pop(k) for k in mods_to_hide}
+        sys.modules.pop("agentanycast.adapters.strands", None)
+
+        with patch.dict(sys.modules, {"strands": None}, clear=False):
+            with pytest.raises(ImportError, match="strands-agents"):
+                importlib.import_module("agentanycast.adapters.strands")
+
+        sys.modules.pop("agentanycast.adapters.strands", None)
+        sys.modules.update(saved)
+
+    @pytest.mark.asyncio
+    async def test_invoke_returns_output(self) -> None:
+        """StrandsAdapter._invoke returns str(agent(...))."""
+        adapter, agent_mock = _make_strands_adapter()
+
+        agent_mock.return_value = "Hello from Strands"
+
+        result = await adapter._invoke("hi", None)
+        assert result == "Hello from Strands"
+        agent_mock.assert_called_once_with("hi")
+
+    @pytest.mark.asyncio
+    async def test_invoke_none_output(self) -> None:
+        """StrandsAdapter._invoke returns empty string when output is None."""
+        adapter, agent_mock = _make_strands_adapter()
+
+        agent_mock.return_value = None
+
+        result = await adapter._invoke("hi", None)
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_invoke_falls_back_to_data(self) -> None:
+        """StrandsAdapter._invoke uses stringified data when text is empty."""
+        adapter, agent_mock = _make_strands_adapter()
+
+        agent_mock.return_value = "processed"
+
+        result = await adapter._invoke("", {"key": "value"})
+        assert result == "processed"
+        call_args = agent_mock.call_args
+        assert call_args.args[0] == str({"key": "value"})
+
+
+# ---------------------------------------------------------------------------
+# Claude / Strands Helpers
+# ---------------------------------------------------------------------------
+
+
+def _async_iter_messages(messages: list[Any]) -> Any:
+    """Return a callable that produces an async iterator over messages."""
+
+    async def _query(*args: Any, **kwargs: Any) -> Any:
+        for m in messages:
+            yield m
+
+    return _query
+
+
+@patch("agentanycast.adapters._base.Node")
+def _make_claude_adapter(
+    mock_node_cls: MagicMock | None = None,
+    prompt_template: str = "",
+) -> tuple[Any, MagicMock]:
+    """Create a ClaudeAgentAdapter with mocked query.
+
+    Returns (adapter, query_mock).
+    """
+    query_mock = MagicMock()
+    options_cls_mock = MagicMock()
+
+    with patch.dict(
+        sys.modules,
+        {
+            "claude_agent_sdk": MagicMock(
+                query=query_mock,
+                ClaudeAgentOptions=options_cls_mock,
+            ),
+        },
+    ):
+        if "agentanycast.adapters.claude_agent" in sys.modules:
+            del sys.modules["agentanycast.adapters.claude_agent"]
+
+        with patch("agentanycast.adapters._base.Node"):
+            from agentanycast.adapters.claude_agent import ClaudeAgentAdapter
+
+            # Patch the module-level query reference.
+            with patch.object(
+                sys.modules["agentanycast.adapters.claude_agent"],
+                "query",
+                query_mock,
+            ):
+                adapter = ClaudeAgentAdapter(
+                    prompt_template=prompt_template,
+                    card=_make_card(),
+                )
+
+    return adapter, query_mock
+
+
+@patch("agentanycast.adapters._base.Node")
+def _make_strands_adapter(
+    mock_node_cls: MagicMock | None = None,
+) -> tuple[Any, MagicMock]:
+    """Create a StrandsAdapter with a mocked Agent.
+
+    Returns (adapter, agent_mock).
+    """
+    agent_cls_mock = MagicMock()
+
+    with patch.dict(
+        sys.modules,
+        {
+            "strands": MagicMock(Agent=agent_cls_mock),
+        },
+    ):
+        if "agentanycast.adapters.strands" in sys.modules:
+            del sys.modules["agentanycast.adapters.strands"]
+
+        with patch("agentanycast.adapters._base.Node"):
+            from agentanycast.adapters.strands import StrandsAdapter
+
+            agent_mock = MagicMock()
+            adapter = StrandsAdapter(agent_mock, card=_make_card())
+
+    return adapter, agent_mock

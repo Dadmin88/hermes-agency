@@ -6,6 +6,7 @@ Usage:
     agentanycast send <peer_id> "msg"     # Send a task
     agentanycast status                   # Show local node status
     agentanycast info                     # Show version and config
+    agentanycast mcp                      # Start MCP server (stdio)
 """
 
 from __future__ import annotations
@@ -22,6 +23,12 @@ from agentanycast import __version__
 @click.version_option(version=__version__, prog_name="agentanycast")
 def cli() -> None:
     """AgentAnycast — P2P runtime for the A2A protocol."""
+
+
+# Register sub-commands from separate modules.
+from agentanycast.cli.mcp import mcp_cmd  # noqa: E402
+
+cli.add_command(mcp_cmd)
 
 
 @cli.command()

@@ -1,6 +1,6 @@
 # AgentAnycast Python SDK
 
-> Python SDK for AgentAnycast — the decentralized P2P runtime for the A2A (Agent-to-Agent) protocol. Async/await API, framework adapters (CrewAI, LangGraph, Google ADK, OpenAI Agents), MCP bridging, CLI.
+> Python SDK for AgentAnycast — the decentralized P2P runtime for the A2A (Agent-to-Agent) protocol. Async/await API, framework adapters (CrewAI, LangGraph, Google ADK, OpenAI Agents, Claude Agent SDK, AWS Strands), MCP Server + bridging, CLI.
 
 ## Install
 
@@ -10,6 +10,9 @@ pip install agentanycast[crewai]       # + CrewAI adapter
 pip install agentanycast[langgraph]    # + LangGraph adapter
 pip install agentanycast[adk]          # + Google ADK adapter
 pip install agentanycast[openai-agents] # + OpenAI Agents adapter
+pip install agentanycast[claude]       # + Claude Agent SDK adapter
+pip install agentanycast[strands]      # + AWS Strands adapter
+pip install agentanycast[mcp]          # + MCP Server
 pip install agentanycast[adapters]     # All adapters
 pip install -e ".[dev]"               # Development (pytest, ruff, mypy)
 ```
@@ -149,6 +152,47 @@ agent = Agent(name="helper", instructions="You are a helpful assistant.", model=
 card = AgentCard(name="Helper", skills=[Skill(id="help", description="General help")])
 await serve_openai_agent(agent, card=card, relay="/ip4/.../p2p/12D3KooW...")
 ```
+
+### Claude Agent SDK
+
+```python
+from agentanycast import AgentCard, Skill
+from agentanycast.adapters.claude_agent import serve_claude_agent
+
+card = AgentCard(name="Code Reviewer", skills=[Skill(id="review", description="Review code")])
+await serve_claude_agent(
+    prompt_template="You are a code review assistant.",
+    card=card,
+    relay="/ip4/.../p2p/12D3KooW...",
+)
+```
+
+### AWS Strands
+
+```python
+from strands import Agent
+from agentanycast.adapters.strands import serve_strands_agent
+
+agent = Agent(system_prompt="You are a helpful assistant.")
+card = AgentCard(name="Helper", skills=[Skill(id="help", description="General help")])
+await serve_strands_agent(agent, card=card, relay="/ip4/.../p2p/12D3KooW...")
+```
+
+## MCP Server
+
+Start the built-in MCP server for AI tool integration (Claude Desktop, Cursor, VS Code, etc.):
+
+```bash
+agentanycast mcp                     # stdio mode (Claude Desktop, Cursor)
+agentanycast mcp --transport http    # HTTP mode (ChatGPT, remote)
+```
+
+Claude Desktop configuration (`claude_desktop_config.json`):
+```json
+{"mcpServers": {"agentanycast": {"command": "agentanycast", "args": ["mcp"]}}}
+```
+
+Available MCP tools: `discover_agents`, `send_task`, `send_task_by_skill`, `get_task_status`, `get_agent_card`, `list_connected_peers`, `get_node_info`.
 
 ## MCP Bridging
 

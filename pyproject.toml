@@ -14,7 +14,8 @@ authors = [
 ]
 keywords = [
     "a2a", "a2a-protocol", "agent", "agent-communication", "p2p", "libp2p",
-    "grpc", "mcp", "crewai", "langgraph", "google-adk", "openai-agents", "zero-config",
+    "grpc", "mcp", "mcp-server", "crewai", "langgraph", "google-adk", "openai-agents",
+    "claude-agent-sdk", "strands-agents", "zero-config",
     "end-to-end-encryption", "nat-traversal", "decentralized", "noise-protocol", "did",
 ]
 classifiers = [
@@ -44,13 +45,20 @@ Changelog = "https://github.com/AgentAnycast/agentanycast-python/blob/main/CHANG
 
 [project.scripts]
 agentanycast = "agentanycast.cli.main:main"
+agentanycast-mcp = "agentanycast.mcp_server:main"
 
 [project.optional-dependencies]
 crewai = ["crewai>=0.80"]
 langgraph = ["langgraph>=0.2"]
 adk = ["google-adk>=1.0"]
 openai-agents = ["openai-agents>=0.10"]
-adapters = ["crewai>=0.80", "langgraph>=0.2", "google-adk>=1.0", "openai-agents>=0.10"]
+claude = ["claude-agent-sdk>=0.1"]
+strands = ["strands-agents>=0.1"]
+mcp = ["mcp>=1.2"]
+adapters = [
+    "crewai>=0.80", "langgraph>=0.2", "google-adk>=1.0", "openai-agents>=0.10",
+    "claude-agent-sdk>=0.1", "strands-agents>=0.1",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -85,7 +93,11 @@ module = "base58"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["grpc", "grpc.*", "grpc.aio", "grpc.aio.*", "google.protobuf.*", "crewai", "crewai.*", "langgraph", "langgraph.*", "google.adk", "google.adk.*", "google.genai", "google.genai.*", "agents", "agents.*"]
+module = "agentanycast.mcp_server"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["grpc", "grpc.*", "grpc.aio", "grpc.aio.*", "google.protobuf.*", "crewai", "crewai.*", "langgraph", "langgraph.*", "google.adk", "google.adk.*", "google.genai", "google.genai.*", "agents", "agents.*", "claude_agent_sdk", "claude_agent_sdk.*", "strands", "strands.*", "mcp", "mcp.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
