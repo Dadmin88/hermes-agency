@@ -25,7 +25,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from agentanycast.adapters._base import BaseAdapter
-from agentanycast.card import AgentCard, Skill
+from agentanycast.card import AgentCard
 
 if TYPE_CHECKING:
     from claude_agent_sdk import ClaudeAgentOptions
@@ -72,24 +72,22 @@ class ClaudeAgentAdapter(BaseAdapter):
 
         result_text = ""
         async for message in query(prompt=text, options=self._options):
-            if hasattr(message, "result"):
-                result_text = message.result
+            if hasattr(message, "result") and message.result is not None:
+                result_text = str(message.result)
 
-        return result_text or ""
+        if not result_text:
+            logger.debug("Claude Agent SDK query produced no result text")
+        return result_text
 
     @classmethod
     def _build_default_card(cls, framework_obj: Any = None) -> AgentCard | None:
-        """Build an AgentCard from prompt template metadata.
+        """Return ``None`` — Claude Agent SDK has no persistent agent object.
 
-        Since Claude Agent SDK works with prompts rather than agent objects,
-        a minimal default card is returned when no explicit card is provided.
+        Unlike other adapters, Claude Agent SDK works with prompt templates
+        rather than agent objects, so there is no metadata to auto-extract.
+        Callers must pass an explicit ``card=`` to ``serve_claude_agent()``.
         """
-        if framework_obj is None:
-            return None
-        name = "Claude Agent"
-        description = "Claude Agent SDK powered assistant"
-        skills = [Skill(id="claude_agent", description=description)]
-        return AgentCard(name=name, skills=skills)
+        return None
 
 
 async def serve_claude_agent(
@@ -110,14 +108,15 @@ async def serve_claude_agent(
             task's input text before calling ``query()``.
         options: A ``ClaudeAgentOptions`` instance controlling the agent's
             behavior (e.g. ``allowed_tools``).
-        card: AgentCard describing the agent and its skills. If ``None``,
-            a minimal default AgentCard is auto-generated.
+        card: AgentCard describing the agent and its skills. Required —
+            Claude Agent SDK has no persistent agent object to auto-extract
+            metadata from.
         **node_kwargs: Additional keyword arguments forwarded to
             :class:`~agentanycast.node.Node` (e.g. ``relay``, ``key_path``,
             ``home``).
     """
     if card is None:
-        card = ClaudeAgentAdapter._build_default_card(prompt_template)
+        card = ClaudeAgentAdapter._build_default_card()
     adapter = ClaudeAgentAdapter(
         prompt_template=prompt_template,
         options=options,

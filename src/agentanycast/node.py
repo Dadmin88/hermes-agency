@@ -283,6 +283,11 @@ class Node:
         return self._peer_id
 
     @property
+    def card(self) -> AgentCard:
+        """The AgentCard associated with this node."""
+        return self._card
+
+    @property
     def is_running(self) -> bool:
         return self._running
 

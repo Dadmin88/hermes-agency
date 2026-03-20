@@ -56,7 +56,9 @@ class StrandsAdapter(BaseAdapter):
             text = str(input_data)
 
         result = await asyncio.to_thread(self._agent, text)
-        return str(result) if result else ""
+        if result is None:
+            return ""
+        return str(result)
 
     @classmethod
     def _build_default_card(cls, framework_obj: Any = None) -> AgentCard | None:
