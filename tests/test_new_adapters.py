@@ -298,9 +298,11 @@ class TestClaudeAgentAdapter:
         """ClaudeAgentAdapter._invoke collects the final result."""
         adapter, query_mock = _make_claude_adapter()
 
-        query_mock.side_effect = _async_iter_messages([
-            MagicMock(result="Hello from Claude"),
-        ])
+        query_mock.side_effect = _async_iter_messages(
+            [
+                MagicMock(result="Hello from Claude"),
+            ]
+        )
 
         result = await adapter._invoke("hi", None)
         assert result == "Hello from Claude"
@@ -310,9 +312,11 @@ class TestClaudeAgentAdapter:
         """ClaudeAgentAdapter._invoke returns empty string when no result."""
         adapter, query_mock = _make_claude_adapter()
 
-        query_mock.side_effect = _async_iter_messages([
-            MagicMock(spec=[]),  # No 'result' attribute.
-        ])
+        query_mock.side_effect = _async_iter_messages(
+            [
+                MagicMock(spec=[]),  # No 'result' attribute.
+            ]
+        )
 
         result = await adapter._invoke("hi", None)
         assert result == ""
@@ -322,9 +326,11 @@ class TestClaudeAgentAdapter:
         """ClaudeAgentAdapter._invoke prepends prompt template."""
         adapter, query_mock = _make_claude_adapter(prompt_template="Be helpful.")
 
-        query_mock.side_effect = _async_iter_messages([
-            MagicMock(result="Helped!"),
-        ])
+        query_mock.side_effect = _async_iter_messages(
+            [
+                MagicMock(result="Helped!"),
+            ]
+        )
 
         result = await adapter._invoke("question", None)
         assert result == "Helped!"

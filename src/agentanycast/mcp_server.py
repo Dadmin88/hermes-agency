@@ -123,9 +123,7 @@ async def discover_agents(skill: str) -> str:
     try:
         node = await _get_node()
         agents = await node.discover(skill)
-        return json.dumps(
-            {"skill": skill, "agent_count": len(agents), "agents": agents}, indent=2
-        )
+        return json.dumps({"skill": skill, "agent_count": len(agents), "agents": agents}, indent=2)
     except Exception as exc:
         return json.dumps({"error": str(exc)}, indent=2)
 
@@ -147,9 +145,7 @@ async def send_task(target: str, message: str, by_skill: bool = False) -> str:
             kwargs["peer_id"] = target
             mode = "direct"
 
-        handle = await node.send_task(
-            {"role": "user", "parts": [{"text": message}]}, **kwargs
-        )
+        handle = await node.send_task({"role": "user", "parts": [{"text": message}]}, **kwargs)
         task = await handle.wait(timeout=30.0)
 
         result: dict[str, Any] = {
@@ -193,8 +189,7 @@ async def get_task_status(task_id: str) -> str:
             {
                 "task_id": task_id,
                 "note": (
-                    "Task status tracking requires the task to have been "
-                    "sent in this session."
+                    "Task status tracking requires the task to have been sent in this session."
                 ),
             },
             indent=2,
@@ -215,9 +210,7 @@ async def get_agent_card(peer_id: str = "") -> str:
                 "name": card.name,
                 "description": card.description,
                 "version": card.version,
-                "skills": [
-                    {"id": s.id, "description": s.description} for s in card.skills
-                ],
+                "skills": [{"id": s.id, "description": s.description} for s in card.skills],
             }
             if card.peer_id:
                 card_dict["peer_id"] = card.peer_id
@@ -230,9 +223,7 @@ async def get_agent_card(peer_id: str = "") -> str:
             "name": remote_card.name,
             "description": remote_card.description,
             "version": remote_card.version,
-            "skills": [
-                {"id": s.id, "description": s.description} for s in remote_card.skills
-            ],
+            "skills": [{"id": s.id, "description": s.description} for s in remote_card.skills],
         }
         if remote_card.peer_id:
             card_dict["peer_id"] = remote_card.peer_id
