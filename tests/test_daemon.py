@@ -87,7 +87,10 @@ class TestDaemonManagerInit:
 
     def test_default_version(self):
         dm = DaemonManager()
-        assert dm._daemon_version == "0.3.0"
+        # Default version comes from importlib.metadata; verify it's a valid semver string.
+        import re
+
+        assert re.match(r"^\d+\.\d+\.\d+", dm._daemon_version)
 
     def test_custom_version(self):
         dm = DaemonManager(daemon_version="0.2.0")
