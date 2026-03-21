@@ -20,6 +20,8 @@ pip install agentanycast[crewai]         # CrewAI integration
 pip install agentanycast[langgraph]      # LangGraph integration
 pip install agentanycast[google-adk]     # Google ADK integration
 pip install agentanycast[openai-agents]  # OpenAI Agents SDK integration
+pip install agentanycast[claude]          # Claude Agent SDK integration
+pip install agentanycast[strands]         # AWS Strands Agents integration
 ```
 
 ## How It Works
@@ -138,6 +140,23 @@ await serve_adk_agent(agent, card=card, relay="...")
 # OpenAI Agents SDK
 from agentanycast.adapters.openai_agents import serve_openai_agent
 await serve_openai_agent(agent, card=card, relay="...")
+
+# Claude Agent SDK
+from agentanycast.adapters.claude_agent import serve_claude_agent
+await serve_claude_agent(
+    prompt_template="You are a helpful assistant. User query: {input}",
+    card=AgentCard(name="claude-agent", skills=[Skill(id="chat")]),
+    relay="/ip4/relay.example.com/tcp/4001/p2p/12D3KooW...",
+)
+
+# AWS Strands
+from agentanycast.adapters.strands import serve_strands_agent
+agent = Agent(model="us.anthropic.claude-sonnet-4-20250514")
+await serve_strands_agent(
+    agent,
+    card=AgentCard(name="strands-agent", skills=[Skill(id="reasoning")]),
+    relay="/ip4/relay.example.com/tcp/4001/p2p/12D3KooW...",
+)
 ```
 
 ## Interoperability
