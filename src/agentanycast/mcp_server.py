@@ -187,9 +187,7 @@ async def discover_agents(skill: str) -> str:
     try:
         node = await _get_node()
         agents = await node.discover(skill)
-        return json.dumps(
-            {"skill": skill, "agent_count": len(agents), "agents": agents}, indent=2
-        )
+        return json.dumps({"skill": skill, "agent_count": len(agents), "agents": agents}, indent=2)
     except Exception as exc:
         return json.dumps({"error": str(exc)}, indent=2)
 
