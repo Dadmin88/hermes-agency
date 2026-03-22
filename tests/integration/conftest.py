@@ -55,13 +55,16 @@ grpc = pytest.importorskip("grpc")
 
 from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     a2a_models_pb2 as a2a_pb2,
-    agent_card_pb2 as card_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     node_service_pb2 as ns_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     node_service_pb2_grpc as ns_grpc,
-    registry_service_pb2 as reg_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     registry_service_pb2_grpc as reg_grpc,
 )
-
 
 # ── Docker Compose gRPC fixtures ────────────────────────────────────
 
@@ -150,43 +153,59 @@ def subscribe_and_collect(client, timeout: float = 10):
 
 def send_task_to_peer(sender_client, peer_id: str, text: str = "hello") -> str:
     """Send a text task from sender to peer, return task_id."""
-    resp = sender_client.SendTask(ns_pb2.SendTaskRequest(
-        peer_id=peer_id,
-        message=a2a_pb2.Message(
-            role=a2a_pb2.MESSAGE_ROLE_USER,
-            parts=[a2a_pb2.Part(text_part=a2a_pb2.TextPart(text=text))],
-        ),
-    ))
+    resp = sender_client.SendTask(
+        ns_pb2.SendTaskRequest(
+            peer_id=peer_id,
+            message=a2a_pb2.Message(
+                role=a2a_pb2.MESSAGE_ROLE_USER,
+                parts=[a2a_pb2.Part(text_part=a2a_pb2.TextPart(text=text))],
+            ),
+        )
+    )
     return resp.task.task_id
 
 
 def complete_task(client, task_id: str, result_text: str = "done") -> None:
     """Transition task to WORKING then COMPLETED."""
-    client.UpdateTaskStatus(ns_pb2.UpdateTaskStatusRequest(
-        task_id=task_id, status=a2a_pb2.TASK_STATUS_WORKING,
-    ))
-    client.CompleteTask(ns_pb2.CompleteTaskRequest(
-        task_id=task_id,
-        artifacts=[a2a_pb2.Artifact(
-            artifact_id=unique_id("art"),
-            name="result",
-            parts=[a2a_pb2.Part(text_part=a2a_pb2.TextPart(text=result_text))],
-        )],
-    ))
+    client.UpdateTaskStatus(
+        ns_pb2.UpdateTaskStatusRequest(
+            task_id=task_id,
+            status=a2a_pb2.TASK_STATUS_WORKING,
+        )
+    )
+    client.CompleteTask(
+        ns_pb2.CompleteTaskRequest(
+            task_id=task_id,
+            artifacts=[
+                a2a_pb2.Artifact(
+                    artifact_id=unique_id("art"),
+                    name="result",
+                    parts=[a2a_pb2.Part(text_part=a2a_pb2.TextPart(text=result_text))],
+                )
+            ],
+        )
+    )
 
 
 def fail_task(client, task_id: str, error_message: str = "test error") -> None:
     """Transition task to WORKING then FAILED."""
-    client.UpdateTaskStatus(ns_pb2.UpdateTaskStatusRequest(
-        task_id=task_id, status=a2a_pb2.TASK_STATUS_WORKING,
-    ))
-    client.FailTask(ns_pb2.FailTaskRequest(
-        task_id=task_id, error_message=error_message,
-    ))
+    client.UpdateTaskStatus(
+        ns_pb2.UpdateTaskStatusRequest(
+            task_id=task_id,
+            status=a2a_pb2.TASK_STATUS_WORKING,
+        )
+    )
+    client.FailTask(
+        ns_pb2.FailTaskRequest(
+            task_id=task_id,
+            error_message=error_message,
+        )
+    )
 
 
 def wait_task_status(client, task_id: str, status, timeout: float = 15):
     """Poll until task reaches the given status."""
+
     def _check():
         resp = client.GetTask(ns_pb2.GetTaskRequest(task_id=task_id))
         return resp.task.status == status
@@ -207,10 +226,12 @@ def connect_nodes(client_a, client_b):
     peer_id_b = resp_b.node_info.peer_id
     addrs_b = list(resp_b.node_info.listen_addresses)
 
-    client_a.ConnectPeer(ns_pb2.ConnectPeerRequest(
-        peer_id=peer_id_b,
-        addresses=addrs_b,
-    ))
+    client_a.ConnectPeer(
+        ns_pb2.ConnectPeerRequest(
+            peer_id=peer_id_b,
+            addresses=addrs_b,
+        )
+    )
     return peer_id_a, peer_id_b
 
 

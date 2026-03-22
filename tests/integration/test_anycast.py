@@ -27,10 +27,12 @@ grpc = pytest.importorskip("grpc")
 
 from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     node_service_pb2 as ns_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     registry_service_pb2 as reg_pb2,
 )
 
-from .conftest import unique_id, wait_for  # noqa: E402
+from .conftest import unique_id  # noqa: E402
 
 
 class TestAnycastSkillRouting:
@@ -45,19 +47,25 @@ class TestAnycastSkillRouting:
         peer_id_b = resp_b.node_info.peer_id
 
         # Register the skill at the relay for node B.
-        grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_id_b,
-            skills=[reg_pb2.SkillInfo(
-                skill_id=skill_id,
-                description=f"Test skill {skill_id}",
-            )],
-            agent_name=f"Anycast Agent ({skill_id})",
-        ))
+        grpc_registry.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_id_b,
+                skills=[
+                    reg_pb2.SkillInfo(
+                        skill_id=skill_id,
+                        description=f"Test skill {skill_id}",
+                    )
+                ],
+                agent_name=f"Anycast Agent ({skill_id})",
+            )
+        )
 
         # Discover via the registry.
-        resp = grpc_registry.DiscoverBySkill(reg_pb2.DiscoverBySkillRequest(
-            skill_id=skill_id,
-        ))
+        resp = grpc_registry.DiscoverBySkill(
+            reg_pb2.DiscoverBySkillRequest(
+                skill_id=skill_id,
+            )
+        )
         assert len(resp.agents) >= 1
         peer_ids = [a.peer_id for a in resp.agents]
         assert peer_id_b in peer_ids
@@ -77,20 +85,26 @@ class TestAnycastSkillRouting:
 
         # Register three agents with same skill but different tags.
         for peer_id, lang in [(peer_en, "en"), (peer_zh, "zh"), (peer_ja, "ja")]:
-            grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-                peer_id=peer_id,
-                skills=[reg_pb2.SkillInfo(
-                    skill_id=skill_id,
-                    tags={"lang": lang},
-                )],
-                agent_name=f"Agent-{lang}",
-            ))
+            grpc_registry.RegisterSkills(
+                reg_pb2.RegisterSkillsRequest(
+                    peer_id=peer_id,
+                    skills=[
+                        reg_pb2.SkillInfo(
+                            skill_id=skill_id,
+                            tags={"lang": lang},
+                        )
+                    ],
+                    agent_name=f"Agent-{lang}",
+                )
+            )
 
         # Filter by lang=zh.
-        resp = grpc_registry.DiscoverBySkill(reg_pb2.DiscoverBySkillRequest(
-            skill_id=skill_id,
-            tags={"lang": "zh"},
-        ))
+        resp = grpc_registry.DiscoverBySkill(
+            reg_pb2.DiscoverBySkillRequest(
+                skill_id=skill_id,
+                tags={"lang": "zh"},
+            )
+        )
         peer_ids = [a.peer_id for a in resp.agents]
         assert peer_zh in peer_ids
         assert peer_en not in peer_ids

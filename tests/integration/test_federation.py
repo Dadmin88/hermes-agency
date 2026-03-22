@@ -41,21 +41,27 @@ class TestFederation:
         peer_id = unique_id("12D3KooW-fed")
 
         # Register at relay-a (the primary relay).
-        grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_id,
-            skills=[reg_pb2.SkillInfo(
-                skill_id=skill_id,
-                description="Federation test skill",
-            )],
-            agent_name=f"Fed Agent ({skill_id})",
-        ))
+        grpc_registry.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_id,
+                skills=[
+                    reg_pb2.SkillInfo(
+                        skill_id=skill_id,
+                        description="Federation test skill",
+                    )
+                ],
+                agent_name=f"Fed Agent ({skill_id})",
+            )
+        )
 
         # Discover via relay-b (the federated relay).
         # May need a short delay for federation sync.
         def _discover():
-            resp = grpc_registry_b.DiscoverBySkill(reg_pb2.DiscoverBySkillRequest(
-                skill_id=skill_id,
-            ))
+            resp = grpc_registry_b.DiscoverBySkill(
+                reg_pb2.DiscoverBySkillRequest(
+                    skill_id=skill_id,
+                )
+            )
             peer_ids = [a.peer_id for a in resp.agents]
             return peer_id in peer_ids
 
@@ -74,35 +80,41 @@ class TestFederation:
         peer_b = unique_id("12D3KooW-fed-b")
 
         # Register at relay-a.
-        grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_a,
-            skills=[reg_pb2.SkillInfo(skill_id=skill_a)],
-            agent_name="Fed-A",
-        ))
+        grpc_registry.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_a,
+                skills=[reg_pb2.SkillInfo(skill_id=skill_a)],
+                agent_name="Fed-A",
+            )
+        )
 
         # Register at relay-b.
-        grpc_registry_b.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_b,
-            skills=[reg_pb2.SkillInfo(skill_id=skill_b)],
-            agent_name="Fed-B",
-        ))
+        grpc_registry_b.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_b,
+                skills=[reg_pb2.SkillInfo(skill_id=skill_b)],
+                agent_name="Fed-B",
+            )
+        )
 
         # Discover skill_a via relay-b.
         def _discover_a():
-            resp = grpc_registry_b.DiscoverBySkill(reg_pb2.DiscoverBySkillRequest(
-                skill_id=skill_a,
-            ))
+            resp = grpc_registry_b.DiscoverBySkill(
+                reg_pb2.DiscoverBySkillRequest(
+                    skill_id=skill_a,
+                )
+            )
             return peer_a in [a.peer_id for a in resp.agents]
 
-        wait_for(_discover_a, timeout=15, interval=1.0,
-                 msg="skill_a not visible on relay-b")
+        wait_for(_discover_a, timeout=15, interval=1.0, msg="skill_a not visible on relay-b")
 
         # Discover skill_b via relay-a.
         def _discover_b():
-            resp = grpc_registry.DiscoverBySkill(reg_pb2.DiscoverBySkillRequest(
-                skill_id=skill_b,
-            ))
+            resp = grpc_registry.DiscoverBySkill(
+                reg_pb2.DiscoverBySkillRequest(
+                    skill_id=skill_b,
+                )
+            )
             return peer_b in [a.peer_id for a in resp.agents]
 
-        wait_for(_discover_b, timeout=15, interval=1.0,
-                 msg="skill_b not visible on relay-a")
+        wait_for(_discover_b, timeout=15, interval=1.0, msg="skill_b not visible on relay-a")

@@ -40,11 +40,13 @@ class TestRelayAPI:
         peer_id = unique_id("12D3KooW-api")
         skill_id = unique_id("api-skill")
 
-        grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_id,
-            skills=[reg_pb2.SkillInfo(skill_id=skill_id, description="API test")],
-            agent_name=agent_name,
-        ))
+        grpc_registry.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_id,
+                skills=[reg_pb2.SkillInfo(skill_id=skill_id, description="API test")],
+                agent_name=agent_name,
+            )
+        )
 
         resp = httpx.get(f"{RELAY_API}/api/v1/agents", timeout=10)
         assert resp.status_code == 200
@@ -60,16 +62,20 @@ class TestRelayAPI:
         peer_match = unique_id("12D3KooW-match")
         peer_other = unique_id("12D3KooW-other")
 
-        grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_match,
-            skills=[reg_pb2.SkillInfo(skill_id=skill_id)],
-            agent_name="Match Agent",
-        ))
-        grpc_registry.RegisterSkills(reg_pb2.RegisterSkillsRequest(
-            peer_id=peer_other,
-            skills=[reg_pb2.SkillInfo(skill_id=unique_id("other-skill"))],
-            agent_name="Other Agent",
-        ))
+        grpc_registry.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_match,
+                skills=[reg_pb2.SkillInfo(skill_id=skill_id)],
+                agent_name="Match Agent",
+            )
+        )
+        grpc_registry.RegisterSkills(
+            reg_pb2.RegisterSkillsRequest(
+                peer_id=peer_other,
+                skills=[reg_pb2.SkillInfo(skill_id=unique_id("other-skill"))],
+                agent_name="Other Agent",
+            )
+        )
 
         resp = httpx.get(
             f"{RELAY_API}/api/v1/agents",

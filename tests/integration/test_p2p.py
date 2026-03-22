@@ -26,7 +26,11 @@ grpc = pytest.importorskip("grpc")
 
 from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     a2a_models_pb2 as a2a_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     agent_card_pb2 as card_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     node_service_pb2 as ns_pb2,
 )
 
@@ -37,7 +41,6 @@ from .conftest import (  # noqa: E402
     send_task_to_peer,
     subscribe_and_collect,
     unique_id,
-    wait_for,
     wait_task_status,
 )
 
@@ -51,18 +54,22 @@ class TestCardExchange:
         card_id_b = unique_id("card-b")
 
         # Set cards on both nodes.
-        grpc_node_a.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(
-                name=f"Agent A ({card_id_a})",
-                skills=[card_pb2.Skill(id="send", description="Sends tasks")],
-            ),
-        ))
-        grpc_node_b.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(
-                name=f"Agent B ({card_id_b})",
-                skills=[card_pb2.Skill(id="echo", description="Echoes input")],
-            ),
-        ))
+        grpc_node_a.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(
+                    name=f"Agent A ({card_id_a})",
+                    skills=[card_pb2.Skill(id="send", description="Sends tasks")],
+                ),
+            )
+        )
+        grpc_node_b.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(
+                    name=f"Agent B ({card_id_b})",
+                    skills=[card_pb2.Skill(id="echo", description="Echoes input")],
+                ),
+            )
+        )
 
         # Connect the nodes.
         _peer_id_a, peer_id_b = connect_nodes(grpc_node_a, grpc_node_b)
@@ -82,12 +89,16 @@ class TestTaskFailureFlow:
         _peer_id_a, peer_id_b = connect_nodes(grpc_node_a, grpc_node_b)
 
         # Set cards.
-        grpc_node_a.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(name=unique_id("fail-sender")),
-        ))
-        grpc_node_b.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(name=unique_id("fail-handler")),
-        ))
+        grpc_node_a.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(name=unique_id("fail-sender")),
+            )
+        )
+        grpc_node_b.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(name=unique_id("fail-handler")),
+            )
+        )
 
         # Subscribe on node B.
         incoming = subscribe_and_collect(grpc_node_b)
@@ -119,12 +130,16 @@ class TestBidirectionalTasks:
         peer_id_a, peer_id_b = connect_nodes(grpc_node_a, grpc_node_b)
 
         # Set cards.
-        grpc_node_a.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(name=unique_id("bidir-a")),
-        ))
-        grpc_node_b.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(name=unique_id("bidir-b")),
-        ))
+        grpc_node_a.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(name=unique_id("bidir-a")),
+            )
+        )
+        grpc_node_b.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(name=unique_id("bidir-b")),
+            )
+        )
 
         # Subscribe on both nodes.
         incoming_a = subscribe_and_collect(grpc_node_a)

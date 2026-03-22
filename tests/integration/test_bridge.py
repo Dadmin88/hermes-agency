@@ -27,6 +27,8 @@ grpc = pytest.importorskip("grpc")
 
 from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     agent_card_pb2 as card_pb2,
+)
+from agentanycast._generated.agentanycast.v1 import (  # noqa: E402
     node_service_pb2 as ns_pb2,
 )
 
@@ -40,12 +42,14 @@ class TestBridgeEndpoints:
         """GET /.well-known/agent.json returns a valid AgentCard JSON."""
         # First set a card on node-a so the endpoint has something to return.
         card_name = unique_id("bridge-agent")
-        grpc_node_a.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(
-                name=card_name,
-                skills=[card_pb2.Skill(id="bridge-test", description="Bridge test skill")],
-            ),
-        ))
+        grpc_node_a.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(
+                    name=card_name,
+                    skills=[card_pb2.Skill(id="bridge-test", description="Bridge test skill")],
+                ),
+            )
+        )
 
         resp = httpx.get(f"{NODE_A_BRIDGE}/.well-known/agent.json", timeout=10)
         assert resp.status_code == 200
@@ -57,12 +61,14 @@ class TestBridgeEndpoints:
     def test_bridge_inbound_endpoint(self, grpc_node_a) -> None:
         """POST /a2a endpoint should accept requests (or return a structured error)."""
         # Ensure there's a card set.
-        grpc_node_a.SetAgentCard(ns_pb2.SetAgentCardRequest(
-            card=card_pb2.AgentCard(
-                name=unique_id("bridge-inbound"),
-                skills=[card_pb2.Skill(id="inbound-test", description="Inbound test")],
-            ),
-        ))
+        grpc_node_a.SetAgentCard(
+            ns_pb2.SetAgentCardRequest(
+                card=card_pb2.AgentCard(
+                    name=unique_id("bridge-inbound"),
+                    skills=[card_pb2.Skill(id="inbound-test", description="Inbound test")],
+                ),
+            )
+        )
 
         # Send a minimal A2A JSON-RPC request.
         payload = {
