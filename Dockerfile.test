@@ -4,7 +4,7 @@
 # so that ALL integration tests can run (not just docker_e2e tests).
 
 # Stage 1: Build relay binary
-FROM golang:1.24-alpine AS relay-builder
+FROM golang:1.25-alpine AS relay-builder
 RUN apk add --no-cache git
 WORKDIR /src
 COPY agentanycast-proto/ /src/agentanycast-proto/
