@@ -5,7 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from agentanycast.daemon import _PLATFORM_MAP, DaemonManager, _detect_platform
+from agentanycast.daemon import (
+    _DEFAULT_DAEMON_VERSION,
+    _PLATFORM_MAP,
+    DaemonManager,
+    _detect_platform,
+)
 from agentanycast.exceptions import DaemonNotFoundError
 
 # ── Platform Detection ───────────────────────────────────────
@@ -87,10 +92,7 @@ class TestDaemonManagerInit:
 
     def test_default_version(self):
         dm = DaemonManager()
-        # Default version comes from importlib.metadata; verify it's a valid semver string.
-        import re
-
-        assert re.match(r"^\d+\.\d+\.\d+", dm._daemon_version)
+        assert dm._daemon_version == _DEFAULT_DAEMON_VERSION
 
     def test_custom_version(self):
         dm = DaemonManager(daemon_version="0.2.0")

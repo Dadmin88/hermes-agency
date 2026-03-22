@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import atexit
-import importlib.metadata
 import logging
 import os
 import platform
@@ -36,13 +35,9 @@ _PLATFORM_MAP = {
 
 _DEFAULT_BASE = Path.home() / ".agentanycast"
 
-
-def _get_package_version() -> str:
-    """Derive the daemon version from the installed package metadata."""
-    try:
-        return importlib.metadata.version("agentanycast")
-    except importlib.metadata.PackageNotFoundError:
-        return "0.1.0"
+# Daemon binary version — independent of the SDK package version.
+# Update this when a new agentanycast-node release is published.
+_DEFAULT_DAEMON_VERSION = "0.7.0"
 
 
 def _detect_platform() -> tuple[str, str]:
@@ -83,7 +78,7 @@ class DaemonManager:
         self._log_dir = self._base / "logs"
 
         self._daemon_bin = Path(daemon_bin) if daemon_bin else None
-        self._daemon_version = daemon_version or _get_package_version()
+        self._daemon_version = daemon_version or _DEFAULT_DAEMON_VERSION
         self._key_path = str(key_path) if key_path else str(self._base / "key")
         self._grpc_listen = grpc_listen or f"unix://{self._base / 'daemon.sock'}"
         self._relay = relay
