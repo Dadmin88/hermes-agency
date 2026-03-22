@@ -8,6 +8,11 @@ Usage::
 
     agentanycast mcp                    # stdio mode (Claude Desktop, Cursor)
     agentanycast mcp --transport http   # HTTP mode (ChatGPT, remote)
+
+Environment variables (read automatically, useful for MCP JSON configs)::
+
+    AGENTANYCAST_RELAY   — Relay server multiaddr
+    AGENTANYCAST_HOME    — Data directory for daemon state
 """
 
 from __future__ import annotations
@@ -16,6 +21,7 @@ import asyncio
 import atexit
 import json
 import logging
+import os
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -28,8 +34,11 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP(
     "agentanycast",
     instructions=(
-        "AgentAnycast P2P network tools for discovering and communicating "
-        "with AI agents over encrypted peer-to-peer connections."
+        "AgentAnycast P2P network tools. Use these to discover AI agents "
+        "on the peer-to-peer network and send them encrypted tasks. "
+        "Agents are identified by PeerID (e.g. '12D3KooW...') or by skill "
+        "name (e.g. 'translate', 'summarize'). The network automatically "
+        "handles NAT traversal, encryption, and routing."
     ),
 )
 
@@ -37,9 +46,9 @@ mcp = FastMCP(
 
 _node: Node | None = None
 _node_lock = asyncio.Lock()
-_configured = False
 
-# Runtime configuration set by the CLI before starting the server.
+# Runtime configuration — explicit values from configure() take priority,
+# then environment variables are checked as fallback.
 _relay: str | None = None
 _home: str | None = None
 
@@ -54,7 +63,7 @@ def configure(*, relay: str | None = None, home: str | None = None) -> None:
     singleton Node.  Calling after the Node is already running logs a
     warning and has no effect.
     """
-    global _relay, _home, _configured  # noqa: PLW0603
+    global _relay, _home  # noqa: PLW0603
     if _node is not None and _node.is_running:
         logger.warning(
             "configure() called after Node already started — new settings will not take effect"
@@ -62,14 +71,26 @@ def configure(*, relay: str | None = None, home: str | None = None) -> None:
         return
     _relay = relay
     _home = home
-    _configured = True
+
+
+def _resolve_config(explicit: str | None, env_key: str) -> str | None:
+    """Return *explicit* value if set, otherwise check ``os.environ[env_key]``."""
+    if explicit is not None:
+        return explicit
+    return os.environ.get(env_key) or None
 
 
 async def _get_node() -> Node:
-    """Get or create the singleton Node instance."""
+    """Get or create the singleton Node instance.
+
+    Configuration priority: configure() kwargs > environment variables > defaults.
+    """
     global _node  # noqa: PLW0603
     async with _node_lock:
         if _node is None or not _node.is_running:
+            relay = _resolve_config(_relay, "AGENTANYCAST_RELAY")
+            home = _resolve_config(_home, "AGENTANYCAST_HOME")
+
             card = AgentCard(
                 name="MCP Bridge",
                 description="MCP-to-P2P bridge for AI tool integration",
@@ -77,7 +98,7 @@ async def _get_node() -> Node:
                     Skill(id="mcp_bridge", description="Bridge MCP requests to P2P network"),
                 ],
             )
-            _node = Node(card=card, relay=_relay, home=_home)
+            _node = Node(card=card, relay=relay, home=home)
             await _node.start()
     return _node
 
@@ -105,13 +126,22 @@ def _card_to_dict(card: AgentCard) -> dict[str, Any]:
     return card_dict
 
 
+def _extract_text(artifacts: list[Any]) -> str:
+    """Extract all text content from artifacts for the response."""
+    texts = []
+    for a in artifacts:
+        for p in a.parts:
+            if p.text is not None:
+                texts.append(p.text)
+    return "\n".join(texts) if texts else ""
+
+
 # ── Tool Implementations ─────────────────────────────────────────────
-# Match the Go daemon's 7 MCP tools exactly (names, descriptions, params).
 
 
 @mcp.tool()
 async def get_node_info() -> str:
-    """Get this node's identity and network information."""
+    """Get this node's PeerID, DID, and connection status on the P2P network."""
     try:
         node = await _get_node()
         did_key = ""
@@ -135,7 +165,7 @@ async def get_node_info() -> str:
 
 @mcp.tool()
 async def list_connected_peers() -> str:
-    """List all peers currently connected to this node."""
+    """List all peers currently connected to this node over the P2P network."""
     try:
         node = await _get_node()
         peers = await node.list_peers()
@@ -146,36 +176,51 @@ async def list_connected_peers() -> str:
 
 @mcp.tool()
 async def discover_agents(skill: str) -> str:
-    """Find agents on the P2P network offering a specific skill."""
+    """Find AI agents on the P2P network that offer a specific skill.
+
+    Use this to search for agents before sending them tasks. For example,
+    discover_agents("translate") finds agents that can translate text.
+
+    Args:
+        skill: The skill to search for (e.g. "translate", "summarize", "code-review").
+    """
     try:
         node = await _get_node()
         agents = await node.discover(skill)
-        return json.dumps({"skill": skill, "agent_count": len(agents), "agents": agents}, indent=2)
+        return json.dumps(
+            {"skill": skill, "agent_count": len(agents), "agents": agents}, indent=2
+        )
     except Exception as exc:
         return json.dumps({"error": str(exc)}, indent=2)
 
 
 @mcp.tool()
-async def send_task(
-    target: str,
-    message: str,
-    by_skill: bool = False,
-    timeout: float = 30.0,
-) -> str:
-    """Send an encrypted A2A task to a remote AI agent."""
+async def send_task(target: str, message: str, timeout: float = 30.0) -> str:
+    """Send an encrypted task to a remote AI agent and wait for the result.
+
+    The target determines how the agent is reached:
+    - **PeerID** (starts with "12D3KooW"): direct encrypted P2P connection
+    - **Skill name** (e.g. "translate"): automatic routing to the best agent
+    - **HTTP URL** (starts with "http"): standard A2A HTTP bridge
+
+    Args:
+        target: PeerID, skill name, or HTTP URL of the target agent.
+        message: The message or instruction to send to the agent.
+        timeout: Maximum seconds to wait for a response (default: 30).
+    """
     try:
         node = await _get_node()
         kwargs: dict[str, Any] = {}
 
-        if by_skill:
-            kwargs["skill"] = target
-            mode = "anycast"
-        elif target.startswith(("http://", "https://")):
+        if target.startswith(("http://", "https://")):
             kwargs["url"] = target
             mode = "http_bridge"
-        else:
+        elif target.startswith("12D3KooW") or target.startswith("Qm"):
             kwargs["peer_id"] = target
             mode = "direct"
+        else:
+            kwargs["skill"] = target
+            mode = "anycast"
 
         handle = await node.send_task({"role": "user", "parts": [{"text": message}]}, **kwargs)
         task = await handle.wait(timeout=timeout)
@@ -188,6 +233,8 @@ async def send_task(
         }
 
         if task.artifacts:
+            # Include full text directly for easy LLM consumption
+            result["response_text"] = _extract_text(task.artifacts)
             artifacts_data = []
             for a in task.artifacts:
                 parts_data = []
@@ -208,18 +255,15 @@ async def send_task(
 
 
 @mcp.tool()
-async def send_task_by_skill(skill: str, message: str) -> str:
-    """Send a task using anycast routing to the best agent for a skill."""
-    return await send_task(target=skill, message=message, by_skill=True)
-
-
-@mcp.tool()
 async def get_task_status(task_id: str) -> str:
-    """Get the current status and result of a previously sent task."""
+    """Get the current status and result of a previously sent task.
+
+    Args:
+        task_id: The task ID returned by send_task.
+    """
     try:
         node = await _get_node()
-        # Look up the in-memory task handle for the current session.
-        handle = node._tasks.get(task_id)
+        handle = node.get_task_handle(task_id)
         if handle is None:
             return json.dumps(
                 {
@@ -235,6 +279,7 @@ async def get_task_status(task_id: str) -> str:
         }
         if handle.artifacts:
             result["artifact_count"] = len(handle.artifacts)
+            result["response_text"] = _extract_text(handle.artifacts)
         return json.dumps(result, indent=2)
     except Exception as exc:
         return json.dumps({"error": str(exc)}, indent=2)
@@ -242,7 +287,13 @@ async def get_task_status(task_id: str) -> str:
 
 @mcp.tool()
 async def get_agent_card(peer_id: str = "") -> str:
-    """Get the A2A Agent Card for a connected peer or this node."""
+    """Get the capability card (A2A Agent Card) for a peer or this node.
+
+    Returns the agent's name, description, skills, PeerID, and DID.
+
+    Args:
+        peer_id: PeerID of the agent to query. Leave empty or "self" to get this node's card.
+    """
     try:
         node = await _get_node()
 
@@ -288,7 +339,7 @@ def run_server(transport: str = "stdio", port: int = 8080) -> None:
 def main() -> None:
     """Entry point for ``agentanycast-mcp`` script.
 
-    Starts the MCP server in stdio mode (the most common use case
-    for AI tool integrations like Claude Desktop and Cursor).
+    Reads configuration from environment variables (``AGENTANYCAST_RELAY``,
+    ``AGENTANYCAST_HOME``) and starts the MCP server in stdio mode.
     """
     run_server(transport="stdio")

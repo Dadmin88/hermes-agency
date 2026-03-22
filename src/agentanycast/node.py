@@ -291,6 +291,13 @@ class Node:
     def is_running(self) -> bool:
         return self._running
 
+    def get_task_handle(self, task_id: str) -> TaskHandle | None:
+        """Look up a TaskHandle by ID from the current session.
+
+        Returns ``None`` if the task was not sent in this session.
+        """
+        return self._tasks.get(task_id)
+
     async def start(self) -> None:
         """Start the node: launch daemon, connect gRPC, set agent card."""
         if self._running:
