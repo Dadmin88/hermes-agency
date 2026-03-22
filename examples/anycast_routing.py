@@ -54,9 +54,7 @@ async def run_summarize_agent():
         @node.on_task
         async def handle(task):
             text = task.messages[-1].parts[0].text if task.messages else ""
-            await task.complete(
-                artifacts=[{"parts": [{"text": f"[Summary of: {text[:50]}...]"}]}]
-            )
+            await task.complete(artifacts=[{"parts": [{"text": f"[Summary of: {text[:50]}...]"}]}])
 
         await node.serve_forever()
 
