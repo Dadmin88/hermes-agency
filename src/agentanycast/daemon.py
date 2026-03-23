@@ -71,6 +71,8 @@ class DaemonManager:
         relay: str | None = None,
         log_level: str = "info",
         home: str | Path | None = None,
+        transport: str | None = None,
+        namespace: str | None = None,
     ) -> None:
         # Resolve base directory — allows multiple instances with isolated state.
         self._base = Path(home) if home else _DEFAULT_BASE
@@ -83,6 +85,8 @@ class DaemonManager:
         self._grpc_listen = grpc_listen or f"unix://{self._base / 'daemon.sock'}"
         self._relay = relay
         self._log_level = log_level
+        self._transport = transport
+        self._namespace = namespace
         self._store_path = str(self._base / "data")
         self._process: subprocess.Popen[bytes] | None = None
         self._managed = False  # True if we started the daemon
@@ -187,6 +191,12 @@ class DaemonManager:
 
         if self._relay:
             cmd.append(f"--bootstrap-peers={self._relay}")
+
+        if self._transport:
+            cmd.append(f"--transport={self._transport}")
+
+        if self._namespace:
+            cmd.append(f"--namespace={self._namespace}")
 
         logger.info("Starting daemon: %s", " ".join(cmd))
 

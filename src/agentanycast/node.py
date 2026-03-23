@@ -237,6 +237,8 @@ class Node:
         daemon_bin: str | Path | None = None,
         daemon_path: str | Path | None = None,
         home: str | Path | None = None,
+        transport: str | None = None,
+        namespace: str | None = None,
     ) -> None:
         """Initialize the Node.
 
@@ -254,12 +256,19 @@ class Node:
             home: Data directory for daemon state (key, socket, store). Use
                 different values to run multiple nodes on the same machine.
                 Defaults to ``~/.agentanycast``.
+            transport: Transport specification for the daemon (e.g.,
+                ``"nats://broker:4222"``, ``"auto"``, ``"libp2p"``).
+                When ``None``, defaults to libp2p.
+            namespace: Namespace for multi-tenant isolation. When ``None``,
+                defaults to ``"default"``.
         """
         self._card = card
         self._relay = relay
         self._key_path = key_path
         self._daemon_addr = daemon_addr
         self._home = home
+        self._transport = transport
+        self._namespace = namespace
         # daemon_path takes precedence over daemon_bin for user convenience
         self._daemon_bin = daemon_path or daemon_bin
 
@@ -312,6 +321,8 @@ class Node:
                 key_path=self._key_path,
                 relay=self._relay,
                 home=self._home,
+                transport=self._transport,
+                namespace=self._namespace,
             )
             await self._daemon.start()
             self._daemon_addr = self._daemon.grpc_address
