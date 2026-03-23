@@ -176,9 +176,7 @@ class GrpcClient:
         stub = self._ensure_connected()
         try:
             resp = await _retry_unary(
-                lambda: stub.GetPeerCard(
-                    node_service_pb2.GetPeerCardRequest(peer_id=peer_id)
-                )
+                lambda: stub.GetPeerCard(node_service_pb2.GetPeerCardRequest(peer_id=peer_id))
             )
             return resp.card
         except grpc.aio.AioRpcError as e:

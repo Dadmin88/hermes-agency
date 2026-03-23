@@ -57,6 +57,7 @@ from agentanycast.task import (  # noqa: E402
     TaskStatus,
 )
 
+
 def _get_version() -> str:
     """Retrieve version from package metadata (set in pyproject.toml)."""
     try:

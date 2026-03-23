@@ -34,7 +34,8 @@ if TYPE_CHECKING:
 try:
     from google.adk.agents import Agent as _Agent  # noqa: F401
     from google.adk.runners import InMemoryRunner
-    from google.genai.types import Content, Part as GenaiPart
+    from google.genai.types import Content
+    from google.genai.types import Part as GenaiPart
 except ImportError as _err:
     raise ImportError(
         "Google ADK adapter requires the 'google-adk' package. "
@@ -98,9 +99,7 @@ class ADKAdapter(BaseAdapter):
             session_id = str(uuid4())
             if context_id:
                 self._sessions[context_id] = session_id
-                logger.debug(
-                    "created ADK session %s for context %s", session_id, context_id
-                )
+                logger.debug("created ADK session %s for context %s", session_id, context_id)
 
         # Collect text from the final response event(s).
         response_parts: list[str] = []
