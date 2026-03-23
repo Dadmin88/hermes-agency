@@ -57,7 +57,17 @@ from agentanycast.task import (  # noqa: E402
     TaskStatus,
 )
 
-__version__ = "0.3.0"
+def _get_version() -> str:
+    """Retrieve version from package metadata (set in pyproject.toml)."""
+    try:
+        from importlib.metadata import version
+
+        return version("agentanycast")
+    except Exception:
+        return "0.0.0"
+
+
+__version__ = _get_version()
 
 
 # v0.3: Lazy imports for optional compat modules (avoid hard httpx dependency at import time).

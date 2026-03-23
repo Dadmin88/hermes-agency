@@ -26,7 +26,7 @@ from agentanycast.exceptions import (
 
 logger = logging.getLogger(__name__)
 
-# gRPC status codes that indicate transient stream failures worth retrying.
+# gRPC status codes that indicate transient failures worth retrying.
 _RETRYABLE_CODES = frozenset(
     {
         grpc.StatusCode.UNAVAILABLE,
@@ -34,6 +34,47 @@ _RETRYABLE_CODES = frozenset(
         grpc.StatusCode.UNKNOWN,
     }
 )
+
+# Default retry parameters for unary RPCs.
+_DEFAULT_MAX_RETRIES = 3
+_DEFAULT_INITIAL_BACKOFF = 0.5
+
+
+async def _retry_unary(
+    coro_factory: Any,
+    *,
+    max_retries: int = _DEFAULT_MAX_RETRIES,
+    initial_backoff: float = _DEFAULT_INITIAL_BACKOFF,
+) -> Any:
+    """Retry a unary gRPC call on transient failures with exponential backoff.
+
+    Args:
+        coro_factory: A zero-argument callable that returns an awaitable gRPC call.
+        max_retries: Maximum number of retry attempts.
+        initial_backoff: Initial backoff delay in seconds (doubles each retry).
+
+    Returns:
+        The result of the successful call.
+
+    Raises:
+        grpc.aio.AioRpcError: Re-raised if all retries are exhausted or the
+            error is not transient.
+    """
+    backoff = initial_backoff
+    last_error: grpc.aio.AioRpcError | None = None
+    for attempt in range(1 + max_retries):
+        try:
+            return await coro_factory()
+        except grpc.aio.AioRpcError as e:
+            last_error = e
+            if e.code() not in _RETRYABLE_CODES or attempt >= max_retries:
+                raise
+            logger.warning(
+                "gRPC call failed (retry %d/%d): %s", attempt + 1, max_retries, e.details()
+            )
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 10.0)
+    raise last_error  # type: ignore[misc]  # unreachable but satisfies type checker
 
 
 class GrpcClient:
@@ -128,10 +169,17 @@ class GrpcClient:
         return list(resp.peers)
 
     async def get_peer_card(self, peer_id: str) -> agent_card_pb2.AgentCard:
-        """Get the agent card of a connected peer."""
+        """Get the agent card of a connected peer.
+
+        Automatically retries on transient gRPC failures.
+        """
         stub = self._ensure_connected()
         try:
-            resp = await stub.GetPeerCard(node_service_pb2.GetPeerCardRequest(peer_id=peer_id))
+            resp = await _retry_unary(
+                lambda: stub.GetPeerCard(
+                    node_service_pb2.GetPeerCardRequest(peer_id=peer_id)
+                )
+            )
             return resp.card
         except grpc.aio.AioRpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
@@ -151,7 +199,11 @@ class GrpcClient:
         url: str | None = None,
         metadata: dict[str, str] | None = None,
     ) -> a2a_models_pb2.Task:
-        """Send a task to a remote agent. Exactly one of peer_id, skill_id, or url must be set."""
+        """Send a task to a remote agent. Exactly one of peer_id, skill_id, or url must be set.
+
+        Automatically retries on transient gRPC failures (UNAVAILABLE, INTERNAL)
+        with exponential backoff.
+        """
         stub = self._ensure_connected()
 
         kwargs: dict[str, Any] = {"message": message}
@@ -165,7 +217,9 @@ class GrpcClient:
             kwargs["url"] = url
 
         try:
-            resp = await stub.SendTask(node_service_pb2.SendTaskRequest(**kwargs))
+            resp = await _retry_unary(
+                lambda: stub.SendTask(node_service_pb2.SendTaskRequest(**kwargs))
+            )
             return resp.task
         except grpc.aio.AioRpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
