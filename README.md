@@ -69,6 +69,12 @@ await node.send_task(url="https://agent.example.com", message=msg)
 
 ## CLI
 
+Add `--verbose` (or `-v`) before any command for debug output:
+
+```bash
+agentanycast --verbose demo
+```
+
 ```bash
 agentanycast demo                        # Start an echo agent
 agentanycast discover translate          # Find agents by skill
@@ -183,6 +189,7 @@ from agentanycast.compat.agntcy import AGNTCYDirectory
 | `daemon_addr` | Address of an externally managed daemon | Auto-managed |
 | `key_path` | Path to Ed25519 identity key file | `<home>/key` |
 | `home` | Data directory. Use different values for multiple nodes. | `~/.agentanycast` |
+| `status_callback` | Optional callback for progress messages (download, startup) | `None` |
 
 ## Development
 
