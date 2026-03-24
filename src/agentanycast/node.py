@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,128 @@ from agentanycast.task import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ── OpenTelemetry integration (optional) ─────────────────────
+# OTel is entirely optional.  When the ``opentelemetry-api`` package is
+# installed the helpers below automatically propagate W3C TraceContext
+# through task metadata so that distributed traces span the full
+# SDK → daemon → remote path.  When it is *not* installed, the helpers
+# are transparent no-ops.
+
+try:
+    from opentelemetry import context as otel_context
+    from opentelemetry import trace as otel_trace
+
+    _HAS_OTEL = True
+except ImportError:
+    otel_context = None  # type: ignore[assignment]
+    otel_trace = None  # type: ignore[assignment]
+    _HAS_OTEL = False
+
+
+def _inject_trace_context(
+    metadata: dict[str, str] | None,
+) -> dict[str, str] | None:
+    """Inject W3C TraceContext headers into *metadata* if OTel is available.
+
+    When ``opentelemetry-api`` is installed and a span is currently recording,
+    the ``traceparent`` (and optionally ``tracestate``) values are added to
+    *metadata*.  If *metadata* is ``None`` **and** there is an active span, a
+    new dict is created.
+
+    If OTel is not installed the function returns *metadata* unchanged.
+    """
+    if not _HAS_OTEL:
+        return metadata
+
+    span = otel_trace.get_current_span()  # type: ignore[union-attr]
+    if span is None or not span.is_recording():
+        return metadata
+
+    ctx = span.get_span_context()
+    if ctx is None or not ctx.is_valid:
+        return metadata
+
+    # Build W3C traceparent: version-trace_id-span_id-trace_flags
+    trace_id = format(ctx.trace_id, "032x")
+    span_id = format(ctx.span_id, "016x")
+    trace_flags = format(ctx.trace_flags, "02x")
+    traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
+
+    if metadata is None:
+        metadata = {}
+
+    metadata["traceparent"] = traceparent
+
+    # Propagate tracestate if present.
+    if ctx.trace_state:
+        ts_str = ",".join(f"{k}={v}" for k, v in ctx.trace_state.items())
+        if ts_str:
+            metadata["tracestate"] = ts_str
+
+    return metadata
+
+
+@contextmanager
+def _extract_trace_context(metadata: dict[str, str] | None) -> Iterator[None]:
+    """Context manager that activates an OTel span from *metadata*.
+
+    If OTel is available and *metadata* contains a ``traceparent`` key the
+    function parses the W3C TraceContext header, creates a non-recording
+    ``SpanContext``, wraps it in a ``NonRecordingSpan``, and activates it
+    via ``opentelemetry.context``.  Downstream code that creates new spans
+    will automatically be linked to the remote trace.
+
+    When OTel is not installed or no ``traceparent`` is present the context
+    manager is a no-op.
+    """
+    if not _HAS_OTEL or not metadata or "traceparent" not in metadata:
+        yield
+        return
+
+    traceparent = metadata["traceparent"]
+    parts = traceparent.split("-")
+    if len(parts) != 4:
+        yield
+        return
+
+    try:
+        _version, trace_id_hex, span_id_hex, flags_hex = parts
+        trace_id = int(trace_id_hex, 16)
+        span_id = int(span_id_hex, 16)
+        trace_flags = otel_trace.TraceFlags(int(flags_hex, 16))  # type: ignore[union-attr]
+    except (ValueError, TypeError):
+        yield
+        return
+
+    # Reconstruct tracestate if available.
+    trace_state = otel_trace.TraceState()  # type: ignore[union-attr]
+    if "tracestate" in metadata:
+        try:
+            pairs = [
+                tuple(kv.split("=", 1)) for kv in metadata["tracestate"].split(",") if "=" in kv
+            ]
+            for k, v in pairs:
+                trace_state = trace_state.add(k.strip(), v.strip())  # type: ignore[union-attr]
+        except Exception:  # noqa: BLE001
+            pass
+
+    remote_ctx = otel_trace.SpanContext(  # type: ignore[union-attr]
+        trace_id=trace_id,
+        span_id=span_id,
+        is_remote=True,
+        trace_flags=trace_flags,
+        trace_state=trace_state,
+    )
+    remote_span = otel_trace.NonRecordingSpan(remote_ctx)  # type: ignore[union-attr]
+
+    ctx = otel_trace.set_span_in_context(remote_span)  # type: ignore[union-attr]
+    token = otel_context.attach(ctx)  # type: ignore[union-attr]
+    try:
+        yield
+    finally:
+        otel_context.detach(token)  # type: ignore[union-attr]
+
 
 # Type alias for the on_task handler signature
 TaskHandler = Callable[[IncomingTask], Coroutine[Any, Any, None]]
@@ -239,6 +362,7 @@ class Node:
         home: str | Path | None = None,
         transport: str | None = None,
         namespace: str | None = None,
+        status_callback: Callable[[str], None] | None = None,
     ) -> None:
         """Initialize the Node.
 
@@ -261,6 +385,8 @@ class Node:
                 When ``None``, defaults to libp2p.
             namespace: Namespace for multi-tenant isolation. When ``None``,
                 defaults to ``"default"``.
+            status_callback: Optional callback for progress messages (e.g.,
+                daemon download, startup). Useful for CLI tools.
         """
         self._card = card
         self._relay = relay
@@ -269,6 +395,7 @@ class Node:
         self._home = home
         self._transport = transport
         self._namespace = namespace
+        self._status_callback = status_callback
         # daemon_path takes precedence over daemon_bin for user convenience
         self._daemon_bin = daemon_path or daemon_bin
 
@@ -323,6 +450,7 @@ class Node:
                 home=self._home,
                 transport=self._transport,
                 namespace=self._namespace,
+                status_callback=self._status_callback,
             )
             await self._daemon.start()
             self._daemon_addr = self._daemon.grpc_address
@@ -437,6 +565,9 @@ class Node:
         targets = sum(x is not None for x in (peer_id, skill, url))
         if targets != 1:
             raise ValueError("Exactly one of peer_id, skill, or url must be provided")
+
+        # Inject OTel trace context into metadata (no-op when OTel is absent).
+        metadata = _inject_trace_context(metadata)
 
         # Normalize message
         if isinstance(message, dict):
@@ -555,16 +686,55 @@ class Node:
 
     # ── Server Mode: Receive Tasks ────────────────────────────
 
-    def on_task(self, handler: TaskHandler) -> TaskHandler:
-        """Decorator to register a task handler.
+    def on_task(
+        self,
+        handler: TaskHandler | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> TaskHandler | Callable[[TaskHandler], TaskHandler]:
+        """Register a task handler, optionally with a timeout.
 
-        Usage:
+        Can be used as a plain decorator or with arguments:
+
             @node.on_task
             async def handle(task: IncomingTask):
                 await task.complete(artifacts=[...])
+
+            @node.on_task(timeout=30)
+            async def handle(task: IncomingTask):
+                await task.complete(artifacts=[...])
+
+        Args:
+            handler: The handler function (when used as ``@node.on_task``).
+            timeout: Maximum seconds the handler may run before the task
+                is automatically failed with a timeout error. ``None``
+                means no timeout (default).
         """
-        self._task_handlers.append(handler)
-        return handler
+
+        def _wrap(fn: TaskHandler) -> TaskHandler:
+            if timeout is not None:
+
+                async def _guarded(task: IncomingTask) -> None:
+                    try:
+                        await asyncio.wait_for(fn(task), timeout=timeout)
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            "Task handler timed out after %ss for task %s",
+                            timeout,
+                            task.task_id,
+                        )
+                        await task.fail(f"Handler timed out after {timeout}s")
+
+                self._task_handlers.append(_guarded)
+            else:
+                self._task_handlers.append(fn)
+            return fn
+
+        if handler is not None:
+            # Used as @node.on_task (no parentheses).
+            return _wrap(handler)
+        # Used as @node.on_task(timeout=30).
+        return _wrap
 
     async def serve_forever(self) -> None:
         """Run the node, processing incoming tasks until interrupted.
@@ -619,11 +789,15 @@ class Node:
                     update_fn=update_fn,
                 )
 
-                # Dispatch to all registered handlers
-                for handler in self._task_handlers:
-                    bg = asyncio.create_task(handler(incoming))
-                    self._background_tasks.add(bg)
-                    bg.add_done_callback(self._background_tasks.discard)
+                # Dispatch to all registered handlers.
+                # When OTel is available and the task carries a traceparent in
+                # its metadata, the handler runs inside a context linked to
+                # the remote trace so that new spans are automatically parented.
+                with _extract_trace_context(task.metadata):
+                    for handler in self._task_handlers:
+                        bg = asyncio.create_task(handler(incoming))
+                        self._background_tasks.add(bg)
+                        bg.add_done_callback(self._background_tasks.discard)
 
         except asyncio.CancelledError:
             pass

@@ -9,6 +9,7 @@ import os
 import platform
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import grpc
@@ -47,7 +48,14 @@ def _detect_platform() -> tuple[str, str]:
     key = (system, machine)
     if key not in _PLATFORM_MAP:
         raise DaemonNotFoundError(
-            f"Unsupported platform: {system}/{machine}. Supported: {list(_PLATFORM_MAP.keys())}"
+            f"Unsupported platform: {system}/{machine}.\n"
+            "\n"
+            "Supported: macOS (arm64/x86_64), Linux (x86_64/aarch64), Windows (AMD64).\n"
+            "\n"
+            "To build from source:\n"
+            "  git clone https://github.com/agentanycast/agentanycast-node\n"
+            "  cd agentanycast-node && make build\n"
+            "  export PATH=$PWD/bin:$PATH"
         )
     return _PLATFORM_MAP[key]
 
@@ -73,6 +81,7 @@ class DaemonManager:
         home: str | Path | None = None,
         transport: str | None = None,
         namespace: str | None = None,
+        status_callback: Callable[[str], None] | None = None,
     ) -> None:
         # Resolve base directory — allows multiple instances with isolated state.
         self._base = Path(home) if home else _DEFAULT_BASE
@@ -90,6 +99,12 @@ class DaemonManager:
         self._store_path = str(self._base / "data")
         self._process: subprocess.Popen[bytes] | None = None
         self._managed = False  # True if we started the daemon
+        self._status_callback = status_callback
+
+    def _emit(self, msg: str) -> None:
+        """Send a status message to the callback (if set)."""
+        if self._status_callback:
+            self._status_callback(msg)
 
     @property
     def grpc_address(self) -> str:
@@ -119,7 +134,13 @@ class DaemonManager:
             return default_bin
 
         raise DaemonNotFoundError(
-            "agentanycastd binary not found. Install it or set daemon_bin parameter."
+            "agentanycastd binary not found.\n"
+            "\n"
+            "The SDK downloads it automatically on first use. If that failed:\n"
+            "  1. Check your internet connection\n"
+            "  2. Manual download: https://github.com/agentanycast/agentanycast-node/releases\n"
+            f"  3. Place the binary in {self._bin_dir}/ or on your PATH\n"
+            "  4. Or build from source: https://github.com/agentanycast/agentanycast-node#building"
         )
 
     async def download_binary(self) -> Path:
@@ -131,29 +152,46 @@ class DaemonManager:
         dest = self._bin_dir / f"agentanycastd{suffix}"
         self._bin_dir.mkdir(parents=True, exist_ok=True)
 
+        self._emit(f"Downloading daemon (v{self._daemon_version})...")
         logger.info("Downloading daemon binary from %s", url)
         try:
             async with httpx.AsyncClient(follow_redirects=True) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-                dest.write_bytes(resp.content)
+                async with client.stream("GET", url) as resp:
+                    resp.raise_for_status()
+                    total = int(resp.headers.get("content-length", 0))
+                    downloaded = 0
+                    last_pct = -1
+                    with open(dest, "wb") as f:
+                        async for chunk in resp.aiter_bytes(chunk_size=65536):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total > 0:
+                                pct = downloaded * 100 // total
+                                # Emit at every 25% milestone.
+                                milestone = pct // 25 * 25
+                                if milestone > last_pct:
+                                    last_pct = milestone
+                                    if milestone < 100:
+                                        self._emit(f"Downloading daemon... {milestone}%")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise DaemonNotFoundError(
-                    f"Daemon binary not found at {url} (HTTP 404). "
-                    f"Pre-built binaries may not be available yet. "
-                    f"You can either:\n"
-                    f"  1. Build the daemon locally from "
-                    f"https://github.com/agentanycast/agentanycast-node "
-                    f"and pass daemon_path= to Node()\n"
-                    f"  2. Place the built 'agentanycastd' binary on "
-                    f"your PATH or in {self._bin_dir}"
+                    f"Daemon binary not found at {url} (HTTP 404).\n"
+                    f"Pre-built binaries may not be available for this platform/version.\n"
+                    f"\n"
+                    f"Build from source:\n"
+                    f"  git clone https://github.com/agentanycast/agentanycast-node\n"
+                    f"  cd agentanycast-node && make build\n"
+                    f"  Node(card=card, daemon_path='./bin/agentanycastd')\n"
+                    f"\n"
+                    f"Or place a pre-built binary in: {self._bin_dir}"
                 ) from e
             raise DaemonNotFoundError(
                 f"Failed to download daemon binary from {url}: HTTP {e.response.status_code}"
             ) from e
 
         dest.chmod(0o755)
+        self._emit("Daemon binary ready.")
         logger.info("Daemon binary downloaded to %s", dest)
         return dest
 
@@ -173,9 +211,11 @@ class DaemonManager:
         """Start the daemon process if not already running."""
         if self._is_daemon_running():
             logger.info("Daemon already running at %s", self._grpc_listen)
+            self._emit("Daemon already running.")
             return
 
         binary = await self.ensure_binary()
+        self._emit("Starting daemon...")
 
         # Prepare log directory
         self._log_dir.mkdir(parents=True, exist_ok=True)
@@ -218,6 +258,7 @@ class DaemonManager:
 
         # Wait for daemon to be ready (health check)
         await self._wait_ready(timeout=10.0)
+        self._emit("Daemon ready.")
 
     def _read_recent_logs(self, max_lines: int = 20) -> str:
         """Read the last N lines of daemon.log for error diagnostics."""
@@ -238,8 +279,15 @@ class DaemonManager:
             if self._process and self._process.poll() is not None:
                 logs = self._read_recent_logs()
                 msg = (
-                    f"Daemon exited with code {self._process.returncode}. "
-                    f"Check logs at {self._log_dir / 'daemon.log'}"
+                    f"Daemon exited with code {self._process.returncode}.\n"
+                    f"\n"
+                    f"Common causes:\n"
+                    f"  - Port conflict: another daemon may be running"
+                    f" (check: ps aux | grep agentanycastd)\n"
+                    f"  - Corrupted binary: delete {self._bin_dir}/agentanycastd"
+                    f" and restart\n"
+                    f"\n"
+                    f"Logs: {self._log_dir / 'daemon.log'}"
                 )
                 if logs:
                     msg += f"\n\nRecent logs:\n{logs}"
@@ -255,8 +303,13 @@ class DaemonManager:
 
         logs = self._read_recent_logs()
         msg = (
-            f"Daemon did not become ready within {timeout}s. "
-            f"Check logs at {self._log_dir / 'daemon.log'}"
+            f"Daemon did not become ready within {timeout}s.\n"
+            f"\n"
+            f"Troubleshooting:\n"
+            f"  - Check logs: cat {self._log_dir / 'daemon.log'}\n"
+            f"  - Kill stale daemon: pkill agentanycastd\n"
+            f"  - Remove stale socket: rm -f {self.sock_path}\n"
+            f"  - Try verbose mode: agentanycast --verbose demo"
         )
         if logs:
             msg += f"\n\nRecent logs:\n{logs}"

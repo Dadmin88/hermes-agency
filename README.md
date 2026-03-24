@@ -2,6 +2,7 @@
 
 **Build P2P agents in Python.** Discover, communicate, and collaborate with AI agents across any network -- encrypted, decentralized, NAT-traversing.
 
+[![CI](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentanycast?color=3776AB)](https://pypi.org/project/agentanycast/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
@@ -9,6 +10,14 @@
 ```bash
 pip install agentanycast
 ```
+
+**Try it now** -- start a demo agent in one command:
+
+```bash
+agentanycast demo
+```
+
+The daemon downloads automatically on first run. The demo prints the exact command to test it from another terminal.
 
 ## Quick Start
 
@@ -189,6 +198,10 @@ mypy src/                  # Type check (strict)
 
 - Python 3.10+
 - The [agentanycastd](https://github.com/AgentAnycast/agentanycast-node) daemon (auto-managed by the SDK)
+
+---
+
+**Part of [AgentAnycast](https://github.com/AgentAnycast/agentanycast)** -- see the main repo for architecture docs, protocol reference, and examples.
 
 ## License
 
