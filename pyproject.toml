@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentanycast"
-version = "0.7.2"
+version = "0.7.3"
 description = "Connect AI agents across any network — no public IP needed. P2P encrypted, NAT-traversing, zero-config on LAN."
 readme = "README.md"
 license = {text = "Apache-2.0"}

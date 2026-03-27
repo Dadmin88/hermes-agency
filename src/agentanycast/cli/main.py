@@ -87,7 +87,13 @@ async def _demo(relay: str | None, home: str | None, *, verbose: bool = False) -
             click.style("  Try it", fg="yellow", bold=True) + " -- open another terminal and run:"
         )
         click.echo()
-        click.echo(click.style(f'    agentanycast send {peer_id} "Hello, world!"', bold=True))
+        # Use a different home to avoid "dial to self" (same daemon, same key).
+        send_home = "~/.agentanycast-client"
+        click.echo(
+            click.style(
+                f'    agentanycast send --home {send_home} {peer_id} "Hello, world!"', bold=True
+            )
+        )
         click.echo()
         click.echo("  Waiting for incoming tasks... (Ctrl+C to stop)")
         click.echo()
