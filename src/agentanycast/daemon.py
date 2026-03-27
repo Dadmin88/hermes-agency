@@ -38,7 +38,7 @@ _DEFAULT_BASE = Path.home() / ".agentanycast"
 
 # Daemon binary version — independent of the SDK package version.
 # Update this when a new agentanycast-node release is published.
-_DEFAULT_DAEMON_VERSION = "0.7.0"
+_DEFAULT_DAEMON_VERSION = "0.7.1"
 
 
 def _detect_platform() -> tuple[str, str]:
