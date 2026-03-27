@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
     "grpcio>=1.60",
-    "protobuf>=4.25",
+    "protobuf>=7.34.1",
     "httpx>=0.27",
     "click>=8.0",
     "base58>=2.1",
@@ -101,7 +101,7 @@ module = "agentanycast.mcp_server"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["grpc", "grpc.*", "grpc.aio", "grpc.aio.*", "google.protobuf.*", "crewai", "crewai.*", "langgraph", "langgraph.*", "google.adk", "google.adk.*", "google.genai", "google.genai.*", "agents", "agents.*", "claude_agent_sdk", "claude_agent_sdk.*", "strands", "strands.*", "mcp", "mcp.*", "pydantic_ai", "pydantic_ai.*", "agno", "agno.*", "dns", "dns.*"]
+module = ["grpc", "grpc.*", "grpc.aio", "grpc.aio.*", "google.protobuf.*", "crewai", "crewai.*", "langgraph", "langgraph.*", "google.adk", "google.adk.*", "google.genai", "google.genai.*", "agents", "agents.*", "claude_agent_sdk", "claude_agent_sdk.*", "strands", "strands.*", "mcp", "mcp.*", "pydantic_ai", "pydantic_ai.*", "agno", "agno.*", "dns", "dns.*", "opentelemetry", "opentelemetry.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

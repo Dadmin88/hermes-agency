@@ -41,8 +41,8 @@ try:
 
     _HAS_OTEL = True
 except ImportError:
-    otel_context = None  # type: ignore[assignment]
-    otel_trace = None  # type: ignore[assignment]
+    otel_context = None
+    otel_trace = None
     _HAS_OTEL = False
 
 
@@ -61,7 +61,7 @@ def _inject_trace_context(
     if not _HAS_OTEL:
         return metadata
 
-    span = otel_trace.get_current_span()  # type: ignore[union-attr]
+    span = otel_trace.get_current_span()
     if span is None or not span.is_recording():
         return metadata
 
@@ -116,38 +116,38 @@ def _extract_trace_context(metadata: dict[str, str] | None) -> Iterator[None]:
         _version, trace_id_hex, span_id_hex, flags_hex = parts
         trace_id = int(trace_id_hex, 16)
         span_id = int(span_id_hex, 16)
-        trace_flags = otel_trace.TraceFlags(int(flags_hex, 16))  # type: ignore[union-attr]
+        trace_flags = otel_trace.TraceFlags(int(flags_hex, 16))
     except (ValueError, TypeError):
         yield
         return
 
     # Reconstruct tracestate if available.
-    trace_state = otel_trace.TraceState()  # type: ignore[union-attr]
+    trace_state = otel_trace.TraceState()
     if "tracestate" in metadata:
         try:
             pairs = [
                 tuple(kv.split("=", 1)) for kv in metadata["tracestate"].split(",") if "=" in kv
             ]
             for k, v in pairs:
-                trace_state = trace_state.add(k.strip(), v.strip())  # type: ignore[union-attr]
+                trace_state = trace_state.add(k.strip(), v.strip())
         except Exception:  # noqa: BLE001
             pass
 
-    remote_ctx = otel_trace.SpanContext(  # type: ignore[union-attr]
+    remote_ctx = otel_trace.SpanContext(
         trace_id=trace_id,
         span_id=span_id,
         is_remote=True,
         trace_flags=trace_flags,
         trace_state=trace_state,
     )
-    remote_span = otel_trace.NonRecordingSpan(remote_ctx)  # type: ignore[union-attr]
+    remote_span = otel_trace.NonRecordingSpan(remote_ctx)
 
-    ctx = otel_trace.set_span_in_context(remote_span)  # type: ignore[union-attr]
-    token = otel_context.attach(ctx)  # type: ignore[union-attr]
+    ctx = otel_trace.set_span_in_context(remote_span)
+    token = otel_context.attach(ctx)
     try:
         yield
     finally:
-        otel_context.detach(token)  # type: ignore[union-attr]
+        otel_context.detach(token)
 
 
 # Type alias for the on_task handler signature

@@ -133,6 +133,7 @@ class Task:
     artifacts: list[Artifact] = field(default_factory=list)
     target_skill_id: str = ""
     originator_peer_id: str = ""
+    metadata: dict[str, str] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
