@@ -805,16 +805,51 @@ class Node:
     # ── Internal ──────────────────────────────────────────────
 
     async def _watch_task_updates(self, task_id: str, handle: TaskHandle) -> None:
-        """Background coroutine that watches for task status updates via gRPC streaming."""
+        """Background coroutine that watches for task status updates via gRPC streaming.
+
+        The daemon currently emits two local notifications for completion:
+        first the state-machine transition to COMPLETED, then the network
+        TASK_COMPLETE payload that carries artifacts. Do not stop on the first
+        artifact-free COMPLETED event or callers will see a completed task with
+        empty artifacts even though a result payload follows immediately.
+        """
         assert self._grpc is not None
+        artifact_grace_seconds = 1.0
+        pending_empty_completed: tuple[TaskStatus, list[Artifact] | None] | None = None
         try:
-            async for event in self._grpc.subscribe_task_updates(task_id):
+            updates = self._grpc.subscribe_task_updates(task_id).__aiter__()
+            while True:
+                try:
+                    if pending_empty_completed is None:
+                        event = await updates.__anext__()
+                    else:
+                        event = await asyncio.wait_for(
+                            updates.__anext__(), timeout=artifact_grace_seconds
+                        )
+                except StopAsyncIteration:
+                    if pending_empty_completed is not None:
+                        handle._update(*pending_empty_completed)
+                    break
+                except asyncio.TimeoutError:
+                    if pending_empty_completed is not None:
+                        handle._update(*pending_empty_completed)
+                    break
+
                 status = _proto_status_to_python(event.status)
                 artifacts = (
                     [_proto_artifact_to_python(a) for a in event.artifacts]
                     if event.artifacts
                     else None
                 )
+
+                if (
+                    status == TaskStatus.COMPLETED
+                    and not artifacts
+                    and pending_empty_completed is None
+                ):
+                    pending_empty_completed = (status, artifacts)
+                    continue
+
                 handle._update(status, artifacts)
 
                 if status.is_terminal:

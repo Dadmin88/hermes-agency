@@ -1,0 +1,19 @@
+name: agentanycast
+version: 0.1.0
+description: "AgentAnycast P2P agent communication tools for Hermes profiles. Phase 5: profile AgentCards, node lifecycle, peer discovery, task send/status, and safe incoming task queue/stub handling."
+author: DeployFaith
+kind: standalone
+provides_tools:
+  - a2a_discover
+  - a2a_send
+  - a2a_status
+  - a2a_inbox
+  - a2a_start_node
+  - a2a_stop_node
+  - a2a_list_peers
+  - a2a_info
+provides_hooks:
+  - on_session_start
+  - on_session_end
+  - on_session_finalize
+  - on_session_reset
