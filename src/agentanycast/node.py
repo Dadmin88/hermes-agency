@@ -826,7 +826,7 @@ class Node:
 
                 if status == TaskStatus.COMPLETED and not artifacts:
                     logger.debug(
-                        "ignoring artifact-free completed update for task %s; waiting for remote completion payload",
+                        "artifact-free completed update for %s; waiting for payload",
                         task_id,
                     )
                     continue
