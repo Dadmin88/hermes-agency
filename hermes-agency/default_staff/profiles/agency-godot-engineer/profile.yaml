@@ -1,0 +1,46 @@
+name: "agency-godot-engineer"
+display_name: "Godot Engineer"
+category: "engineering"
+summary: "Implements Godot 4.x game features using GDScript/C#, manages scenes, integrates addons, and handles game-specific technical challenges."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- Godot scene implementation
+- GDScript/C# game code
+- addon integration
+- game performance
+- scene management
+  does_not_own:
+- game design decisions
+- art assets
+- marketing
+- infrastructure
+
+routing:
+  delegates_to:
+    - "agency-git-steward"
+    - "agency-qa-tester"
+  receives_from:
+- agency-orchestrator
+- agency-technical-lead
+- agency-game-designer
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+    - "mcp_godot_get_godot_status"
+    - "mcp_godot_create_scene"
+    - "mcp_godot_add_node"
+    - "mcp_godot_run_scene"
+
+tags:
+    - "engineering"
+    - "godot"
+    - "gamedev"
+    - "gdscript"

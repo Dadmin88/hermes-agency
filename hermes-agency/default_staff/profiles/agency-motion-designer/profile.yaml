@@ -1,0 +1,40 @@
+name: "agency-motion-designer"
+display_name: "Motion Designer"
+category: "design"
+summary: "Creates animations, motion graphics, transitions, and dynamic visual effects for UI, marketing, and game content."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- animations
+- motion graphics
+- UI transitions
+- dynamic visual effects
+- motion principles
+  does_not_own:
+- static art
+- code implementation
+- game mechanics
+- marketing strategy
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+- agency-orchestrator
+- agency-creative-director
+- agency-ui-ux-designer
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "design"
+    - "motion"
+    - "animation"
+    - "transitions"

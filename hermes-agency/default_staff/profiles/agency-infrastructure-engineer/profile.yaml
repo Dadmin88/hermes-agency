@@ -1,0 +1,42 @@
+name: "agency-infrastructure-engineer"
+display_name: "Infrastructure Engineer"
+category: "engineering"
+summary: "Designs and manages cloud infrastructure, networking, storage, and compute resources with focus on reliability and cost optimization."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- cloud infrastructure
+- networking
+- storage systems
+- compute resources
+- infrastructure security
+- cost optimization
+  does_not_own:
+- application code
+- CI/CD pipelines
+- product decisions
+- design
+
+routing:
+  delegates_to:
+    - "agency-git-steward"
+  receives_from:
+- agency-orchestrator
+- agency-systems-architect
+- agency-devops-engineer
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "engineering"
+    - "infrastructure"
+    - "cloud"
+    - "networking"

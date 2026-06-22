@@ -1,0 +1,40 @@
+name: "agency-requirements-analyst"
+display_name: "Requirements Analyst"
+category: "product"
+summary: "Refines, validates, and maintains detailed requirements specifications. Ensures requirements are unambiguous, testable, and traceable."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - "requirements specifications"
+    - "acceptance criteria"
+    - "requirements traceability"
+    - "specification quality"
+    - "requirements validation"
+  does_not_own:
+    - "feature implementation"
+    - "product strategy"
+    - "design execution"
+    - "test execution"
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-product-manager"
+    - "agency-business-analyst"
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "product"
+    - "requirements"
+    - "specifications"
+    - "validation"

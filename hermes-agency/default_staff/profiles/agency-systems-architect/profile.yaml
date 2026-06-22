@@ -1,0 +1,41 @@
+name: "agency-systems-architect"
+display_name: "Systems Architect"
+category: "engineering"
+summary: "Designs high-level system architecture, defines technology choices, and ensures system-wide coherence across all engineering work."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- system architecture
+- technology decisions
+- architectural patterns
+- system boundaries
+- integration strategy
+  does_not_own:
+- individual feature implementation
+- code reviews
+- infrastructure operations
+- marketing strategy
+
+routing:
+  delegates_to:
+    - "agency-software-architect"
+    - "agency-technical-lead"
+  receives_from:
+- agency-orchestrator
+- agency-technical-lead
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "engineering"
+    - "architecture"
+    - "systems"
+    - "leadership"

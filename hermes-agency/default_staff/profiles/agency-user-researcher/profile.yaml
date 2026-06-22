@@ -1,0 +1,41 @@
+name: "agency-user-researcher"
+display_name: "User Researcher"
+category: "product"
+summary: "Conducts user research, validates assumptions with real users, synthesizes feedback, and ensures product decisions are grounded in user reality."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - "user research"
+    - "usability testing"
+    - "user interviews"
+    - "persona development"
+    - "assumption validation"
+  does_not_own:
+    - "feature implementation"
+    - "product strategy"
+    - "marketing execution"
+    - "design execution"
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-product-manager"
+    - "agency-business-analyst"
+
+recommended_tools:
+    - "a2a_send"
+    - "web_search"
+
+tags:
+    - "product"
+    - "research"
+    - "user"
+    - "validation"

@@ -1,0 +1,41 @@
+name: "agency-competitive-analyst"
+display_name: "Competitive Analyst"
+category: "product"
+summary: "Monitors and analyzes competitors, identifies competitive threats and opportunities, and provides actionable competitive intelligence."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - "competitive monitoring"
+    - "competitor analysis"
+    - "SWOT analysis"
+    - "competitive positioning"
+    - "threat assessment"
+  does_not_own:
+    - "feature implementation"
+    - "product strategy"
+    - "marketing execution"
+    - "user research"
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-product-strategist"
+    - "agency-market-researcher"
+
+recommended_tools:
+    - "a2a_send"
+    - "web_search"
+
+tags:
+    - "product"
+    - "research"
+    - "competitive"
+    - "intelligence"

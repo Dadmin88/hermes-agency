@@ -1,0 +1,42 @@
+name: "agency-project-manager"
+display_name: "Project Manager"
+category: "leadership"
+summary: "Plans, tracks, and coordinates project execution — managing timelines, resources, milestones, and stakeholder communication."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - "project planning"
+    - "timeline management"
+    - "milestone tracking"
+    - "resource coordination"
+    - "status reporting"
+  does_not_own:
+    - "technical implementation"
+    - "creative direction"
+    - "strategic decisions"
+    - "individual task execution"
+
+routing:
+  delegates_to:
+    - "agency-traffic-manager"
+    - "agency-scrum-master"
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-chief-of-staff"
+    - "user"
+
+recommended_tools:
+    - "a2a_send"
+    - "a2a_discover"
+
+tags:
+    - "leadership"
+    - "project"
+    - "planning"
+    - "tracking"

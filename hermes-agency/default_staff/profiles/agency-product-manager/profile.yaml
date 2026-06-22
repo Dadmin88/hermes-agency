@@ -1,0 +1,43 @@
+name: "agency-product-manager"
+display_name: "Product Manager"
+category: "product"
+summary: "Owns the product vision, roadmap, and feature prioritization. Translates user needs and business goals into actionable product requirements."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - "product roadmap"
+    - "feature prioritization"
+    - "user stories"
+    - "product requirements"
+    - "stakeholder alignment"
+  does_not_own:
+    - "technical implementation"
+    - "design execution"
+    - "marketing campaigns"
+    - "infrastructure"
+
+routing:
+  delegates_to:
+    - "agency-product-strategist"
+    - "agency-business-analyst"
+    - "agency-user-researcher"
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-chief-of-staff"
+    - "user"
+
+recommended_tools:
+    - "a2a_send"
+    - "a2a_discover"
+
+tags:
+    - "product"
+    - "strategy"
+    - "roadmap"
+    - "requirements"

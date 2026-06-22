@@ -1,0 +1,42 @@
+name: "agency-tools-engineer"
+display_name: "Tools Engineer"
+category: "engineering"
+summary: "Builds and maintains developer tools, CLI utilities, SDK extensions, and internal utilities that improve engineering productivity."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- developer tools
+- CLI utilities
+- SDK extensions
+- internal utilities
+- developer productivity tooling
+  does_not_own:
+- product features
+- infrastructure operations
+- marketing
+- design
+
+routing:
+  delegates_to:
+    - "agency-git-steward"
+    - "agency-qa-tester"
+  receives_from:
+- agency-orchestrator
+- agency-technical-lead
+- agency-operations-manager
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "engineering"
+    - "tools"
+    - "cli"
+    - "developer-experience"

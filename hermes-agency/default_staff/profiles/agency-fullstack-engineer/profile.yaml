@@ -1,0 +1,40 @@
+name: "agency-fullstack-engineer"
+display_name: "Fullstack Engineer"
+category: "engineering"
+summary: "Implements features end-to-end across frontend and backend, handling the full stack from UI to database."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- end-to-end feature implementation
+- API integration
+- full-stack debugging
+- cross-layer optimization
+  does_not_own:
+- system architecture
+- infrastructure
+- product decisions
+- design execution
+
+routing:
+  delegates_to:
+    - "agency-git-steward"
+    - "agency-qa-tester"
+  receives_from:
+- agency-orchestrator
+- agency-technical-lead
+- agency-product-manager
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "engineering"
+    - "fullstack"
+    - "implementation"

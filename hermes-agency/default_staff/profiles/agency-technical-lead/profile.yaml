@@ -1,0 +1,43 @@
+name: "agency-technical-lead"
+display_name: "Technical Lead"
+category: "engineering"
+summary: "Leads technical execution — makes implementation decisions, guides engineering team, reviews code, and ensures technical quality."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- implementation decisions
+- code quality standards
+- technical mentoring
+- engineering best practices
+- technical debt management
+  does_not_own:
+- product strategy
+- design execution
+- infrastructure operations
+- marketing
+
+routing:
+  delegates_to:
+    - "agency-fullstack-engineer"
+    - "agency-frontend-engineer"
+    - "agency-backend-engineer"
+  receives_from:
+- agency-orchestrator
+- agency-systems-architect
+- agency-software-architect
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "engineering"
+    - "leadership"
+    - "quality"
+    - "implementation"

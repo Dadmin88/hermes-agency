@@ -1,0 +1,41 @@
+name: "agency-market-researcher"
+display_name: "Market Researcher"
+category: "product"
+summary: "Analyzes market trends, competitive dynamics, industry developments, and market sizing to inform strategic product and business decisions."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - "market analysis"
+    - "industry trends"
+    - "market sizing"
+    - "competitive landscape"
+    - "market opportunity assessment"
+  does_not_own:
+    - "feature implementation"
+    - "product strategy"
+    - "marketing execution"
+    - "user research"
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-product-strategist"
+    - "agency-marketing-strategist"
+
+recommended_tools:
+    - "a2a_send"
+    - "web_search"
+
+tags:
+    - "product"
+    - "research"
+    - "market"
+    - "trends"

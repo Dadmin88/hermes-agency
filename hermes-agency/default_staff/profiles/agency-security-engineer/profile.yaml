@@ -1,0 +1,41 @@
+name: "agency-security-engineer"
+display_name: "Security Engineer"
+category: "engineering"
+summary: "Implements security controls, performs security assessments, manages secrets, and ensures the system meets security standards."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- security controls
+- security assessments
+- secrets management
+- vulnerability management
+- security architecture
+  does_not_own:
+- feature implementation
+- product decisions
+- marketing
+- design
+
+routing:
+  delegates_to:
+    - "agency-security-reviewer"
+  receives_from:
+- agency-orchestrator
+- agency-systems-architect
+- agency-qa-lead
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "engineering"
+    - "security"
+    - "hardening"
+    - "compliance"
