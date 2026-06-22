@@ -23,8 +23,8 @@ ownership:
     - design
 
 routing:
-  delegates_to:
-    - null
+  delegates_to: []
+
   receives_from:
     - agency-orchestrator
     - agency-marketing-strategist

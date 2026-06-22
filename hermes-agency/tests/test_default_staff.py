@@ -200,15 +200,16 @@ class TestProfileContent:
 class TestDiscovery:
     def test_discovery_module_importable(self):
         """The discovery module should be importable."""
-        import sys
-        sys.path.insert(0, str(_DEFAULT_STAFF.parent.parent.parent))
-        try:
-            from hermes_agency.default_staff import list_default_staff, load_manifest
-            assert callable(list_default_staff)
-            assert callable(load_manifest)
-        except ImportError:
-            # May not be importable in test context without full plugin setup
-            pytest.skip("Discovery module not importable in test context")
+        import importlib.util
+        init_file = _DEFAULT_STAFF / "__init__.py"
+        assert init_file.is_file(), f"default_staff/__init__.py not found at {init_file}"
+        spec = importlib.util.spec_from_file_location("default_staff", init_file)
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert callable(getattr(mod, "list_default_staff", None)), "list_default_staff not callable"
+        assert callable(getattr(mod, "load_manifest", None)), "load_manifest not callable"
+        assert callable(getattr(mod, "install_default_staff", None)), "install_default_staff not callable"
 
     def test_staff_contract_exists(self):
         contract = _DEFAULT_STAFF / "STAFF_CONTRACT.md"

@@ -188,6 +188,110 @@ def _stop_text() -> str:
         return f"Hermes Agency stop failed: {type(exc).__name__}: {exc}\n\n{_status_text()}"
 
 
+def _staff_list_text(category: str = "") -> str:
+    """List available default staff profiles."""
+    from .default_staff import list_default_staff
+
+    profiles = list_default_staff()
+    if not profiles:
+        return "No default staff profiles found. The default_staff directory may be missing."
+
+    cat_filter = (category or "").strip().lower()
+    if cat_filter:
+        profiles = [p for p in profiles if p.get("category", "").lower() == cat_filter]
+        if not profiles:
+            return f"No default staff profiles in category '{category}'."
+
+    # Group by category
+    by_cat: dict[str, list[dict[str, Any]]] = {}
+    for p in profiles:
+        cat = p.get("category", "other")
+        by_cat.setdefault(cat, []).append(p)
+
+    lines = [f"Default staff profiles ({len(profiles)}):"]
+    for cat in sorted(by_cat):
+        lines.append(f"\n  [{cat}]")
+        for p in sorted(by_cat[cat], key=lambda x: x.get("name", "")):
+            name = p.get("name", "?")
+            display = p.get("display_name", "")
+            summary = p.get("summary", "")
+            short = summary[:80] + "..." if len(summary) > 80 else summary
+            lines.append(f"    {name:<40} {short}")
+    return "\n".join(lines)
+
+
+def _staff_install_text(names: list[str], *, dry_run: bool = False, force: bool = False) -> str:
+    """Install default staff profiles into local Hermes profiles directory."""
+    from .default_staff import install_default_staff
+
+    result = install_default_staff(names=names or None, force=force, dry_run=dry_run)
+    if not result.get("ok") and result.get("error"):
+        return f"Error: {result['error']}"
+
+    lines = []
+    if dry_run:
+        lines.append("Dry run — no changes made.")
+    installed = result.get("installed", [])
+    skipped = result.get("skipped", [])
+    errors = result.get("errors", [])
+
+    if installed:
+        label = "Would install" if dry_run else "Installed"
+        lines.append(f"{label} ({len(installed)}):")
+        for item in installed:
+            lines.append(f"  + {item}")
+    if skipped:
+        lines.append(f"Skipped ({len(skipped)}):")
+        for item in skipped:
+            lines.append(f"  - {item}")
+    if errors:
+        lines.append(f"Errors ({len(errors)}):")
+        for item in errors:
+            lines.append(f"  ! {item}")
+    if not installed and not skipped and not errors:
+        lines.append("Nothing to do.")
+    return "\n".join(lines)
+
+
+def _staff_info_text(name: str) -> str:
+    """Show info about a specific default staff profile."""
+    from .default_staff import get_profile_info, read_profile_soul
+
+    name = (name or "").strip()
+    if not name:
+        return "Usage: hermes agency staff info <profile-name>"
+
+    info = get_profile_info(name)
+    if info is None:
+        return f"Profile '{name}' not found in default staff manifest."
+
+    lines = [
+        f"Profile: {info.get('name', name)}",
+        f"Display: {info.get('display_name', '-')}",
+        f"Category: {info.get('category', '-')}",
+        f"Summary: {info.get('summary', '-')}",
+        f"Primary role: {info.get('primary_role', '-')}",
+    ]
+    delegates = info.get("delegates_to", [])
+    if delegates:
+        lines.append(f"Delegates to: {', '.join(delegates)}")
+    tags = info.get("tags", [])
+    if tags:
+        lines.append(f"Tags: {', '.join(tags)}")
+
+    soul = read_profile_soul(name)
+    if soul:
+        lines.append("")
+        lines.append("--- SOUL.md (excerpt) ---")
+        # Show first ~40 lines
+        soul_lines = soul.strip().split("\n")
+        for line in soul_lines[:40]:
+            lines.append(line)
+        if len(soul_lines) > 40:
+            lines.append(f"... ({len(soul_lines) - 40} more lines)")
+    return "\n".join(lines)
+
+
 def _discover_text(skill: str) -> str:
     skill = (skill or "").strip()
     if not skill:
@@ -227,7 +331,21 @@ def handle_agency_slash(raw_args: str = "") -> str:
         return _demote_text(" ".join(parts[1:]))
     if verb == "registry":
         return _json(manager.info().get("registration") or {})
-    return "Usage: /agency [status|start|stop|discover <skill>|promote <agent>|demote <agent>|registry]"
+    if verb == "staff":
+        sub = parts[1].lower() if len(parts) > 1 else "list"
+        if sub == "list":
+            cat = parts[2] if len(parts) > 2 else ""
+            return _staff_list_text(category=cat)
+        if sub == "install":
+            names = [p for p in parts[2:] if not p.startswith("--")]
+            dry_run = "--dry-run" in parts
+            force = "--force" in parts
+            return _staff_install_text(names, dry_run=dry_run, force=force)
+        if sub == "info":
+            name = parts[2] if len(parts) > 2 else ""
+            return _staff_info_text(name)
+        return "Usage: /agency staff [list [category]|install [--dry-run] [--force] [names...]|info <name>]"
+    return "Usage: /agency [status|start|stop|discover <skill>|promote <agent>|demote <agent>|registry|staff]"
 
 
 def setup_agency_parser(parser: ArgumentParser) -> None:
@@ -269,6 +387,26 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     demote_parser.add_argument("agent", help="Hermes profile name to demote")
     demote_parser.set_defaults(func=cmd_agency)
 
+    staff_parser = subparsers.add_parser(
+        "staff",
+        help="Manage default agency staff profiles",
+    )
+    staff_sub = staff_parser.add_subparsers(dest="staff_command")
+
+    staff_list = staff_sub.add_parser("list", help="List available default staff profiles")
+    staff_list.add_argument("category", nargs="?", default="", help="Filter by category")
+    staff_list.set_defaults(func=cmd_agency, agency_command="staff")
+
+    staff_install = staff_sub.add_parser("install", help="Install default staff profiles")
+    staff_install.add_argument("names", nargs="*", default=[], help="Profile names to install (default: all)")
+    staff_install.add_argument("--dry-run", action="store_true", help="Preview without installing")
+    staff_install.add_argument("--force", action="store_true", help="Overwrite existing profiles")
+    staff_install.set_defaults(func=cmd_agency, agency_command="staff")
+
+    staff_info = staff_sub.add_parser("info", help="Show info about a default staff profile")
+    staff_info.add_argument("name", help="Profile name (e.g. agency-orchestrator)")
+    staff_info.set_defaults(func=cmd_agency, agency_command="staff")
+
 
 def cmd_agency(args: Namespace) -> None:
     """Dispatch ``hermes agency`` verbs."""
@@ -288,5 +426,19 @@ def cmd_agency(args: Namespace) -> None:
         print(_promote_text(getattr(args, "agent", "")))
     elif verb == "demote":
         print(_demote_text(getattr(args, "agent", "")))
+    elif verb == "staff":
+        staff_cmd = getattr(args, "staff_command", "list") or "list"
+        if staff_cmd == "list":
+            print(_staff_list_text(getattr(args, "category", "")))
+        elif staff_cmd == "install":
+            print(_staff_install_text(
+                getattr(args, "names", []),
+                dry_run=getattr(args, "dry_run", False),
+                force=getattr(args, "force", False),
+            ))
+        elif staff_cmd == "info":
+            print(_staff_info_text(getattr(args, "name", "")))
+        else:
+            raise SystemExit(f"Unknown staff command: {staff_cmd}")
     else:
         raise SystemExit(f"Unknown agency command: {verb}")

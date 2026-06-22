@@ -23,8 +23,8 @@ ownership:
     - "user research"
 
 routing:
-  delegates_to:
-    - null
+  delegates_to: []
+
   receives_from:
     - "agency-orchestrator"
     - "agency-product-strategist"
