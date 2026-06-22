@@ -1,0 +1,41 @@
+name: "agency-lore-writer"
+display_name: "Lore Writer"
+category: "content"
+summary: "Writes and expands game/world lore — character backstories, historical accounts, faction narratives, and in-world documents."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- lore writing
+- character backstories
+- historical narratives
+- faction documents
+- in-world text
+- lore consistency
+  does_not_own:
+- world design
+- game mechanics
+- code implementation
+- marketing
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+- agency-orchestrator
+- agency-worldbuilder
+- agency-game-designer
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "content"
+    - "lore"
+    - "worldbuilding"
+    - "narrative"

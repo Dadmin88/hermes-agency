@@ -1,0 +1,40 @@
+name: "agency-release-notes-writer"
+display_name: "Release Notes Writer"
+category: "content"
+summary: "Writes clear, user-friendly release notes, changelogs, and update announcements that communicate product changes effectively."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+- release notes
+- changelogs
+- update announcements
+- version summaries
+- change categorization
+  does_not_own:
+- code implementation
+- product decisions
+- marketing campaigns
+- design
+
+routing:
+  delegates_to:
+    - "agency-editor-in-chief"
+  receives_from:
+- agency-orchestrator
+- agency-editor-in-chief
+- agency-release-manager
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "content"
+    - "release"
+    - "changelog"
+    - "announcements"
