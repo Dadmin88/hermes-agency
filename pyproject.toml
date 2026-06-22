@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "agentanycast"
 version = "0.7.3"
-description = "Connect AI agents across any network — no public IP needed. P2P encrypted, NAT-traversing, zero-config on LAN."
+description = "Hermes Agency P2P collaboration runtime and Python SDK for A2A agents."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 authors = [
-    { name = "AgentAnycast Contributors" },
+    { name = "Hermes Agency Contributors" },
 ]
 keywords = [
     "a2a", "a2a-protocol", "agent", "agent-communication", "p2p", "libp2p",
@@ -39,10 +39,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/AgentAnycast/agentanycast"
-Repository = "https://github.com/AgentAnycast/agentanycast-python"
-Issues = "https://github.com/AgentAnycast/agentanycast/issues"
-Changelog = "https://github.com/AgentAnycast/agentanycast-python/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/DeployFaith/Hermes_Agency"
+Repository = "https://github.com/DeployFaith/Hermes_Agency"
+Issues = "https://github.com/DeployFaith/Hermes_Agency/issues"
+Changelog = "https://github.com/DeployFaith/Hermes_Agency/blob/main/CHANGELOG.md"
 
 [project.scripts]
 agentanycast = "agentanycast.cli.main:main"

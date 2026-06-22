@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] - 2026-06-22
+
+### Added
+
+- Hermes Agency standalone Hermes plugin under `hermes-agency/`.
+- Hermes CLI command `hermes agency` and slash command `/agency`.
+- `agency.*` profile config prefix for Hermes plugin settings.
+- Compact A2A tool responses, team context budgets, Kanban tracking, relay registration health, and autonomous collaboration helpers.
+
+### Notes
+
+- The Python SDK import/package name remains `agentanycast` for compatibility.
+- The daemon binary remains `agentanycastd` for compatibility.
+
+
 ## [0.7.0] - 2026-03-21
 
 ### Added
@@ -79,10 +94,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - PEP 561 `py.typed` marker for type checking support
 - CI pipeline with ruff lint, mypy type check, and multi-version pytest
 
-[0.7.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.7.0
-[0.6.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.6.0
-[0.5.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.5.0
-[0.4.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.4.0
-[0.3.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.3.0
-[0.2.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.2.0
-[0.1.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.1.0
+[0.7.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.7.0
+[0.6.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.6.0
+[0.5.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.5.0
+[0.4.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.4.0
+[0.3.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.3.0
+[0.2.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.2.0
+[0.1.0]: https://github.com/DeployFaith/Hermes_Agency/releases/tag/v0.1.0

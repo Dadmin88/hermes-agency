@@ -1,27 +1,227 @@
-# AgentAnycast Python SDK
+# Hermes Agency
 
-**Build P2P agents in Python.** Discover, communicate, and collaborate with AI agents across any network -- encrypted, decentralized, NAT-traversing.
+**Hermes Agency is a P2P collaboration layer for Hermes Agent profiles, backed by its bundled P2P SDK/runtime.** It lets local and remote Hermes profiles discover each other, advertise skills, send A2A tasks, return artifacts, and coordinate multi-agent work across LAN or relay-backed networks.
 
-[![CI](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/agentanycast?color=3776AB)](https://pypi.org/project/agentanycast/)
+This repository currently contains two related pieces:
+
+1. **Hermes plugin** — `hermes-agency/`, a standalone Hermes user plugin that registers the `agency` toolset, `a2a_*` tools, `hermes agency` CLI command, and `/agency` slash command.
+2. **Bundled P2P SDK** — `src/agentanycast/`, the lower-level Python package used by the plugin. Some compatibility names are still `agentanycast` because the runtime and generated protocol namespace have not been renamed yet.
+
+> Naming note: the Hermes-facing product/plugin is **Hermes Agency**. Some lower-level compatibility names still use `agentanycast`, including the Python import, daemon binary (`agentanycastd`), and registry env var (`AGENTANYCAST_REGISTRY_ADDRS`). Public Hermes-facing docs and commands should say Hermes Agency.
+
+[![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
+---
+
+## What Hermes Agency Does
+
+- **Per-profile nodes** — each Hermes profile can run its own persistent P2P node and identity.
+- **Profile-derived AgentCards** — cards are generated from `SOUL.md`, installed Hermes skills, and a non-secret config allowlist.
+- **Skill discovery** — find teammate agents by skill over LAN discovery and/or relay-backed registry lookup.
+- **A2A task delegation** — send tasks to a peer ID or skill and receive artifacts back.
+- **Incoming task processing** — receive remote A2A tasks with conservative safe defaults.
+- **Team context injection** — optionally inject compact teammate summaries into Hermes turns using plugin context hooks.
+- **Kanban bridge** — reconcile outbound/inbound A2A tasks with Hermes Kanban when available.
+- **Autonomous collaboration helpers** — self-registration, bidding, workflows, proactive tasks, autonomy checks, and routing-correction feedback.
+
+---
+
+## Quick Start: Hermes Plugin
+
+### 1. Clone this repository
+
 ```bash
-pip install agentanycast
+git clone https://github.com/DeployFaith/Hermes_Agency.git
+cd Hermes_Agency
 ```
 
-**Try it now** -- start a demo agent in one command:
+### 2. Install or expose the SDK
+
+For local development, install the bundled SDK package from this checkout into the same Python environment Hermes uses:
 
 ```bash
-agentanycast demo
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-The daemon downloads automatically on first run. The demo prints the exact command to test it from another terminal.
+Hermes installations often use their own venv. If you want the plugin available inside a specific Hermes install, use that Hermes venv's Python instead of the example `.venv` above.
 
-## Quick Start
+### 3. Install the plugin into a Hermes profile
 
-**Create an agent:**
+Development symlink:
+
+```bash
+mkdir -p ~/.hermes/profiles/<profile>/plugins
+ln -s /path/to/Hermes_Agency/hermes-agency ~/.hermes/profiles/<profile>/plugins/hermes-agency
+```
+
+Standalone copy:
+
+```bash
+mkdir -p ~/.hermes/profiles/<profile>/plugins
+cp -r hermes-agency ~/.hermes/profiles/<profile>/plugins/hermes-agency
+```
+
+### 4. Enable the plugin
+
+Add this to the target profile's `config.yaml`:
+
+```yaml
+plugins:
+  enabled:
+    - hermes-agency
+
+agency:
+  enabled: true
+  auto_start: false
+  relay: null
+  skills_from_profile: true
+  allow_remote_tasks: false
+```
+
+Then start a fresh Hermes session or restart the gateway/desktop process for the plugin and tool surface to reload.
+
+### 5. Verify
+
+```bash
+hermes -p <profile> agency status
+```
+
+Inside a Hermes session:
+
+```text
+/agency status
+```
+
+---
+
+## Core Hermes Tool Surface
+
+The model-facing tool names intentionally remain `a2a_*` because A2A is the protocol surface, not the plugin name.
+
+| Tool | Description |
+|---|---|
+| `a2a_info` | Show plugin/SDK/card/node status; accepts `compact: true` for health checks |
+| `a2a_start_node` | Start this profile's P2P node |
+| `a2a_stop_node` | Stop this profile's P2P node |
+| `a2a_list_peers` | List connected P2P peers |
+| `a2a_discover` | Find agents by skill through anycast routing |
+| `a2a_send` | Send a task to a `peer_id` or skill and optionally wait for completion |
+| `a2a_status` | Check locally tracked task status/artifacts |
+| `a2a_inbox` | Inspect recent incoming tasks |
+| `a2a_registry` | List live self-registration records |
+| `a2a_bid_task` | Record/simulate bids and optionally assign the best bidder |
+| `a2a_execute_workflow` | Create dependency-linked Kanban tasks from configured workflows |
+| `a2a_create_proactive_task` | Create proactive tasks when enabled |
+| `a2a_check_autonomy` | Check autonomy policy for a proposed action |
+| `a2a_log_routing_correction` | Record routing-correction feedback when learning is enabled |
+
+Orchestrator-only tools are registered only for the configured orchestrator profile:
+
+- `orch_route`
+- `orch_decompose`
+- `orch_status`
+- `orch_list_tasks`
+- `orch_escalate`
+
+---
+
+## CLI / Slash Commands
+
+```bash
+hermes agency status
+hermes agency start
+hermes agency stop
+hermes agency discover <skill>
+hermes agency registry
+hermes agency promote <profile>
+hermes agency demote <profile>
+```
+
+In a Hermes session:
+
+```text
+/agency status
+/agency start
+/agency stop
+/agency discover <skill>
+/agency registry
+```
+
+Legacy pre-rename CLI/slash names are not registered as the public Hermes Agency command surface. The `a2a_*` model tools remain unchanged.
+
+---
+
+## Configuration Reference
+
+Full example:
+
+```yaml
+plugins:
+  enabled:
+    - hermes-agency
+
+agency:
+  enabled: true                 # runtime gate after the plugin itself is enabled
+  auto_start: false             # true = start node on session/plugin load
+  relay: null                   # libp2p relay multiaddr for cross-network transport
+  skills_from_profile: true     # generate AgentCard skills from installed Hermes skills
+  allow_remote_tasks: false     # false = safe stub / no real execution
+  trusted_peers: []
+  incoming_queue_limit: 100
+  card_name: null               # optional public display name override
+  home: null                    # default: $HERMES_HOME/.agency
+  daemon_bin: null              # optional explicit agentanycastd path
+  incoming:
+    mode: delegation            # template, delegation, subprocess
+    delegation_timeout: 120
+    tool_access: safe           # safe, none, full
+    max_iterations: 25
+    subprocess_profile: null
+    reject_unmatched_skills: false
+    send_progress: false
+    conversation_ttl: 3600
+    conversation_max_turns: 20
+  team:
+    auto_discover: true
+    auto_register: true
+    inject_context: true
+    kanban_integration: true
+    self_serve: true
+    announce_progress: false
+    tenant: default
+    context_refresh_minutes: 5
+    max_context_peers: 5
+    max_context_skills: 5
+    context_max_chars: 4000
+  orchestrator:
+    enabled: false
+    agent: null
+    auto_decompose: true
+  routing: {}
+  autonomy: {}
+  workflows: {}
+```
+
+Relay/bootstrap and skill registry are separate:
+
+- `agency.relay` configures the libp2p relay/bootstrap multiaddr.
+- `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` configures the current anycast skill registry used by the underlying runtime.
+
+Example:
+
+```bash
+export AGENTANYCAST_REGISTRY_ADDRS=100.123.57.115:50052
+```
+
+---
+
+## Bundled SDK Quick Start
+
+Low-level SDK imports currently use the compatibility package name:
 
 ```python
 from agentanycast import Node, AgentCard, Skill
@@ -42,174 +242,110 @@ async with Node(card=card) as node:
     await node.serve_forever()
 ```
 
-**Send a task to another agent:**
+Task addressing modes:
 
 ```python
-async with Node(card=card) as node:
-    handle = await node.send_task(
-        peer_id="12D3KooW...",
-        message={"role": "user", "parts": [{"text": "Hello!"}]},
-    )
-    result = await handle.wait()
-    print(result.artifacts[0].parts[0].text)  # "Echo: Hello!"
+await node.send_task(peer_id="12D3KooW...", message=msg)       # direct peer
+await node.send_task(skill="translate", message=msg)           # skill/anycast routing
+await node.send_task(url="https://agent.example.com", message=msg)  # HTTP bridge
 ```
 
-## Three Ways to Send a Task
+## Architecture
 
-```python
-# Direct — by Peer ID
-await node.send_task(peer_id="12D3KooW...", message=msg)
-
-# Anycast — by skill (relay resolves the target)
-await node.send_task(skill="translate", message=msg)
-
-# HTTP Bridge — to standard HTTP A2A agents
-await node.send_task(url="https://agent.example.com", message=msg)
+```text
+Hermes profile
+├── config.yaml          → agency.* settings
+├── SOUL.md              → AgentCard name/description source
+├── skills/**/SKILL.md   → AgentCard skill source
+└── plugins/hermes-agency/
+    ├── plugin.yaml      → plugin metadata
+    ├── __init__.py      → tool/CLI/slash/hook registration
+    ├── config.py        → profile-safe config resolver
+    ├── card_builder.py  → AgentCard builder with secret-safe metadata
+    ├── node_manager.py  → daemon/node lifecycle, incoming queue, registry refresh
+    ├── tools.py         → a2a_* model tools
+    ├── orchestrator.py  → orch_* model tools
+    └── *_bridge.py      → Kanban/team/context helpers
 ```
 
-## CLI
+Transport/runtime:
 
-Add `--verbose` (or `-v`) before any command for debug output:
-
-```bash
-agentanycast --verbose demo
+```text
+Hermes Agency plugin
+        │
+        ▼
+bundled P2P SDK
+        │ gRPC over Unix socket
+        ▼
+agentanycastd Go daemon
+        │ libp2p + Noise encryption
+        ▼
+LAN peers / relay-backed peers / registry discovery
 ```
 
-```bash
-agentanycast demo                        # Start an echo agent
-agentanycast discover translate          # Find agents by skill
-agentanycast send 12D3KooW... "Hello!"   # Send a task
-agentanycast status                      # Check node status
-agentanycast info                        # Show Peer ID, DID, version
+Each Hermes profile gets an isolated default daemon home:
+
+```text
+$HERMES_HOME/.agency/
 ```
 
-## How It Works
-
-```
-┌─────────────┐         mDNS / Relay         ┌─────────────┐
-│  Agent A    │<------------------------------>│  Agent B    │
-│  (Python)   │     E2E encrypted (Noise)     │  (Python)   │
-└──────┬──────┘                               └──────┬──────┘
-       | gRPC                                        | gRPC
-┌──────┴──────┐                               ┌──────┴──────┐
-│ agentanycastd│                               │ agentanycastd│
-│  (Go daemon)│<---------- libp2p ------------>│  (Go daemon) │
-└─────────────┘                               └──────────────┘
-```
-
-- **LAN** -- agents discover each other via mDNS. Zero configuration.
-- **WAN** -- deploy a [self-hosted relay](https://github.com/AgentAnycast/agentanycast-relay) and point agents to it.
-- The Go daemon is **auto-downloaded and managed** by the SDK. No manual setup.
-
-## Framework Adapters
-
-Turn existing frameworks into P2P agents with one function call:
-
-```bash
-pip install agentanycast[crewai]         # CrewAI
-pip install agentanycast[langgraph]      # LangGraph
-pip install agentanycast[google-adk]     # Google ADK
-pip install agentanycast[openai-agents]  # OpenAI Agents SDK
-pip install agentanycast[claude]         # Claude Agent SDK
-pip install agentanycast[strands]        # AWS Strands Agents
-```
-
-```python
-from agentanycast.adapters.crewai import serve_crew
-from agentanycast.adapters.langgraph import serve_graph
-from agentanycast.adapters.adk import serve_adk_agent
-from agentanycast.adapters.openai_agents import serve_openai_agent
-from agentanycast.adapters.claude_agent import serve_claude_agent
-from agentanycast.adapters.strands import serve_strands_agent
-
-await serve_crew(crew, card=card, relay="...")
-await serve_graph(graph, card=card, relay="...")
-await serve_adk_agent(agent, card=card, relay="...")
-await serve_openai_agent(agent, card=card, relay="...")
-await serve_claude_agent(prompt_template="...", card=card)
-await serve_strands_agent(agent, card=card)
-```
-
-## Skill Discovery
-
-```python
-agents = await node.discover("translate")
-agents = await node.discover("translate", tags={"lang": "fr"})
-```
-
-## Interoperability
-
-```python
-# W3C DID
-from agentanycast.did import peer_id_to_did_key, did_key_to_peer_id
-did = peer_id_to_did_key("12D3KooW...")      # "did:key:z6Mk..."
-pid = did_key_to_peer_id("did:key:z6Mk...")  # "12D3KooW..."
-
-# MCP Tool <-> A2A Skill mapping
-from agentanycast.mcp import mcp_tools_to_agent_card
-card = mcp_tools_to_agent_card(mcp_tools, name="MCPAgent")
-
-# A2A v1.0 JSON format
-from agentanycast.compat.a2a_v1 import task_to_a2a_json, task_from_a2a_json
-
-# OASF / AGNTCY Directory
-from agentanycast.compat.oasf import card_to_oasf_record
-from agentanycast.compat.agntcy import AGNTCYDirectory
-```
-
-## API Reference
-
-### Node
-
-| Method | Description |
-|---|---|
-| `Node(card, relay?, home?, ...)` | Create a node with an AgentCard and optional config |
-| `async with Node(...) as node` | Context manager -- starts/stops daemon automatically |
-| `send_task(peer_id?, skill?, url?, message=)` | Send a task using any addressing mode |
-| `discover(skill, tags?)` | Find agents by skill with optional tag filtering |
-| `on_task(handler)` | Register handler for incoming tasks |
-| `serve_forever()` | Block and process incoming tasks until stopped |
-
-### Core Types
-
-| Class | Description |
-|---|---|
-| `AgentCard` | Agent identity, capabilities, and metadata |
-| `Skill` | A single capability an agent can perform |
-| `TaskHandle` | Returned by `send_task()`. Call `wait()` for the result. |
-| `IncomingTask` | Passed to task handlers. Provides message data and response methods. |
-
-### Node Options
-
-| Parameter | Description | Default |
-|---|---|---|
-| `card` | Agent's `AgentCard` | Required |
-| `relay` | Relay multiaddr for cross-network communication | `None` (LAN only) |
-| `daemon_path` | Path to a local `agentanycastd` binary | Auto-download |
-| `daemon_addr` | Address of an externally managed daemon | Auto-managed |
-| `key_path` | Path to Ed25519 identity key file | `<home>/key` |
-| `home` | Data directory. Use different values for multiple nodes. | `~/.agentanycast` |
-| `status_callback` | Optional callback for progress messages (download, startup) | `None` |
-
-## Development
-
-```bash
-pip install -e ".[dev]"    # Install in editable mode with dev deps
-pytest                     # Run all tests
-ruff check .               # Lint
-ruff format .              # Format
-mypy src/                  # Type check (strict)
-```
-
-## Requirements
-
-- Python 3.10+
-- The [agentanycastd](https://github.com/AgentAnycast/agentanycast-node) daemon (auto-managed by the SDK)
+The lower-level SDK default remains `~/.agentanycast` when used outside Hermes Agency.
 
 ---
 
-**Part of [AgentAnycast](https://github.com/AgentAnycast/agentanycast)** -- see the main repo for architecture docs, protocol reference, and examples.
+## Security Model
+
+- Plugin loading is opt-in via `plugins.enabled`.
+- Runtime operation is gated by `agency.enabled`.
+- Remote task execution defaults to conservative safe behavior.
+- Incoming task processing uses delegation/subprocess modes only when explicitly configured.
+- AgentCards expose only non-secret metadata: model/provider names, configured booleans, and skill/profile summaries.
+- AgentCards must not expose API keys, tokens, Discord channel IDs, raw env vars, local daemon paths, or profile-private data.
+- The daemon and relay are external runtime components; do not vendor daemon/relay binaries into a Hermes upstream PR.
+
+---
+
+## Development / Validation
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e ".[dev]"
+
+python -m py_compile hermes-agency/*.py
+pytest hermes-agency/tests/test_unit.py -q
+pytest tests/ -q
+ruff check .
+ruff format --check .
+mypy src/ --exclude '_generated'
+```
+
+Manual/live P2P checks:
+
+```bash
+python hermes-agency/tests/test_e2e.py
+python hermes-agency/tests/test_e2e_full.py
+```
+
+The lightweight `hermes-agency/tests/test_e2e.py` script uses isolated temporary daemon homes and does not use a registry/relay unless `AGENTANYCAST_E2E_REGISTRY` / `AGENTANYCAST_E2E_RELAY` are explicitly set. The full e2e script still exercises live profile/Kanban/relay assumptions and should remain explicit manual validation until those assumptions are converted to fixtures or skips.
+
+---
+
+## Repository Layout
+
+```text
+hermes-agency/         Hermes Agent plugin
+src/agentanycast/      Bundled SDK package (compatibility import path)
+examples/              SDK examples
+tests/                 SDK tests
+.github/               GitHub workflows/templates
+docs/                  Development notes and historical patch notes
+```
+
+---
 
 ## License
 
 [Apache License, Version 2.0](LICENSE)
+
+If the Hermes plugin is proposed for `NousResearch/hermes-agent`, call out the license compatibility story explicitly and let maintainers decide whether a bundled plugin needs MIT relicensing or dual licensing.

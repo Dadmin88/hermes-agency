@@ -1,10 +1,10 @@
 # Hermes Agency Hermes Plugin
 
-P2P agent communication for [Hermes Agent](https://github.com/NousResearch/hermes-agent) profiles via [Hermes Agency](https://github.com/Hermes Agency/agency).
+P2P agent communication for [Hermes Agent](https://github.com/NousResearch/hermes-agent) profiles via the **Hermes Agency** plugin and bundled P2P SDK/runtime.
 
-Each Hermes profile gets its own Hermes Agency node with a persistent identity, an auto-generated AgentCard from `SOUL.md` + installed skills, and encrypted P2P communication with other agents.
+Each Hermes profile gets its own node with a persistent identity, an auto-generated AgentCard from `SOUL.md` + installed skills, and encrypted P2P communication with other agents.
 
-> Status: local testing / PR-prep. Do not open upstream PRs from this checkout unless Kyle explicitly asks.
+> Naming note: this Hermes plugin is named `hermes-agency`, uses the `agency.*` config prefix, and registers `hermes agency` plus `/agency`. Some lower-level compatibility names remain `agentanycast` / `agentanycastd` because the runtime namespace has not been renamed yet.
 
 ## What It Does
 
@@ -22,22 +22,26 @@ Each Hermes profile gets its own Hermes Agency node with a persistent identity, 
 
 - Python 3.10+
 - Hermes Agent with user-plugin support
-- Optional: `agentanycast` Python SDK (`pip install agentanycast` or editable install from this fork)
-- Optional for cross-network discovery: an Hermes Agency relay with registry service
+- Optional at plugin-load time, required for live networking: the bundled SDK package (`pip install -e .` from this repo, or another compatible install)
+- Optional for cross-network discovery: relay plus registry service reachable by the runtime daemon
 
-The SDK is optional at plugin load time. If it is absent, the plugin must load cleanly and its tool check functions should gate A2A tools off.
+The SDK is optional at plugin discovery time. If it is absent, the plugin should load cleanly and its tool check functions should gate A2A tools off.
 
 ## Install
 
 ### Option A: Symlink (development)
 
 ```bash
-ln -s ~/src/hermes-agentanycast/hermes-agency ~/.hermes/profiles/<profile>/plugins/hermes-agency
+git clone https://github.com/DeployFaith/Hermes_Agency.git
+mkdir -p ~/.hermes/profiles/<profile>/plugins
+ln -s /path/to/Hermes_Agency/hermes-agency ~/.hermes/profiles/<profile>/plugins/hermes-agency
 ```
 
 ### Option B: Copy (standalone testing)
 
 ```bash
+git clone https://github.com/DeployFaith/Hermes_Agency.git
+cd Hermes_Agency
 mkdir -p ~/.hermes/profiles/<profile>/plugins
 cp -r hermes-agency ~/.hermes/profiles/<profile>/plugins/hermes-agency
 ```
@@ -53,7 +57,7 @@ Add to the active profile's `config.yaml`:
 ```yaml
 plugins:
   enabled:
-    - agency
+    - hermes-agency
 
 agency:
   enabled: true                 # runtime gate after the plugin itself is enabled
@@ -61,10 +65,11 @@ agency:
   relay: null                   # libp2p relay multiaddr for cross-network transport
   skills_from_profile: true     # generate AgentCard skills from installed Hermes skills
   allow_remote_tasks: false     # false = safe stub / no real execution
-  trusted_peers: []             # peer_id allowlist, reserved for stricter policies
+  trusted_peers: []
   incoming_queue_limit: 100
   card_name: null               # optional public display name override
-  daemon_bin: null              # optional explicit daemon path; prevents SDK auto-download/overwrite
+  home: null                    # default: $HERMES_HOME/.agency
+  daemon_bin: null              # optional explicit agentanycastd path
   incoming:
     mode: delegation            # template, delegation, subprocess
     delegation_timeout: 120
@@ -92,6 +97,8 @@ agency:
     agent: null
     auto_decompose: true
   routing: {}
+  autonomy: {}
+  workflows: {}
 ```
 
 For relay-backed skill discovery, set the daemon environment separately:
@@ -100,7 +107,7 @@ For relay-backed skill discovery, set the daemon environment separately:
 export AGENTANYCAST_REGISTRY_ADDRS=100.123.57.115:50052
 ```
 
-Relay/bootstrap and skill registry are separate: `agency.relay` connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS` enables anycast skill discovery.
+Relay/bootstrap and skill registry are separate: `agency.relay` connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS` enables anycast skill discovery in the current underlying runtime.
 
 ## Tools
 
@@ -151,6 +158,8 @@ In a Hermes session:
 /agency registry
 ```
 
+Legacy pre-rename CLI/slash names are intentionally not the public command names after the rename. Model tool names remain `a2a_*`.
+
 ## Security Model
 
 - Plugin loading is opt-in via `plugins.enabled`.
@@ -158,7 +167,7 @@ In a Hermes session:
 - Remote task execution defaults to safe behavior; no terminal/file access is granted by default.
 - The incoming processor can use delegation/subprocess modes only when explicitly configured.
 - AgentCards expose only a non-secret metadata allowlist: provider/model names, configured booleans, and profile/toolset summaries. They must not expose API keys, raw env vars, Discord channel IDs, local daemon paths, or profile-private data.
-- The daemon and relay are external Hermes Agency runtime components. Do not vendor daemon/relay binaries into an upstream Hermes PR.
+- The daemon and relay are external runtime components. Do not vendor daemon/relay binaries into an upstream Hermes PR.
 
 ## Architecture
 
@@ -178,33 +187,35 @@ Hermes profile
     └── *_bridge.py      → Kanban/team/context helpers
 ```
 
-Each profile gets its own daemon home:
+Each profile gets its own default daemon home:
 
 ```text
-~/.hermes/profiles/<profile>/.agency/
+$HERMES_HOME/.agency/
 ```
+
+The underlying standalone SDK default remains `~/.agentanycast`.
 
 ## Validation
 
 From repo root:
 
 ```bash
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pytest hermes-agency/tests/test_unit.py -q
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m py_compile hermes-agency/*.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pip check
+python -m py_compile hermes-agency/*.py
+pytest hermes-agency/tests/test_unit.py -q
+python -m pip check
 ```
 
 Manual/live P2P checks:
 
 ```bash
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e_full.py
+python hermes-agency/tests/test_e2e.py
+python hermes-agency/tests/test_e2e_full.py
 ```
 
-The lightweight `test_e2e.py` script starts real SDK nodes with isolated temporary daemon homes and does not use a registry/relay unless `AGENTANYCAST_E2E_REGISTRY` / `AGENTANYCAST_E2E_RELAY` are explicitly set. The full Phase 7 script still exercises live profile/Kanban/relay assumptions and should remain explicit manual validation until those assumptions are converted to fixtures or test skips.
+The lightweight `test_e2e.py` script starts real SDK nodes with isolated temporary daemon homes and does not use a registry/relay unless `AGENTANYCAST_E2E_REGISTRY` / `AGENTANYCAST_E2E_RELAY` are explicitly set. The full e2e script still exercises live profile/Kanban/relay assumptions and should remain explicit manual validation until those assumptions are converted to fixtures or test skips.
 
 ## License Notes
 
 - This repository and the Python SDK are Apache-2.0.
-- The Hermes Agency daemon/relay are external runtime components with their own license terms and should not be bundled here.
+- The daemon/relay are external runtime components with their own license terms and should not be bundled here.
 - If the plugin is proposed for Hermes upstream, call out the license compatibility story explicitly and let maintainers decide whether a bundled plugin needs MIT relicensing or dual licensing.

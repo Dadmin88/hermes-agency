@@ -8,16 +8,16 @@
 
 ## Reporting a Vulnerability
 
-**Please do NOT open a public GitHub issue for security vulnerabilities.**
+**Please do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please use [GitHub Security Advisories](https://github.com/AgentAnycast/agentanycast/security/advisories/new) to report vulnerabilities privately.
+Use [GitHub Security Advisories](https://github.com/DeployFaith/Hermes_Agency/security/advisories/new) to report vulnerabilities privately.
 
 Please include:
 
 1. Description of the vulnerability
 2. Steps to reproduce
 3. Affected component(s)
-4. Impact assessment (if possible)
+4. Impact assessment, if possible
 
 ## Response Timeline
 
@@ -27,7 +27,14 @@ Please include:
 
 ## Security Design
 
-AgentAnycast uses end-to-end encryption (Noise_XX protocol + NaCl box) for all P2P communication. The relay server cannot read message content. See the [Architecture documentation](https://github.com/AgentAnycast/agentanycast/blob/main/docs/architecture.md) for details.
+Hermes Agency uses a P2P runtime with end-to-end encrypted transport for agent communication. The relay layer should not be able to read message content.
+
+The Hermes plugin is conservative by default:
+
+- Plugin loading is opt-in through `plugins.enabled`.
+- Runtime operation is gated by `agency.enabled`.
+- Remote task execution defaults to safe behavior.
+- AgentCards must not expose API keys, tokens, raw env vars, local daemon paths, Discord channel IDs, or profile-private data.
 
 ## Disclosure Policy
 
@@ -35,4 +42,4 @@ We follow [coordinated disclosure](https://en.wikipedia.org/wiki/Coordinated_vul
 
 ## Recognition
 
-We appreciate responsible disclosure and will credit reporters (with permission) in release notes.
+We appreciate responsible disclosure and will credit reporters, with permission, in release notes.

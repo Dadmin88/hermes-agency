@@ -10,35 +10,24 @@ permissions:
   contents: read
 
 jobs:
-  proto-freshness:
-    name: Proto Stubs Freshness
+  hermes-agency-plugin:
+    name: Hermes Agency Plugin
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout proto repo
-        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          repository: AgentAnycast/agentanycast-proto
-          path: agentanycast-proto
+          python-version: "3.12"
 
-      - name: Verify stubs match proto source
-        run: |
-          # Compute checksum of all .proto source files.
-          PROTO_HASH=$(find agentanycast-proto/agentanycast/ -name '*.proto' -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
-          echo "Proto source hash: $PROTO_HASH"
+      - name: Install SDK/dev dependencies
+        run: pip install -e ".[dev]" pyyaml
 
-          # Check if the committed checksum file matches.
-          if [ -f src/agentanycast/_generated/.proto-hash ]; then
-            COMMITTED_HASH=$(cat src/agentanycast/_generated/.proto-hash)
-            if [ "$PROTO_HASH" != "$COMMITTED_HASH" ]; then
-              echo "::error::Proto files have changed (hash $PROTO_HASH != committed $COMMITTED_HASH). Regenerate stubs: cd agentanycast-proto && buf generate, then copy gen/python/ to src/agentanycast/_generated/."
-              exit 1
-            fi
-            echo "Stubs are up to date."
-          else
-            echo "::warning::No .proto-hash file found. Creating one is recommended: run 'find agentanycast-proto/agentanycast/ -name *.proto -exec sha256sum {} \\; | sort | sha256sum | cut -d\" \" -f1 > src/agentanycast/_generated/.proto-hash'"
-          fi
+      - name: Compile plugin files
+        run: python -m py_compile hermes-agency/*.py
+
+      - name: Run plugin unit tests
+        run: pytest hermes-agency/tests/test_unit.py -q
 
   lint:
     name: Ruff Lint

@@ -2,10 +2,19 @@
 
 This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P agent communication.
 
+## Naming
+
+- Hermes-facing plugin name/key: `hermes-agency`
+- Hermes config prefix: `agency.*`
+- Hermes CLI command: `hermes agency`
+- Hermes slash command: `/agency`
+- Model tool names: `a2a_*` stay unchanged because A2A is the protocol surface
+- Lower-level compatibility names remain `agentanycast`, `agentanycastd`, and `AGENTANYCAST_*`
+
 ## Current status
 
-- This plugin is still in local testing / PR-prep mode.
-- Do **not** open pull requests from this checkout unless Kyle explicitly asks.
+- This plugin is still in active local testing / PR-prep mode.
+- Do **not** open upstream Hermes PRs from this checkout unless Kyle explicitly asks.
 - Keep changes profile-safe: do not depend on Kyle's real `~/.hermes` homes, real peer IDs, the VPS relay, Discord channels, or local daemon sockets in tests that should run in CI.
 
 ## Plugin shape
@@ -13,14 +22,14 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 - `plugin.yaml` declares the standalone plugin.
 - `__init__.py` registers the `/agency` slash command, `hermes agency` CLI command, model tools, and lifecycle hooks.
 - `card_builder.py` builds an AgentCard from profile `SOUL.md`, installed `skills/**/SKILL.md`, and a strict non-secret config allowlist.
-- `node_manager.py` owns the async Hermes Agency SDK node, daemon lifecycle, incoming task queue, compact health, registry refresh, and Kanban reconciliation.
+- `node_manager.py` owns the async SDK node, daemon lifecycle, incoming task queue, compact health, registry refresh, and Kanban reconciliation.
 - `tools.py` exposes the core `a2a_*` tools.
 - `orchestrator.py` exposes `orch_*` tools only for the promoted/configured orchestrator profile.
 - `autonomous_tools.py` exposes registry, bidding, workflow, proactive, autonomy, and learning helpers.
 
 ## Safety rules
 
-- The Hermes Agency SDK is optional. All SDK imports must stay lazy so Hermes can load the plugin when `agentanycast` is not installed.
+- The bundled SDK is optional at plugin-discovery time. All SDK imports must stay lazy so Hermes can load the plugin when `agentanycast` is not installed.
 - Plugin discovery must not start daemon processes when the SDK is absent or `agency.enabled: false`.
 - Remote task execution is conservative by default:
   - `allow_remote_tasks: false`
@@ -28,7 +37,7 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
   - progress artifacts are opt-in via `incoming.send_progress: true`
 - Never expose API keys, tokens, Discord channel IDs, raw env vars, daemon paths, or local profile paths in AgentCards.
 - Treat relay configuration and anycast registry configuration as separate concerns: relay/bootstrap connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
-- Always transition incoming tasks through `WORKING` before `COMPLETED`; daemon builds reject direct `SUBMITTED -> COMPLETED`.
+- Always transition incoming tasks through `WORKING` before `COMPLETED`; current daemon builds reject direct `SUBMITTED -> COMPLETED`.
 - Keep routine model-tool responses compact. Use full `a2a_info` only for troubleshooting; health checks should call `a2a_info({"compact": true})` or `NodeManager.compact_info()`.
 
 ## Test expectations
@@ -37,13 +46,13 @@ Run from the repo root:
 
 ```bash
 # Unit / PR-prep checks
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pytest hermes-agency/tests/test_unit.py -q
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m py_compile hermes-agency/*.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pip check
+python -m py_compile hermes-agency/*.py
+pytest hermes-agency/tests/test_unit.py -q
+python -m pip check
 
 # Standalone local P2P checks; require SDK + daemon and may use live relay env vars
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e_full.py
+python hermes-agency/tests/test_e2e.py
+python hermes-agency/tests/test_e2e_full.py
 ```
 
 Before upstreaming, convert live-environment assumptions in standalone e2e scripts into temp-home fixtures or mark them explicit integration/manual tests.
@@ -55,6 +64,7 @@ Do not commit:
 - `__pycache__/`
 - `.pytest_cache/`
 - `.agency/`
+- `.agentanycast/`
 - daemon logs/sockets
 - `bin/agentanycastd`
 - symlinks such as `agency_plugin`
