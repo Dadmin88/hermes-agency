@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Type checking / lint
+.mypy_cache/
+.ruff_cache/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+
+# Daemon binaries / local runtime artifacts
+src/agentanycast/_bin/
+bin/agentanycastd
+.agentanycast/
+*.sock
+*.log
+logs/
+
+# Local compatibility symlinks
+agentanycast_plugin

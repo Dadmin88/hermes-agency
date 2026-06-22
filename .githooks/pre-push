@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Pre-push hook: runs the same checks as CI before allowing push.
+# Install: git config core.hooksPath .githooks
+set -euo pipefail
+
+echo "🔍 Running pre-push checks (mirroring CI)..."
+echo ""
+
+# Use venv Python directly (required for installed deps like base58, ruff, mypy).
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+  PY="$REPO_ROOT/.venv/bin/python"
+elif command -v python3 &>/dev/null; then
+  PY="python3"
+else
+  echo "❌ Python not found. Skipping pre-push checks."
+  exit 0
+fi
+echo "Using: $PY"
+
+FAILED=0
+
+# 1. Ruff lint
+echo "▶ [1/4] Ruff check..."
+if $PY -m ruff check . ; then
+  echo "✅ Ruff check passed"
+else
+  echo "❌ Ruff check failed. Run: ruff check --fix ."
+  FAILED=1
+fi
+echo ""
+
+# 2. Ruff format
+echo "▶ [2/4] Ruff format check..."
+if $PY -m ruff format --check . ; then
+  echo "✅ Ruff format passed"
+else
+  echo "❌ Ruff format failed. Run: ruff format ."
+  FAILED=1
+fi
+echo ""
+
+# 3. Mypy
+echo "▶ [3/4] Mypy type check..."
+if $PY -m mypy src/ --exclude '_generated' ; then
+  echo "✅ Mypy passed"
+else
+  echo "❌ Mypy failed"
+  FAILED=1
+fi
+echo ""
+
+# 4. Tests
+echo "▶ [4/4] Pytest..."
+if $PY -m pytest tests/ -v --ignore=tests/integration -q ; then
+  echo "✅ Tests passed"
+else
+  echo "❌ Tests failed"
+  FAILED=1
+fi
+echo ""
+
+if [ $FAILED -ne 0 ]; then
+  echo "❌ Pre-push checks FAILED. Push aborted."
+  echo "   Fix the issues above and try again."
+  echo "   To skip (emergency): git push --no-verify"
+  exit 1
+fi
+
+echo "✅ All pre-push checks passed."

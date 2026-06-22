@@ -1,0 +1,104 @@
+# AgentAnycast Python SDK
+
+Python SDK for the AgentAnycast P2P runtime. Communicates with the Go sidecar daemon via gRPC over Unix domain socket.
+
+## Architecture
+
+- Thin SDK layer: all P2P networking happens in the Go daemon (`agentanycastd`)
+- SDK manages daemon lifecycle (download, start, health check, stop) automatically
+- All public APIs are async (`async/await`), built on `asyncio`
+- gRPC stubs are pre-generated and committed in `_generated/`
+
+## Directory Structure
+
+```
+src/agentanycast/
+  __init__.py          # Public re-exports: Node, AgentCard, Skill, etc.
+  node.py              # Node class — main public API (start, send_task, on_task, serve_forever, stop)
+  daemon.py            # DaemonManager — binary download, process management, health check
+  _grpc_client.py      # gRPC client wrapper over Unix socket
+  card.py              # AgentCard, Skill dataclasses
+  task.py              # TaskHandle (client), IncomingTask (server), Message, Artifact, Part
+  did.py               # PeerID <-> did:key bidirectional conversion
+  mcp.py               # MCP Tool <-> A2A Skill mapping
+  exceptions.py        # Exception hierarchy
+  adapters/
+    crewai.py          # serve_crew() — CrewAI adapter
+    langgraph.py       # serve_graph() — LangGraph adapter
+  compat/
+    agntcy.py          # AGNTCY Directory client (lazy import)
+  cli/                 # Click-based CLI (demo, discover, send, status, info)
+  _generated/          # Auto-generated protobuf/gRPC stubs (committed, do not edit)
+tests/
+  test_node.py
+  test_card.py
+  test_task.py
+  test_did.py
+  test_mcp.py
+examples/
+```
+
+## Common Patterns
+
+### Basic agent server
+
+```python
+from agentanycast import Node, AgentCard, Skill
+
+card = AgentCard(name="MyAgent", skills=[Skill(id="echo", description="Echo")])
+async with Node(card=card) as node:
+    @node.on_task
+    async def handle(task):
+        text = task.messages[-1].parts[0].text
+        await task.complete(artifacts=[{"parts": [{"text": text}]}])
+    await node.serve_forever()
+```
+
+### Sending tasks
+
+```python
+result = await node.send_task(peer_id="12D3KooW...", message="Hello")
+result = await node.send_task(skill="translate", message="Translate this")
+result = await node.send_task(url="https://agent.example.com", message="Hello")
+```
+
+### Framework adapters
+
+```python
+from agentanycast.adapters.crewai import serve_crew
+from agentanycast.adapters.langgraph import serve_graph
+
+await serve_crew(crew, card=card)
+await serve_graph(graph, card=card)
+```
+
+## Code Style
+
+- Python 3.10+
+- Line length: 100
+- Linting: `ruff check .` (rules: E, F, I, N, W, UP)
+- Formatting: `ruff format .`
+- Type checking: `mypy src/` (strict mode, generated stubs excluded)
+- Testing: `pytest` with `asyncio_mode = "auto"`
+- Integration tests: marked `@pytest.mark.integration` (skipped by default)
+- All public APIs must have type hints and docstrings
+
+## Build & Test
+
+```bash
+pip install -e ".[dev]"
+pytest
+pytest tests/test_node.py::test_specific
+ruff check . && ruff format --check .
+mypy src/
+```
+
+## Key Types
+
+- `Node` — main class; manages daemon, exposes send_task/on_task/discover
+- `AgentCard` — agent identity + skills declaration
+- `Skill` — single capability (id, description, input/output schemas)
+- `IncomingTask` — server-side task with complete/fail/update/send_artifact
+- `TaskHandle` — client-side task result with status/artifacts
+- `Message` — contains list of Part (TextPart, DataPart, FilePart)
+- `Artifact` — output container with parts and metadata
