@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- lore writing
-- character backstories
-- historical narratives
-- faction documents
-- in-world text
-- lore consistency
+    - lore writing
+    - character backstories
+    - historical narratives
+    - faction documents
+    - in-world text
+    - lore consistency
   does_not_own:
-- world design
-- game mechanics
-- code implementation
-- marketing
+    - world design
+    - game mechanics
+    - code implementation
+    - marketing
 
 routing:
   delegates_to:
     - null
   receives_from:
-- agency-orchestrator
-- agency-worldbuilder
-- agency-game-designer
+    - agency-orchestrator
+    - agency-worldbuilder
+    - agency-game-designer
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "lore"
     - "worldbuilding"
     - "narrative"
+

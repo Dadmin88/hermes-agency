@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- animations
-- motion graphics
-- UI transitions
-- dynamic visual effects
-- motion principles
+    - animations
+    - motion graphics
+    - UI transitions
+    - dynamic visual effects
+    - motion principles
   does_not_own:
-- static art
-- code implementation
-- game mechanics
-- marketing strategy
+    - static art
+    - code implementation
+    - game mechanics
+    - marketing strategy
 
 routing:
   delegates_to:
     - null
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- agency-ui-ux-designer
+    - agency-orchestrator
+    - agency-creative-director
+    - agency-ui-ux-designer
 
 recommended_tools:
     - "a2a_send"
@@ -38,3 +38,4 @@ tags:
     - "motion"
     - "animation"
     - "transitions"
+

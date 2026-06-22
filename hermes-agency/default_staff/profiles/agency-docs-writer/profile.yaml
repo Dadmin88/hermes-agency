@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- user documentation
-- help articles
-- how-to guides
-- FAQ content
-- knowledge base
+    - user documentation
+    - help articles
+    - how-to guides
+    - FAQ content
+    - knowledge base
   does_not_own:
-- API documentation
-- marketing content
-- code implementation
-- design
+    - API documentation
+    - marketing content
+    - code implementation
+    - design
 
 routing:
   delegates_to:
     - "agency-editor-in-chief"
   receives_from:
-- agency-orchestrator
-- agency-editor-in-chief
-- agency-support-specialist
+    - agency-orchestrator
+    - agency-editor-in-chief
+    - agency-support-specialist
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "documentation"
     - "help"
     - "knowledge-base"
+

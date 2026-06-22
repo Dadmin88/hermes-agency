@@ -11,16 +11,16 @@ agency:
 
 ownership:
   owns:
-- creative vision
-- creative direction
-- visual language
-- creative standards
-- cross-project creative consistency
+    - creative vision
+    - creative direction
+    - visual language
+    - creative standards
+    - cross-project creative consistency
   does_not_own:
-- individual design execution
-- code implementation
-- business strategy
-- marketing execution
+    - individual design execution
+    - code implementation
+    - business strategy
+    - marketing execution
 
 routing:
   delegates_to:
@@ -28,9 +28,9 @@ routing:
     - "agency-product-designer"
     - "agency-brand-designer"
   receives_from:
-- agency-orchestrator
-- agency-chief-of-staff
-- user
+    - agency-orchestrator
+    - agency-chief-of-staff
+    - user
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "creative"
     - "leadership"
     - "vision"
+

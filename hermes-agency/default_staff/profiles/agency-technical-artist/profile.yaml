@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- shaders
-- visual effects
-- art asset optimization
-- art pipelines
-- material systems
+    - shaders
+    - visual effects
+    - art asset optimization
+    - art pipelines
+    - material systems
   does_not_own:
-- art direction
-- code architecture
-- game design
-- marketing
+    - art direction
+    - code architecture
+    - game design
+    - marketing
 
 routing:
   delegates_to:
     - null
   receives_from:
-- agency-orchestrator
-- agency-art-director
-- agency-godot-engineer
+    - agency-orchestrator
+    - agency-art-director
+    - agency-godot-engineer
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "technical-art"
     - "shaders"
     - "optimization"
+

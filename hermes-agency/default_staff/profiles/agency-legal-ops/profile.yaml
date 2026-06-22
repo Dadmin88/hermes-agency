@@ -1,0 +1,42 @@
+name: "agency-legal-ops"
+display_name: "Legal Operations"
+category: "support"
+summary: "Manages legal and regulatory matters — contract review, compliance, intellectual property, terms of service, and legal risk assessment."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - contract review
+    - terms of service
+    - privacy policy
+    - legal risk assessment
+    - IP management
+    - legal documentation
+  does_not_own:
+    - product decisions
+    - code implementation
+    - marketing execution
+    - design
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - agency-orchestrator
+    - agency-chief-of-staff
+    - agency-compliance-reviewer
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "support"
+    - "legal"
+    - "compliance"
+    - "contracts"
+

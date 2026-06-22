@@ -1,0 +1,42 @@
+name: "agency-accessibility-reviewer"
+display_name: "Accessibility Reviewer"
+category: "qa"
+summary: "Reviews designs and implementations for accessibility compliance, ensuring the product is usable by people of all abilities."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - accessibility review
+    - WCAG compliance
+    - a11y testing
+    - accessibility recommendations
+    - assistive technology testing
+  does_not_own:
+    - feature implementation
+    - design creation
+    - product decisions
+    - infrastructure
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - agency-orchestrator
+    - agency-qa-lead
+    - agency-design-reviewer
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "qa"
+    - "accessibility"
+    - "wcag"
+    - "inclusive-design"
+

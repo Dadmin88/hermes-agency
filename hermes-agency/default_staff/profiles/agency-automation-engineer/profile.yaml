@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- automation workflows
-- scripting
-- bot development
-- workflow orchestration
-- autonomous processes
+    - automation workflows
+    - scripting
+    - bot development
+    - workflow orchestration
+    - autonomous processes
   does_not_own:
-- product features
-- infrastructure operations
-- marketing
-- design
+    - product features
+    - infrastructure operations
+    - marketing
+    - design
 
 routing:
   delegates_to:
     - "agency-git-steward"
   receives_from:
-- agency-orchestrator
-- agency-operations-manager
-- agency-technical-lead
+    - agency-orchestrator
+    - agency-operations-manager
+    - agency-technical-lead
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "automation"
     - "scripting"
     - "workflows"
+

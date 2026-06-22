@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- internal developer platform
-- shared libraries
-- infrastructure abstractions
-- developer tooling
-- platform APIs
+    - internal developer platform
+    - shared libraries
+    - infrastructure abstractions
+    - developer tooling
+    - platform APIs
   does_not_own:
-- product features
-- frontend UI
-- business logic
-- marketing
+    - product features
+    - frontend UI
+    - business logic
+    - marketing
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-systems-architect
-- agency-technical-lead
+    - agency-orchestrator
+    - agency-systems-architect
+    - agency-technical-lead
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "platform"
     - "infrastructure"
     - "developer-experience"
+

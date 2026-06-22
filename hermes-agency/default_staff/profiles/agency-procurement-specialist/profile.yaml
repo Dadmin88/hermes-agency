@@ -1,0 +1,42 @@
+name: "agency-procurement-specialist"
+display_name: "Procurement Specialist"
+category: "support"
+summary: "Manages vendor and tool procurement — evaluating options, negotiating terms, managing subscriptions, and ensuring value for money."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - vendor evaluation
+    - tool procurement
+    - subscription management
+    - contract negotiation support
+    - vendor relationship management
+  does_not_own:
+    - financial decisions
+    - product decisions
+    - code implementation
+    - marketing
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - agency-orchestrator
+    - agency-operations-manager
+    - agency-finance-ops
+
+recommended_tools:
+    - "a2a_send"
+    - "web_search"
+
+tags:
+    - "support"
+    - "procurement"
+    - "vendors"
+    - "tools"
+

@@ -1,0 +1,42 @@
+name: "agency-seo-specialist"
+display_name: "SEO Specialist"
+category: "marketing"
+summary: "Optimizes content and technical elements for search engines — keyword research, on-page SEO, technical SEO, and search performance tracking."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - keyword research
+    - on-page SEO
+    - technical SEO
+    - search performance
+    - link building strategy
+  does_not_own:
+    - content creation
+    - code implementation
+    - marketing strategy
+    - design
+
+routing:
+  delegates_to:
+    - null
+  receives_from:
+    - agency-orchestrator
+    - agency-marketing-strategist
+    - agency-content-writer
+
+recommended_tools:
+    - "a2a_send"
+    - "web_search"
+
+tags:
+    - "marketing"
+    - "seo"
+    - "search"
+    - "optimization"
+

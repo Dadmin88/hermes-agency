@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- sound effects
-- ambient audio
-- audio direction
-- audio systems
-- audio mixing
-- audio asset management
+    - sound effects
+    - ambient audio
+    - audio direction
+    - audio systems
+    - audio mixing
+    - audio asset management
   does_not_own:
-- code implementation
-- visual design
-- game mechanics
-- marketing
+    - code implementation
+    - visual design
+    - game mechanics
+    - marketing
 
 routing:
   delegates_to:
     - null
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- agency-game-designer
+    - agency-orchestrator
+    - agency-creative-director
+    - agency-game-designer
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "audio"
     - "sound"
     - "music"
+

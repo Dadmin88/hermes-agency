@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- Godot scene implementation
-- GDScript/C# game code
-- addon integration
-- game performance
-- scene management
+    - Godot scene implementation
+    - GDScript/C# game code
+    - addon integration
+    - game performance
+    - scene management
   does_not_own:
-- game design decisions
-- art assets
-- marketing
-- infrastructure
+    - game design decisions
+    - art assets
+    - marketing
+    - infrastructure
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-game-designer
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-game-designer
 
 recommended_tools:
     - "a2a_send"
@@ -44,3 +44,4 @@ tags:
     - "godot"
     - "gamedev"
     - "gdscript"
+

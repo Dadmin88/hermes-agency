@@ -11,23 +11,23 @@ agency:
 
 ownership:
   owns:
-- level layout
-- map design
-- gameplay pacing within levels
-- environmental storytelling
-- level difficulty curves
+    - level layout
+    - map design
+    - gameplay pacing within levels
+    - environmental storytelling
+    - level difficulty curves
   does_not_own:
-- code implementation
-- art production
-- game mechanics
-- marketing
+    - code implementation
+    - art production
+    - game mechanics
+    - marketing
 
 routing:
   delegates_to:
     - "agency-environment-artist"
   receives_from:
-- agency-orchestrator
-- agency-game-designer
+    - agency-orchestrator
+    - agency-game-designer
 
 recommended_tools:
     - "a2a_send"
@@ -37,3 +37,4 @@ tags:
     - "game"
     - "levels"
     - "maps"
+

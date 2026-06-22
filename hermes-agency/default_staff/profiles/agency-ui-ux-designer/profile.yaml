@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- UI design
-- layout design
-- component design
-- micro-interactions
-- responsive patterns
-- accessibility design
+    - UI design
+    - layout design
+    - component design
+    - micro-interactions
+    - responsive patterns
+    - accessibility design
   does_not_own:
-- code implementation
-- product strategy
-- backend logic
-- marketing
+    - code implementation
+    - product strategy
+    - backend logic
+    - marketing
 
 routing:
   delegates_to:
     - "agency-accessibility-reviewer"
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- agency-product-designer
+    - agency-orchestrator
+    - agency-creative-director
+    - agency-product-designer
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "ui"
     - "ux"
     - "accessibility"
+

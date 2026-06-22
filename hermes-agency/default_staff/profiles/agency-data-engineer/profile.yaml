@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- data pipelines
-- ETL processes
-- data warehouse
-- data quality
-- data infrastructure
+    - data pipelines
+    - ETL processes
+    - data warehouse
+    - data quality
+    - data infrastructure
   does_not_own:
-- application code
-- product decisions
-- marketing
-- UI design
+    - application code
+    - product decisions
+    - marketing
+    - UI design
 
 routing:
   delegates_to:
     - "agency-git-steward"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-analytics-specialist
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-analytics-specialist
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "data"
     - "pipelines"
     - "etl"
+

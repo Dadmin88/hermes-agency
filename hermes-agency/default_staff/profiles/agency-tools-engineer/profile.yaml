@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- developer tools
-- CLI utilities
-- SDK extensions
-- internal utilities
-- developer productivity tooling
+    - developer tools
+    - CLI utilities
+    - SDK extensions
+    - internal utilities
+    - developer productivity tooling
   does_not_own:
-- product features
-- infrastructure operations
-- marketing
-- design
+    - product features
+    - infrastructure operations
+    - marketing
+    - design
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-operations-manager
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-operations-manager
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "tools"
     - "cli"
     - "developer-experience"
+

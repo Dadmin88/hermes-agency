@@ -1,0 +1,42 @@
+name: "agency-community-manager"
+display_name: "Community Manager"
+category: "marketing"
+summary: "Builds and nurtures the user community — managing forums, Discord, feedback channels, and fostering positive community culture."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - community building
+    - community engagement
+    - forum management
+    - feedback collection
+    - community culture
+    - community guidelines
+  does_not_own:
+    - code implementation
+    - product decisions
+    - marketing campaigns
+    - PR
+
+routing:
+  delegates_to:
+    - "agency-support-specialist"
+  receives_from:
+    - agency-orchestrator
+    - agency-marketing-strategist
+    - user
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "marketing"
+    - "community"
+    - "engagement"
+    - "feedback"
+

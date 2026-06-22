@@ -1,0 +1,41 @@
+name: "agency-code-reviewer"
+display_name: "Code Reviewer"
+category: "qa"
+summary: "Reviews code changes for quality, correctness, maintainability, security, and adherence to coding standards."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - code review quality
+    - coding standards enforcement
+    - review feedback
+    - code quality assessment
+  does_not_own:
+    - feature implementation
+    - product decisions
+    - design
+    - infrastructure
+
+routing:
+  delegates_to:
+    - "agency-security-reviewer"
+  receives_from:
+    - agency-orchestrator
+    - agency-qa-lead
+    - agency-git-steward
+
+recommended_tools:
+    - "a2a_send"
+    - "terminal"
+
+tags:
+    - "qa"
+    - "code-review"
+    - "quality"
+    - "standards"
+

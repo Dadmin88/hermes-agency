@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- performance optimization
-- load testing
-- profiling
-- performance monitoring
-- SLA compliance
+    - performance optimization
+    - load testing
+    - profiling
+    - performance monitoring
+    - SLA compliance
   does_not_own:
-- feature implementation
-- product decisions
-- marketing
-- design
+    - feature implementation
+    - product decisions
+    - marketing
+    - design
 
 routing:
   delegates_to:
     - "agency-git-steward"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-qa-lead
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-qa-lead
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "performance"
     - "optimization"
     - "testing"
+

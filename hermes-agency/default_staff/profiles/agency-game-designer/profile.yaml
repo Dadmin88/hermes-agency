@@ -11,26 +11,26 @@ agency:
 
 ownership:
   owns:
-- game mechanics
-- game systems
-- player experience
-- gameplay loops
-- game balance
-- game design documents
+    - game mechanics
+    - game systems
+    - player experience
+    - gameplay loops
+    - game balance
+    - game design documents
   does_not_own:
-- code implementation
-- art production
-- marketing
-- infrastructure
+    - code implementation
+    - art production
+    - marketing
+    - infrastructure
 
 routing:
   delegates_to:
     - "agency-level-designer"
     - "agency-worldbuilder"
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- user
+    - agency-orchestrator
+    - agency-creative-director
+    - user
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "game"
     - "mechanics"
     - "systems"
+

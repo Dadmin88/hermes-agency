@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- external integrations
-- API client implementations
-- webhook handling
-- third-party service connections
-- integration testing
+    - external integrations
+    - API client implementations
+    - webhook handling
+    - third-party service connections
+    - integration testing
   does_not_own:
-- internal architecture
-- product decisions
-- infrastructure operations
-- marketing
+    - internal architecture
+    - product decisions
+    - infrastructure operations
+    - marketing
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-product-manager
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-product-manager
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "integration"
     - "api"
     - "third-party"
+

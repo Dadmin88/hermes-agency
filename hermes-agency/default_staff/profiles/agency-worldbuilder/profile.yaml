@@ -11,26 +11,26 @@ agency:
 
 ownership:
   owns:
-- world lore
-- world history
-- geography
-- cultures
-- factions
-- world consistency
-- world bible
+    - world lore
+    - world history
+    - geography
+    - cultures
+    - factions
+    - world consistency
+    - world bible
   does_not_own:
-- code implementation
-- art production
-- game mechanics
-- marketing
+    - code implementation
+    - art production
+    - game mechanics
+    - marketing
 
 routing:
   delegates_to:
     - "agency-lore-writer"
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- agency-game-designer
+    - agency-orchestrator
+    - agency-creative-director
+    - agency-game-designer
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "game"
     - "world"
     - "lore"
+

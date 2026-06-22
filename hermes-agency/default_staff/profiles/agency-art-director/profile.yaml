@@ -11,16 +11,16 @@ agency:
 
 ownership:
   owns:
-- art style
-- visual art direction
-- illustration guidelines
-- art quality standards
-- visual composition
+    - art style
+    - visual art direction
+    - illustration guidelines
+    - art quality standards
+    - visual composition
   does_not_own:
-- code implementation
-- product decisions
-- business strategy
-- marketing copy
+    - code implementation
+    - product decisions
+    - business strategy
+    - marketing copy
 
 routing:
   delegates_to:
@@ -28,8 +28,8 @@ routing:
     - "agency-environment-artist"
     - "agency-motion-designer"
   receives_from:
-- agency-orchestrator
-- agency-creative-director
+    - agency-orchestrator
+    - agency-creative-director
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "art"
     - "visual"
     - "direction"
+

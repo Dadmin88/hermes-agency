@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- frontend implementation
-- UI components
-- client-side state management
-- browser compatibility
-- frontend performance
+    - frontend implementation
+    - UI components
+    - client-side state management
+    - browser compatibility
+    - frontend performance
   does_not_own:
-- backend APIs
-- database design
-- infrastructure
-- product decisions
+    - backend APIs
+    - database design
+    - infrastructure
+    - product decisions
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-ui-ux-designer
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-ui-ux-designer
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "frontend"
     - "ui"
     - "implementation"
+

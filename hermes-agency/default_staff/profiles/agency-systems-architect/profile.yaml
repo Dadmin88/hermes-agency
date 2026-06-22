@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- system architecture
-- technology decisions
-- architectural patterns
-- system boundaries
-- integration strategy
+    - system architecture
+    - technology decisions
+    - architectural patterns
+    - system boundaries
+    - integration strategy
   does_not_own:
-- individual feature implementation
-- code reviews
-- infrastructure operations
-- marketing strategy
+    - individual feature implementation
+    - code reviews
+    - infrastructure operations
+    - marketing strategy
 
 routing:
   delegates_to:
     - "agency-software-architect"
     - "agency-technical-lead"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
+    - agency-orchestrator
+    - agency-technical-lead
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "architecture"
     - "systems"
     - "leadership"
+

@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- character dialogue
-- NPC conversations
-- dialogue trees
-- voice lines
-- character voice consistency
+    - character dialogue
+    - NPC conversations
+    - dialogue trees
+    - voice lines
+    - character voice consistency
   does_not_own:
-- lore writing
-- game mechanics
-- code implementation
-- art
+    - lore writing
+    - game mechanics
+    - code implementation
+    - art
 
 routing:
   delegates_to:
     - null
   receives_from:
-- agency-orchestrator
-- agency-worldbuilder
-- agency-game-designer
+    - agency-orchestrator
+    - agency-worldbuilder
+    - agency-game-designer
 
 recommended_tools:
     - "a2a_send"
@@ -38,3 +38,4 @@ tags:
     - "dialogue"
     - "narrative"
     - "game"
+

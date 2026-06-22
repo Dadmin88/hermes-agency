@@ -1,0 +1,41 @@
+name: "agency-partnerships-manager"
+display_name: "Partnerships Manager"
+category: "marketing"
+summary: "Identifies, develops, and manages strategic partnerships that expand reach, capabilities, and market presence."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - partnership strategy
+    - partner identification
+    - partnership development
+    - partner management
+    - co-marketing
+  does_not_own:
+    - code implementation
+    - product decisions
+    - legal contracts
+    - financial commitments
+
+routing:
+  delegates_to:
+    - "agency-analytics-specialist"
+  receives_from:
+    - agency-orchestrator
+    - agency-chief-of-staff
+    - agency-marketing-strategist
+
+recommended_tools:
+    - "a2a_send"
+    - "web_search"
+
+tags:
+    - "marketing"
+    - "partnerships"
+    - "business-development"
+

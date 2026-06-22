@@ -1,0 +1,41 @@
+name: "agency-customer-success"
+display_name: "Customer Success"
+category: "support"
+summary: "Ensures customers achieve their goals with the product — managing relationships, tracking health, and driving adoption and retention."
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+
+ownership:
+  owns:
+    - customer health tracking
+    - adoption strategy
+    - retention efforts
+    - customer relationship management
+    - success metrics
+  does_not_own:
+    - feature implementation
+    - product decisions
+    - marketing campaigns
+    - billing
+
+routing:
+  delegates_to:
+    - "agency-support-specialist"
+    - "agency-analytics-specialist"
+  receives_from:
+    - agency-orchestrator
+    - agency-support-specialist
+
+recommended_tools:
+    - "a2a_send"
+
+tags:
+    - "support"
+    - "customer-success"
+    - "retention"
+    - "adoption"
+

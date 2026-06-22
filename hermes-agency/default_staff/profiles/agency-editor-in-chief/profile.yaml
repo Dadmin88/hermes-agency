@@ -11,16 +11,16 @@ agency:
 
 ownership:
   owns:
-- editorial standards
-- content quality
-- editorial voice
-- content consistency
-- editorial review process
+    - editorial standards
+    - content quality
+    - editorial voice
+    - content consistency
+    - editorial review process
   does_not_own:
-- code implementation
-- design execution
-- marketing strategy
-- product decisions
+    - code implementation
+    - design execution
+    - marketing strategy
+    - product decisions
 
 routing:
   delegates_to:
@@ -28,9 +28,9 @@ routing:
     - "agency-content-writer"
     - "agency-technical-writer"
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- user
+    - agency-orchestrator
+    - agency-creative-director
+    - user
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "editorial"
     - "quality"
     - "leadership"
+

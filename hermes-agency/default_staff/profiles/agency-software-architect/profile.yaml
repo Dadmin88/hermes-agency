@@ -11,23 +11,23 @@ agency:
 
 ownership:
   owns:
-- software design patterns
-- module architecture
-- class/interface design
-- code organization
-- dependency management
+    - software design patterns
+    - module architecture
+    - class/interface design
+    - code organization
+    - dependency management
   does_not_own:
-- system infrastructure
-- deployment
-- product requirements
-- UI design
+    - system infrastructure
+    - deployment
+    - product requirements
+    - UI design
 
 routing:
   delegates_to:
     - "agency-technical-lead"
   receives_from:
-- agency-orchestrator
-- agency-systems-architect
+    - agency-orchestrator
+    - agency-systems-architect
 
 recommended_tools:
     - "a2a_send"
@@ -38,3 +38,4 @@ tags:
     - "architecture"
     - "design"
     - "patterns"
+

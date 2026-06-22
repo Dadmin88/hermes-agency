@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- AI/ML feature implementation
-- model integration
-- inference pipelines
-- prompt engineering
-- AI quality assurance
+    - AI/ML feature implementation
+    - model integration
+    - inference pipelines
+    - prompt engineering
+    - AI quality assurance
   does_not_own:
-- product strategy
-- marketing
-- infrastructure operations
-- design
+    - product strategy
+    - marketing
+    - infrastructure operations
+    - design
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-product-manager
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-product-manager
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "ai"
     - "ml"
     - "inference"
+

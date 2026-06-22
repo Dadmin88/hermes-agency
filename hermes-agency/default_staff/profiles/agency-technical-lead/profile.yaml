@@ -11,16 +11,16 @@ agency:
 
 ownership:
   owns:
-- implementation decisions
-- code quality standards
-- technical mentoring
-- engineering best practices
-- technical debt management
+    - implementation decisions
+    - code quality standards
+    - technical mentoring
+    - engineering best practices
+    - technical debt management
   does_not_own:
-- product strategy
-- design execution
-- infrastructure operations
-- marketing
+    - product strategy
+    - design execution
+    - infrastructure operations
+    - marketing
 
 routing:
   delegates_to:
@@ -28,9 +28,9 @@ routing:
     - "agency-frontend-engineer"
     - "agency-backend-engineer"
   receives_from:
-- agency-orchestrator
-- agency-systems-architect
-- agency-software-architect
+    - agency-orchestrator
+    - agency-systems-architect
+    - agency-software-architect
 
 recommended_tools:
     - "a2a_send"
@@ -41,3 +41,4 @@ tags:
     - "leadership"
     - "quality"
     - "implementation"
+

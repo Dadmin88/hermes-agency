@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- backend implementation
-- API development
-- server-side logic
-- data processing
-- backend performance
+    - backend implementation
+    - API development
+    - server-side logic
+    - data processing
+    - backend performance
   does_not_own:
-- frontend UI
-- infrastructure operations
-- database schema design
-- product decisions
+    - frontend UI
+    - infrastructure operations
+    - database schema design
+    - product decisions
 
 routing:
   delegates_to:
     - "agency-git-steward"
     - "agency-qa-tester"
   receives_from:
-- agency-orchestrator
-- agency-technical-lead
-- agency-software-architect
+    - agency-orchestrator
+    - agency-technical-lead
+    - agency-software-architect
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "backend"
     - "api"
     - "implementation"
+

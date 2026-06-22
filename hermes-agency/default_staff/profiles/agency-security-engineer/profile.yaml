@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- security controls
-- security assessments
-- secrets management
-- vulnerability management
-- security architecture
+    - security controls
+    - security assessments
+    - secrets management
+    - vulnerability management
+    - security architecture
   does_not_own:
-- feature implementation
-- product decisions
-- marketing
-- design
+    - feature implementation
+    - product decisions
+    - marketing
+    - design
 
 routing:
   delegates_to:
     - "agency-security-reviewer"
   receives_from:
-- agency-orchestrator
-- agency-systems-architect
-- agency-qa-lead
+    - agency-orchestrator
+    - agency-systems-architect
+    - agency-qa-lead
 
 recommended_tools:
     - "a2a_send"
@@ -39,3 +39,4 @@ tags:
     - "security"
     - "hardening"
     - "compliance"
+

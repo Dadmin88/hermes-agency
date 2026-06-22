@@ -11,25 +11,25 @@ agency:
 
 ownership:
   owns:
-- blog posts
-- articles
-- guides
-- educational content
-- content research
-- content structure
+    - blog posts
+    - articles
+    - guides
+    - educational content
+    - content research
+    - content structure
   does_not_own:
-- marketing copy
-- technical documentation
-- code implementation
-- design
+    - marketing copy
+    - technical documentation
+    - code implementation
+    - design
 
 routing:
   delegates_to:
     - "agency-editor-in-chief"
   receives_from:
-- agency-orchestrator
-- agency-editor-in-chief
-- agency-marketing-strategist
+    - agency-orchestrator
+    - agency-editor-in-chief
+    - agency-marketing-strategist
 
 recommended_tools:
     - "a2a_send"
@@ -40,3 +40,4 @@ tags:
     - "writing"
     - "long-form"
     - "blog"
+

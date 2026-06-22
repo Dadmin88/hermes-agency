@@ -11,24 +11,24 @@ agency:
 
 ownership:
   owns:
-- design system
-- component library
-- design tokens
-- pattern documentation
-- design system governance
+    - design system
+    - component library
+    - design tokens
+    - pattern documentation
+    - design system governance
   does_not_own:
-- individual feature designs
-- code implementation
-- product decisions
-- marketing
+    - individual feature designs
+    - code implementation
+    - product decisions
+    - marketing
 
 routing:
   delegates_to:
     - "agency-accessibility-reviewer"
   receives_from:
-- agency-orchestrator
-- agency-creative-director
-- agency-brand-designer
+    - agency-orchestrator
+    - agency-creative-director
+    - agency-brand-designer
 
 recommended_tools:
     - "a2a_send"
@@ -38,3 +38,4 @@ tags:
     - "design-system"
     - "components"
     - "tokens"
+
