@@ -1,4 +1,4 @@
-"""Build AgentAnycast AgentCards from Hermes profile state.
+"""Build Hermes Agency AgentCards from Hermes profile state.
 
 Phase 2 maps a Hermes profile into an A2A-compatible AgentCard by reading:
 
@@ -6,7 +6,7 @@ Phase 2 maps a Hermes profile into an A2A-compatible AgentCard by reading:
 - installed Hermes skills under ``skills/**/SKILL.md``
 - ``config.yaml`` for model/toolset metadata
 
-The AgentAnycast SDK's current ``AgentCard`` dataclass does not yet expose a
+The Hermes Agency SDK's current ``AgentCard`` dataclass does not yet expose a
 first-class metadata field, so ``build_card()`` returns the SDK dataclass and
 attaches a dynamic ``metadata`` attribute for local/plugin consumers. Use
 ``card_to_dict()`` when a serialized card with metadata is needed.
@@ -20,7 +20,7 @@ from typing import Any
 
 from hermes_constants import get_hermes_home
 
-DEFAULT_DESCRIPTION = "Hermes profile exposed over AgentAnycast."
+DEFAULT_DESCRIPTION = "Hermes profile exposed over Hermes Agency."
 CARD_VERSION = "1.0.0"
 
 
@@ -108,9 +108,9 @@ def _normalise_skill_id(raw: str) -> str:
 def _soul_profile_name(soul_text: str) -> str:
     """Extract an explicit SOUL name when one exists.
 
-    This is retained in metadata. The public AgentCard name remains the Hermes
-    profile directory name, because that is the stable routing identity used by
-    Hermes profiles (e.g. ``gpt`` or ``katana``).
+    This is used as the AgentCard display name when ``agency.card_name``
+    is not configured. The profile directory name remains available in
+    metadata for stable routing/debug identity.
     """
 
     for pattern in (
@@ -149,7 +149,6 @@ def _paragraphs_from_markdown(text: str) -> list[str]:
 
 
 def _is_metadata_paragraph(paragraph: str) -> bool:
-    lines = [line.strip() for line in paragraph.split("  ") if line.strip()]
     # A profile preamble like "Name: ... Alias: ... Role: ..." is useful
     # metadata, but not a good human-readable AgentCard description.
     fields = re.findall(r"\b[A-Z][A-Za-z ]{1,24}:\s*", paragraph)
@@ -240,23 +239,34 @@ def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, A
     disabled_toolsets = _cfg_get(config, "agent", "disabled_toolsets", default=[])
     if not isinstance(disabled_toolsets, list):
         disabled_toolsets = []
+    configured_card_name = str(
+        _cfg_get(config, "agency", "card_name", default="") or ""
+    ).strip()
+    soul_name = _soul_profile_name(soul_text)
+    card_name = configured_card_name or soul_name or profile_dir.name
 
     return {
         "hermes": {
             "profile": profile_dir.name,
-            "soul_name": _soul_profile_name(soul_text),
+            "soul_name": soul_name,
+            "card_name": card_name,
             "model": model,
             "toolsets": toolsets,
             "disabled_toolsets": disabled_toolsets,
             "skills_from_profile": bool(
-                _cfg_get(config, "agentanycast", "skills_from_profile", default=True)
+                _cfg_get(config, "agency", "skills_from_profile", default=True)
             ),
-        }
+        },
+        "agency": {
+            "team": {
+                "tenant": _cfg_get(config, "agency", "team", "tenant", default="default") or "default",
+            }
+        },
     }
 
 
 def build_card(profile_home: str | Path | None = None) -> Any:
-    """Return an ``agentanycast.AgentCard`` for a Hermes profile.
+    """Return an ``agency.AgentCard`` for a Hermes profile.
 
     The import is lazy so Hermes can load the plugin even when the SDK is not
     installed; tool check functions remain responsible for availability.
@@ -266,18 +276,21 @@ def build_card(profile_home: str | Path | None = None) -> Any:
 
     profile_dir = resolve_profile_home(profile_home)
     metadata = read_profile_metadata(profile_dir)
+    card_name = metadata.get("hermes", {}).get("card_name") or profile_dir.name
     include_skills = metadata.get("hermes", {}).get("skills_from_profile", True)
     skill_dicts = read_profile_skills(profile_dir) if include_skills else []
-    if not skill_dicts:
-        skill_dicts = [
+    # Always expose the generic Hermes chat capability so agents can discover
+    # Hermes profiles even when their installed skill sets do not overlap.
+    if not any(item.get("id") == "hermes-chat" for item in skill_dicts):
+        skill_dicts.append(
             {
                 "id": "hermes-chat",
                 "description": "Receive a natural-language task for this Hermes profile.",
             }
-        ]
+        )
 
     card = AgentCard(
-        name=profile_dir.name,
+        name=str(card_name),
         description=read_profile_description(profile_dir),
         version=CARD_VERSION,
         skills=[Skill(id=item["id"], description=item["description"]) for item in skill_dicts],

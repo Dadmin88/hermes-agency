@@ -1,4 +1,4 @@
-"""Hermes tool stubs for AgentAnycast P2P communication."""
+"""Hermes tool stubs for Hermes Agency P2P communication."""
 
 from __future__ import annotations
 
@@ -8,27 +8,81 @@ from typing import Any
 
 from .card_builder import build_card, card_to_dict
 from .node_manager import manager
+from .autonomous_tools import AUTONOMOUS_TOOLS
 
-TOOLSET = "agentanycast"
+TOOLSET = "agency"
 
 
 def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True)
 
 
-def check_agentanycast_available() -> bool:
-    """Return True when the AgentAnycast Python SDK is importable."""
+def check_agency_available() -> bool:
+    """Return True when the Hermes Agency Python SDK is importable."""
 
     return importlib.util.find_spec("agentanycast") is not None
 
 
+def _compact_node() -> dict[str, Any]:
+    """Return small node health for high-traffic tool responses."""
+
+    compact_info = getattr(manager, "compact_info", None)
+    if callable(compact_info):
+        result = compact_info()
+        return result if isinstance(result, dict) else {"raw": result}
+    return manager.info()
+
+
+def _compact_agent(agent: dict[str, Any], requested_skill: str) -> dict[str, Any]:
+    """Return discovery result without the full skill/card payload."""
+
+    skills = agent.get("skills") if isinstance(agent, dict) else []
+    skills = skills if isinstance(skills, list) else []
+    needle = requested_skill.strip().lower()
+    matching_skills = []
+    for skill in skills:
+        if not isinstance(skill, dict):
+            continue
+        skill_id = str(skill.get("skill_id") or "")
+        description = str(skill.get("description") or "")
+        haystack = f"{skill_id}\n{description}".lower()
+        if not needle or needle in haystack:
+            matching_skills.append({"skill_id": skill_id, "description": description})
+        if len(matching_skills) >= 5:
+            break
+    return {
+        "peer_id": agent.get("peer_id"),
+        "agent_name": agent.get("agent_name"),
+        "agent_description": agent.get("agent_description"),
+        "skill_count": len(skills),
+        "matching_skills": matching_skills,
+    }
+
+
+def _compact_agents(agents: list[dict[str, Any]], requested_skill: str) -> list[dict[str, Any]]:
+    return [_compact_agent(agent, requested_skill) for agent in agents if isinstance(agent, dict)]
+
+
 
 def a2a_info(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Return local AgentAnycast plugin/SDK status and generated AgentCard."""
+    """Return local Hermes Agency plugin/SDK status and generated AgentCard."""
+
+    args = args or {}
+    sdk_available = check_agency_available()
+    if bool(args.get("compact")):
+        node = manager.compact_info()
+        return _json(
+            {
+                "ok": bool(node.get("ok")) and sdk_available,
+                "sdk_available": sdk_available,
+                "compact": True,
+                "node": node,
+            }
+        )
 
     card = None
     error = None
-    if check_agentanycast_available():
+    if sdk_available:
         try:
             card = card_to_dict(build_card())
         except Exception as exc:
@@ -37,7 +91,7 @@ def a2a_info(args: dict[str, Any] | None = None, **_: Any) -> str:
     return _json(
         {
             "ok": error is None,
-            "sdk_available": check_agentanycast_available(),
+            "sdk_available": sdk_available,
             "card": card,
             "card_error": error,
             "node": manager.info(),
@@ -46,23 +100,23 @@ def a2a_info(args: dict[str, Any] | None = None, **_: Any) -> str:
 
 
 def a2a_start_node(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Start this profile's AgentAnycast node."""
+    """Start this profile's Hermes Agency node."""
 
     try:
         state = manager.start_sync()
         return _json({"ok": state.error is None and state.started, "node": state.as_dict()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": manager.info()})
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
 
 
 def a2a_stop_node(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Stop this profile's AgentAnycast node."""
+    """Stop this profile's Hermes Agency node."""
 
     try:
         state = manager.stop_sync()
         return _json({"ok": state.error is None, "node": state.as_dict()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": manager.info()})
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
 
 
 def a2a_list_peers(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -70,25 +124,27 @@ def a2a_list_peers(args: dict[str, Any] | None = None, **_: Any) -> str:
 
     try:
         peers = manager.list_peers_sync()
-        return _json({"ok": True, "peers": peers, "node": manager.info()})
+        return _json({"ok": True, "peers": peers, "node": _compact_node()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": manager.info()})
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
 
 
 def a2a_discover(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Discover peers offering a skill via AgentAnycast routing."""
+    """Discover peers offering a skill via Hermes Agency routing."""
 
     args = args or {}
     skill = str(args.get("skill") or "").strip()
     if not skill:
-        return _json({"ok": False, "error": "skill is required", "node": manager.info()})
+        return _json({"ok": False, "error": "skill is required", "node": _compact_node()})
     tags = args.get("tags") or None
     if tags is not None and not isinstance(tags, dict):
-        return _json({"ok": False, "error": "tags must be an object", "node": manager.info()})
+        return _json({"ok": False, "error": "tags must be an object", "node": _compact_node()})
     limit = int(args.get("limit") or 0)
+    include_skills = bool(args.get("include_skills"))
     try:
         agents = manager.discover_sync(skill=skill, tags=tags, limit=limit)
-        return _json({"ok": True, "agents": agents, "node": manager.info()})
+        response_agents = agents if include_skills else _compact_agents(agents, skill)
+        return _json({"ok": True, "agents": response_agents, "node": _compact_node()})
     except Exception as exc:
         return _json(
             {
@@ -96,35 +152,43 @@ def a2a_discover(args: dict[str, Any] | None = None, **_: Any) -> str:
                 "error": f"{type(exc).__name__}: {exc}",
                 "requested_skill": skill,
                 "tags": tags or {},
-                "node": manager.info(),
+                "node": _compact_node(),
             }
         )
 
 
-def a2a_send(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Send a task to an AgentAnycast peer or skill."""
+def a2a_send(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
+    """Send a task to an Hermes Agency peer or skill."""
 
     args = args or {}
     message = str(args.get("message") or "").strip()
     peer_id = str(args.get("peer_id") or "").strip() or None
     skill = str(args.get("skill") or "").strip() or None
+    context_id = str(args.get("context_id") or "").strip() or None
     wait_seconds = float(args.get("wait_seconds") or 0)
     metadata = args.get("metadata") or None
     if not message:
-        return _json({"ok": False, "error": "message is required", "node": manager.info()})
+        return _json({"ok": False, "error": "message is required", "node": _compact_node()})
     if sum(bool(item) for item in (peer_id, skill)) != 1:
-        return _json({"ok": False, "error": "exactly one of peer_id or skill is required", "node": manager.info()})
+        return _json({"ok": False, "error": "exactly one of peer_id or skill is required", "node": _compact_node()})
     if metadata is not None and not isinstance(metadata, dict):
-        return _json({"ok": False, "error": "metadata must be an object", "node": manager.info()})
+        return _json({"ok": False, "error": "metadata must be an object", "node": _compact_node()})
     try:
+        conversation_context = {
+            "summary": str(kwargs.get("user_task") or "").strip(),
+            "sender": kwargs.get("profile") or "",
+            "channel": kwargs.get("session_id") or "",
+        }
         task = manager.send_task_sync(
             message=message,
             peer_id=peer_id,
             skill=skill,
             wait_seconds=wait_seconds,
             metadata=metadata,
+            conversation_context=conversation_context,
+            context_id=context_id,
         )
-        return _json({"ok": True, "task_id": task.get("task_id"), "task": task, "node": manager.info()})
+        return _json({"ok": True, "task_id": task.get("task_id"), "task": task, "node": _compact_node()})
     except Exception as exc:
         return _json(
             {
@@ -133,45 +197,54 @@ def a2a_send(args: dict[str, Any] | None = None, **_: Any) -> str:
                 "peer_id": peer_id,
                 "skill": skill,
                 "message_present": bool(message),
-                "node": manager.info(),
+                "node": _compact_node(),
             }
         )
 
 
 def a2a_status(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Return the latest tracked status for an AgentAnycast task."""
+    """Return the latest tracked status for an Hermes Agency task."""
 
     args = args or {}
     task_id = str(args.get("task_id") or "").strip()
     if not task_id:
-        return _json({"ok": False, "error": "task_id is required", "node": manager.info()})
+        return _json({"ok": False, "error": "task_id is required", "node": _compact_node()})
     try:
         task = manager.task_status_sync(task_id)
         if task is None:
-            return _json({"ok": False, "error": f"unknown task_id: {task_id}", "task_id": task_id, "node": manager.info()})
-        return _json({"ok": True, "task_id": task_id, "task": task, "node": manager.info()})
+            return _json({"ok": False, "error": f"unknown task_id: {task_id}", "task_id": task_id, "node": _compact_node()})
+        return _json({"ok": True, "task_id": task_id, "task": task, "node": _compact_node()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "task_id": task_id, "node": manager.info()})
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "task_id": task_id, "node": _compact_node()})
 
 
 def a2a_inbox(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Return recent incoming AgentAnycast task queue/history records."""
+    """Return recent incoming Hermes Agency task queue/history records."""
 
     args = args or {}
     limit = int(args.get("limit") or 20)
     try:
         tasks = manager.incoming_tasks_sync(limit=limit)
-        return _json({"ok": True, "tasks": tasks, "node": manager.info()})
+        return _json({"ok": True, "tasks": tasks, "node": _compact_node()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": manager.info()})
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
 
 
 A2A_INFO_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_info",
-        "description": "Show this Hermes profile's AgentAnycast plugin, SDK, config, and node status.",
-        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        "description": "Show this Hermes profile's Hermes Agency plugin, SDK, config, and node status.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "compact": {
+                    "type": "boolean",
+                    "description": "Return a small health-only payload without card, skills, or team context.",
+                }
+            },
+            "additionalProperties": False,
+        },
     },
 }
 
@@ -179,7 +252,7 @@ A2A_START_NODE_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_start_node",
-        "description": "Start this Hermes profile's AgentAnycast P2P node and begin listening for incoming tasks.",
+        "description": "Start this Hermes profile's Hermes Agency P2P node and begin listening for incoming tasks.",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
     },
 }
@@ -188,7 +261,7 @@ A2A_STOP_NODE_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_stop_node",
-        "description": "Stop this Hermes profile's AgentAnycast P2P node and daemon cleanly.",
+        "description": "Stop this Hermes profile's Hermes Agency P2P node and daemon cleanly.",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
     },
 }
@@ -197,7 +270,7 @@ A2A_LIST_PEERS_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_list_peers",
-        "description": "List AgentAnycast peers currently connected to this profile's node.",
+        "description": "List Hermes Agency peers currently connected to this profile's node.",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
     },
 }
@@ -206,13 +279,17 @@ A2A_DISCOVER_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_discover",
-        "description": "Discover AgentAnycast peers offering a skill via anycast routing. Starts the local node if needed.",
+        "description": "Discover Hermes Agency peers offering a skill via anycast routing. Starts the local node if needed.",
         "parameters": {
             "type": "object",
             "properties": {
                 "skill": {"type": "string", "description": "Skill ID to discover."},
                 "tags": {"type": "object", "description": "Optional tag filters."},
                 "limit": {"type": "integer", "description": "Maximum results; 0 means server default."},
+                "include_skills": {
+                    "type": "boolean",
+                    "description": "Include full per-agent skill lists. Defaults to false to keep tool output compact.",
+                },
             },
             "required": ["skill"],
             "additionalProperties": False,
@@ -224,13 +301,14 @@ A2A_SEND_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_send",
-        "description": "Send a task to an AgentAnycast peer_id or skill. Starts the local node if needed and returns a task_id plus initial/latest status.",
+        "description": "Send a task to an Hermes Agency peer_id or skill. Starts the local node if needed and returns a task_id plus initial/latest status.",
         "parameters": {
             "type": "object",
             "properties": {
                 "peer_id": {"type": "string", "description": "Target peer ID for direct addressing. Mutually exclusive with skill."},
                 "skill": {"type": "string", "description": "Target skill for anycast routing. Mutually exclusive with peer_id."},
                 "message": {"type": "string", "description": "Task message text."},
+                "context_id": {"type": "string", "description": "Optional conversation/thread id for multi-turn continuity."},
                 "wait_seconds": {"type": "number", "description": "Optional seconds to wait for completion before returning."},
                 "metadata": {"type": "object", "description": "Optional string metadata to attach to the task."},
             },
@@ -258,7 +336,7 @@ A2A_INBOX_SCHEMA = {
     "type": "function",
     "function": {
         "name": "a2a_inbox",
-        "description": "List recent incoming AgentAnycast tasks queued/processed by this profile's safe stub handler.",
+        "description": "List recent incoming Hermes Agency tasks queued/processed by this profile's safe stub handler.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -278,4 +356,5 @@ TOOLS = (
     ("a2a_stop_node", A2A_STOP_NODE_SCHEMA, a2a_stop_node, "⏹️"),
     ("a2a_list_peers", A2A_LIST_PEERS_SCHEMA, a2a_list_peers, "🧭"),
     ("a2a_info", A2A_INFO_SCHEMA, a2a_info, "🛰️"),
+    *AUTONOMOUS_TOOLS,
 )

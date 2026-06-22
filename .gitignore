@@ -33,5 +33,13 @@ coverage.xml
 .idea/
 .vscode/
 
-# Daemon binary (auto-downloaded)
+# Daemon binaries / local runtime artifacts
 src/agentanycast/_bin/
+bin/agentanycastd
+.agentanycast/
+*.sock
+*.log
+logs/
+
+# Local compatibility symlinks
+agentanycast_plugin

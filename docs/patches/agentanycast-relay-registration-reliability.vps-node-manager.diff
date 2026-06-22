@@ -1,0 +1,307 @@
+--- before/node_manager.py
++++ after/node_manager.py
+@@ -19,6 +19,7 @@
+ import asyncio
+ import atexit
+ import json
++import logging
+ import os
+ import threading
+ import time
+@@ -63,6 +64,12 @@
+ from .team_context import build_team_context, get_team_state, refresh_capability_map
+ 
+ REGISTRY_REREGISTER_INTERVAL_SECONDS = 20
++REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS = 1
++REGISTRY_REREGISTER_MAX_BACKOFF_SECONDS = 60
++REGISTRY_REREGISTER_FAILURE_LOG_EVERY = 5
++REGISTRY_HEALTHY_WINDOW_SECONDS = 60
++
++logger = logging.getLogger(__name__)
+ 
+ 
+ def _registry_addresses() -> list[str]:
+@@ -129,6 +136,11 @@
+     registration_count: int = 0
+     bidding_request_count: int = 0
+     bidding_bid_count: int = 0
++    last_registration_time: float | None = None
++    consecutive_failures: int = 0
++    next_retry_at: float | None = None
++    registration_healthy: bool = False
++    registry_reregister_loop_exited: bool = False
+ 
+     def as_dict(self) -> dict[str, Any]:
+         return {
+@@ -159,6 +171,11 @@
+             "registration_count": self.registration_count,
+             "bidding_request_count": self.bidding_request_count,
+             "bidding_bid_count": self.bidding_bid_count,
++            "last_registration_time": self.last_registration_time,
++            "consecutive_failures": self.consecutive_failures,
++            "next_retry_at": self.next_retry_at,
++            "registration_healthy": self.registration_healthy,
++            "registry_reregister_loop_exited": self.registry_reregister_loop_exited,
+         }
+ 
+ 
+@@ -507,6 +524,82 @@
+         self.state.bidding_request_count = len(bid_state.requests)
+         self.state.bidding_bid_count = sum(len(items) for items in bid_state.bids.values())
+ 
++    def _refresh_registration_health(self) -> None:
++        last_success = self.state.last_registration_time
++        self.state.registration_healthy = bool(
++            self.state.started
++            and last_success is not None
++            and time.time() - last_success < REGISTRY_HEALTHY_WINDOW_SECONDS
++        )
++
++    def _registration_health_dict(self) -> dict[str, Any]:
++        self._refresh_registration_health()
++        return {
++            "last_registration_time": self.state.last_registration_time,
++            "consecutive_failures": self.state.consecutive_failures,
++            "next_retry_at": self.state.next_retry_at,
++            "registration_healthy": self.state.registration_healthy,
++            "registry_reregister_loop_exited": self.state.registry_reregister_loop_exited,
++            "loop_running": bool(
++                self._registry_reregister_task is not None
++                and not self._registry_reregister_task.done()
++            ),
++            "healthy_window_seconds": REGISTRY_HEALTHY_WINDOW_SECONDS,
++            "normal_interval_seconds": REGISTRY_REREGISTER_INTERVAL_SECONDS,
++        }
++
++    def _record_registry_registration_success(self) -> None:
++        now = time.time()
++        previous_failures = self.state.consecutive_failures
++        self.state.last_registration_time = now
++        self.state.consecutive_failures = 0
++        self.state.next_retry_at = now + REGISTRY_REREGISTER_INTERVAL_SECONDS
++        self.state.registry_reregister_loop_exited = False
++        self._refresh_registration_health()
++        if previous_failures:
++            logger.warning(
++                "AgentAnycast relay skill re-registration recovered after %s consecutive failures",
++                previous_failures,
++            )
++
++    def _record_registry_registration_failure(self, details: str, retry_in_seconds: float) -> None:
++        now = time.time()
++        self.state.consecutive_failures += 1
++        self.state.next_retry_at = now + retry_in_seconds
++        self._refresh_registration_health()
++        self.state.last_status = f"Registry refresh failed: {details}"
++        logger.warning(
++            "AgentAnycast relay skill re-registration failed "
++            "(consecutive_failures=%s, retry_in=%.1fs): %s",
++            self.state.consecutive_failures,
++            retry_in_seconds,
++            details,
++        )
++        if self.state.consecutive_failures % REGISTRY_REREGISTER_FAILURE_LOG_EVERY == 0:
++            logger.warning(
++                "AgentAnycast relay skill re-registration still failing after %s consecutive failures; "
++                "last_success=%s next_retry_at=%s",
++                self.state.consecutive_failures,
++                self.state.last_registration_time,
++                self.state.next_retry_at,
++            )
++
++    def _handle_registry_registration_result(
++        self,
++        result: dict[str, Any],
++        *,
++        retry_in_seconds: float,
++    ) -> bool | None:
++        if result.get("skipped"):
++            self._refresh_registration_health()
++            return None
++        if result.get("ok"):
++            self._record_registry_registration_success()
++            return True
++        errors = result.get("errors") or [result.get("error") or "unknown registry refresh failure"]
++        self._record_registry_registration_failure("; ".join(str(item) for item in errors), retry_in_seconds)
++        return False
++
+     def _refresh_team_state_fields(self) -> None:
+         team_state = get_team_state()
+         self.state.team_peer_count = len(team_state.peers)
+@@ -563,7 +656,7 @@
+             return str(skill.get("description") or "").strip()
+         return str(getattr(skill, "description", "") or "").strip()
+ 
+-    async def _register_skills_with_registries(self, card: Any) -> None:
++    async def _register_skills_with_registries(self, card: Any) -> dict[str, Any]:
+         """Refresh this node's relay skill-registry TTL.
+ 
+         The Go daemon currently registers skills once shortly after startup. The
+@@ -573,10 +666,10 @@
+         """
+ 
+         if not self.state.peer_id:
+-            return
++            return {"ok": False, "skipped": True, "reason": "peer_id is not set"}
+         addresses = _registry_addresses()
+         if not addresses:
+-            return
++            return {"ok": False, "skipped": True, "reason": "AGENTANYCAST_REGISTRY_ADDRS is not set"}
+ 
+         import importlib
+ 
+@@ -600,7 +693,7 @@
+                 )
+             )
+         if not skills:
+-            return
++            return {"ok": False, "skipped": True, "reason": "card has no registry skill IDs"}
+ 
+         request = registry_pb2.RegisterSkillsRequest(
+             peer_id=self.state.peer_id,
+@@ -621,18 +714,61 @@
+                 await channel.close()
+         if errors:
+             self.state.last_status = "Registry refresh failed: " + "; ".join(errors)
+-        else:
+-            self.state.last_status = f"Registry refreshed ({len(skills)} skills)."
++            return {"ok": False, "skipped": False, "errors": errors, "addresses": addresses, "skill_count": len(skills)}
++        self.state.last_status = f"Registry refreshed ({len(skills)} skills)."
++        return {"ok": True, "skipped": False, "errors": [], "addresses": addresses, "skill_count": len(skills)}
+ 
+     async def _registry_reregister_loop(self) -> None:
+-        while True:
+-            await asyncio.sleep(REGISTRY_REREGISTER_INTERVAL_SECONDS)
+-            cfg = get_config()
+-            if not cfg.team.auto_register:
+-                continue
+-            if self._node is None or not self.state.started:
+-                continue
+-            await self._register_skills_with_registries(build_card())
++        next_delay = float(REGISTRY_REREGISTER_INTERVAL_SECONDS)
++        backoff = float(REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS)
++        cancelled = False
++        try:
++            while True:
++                self.state.next_retry_at = time.time() + next_delay
++                await asyncio.sleep(next_delay)
++                try:
++                    cfg = get_config()
++                    if not cfg.team.auto_register:
++                        next_delay = float(REGISTRY_REREGISTER_INTERVAL_SECONDS)
++                        self._refresh_registration_health()
++                        continue
++                    if self._node is None or not self.state.started:
++                        next_delay = float(REGISTRY_REREGISTER_INTERVAL_SECONDS)
++                        self._refresh_registration_health()
++                        continue
++                    result = await self._register_skills_with_registries(build_card())
++                    outcome = self._handle_registry_registration_result(result, retry_in_seconds=backoff)
++                    if outcome is False:
++                        next_delay = backoff
++                        backoff = min(backoff * 2, REGISTRY_REREGISTER_MAX_BACKOFF_SECONDS)
++                    else:
++                        next_delay = float(REGISTRY_REREGISTER_INTERVAL_SECONDS)
++                        backoff = float(REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS)
++                except asyncio.CancelledError:
++                    cancelled = True
++                    raise
++                except Exception as exc:
++                    self._record_registry_registration_failure(f"{type(exc).__name__}: {exc}", backoff)
++                    next_delay = backoff
++                    backoff = min(backoff * 2, REGISTRY_REREGISTER_MAX_BACKOFF_SECONDS)
++        except asyncio.CancelledError:
++            cancelled = True
++            raise
++        except BaseException as exc:
++            self.state.registry_reregister_loop_exited = True
++            self._refresh_registration_health()
++            logger.critical(
++                "AgentAnycast relay skill re-registration loop exited unexpectedly: %s: %s",
++                type(exc).__name__,
++                exc,
++                exc_info=True,
++            )
++            raise
++        finally:
++            if not cancelled and self.state.started:
++                self.state.registry_reregister_loop_exited = True
++                self._refresh_registration_health()
++                logger.critical("AgentAnycast relay skill re-registration loop exited unexpectedly")
+ 
+     def _remember_incoming_record(self, record: IncomingTaskRecord) -> None:
+         cfg = get_config()
+@@ -850,13 +986,19 @@
+             self.state.serve_task_running = True
+             if cfg.team.auto_register:
+                 await register_agent(node, card, current_load=self._current_load())
+-                await self._register_skills_with_registries(card)
++                registration_result = await self._register_skills_with_registries(card)
++                self._handle_registry_registration_result(
++                    registration_result,
++                    retry_in_seconds=float(REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS),
++                )
+                 announce_registration(self.state.card_name or current_profile_name(), "registered", peer_id=self.state.peer_id)
+             await self._refresh_team_context_impl(force=True)
+             if cfg.team.auto_discover and self._team_refresh_task is None:
+                 self._team_refresh_task = asyncio.create_task(self._team_refresh_loop())
+             if cfg.team.auto_register and self._registry_reregister_task is None:
++                self.state.registry_reregister_loop_exited = False
+                 self._registry_reregister_task = asyncio.create_task(self._registry_reregister_loop())
++                self._registry_reregister_task.add_done_callback(self._registry_reregister_done)
+         except Exception as exc:
+             self._node = None
+             self._serve_task = None
+@@ -905,6 +1047,8 @@
+             self.state.started = False
+             self.state.peer_id = None
+             self.state.serve_task_running = False
++            self.state.next_retry_at = None
++            self._refresh_registration_health()
+             self.state.stopped_at = time.time()
+             self._refresh_incoming_state()
+         return self.state
+@@ -1044,6 +1188,32 @@
+         if exc is not None:
+             self.state.error = f"serve_forever failed: {type(exc).__name__}: {exc}"
+ 
++    def _registry_reregister_done(self, task: asyncio.Task[None]) -> None:
++        """Record and restart any unexpected relay re-registration task exit."""
++
++        if task.cancelled():
++            return
++        try:
++            exc = task.exception()
++        except asyncio.CancelledError:
++            return
++        self.state.registry_reregister_loop_exited = True
++        self._refresh_registration_health()
++        if exc is not None:
++            self.state.error = f"registry re-registration loop failed: {type(exc).__name__}: {exc}"
++            logger.critical(
++                "AgentAnycast relay skill re-registration task exited; restarting: %s: %s",
++                type(exc).__name__,
++                exc,
++                exc_info=(type(exc), exc, exc.__traceback__),
++            )
++        else:
++            self.state.error = "registry re-registration loop exited unexpectedly"
++            logger.critical("AgentAnycast relay skill re-registration task exited; restarting")
++        if self.state.started and self._loop is not None and self._loop.is_running():
++            self._registry_reregister_task = self._loop.create_task(self._registry_reregister_loop())
++            self._registry_reregister_task.add_done_callback(self._registry_reregister_done)
++
+     @staticmethod
+     def _peer_id_to_did_key(peer_id: str) -> str | None:
+         try:
+@@ -1256,7 +1426,9 @@
+         self._refresh_autonomous_state()
+         data = self.state.as_dict()
+         data["team"] = get_team_state().as_dict()
+-        data["registration"] = get_registration_state().as_dict()
++        registration_data = get_registration_state().as_dict()
++        registration_data["registry_refresh"] = self._registration_health_dict()
++        data["registration"] = registration_data
+         data["bidding"] = get_bidding_state().as_dict()
+         data["learning_corrections"] = correction_history(limit=10)
+         data["orchestrator_tasks"] = self.orchestrator_tasks_sync(limit=20)
