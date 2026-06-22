@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "Default Hermes Agency staff profiles \u2014 a built-in roster of AI agency teammates.",
+  "description": "Default Hermes Agency staff profiles — a built-in roster of AI agency teammates.",
   "namespace": "agency-",
   "total_profiles": 83,
   "categories": [
@@ -27,9 +27,7 @@
       "summary": "Reviews designs and implementations for accessibility compliance, ensuring the product is usable by people of all abilities.",
       "profile_path": "profiles/agency-accessibility-reviewer",
       "primary_role": "Reviews designs and implementations for accessibility compliance, ensuring the product is usable by people of all abilities",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "qa",
         "accessibility",
@@ -62,9 +60,7 @@
       "summary": "Defines metrics, builds dashboards, analyzes data, and provides actionable insights that inform product, marketing, and business decisions.",
       "profile_path": "profiles/agency-analytics-specialist",
       "primary_role": "Defines metrics, builds dashboards, analyzes data, and provides actionable insights that inform product, marketing, and business decisions",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "marketing",
         "analytics",
@@ -95,12 +91,10 @@
       "name": "agency-asset-artist",
       "display_name": "Asset Artist",
       "category": "design",
-      "summary": "Creates 2D and 3D art assets \u2014 sprites, textures, models, animations \u2014 that populate the game world.",
+      "summary": "Creates 2D and 3D art assets — sprites, textures, models, animations — that populate the game world.",
       "profile_path": "profiles/agency-asset-artist",
-      "primary_role": "Creates 2D and 3D art assets \u2014 sprites, textures, models, animations \u2014 that populate the game world",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Creates 2D and 3D art assets — sprites, textures, models, animations — that populate the game world",
+      "delegates_to": [],
       "tags": [
         "design",
         "art",
@@ -116,9 +110,7 @@
       "summary": "Designs and produces sound effects, ambient audio, music direction, and audio systems for games and interactive experiences.",
       "profile_path": "profiles/agency-audio-designer",
       "primary_role": "Designs and produces sound effects, ambient audio, music direction, and audio systems for games and interactive experiences",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "design",
         "audio",
@@ -165,9 +157,9 @@
       "name": "agency-brand-designer",
       "display_name": "Brand Designer",
       "category": "design",
-      "summary": "Creates and maintains brand identity \u2014 logos, color palettes, typography, brand guidelines, and ensures brand consistency across all touchpoints.",
+      "summary": "Creates and maintains brand identity — logos, color palettes, typography, brand guidelines, and ensures brand consistency across all touchpoints.",
       "profile_path": "profiles/agency-brand-designer",
-      "primary_role": "Creates and maintains brand identity \u2014 logos, color palettes, typography, brand guidelines, and ensures brand consistency across all touchpoints",
+      "primary_role": "Creates and maintains brand identity — logos, color palettes, typography, brand guidelines, and ensures brand consistency across all touchpoints",
       "delegates_to": [
         "agency-design-systems-designer"
       ],
@@ -235,9 +227,9 @@
       "name": "agency-community-manager",
       "display_name": "Community Manager",
       "category": "marketing",
-      "summary": "Builds and nurtures the user community \u2014 managing forums, Discord, feedback channels, and fostering positive community culture.",
+      "summary": "Builds and nurtures the user community — managing forums, Discord, feedback channels, and fostering positive community culture.",
       "profile_path": "profiles/agency-community-manager",
-      "primary_role": "Builds and nurtures the user community \u2014 managing forums, Discord, feedback channels, and fostering positive community culture",
+      "primary_role": "Builds and nurtures the user community — managing forums, Discord, feedback channels, and fostering positive community culture",
       "delegates_to": [
         "agency-support-specialist"
       ],
@@ -255,9 +247,7 @@
       "summary": "Monitors and analyzes competitors, identifies competitive threats and opportunities, and provides actionable competitive intelligence.",
       "profile_path": "profiles/agency-competitive-analyst",
       "primary_role": "Monitors and analyzes competitors, identifies competitive threats and opportunities, and provides actionable competitive intelligence",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "product",
         "research",
@@ -286,9 +276,9 @@
       "name": "agency-content-writer",
       "display_name": "Content Writer",
       "category": "content",
-      "summary": "Writes long-form content \u2014 articles, blog posts, guides, and educational material that informs and engages audiences.",
+      "summary": "Writes long-form content — articles, blog posts, guides, and educational material that informs and engages audiences.",
       "profile_path": "profiles/agency-content-writer",
-      "primary_role": "Writes long-form content \u2014 articles, blog posts, guides, and educational material that informs and engages audiences",
+      "primary_role": "Writes long-form content — articles, blog posts, guides, and educational material that informs and engages audiences",
       "delegates_to": [
         "agency-editor-in-chief"
       ],
@@ -339,9 +329,9 @@
       "name": "agency-customer-success",
       "display_name": "Customer Success",
       "category": "support",
-      "summary": "Ensures customers achieve their goals with the product \u2014 managing relationships, tracking health, and driving adoption and retention.",
+      "summary": "Ensures customers achieve their goals with the product — managing relationships, tracking health, and driving adoption and retention.",
       "profile_path": "profiles/agency-customer-success",
-      "primary_role": "Ensures customers achieve their goals with the product \u2014 managing relationships, tracking health, and driving adoption and retention",
+      "primary_role": "Ensures customers achieve their goals with the product — managing relationships, tracking health, and driving adoption and retention",
       "delegates_to": [
         "agency-support-specialist",
         "agency-analytics-specialist"
@@ -408,9 +398,9 @@
       "name": "agency-design-systems-designer",
       "display_name": "Design Systems Designer",
       "category": "design",
-      "summary": "Builds and maintains the design system \u2014 component libraries, design tokens, patterns, and documentation that ensure consistent, scalable design.",
+      "summary": "Builds and maintains the design system — component libraries, design tokens, patterns, and documentation that ensure consistent, scalable design.",
       "profile_path": "profiles/agency-design-systems-designer",
-      "primary_role": "Builds and maintains the design system \u2014 component libraries, design tokens, patterns, and documentation that ensure consistent, scalable design",
+      "primary_role": "Builds and maintains the design system — component libraries, design tokens, patterns, and documentation that ensure consistent, scalable design",
       "delegates_to": [
         "agency-accessibility-reviewer"
       ],
@@ -445,9 +435,7 @@
       "summary": "Writes character dialogue, NPC conversations, branching dialogue trees, and voice lines that bring game characters to life.",
       "profile_path": "profiles/agency-dialogue-writer",
       "primary_role": "Writes character dialogue, NPC conversations, branching dialogue trees, and voice lines that bring game characters to life",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "content",
         "dialogue",
@@ -459,9 +447,9 @@
       "name": "agency-docs-writer",
       "display_name": "Docs Writer",
       "category": "content",
-      "summary": "Writes user-facing documentation \u2014 help articles, how-to guides, FAQ, and knowledge base content that helps users succeed.",
+      "summary": "Writes user-facing documentation — help articles, how-to guides, FAQ, and knowledge base content that helps users succeed.",
       "profile_path": "profiles/agency-docs-writer",
-      "primary_role": "Writes user-facing documentation \u2014 help articles, how-to guides, FAQ, and knowledge base content that helps users succeed",
+      "primary_role": "Writes user-facing documentation — help articles, how-to guides, FAQ, and knowledge base content that helps users succeed",
       "delegates_to": [
         "agency-editor-in-chief"
       ],
@@ -495,9 +483,9 @@
       "name": "agency-email-marketer",
       "display_name": "Email Marketer",
       "category": "marketing",
-      "summary": "Plans and executes email marketing campaigns \u2014 newsletters, drip campaigns, transactional emails, and email performance optimization.",
+      "summary": "Plans and executes email marketing campaigns — newsletters, drip campaigns, transactional emails, and email performance optimization.",
       "profile_path": "profiles/agency-email-marketer",
-      "primary_role": "Plans and executes email marketing campaigns \u2014 newsletters, drip campaigns, transactional emails, and email performance optimization",
+      "primary_role": "Plans and executes email marketing campaigns — newsletters, drip campaigns, transactional emails, and email performance optimization",
       "delegates_to": [
         "agency-copywriter",
         "agency-analytics-specialist"
@@ -513,12 +501,10 @@
       "name": "agency-environment-artist",
       "display_name": "Environment Artist",
       "category": "design",
-      "summary": "Creates game environments \u2014 landscapes, architecture, props, lighting, and atmospheric effects that define the game world's visual character.",
+      "summary": "Creates game environments — landscapes, architecture, props, lighting, and atmospheric effects that define the game world's visual character.",
       "profile_path": "profiles/agency-environment-artist",
-      "primary_role": "Creates game environments \u2014 landscapes, architecture, props, lighting, and atmospheric effects that define the game world's visual character",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Creates game environments — landscapes, architecture, props, lighting, and atmospheric effects that define the game world's visual character",
+      "delegates_to": [],
       "tags": [
         "design",
         "art",
@@ -530,9 +516,9 @@
       "name": "agency-finance-ops",
       "display_name": "Finance Operations",
       "category": "support",
-      "summary": "Manages financial operations \u2014 budgeting, expense tracking, vendor payments, financial reporting, and cost optimization.",
+      "summary": "Manages financial operations — budgeting, expense tracking, vendor payments, financial reporting, and cost optimization.",
       "profile_path": "profiles/agency-finance-ops",
-      "primary_role": "Manages financial operations \u2014 budgeting, expense tracking, vendor payments, financial reporting, and cost optimization",
+      "primary_role": "Manages financial operations — budgeting, expense tracking, vendor payments, financial reporting, and cost optimization",
       "delegates_to": [
         "agency-analytics-specialist"
       ],
@@ -600,12 +586,10 @@
       "name": "agency-git-steward",
       "display_name": "Git Steward",
       "category": "qa",
-      "summary": "Manages git operations \u2014 branching strategy, commit hygiene, merge/rebase operations, and repository health.",
+      "summary": "Manages git operations — branching strategy, commit hygiene, merge/rebase operations, and repository health.",
       "profile_path": "profiles/agency-git-steward",
-      "primary_role": "Manages git operations \u2014 branching strategy, commit hygiene, merge/rebase operations, and repository health",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Manages git operations — branching strategy, commit hygiene, merge/rebase operations, and repository health",
+      "delegates_to": [],
       "tags": [
         "qa",
         "git",
@@ -687,9 +671,9 @@
       "name": "agency-knowledge-manager",
       "display_name": "Knowledge Manager",
       "category": "support",
-      "summary": "Manages organizational knowledge \u2014 documentation systems, knowledge bases, information architecture, and knowledge sharing practices.",
+      "summary": "Manages organizational knowledge — documentation systems, knowledge bases, information architecture, and knowledge sharing practices.",
       "profile_path": "profiles/agency-knowledge-manager",
-      "primary_role": "Manages organizational knowledge \u2014 documentation systems, knowledge bases, information architecture, and knowledge sharing practices",
+      "primary_role": "Manages organizational knowledge — documentation systems, knowledge bases, information architecture, and knowledge sharing practices",
       "delegates_to": [
         "agency-docs-writer",
         "agency-technical-writer"
@@ -705,9 +689,9 @@
       "name": "agency-launch-manager",
       "display_name": "Launch Manager",
       "category": "marketing",
-      "summary": "Plans and coordinates product launches \u2014 managing timelines, cross-team coordination, launch checklists, and post-launch analysis.",
+      "summary": "Plans and coordinates product launches — managing timelines, cross-team coordination, launch checklists, and post-launch analysis.",
       "profile_path": "profiles/agency-launch-manager",
-      "primary_role": "Plans and coordinates product launches \u2014 managing timelines, cross-team coordination, launch checklists, and post-launch analysis",
+      "primary_role": "Plans and coordinates product launches — managing timelines, cross-team coordination, launch checklists, and post-launch analysis",
       "delegates_to": [
         "agency-project-manager",
         "agency-release-manager"
@@ -723,12 +707,10 @@
       "name": "agency-legal-ops",
       "display_name": "Legal Operations",
       "category": "support",
-      "summary": "Manages legal and regulatory matters \u2014 contract review, compliance, intellectual property, terms of service, and legal risk assessment.",
+      "summary": "Manages legal and regulatory matters — contract review, compliance, intellectual property, terms of service, and legal risk assessment.",
       "profile_path": "profiles/agency-legal-ops",
-      "primary_role": "Manages legal and regulatory matters \u2014 contract review, compliance, intellectual property, terms of service, and legal risk assessment",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Manages legal and regulatory matters — contract review, compliance, intellectual property, terms of service, and legal risk assessment",
+      "delegates_to": [],
       "tags": [
         "support",
         "legal",
@@ -757,12 +739,10 @@
       "name": "agency-lore-writer",
       "display_name": "Lore Writer",
       "category": "content",
-      "summary": "Writes and expands game/world lore \u2014 character backstories, historical accounts, faction narratives, and in-world documents.",
+      "summary": "Writes and expands game/world lore — character backstories, historical accounts, faction narratives, and in-world documents.",
       "profile_path": "profiles/agency-lore-writer",
-      "primary_role": "Writes and expands game/world lore \u2014 character backstories, historical accounts, faction narratives, and in-world documents",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Writes and expands game/world lore — character backstories, historical accounts, faction narratives, and in-world documents",
+      "delegates_to": [],
       "tags": [
         "content",
         "lore",
@@ -777,9 +757,7 @@
       "summary": "Analyzes market trends, competitive dynamics, industry developments, and market sizing to inform strategic product and business decisions.",
       "profile_path": "profiles/agency-market-researcher",
       "primary_role": "Analyzes market trends, competitive dynamics, industry developments, and market sizing to inform strategic product and business decisions",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "product",
         "research",
@@ -830,9 +808,7 @@
       "summary": "Creates animations, motion graphics, transitions, and dynamic visual effects for UI, marketing, and game content.",
       "profile_path": "profiles/agency-motion-designer",
       "primary_role": "Creates animations, motion graphics, transitions, and dynamic visual effects for UI, marketing, and game content",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "design",
         "motion",
@@ -844,9 +820,9 @@
       "name": "agency-onboarding-specialist",
       "display_name": "Onboarding Specialist",
       "category": "support",
-      "summary": "Designs and manages user onboarding experiences \u2014 first-run flows, tutorials, progressive disclosure, and activation metrics.",
+      "summary": "Designs and manages user onboarding experiences — first-run flows, tutorials, progressive disclosure, and activation metrics.",
       "profile_path": "profiles/agency-onboarding-specialist",
-      "primary_role": "Designs and manages user onboarding experiences \u2014 first-run flows, tutorials, progressive disclosure, and activation metrics",
+      "primary_role": "Designs and manages user onboarding experiences — first-run flows, tutorials, progressive disclosure, and activation metrics",
       "delegates_to": [
         "agency-docs-writer",
         "agency-analytics-specialist"
@@ -862,9 +838,9 @@
       "name": "agency-operations-manager",
       "display_name": "Operations Manager",
       "category": "leadership",
-      "summary": "Manages operational processes, workflows, tooling, and team efficiency \u2014 ensuring the agency runs smoothly as a system.",
+      "summary": "Manages operational processes, workflows, tooling, and team efficiency — ensuring the agency runs smoothly as a system.",
       "profile_path": "profiles/agency-operations-manager",
-      "primary_role": "Manages operational processes, workflows, tooling, and team efficiency \u2014 ensuring the agency runs smoothly as a system",
+      "primary_role": "Manages operational processes, workflows, tooling, and team efficiency — ensuring the agency runs smoothly as a system",
       "delegates_to": [
         "agency-orchestrator",
         "agency-project-manager"
@@ -952,12 +928,10 @@
       "name": "agency-procurement-specialist",
       "display_name": "Procurement Specialist",
       "category": "support",
-      "summary": "Manages vendor and tool procurement \u2014 evaluating options, negotiating terms, managing subscriptions, and ensuring value for money.",
+      "summary": "Manages vendor and tool procurement — evaluating options, negotiating terms, managing subscriptions, and ensuring value for money.",
       "profile_path": "profiles/agency-procurement-specialist",
-      "primary_role": "Manages vendor and tool procurement \u2014 evaluating options, negotiating terms, managing subscriptions, and ensuring value for money",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Manages vendor and tool procurement — evaluating options, negotiating terms, managing subscriptions, and ensuring value for money",
+      "delegates_to": [],
       "tags": [
         "support",
         "procurement",
@@ -969,9 +943,9 @@
       "name": "agency-product-designer",
       "display_name": "Product Designer",
       "category": "design",
-      "summary": "Designs end-to-end product experiences \u2014 from user flows and interaction patterns to visual design and prototyping.",
+      "summary": "Designs end-to-end product experiences — from user flows and interaction patterns to visual design and prototyping.",
       "profile_path": "profiles/agency-product-designer",
-      "primary_role": "Designs end-to-end product experiences \u2014 from user flows and interaction patterns to visual design and prototyping",
+      "primary_role": "Designs end-to-end product experiences — from user flows and interaction patterns to visual design and prototyping",
       "delegates_to": [
         "agency-ui-ux-designer",
         "agency-brand-designer"
@@ -1025,9 +999,9 @@
       "name": "agency-project-manager",
       "display_name": "Project Manager",
       "category": "leadership",
-      "summary": "Plans, tracks, and coordinates project execution \u2014 managing timelines, resources, milestones, and stakeholder communication.",
+      "summary": "Plans, tracks, and coordinates project execution — managing timelines, resources, milestones, and stakeholder communication.",
       "profile_path": "profiles/agency-project-manager",
-      "primary_role": "Plans, tracks, and coordinates project execution \u2014 managing timelines, resources, milestones, and stakeholder communication",
+      "primary_role": "Plans, tracks, and coordinates project execution — managing timelines, resources, milestones, and stakeholder communication",
       "delegates_to": [
         "agency-traffic-manager",
         "agency-scrum-master"
@@ -1083,9 +1057,7 @@
       "summary": "Executes test cases, reports defects, verifies fixes, and performs exploratory testing to find issues before users do.",
       "profile_path": "profiles/agency-qa-tester",
       "primary_role": "Executes test cases, reports defects, verifies fixes, and performs exploratory testing to find issues before users do",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "qa",
         "testing",
@@ -1100,9 +1072,7 @@
       "summary": "Simulates adversarial attacks to find security weaknesses, tests incident response, and validates security controls under realistic conditions.",
       "profile_path": "profiles/agency-red-team",
       "primary_role": "Simulates adversarial attacks to find security weaknesses, tests incident response, and validates security controls under realistic conditions",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "qa",
         "security",
@@ -1114,9 +1084,9 @@
       "name": "agency-release-manager",
       "display_name": "Release Manager",
       "category": "qa",
-      "summary": "Manages the release process \u2014 coordinating release readiness, managing release branches, overseeing deployment, and ensuring smooth releases.",
+      "summary": "Manages the release process — coordinating release readiness, managing release branches, overseeing deployment, and ensuring smooth releases.",
       "profile_path": "profiles/agency-release-manager",
-      "primary_role": "Manages the release process \u2014 coordinating release readiness, managing release branches, overseeing deployment, and ensuring smooth releases",
+      "primary_role": "Manages the release process — coordinating release readiness, managing release branches, overseeing deployment, and ensuring smooth releases",
       "delegates_to": [
         "agency-git-steward",
         "agency-devops-engineer"
@@ -1152,9 +1122,7 @@
       "summary": "Refines, validates, and maintains detailed requirements specifications. Ensures requirements are unambiguous, testable, and traceable.",
       "profile_path": "profiles/agency-requirements-analyst",
       "primary_role": "Refines, validates, and maintains detailed requirements specifications",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "product",
         "requirements",
@@ -1221,9 +1189,7 @@
       "summary": "Reviews code, configurations, and architecture for security vulnerabilities, compliance issues, and security best practices.",
       "profile_path": "profiles/agency-security-reviewer",
       "primary_role": "Reviews code, configurations, and architecture for security vulnerabilities, compliance issues, and security best practices",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "qa",
         "security",
@@ -1235,12 +1201,10 @@
       "name": "agency-seo-specialist",
       "display_name": "SEO Specialist",
       "category": "marketing",
-      "summary": "Optimizes content and technical elements for search engines \u2014 keyword research, on-page SEO, technical SEO, and search performance tracking.",
+      "summary": "Optimizes content and technical elements for search engines — keyword research, on-page SEO, technical SEO, and search performance tracking.",
       "profile_path": "profiles/agency-seo-specialist",
-      "primary_role": "Optimizes content and technical elements for search engines \u2014 keyword research, on-page SEO, technical SEO, and search performance tracking",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Optimizes content and technical elements for search engines — keyword research, on-page SEO, technical SEO, and search performance tracking",
+      "delegates_to": [],
       "tags": [
         "marketing",
         "seo",
@@ -1252,9 +1216,9 @@
       "name": "agency-social-media-manager",
       "display_name": "Social Media Manager",
       "category": "marketing",
-      "summary": "Manages social media presence \u2014 content planning, posting schedules, community engagement, and social media analytics.",
+      "summary": "Manages social media presence — content planning, posting schedules, community engagement, and social media analytics.",
       "profile_path": "profiles/agency-social-media-manager",
-      "primary_role": "Manages social media presence \u2014 content planning, posting schedules, community engagement, and social media analytics",
+      "primary_role": "Manages social media presence — content planning, posting schedules, community engagement, and social media analytics",
       "delegates_to": [
         "agency-copywriter",
         "agency-analytics-specialist"
@@ -1270,9 +1234,9 @@
       "name": "agency-software-architect",
       "display_name": "Software Architect",
       "category": "engineering",
-      "summary": "Designs detailed software architecture \u2014 class structures, module boundaries, design patterns, and code-level integration strategies.",
+      "summary": "Designs detailed software architecture — class structures, module boundaries, design patterns, and code-level integration strategies.",
       "profile_path": "profiles/agency-software-architect",
-      "primary_role": "Designs detailed software architecture \u2014 class structures, module boundaries, design patterns, and code-level integration strategies",
+      "primary_role": "Designs detailed software architecture — class structures, module boundaries, design patterns, and code-level integration strategies",
       "delegates_to": [
         "agency-technical-lead"
       ],
@@ -1287,9 +1251,9 @@
       "name": "agency-support-specialist",
       "display_name": "Support Specialist",
       "category": "support",
-      "summary": "Handles user support requests \u2014 triaging issues, providing solutions, escalating complex problems, and ensuring user satisfaction.",
+      "summary": "Handles user support requests — triaging issues, providing solutions, escalating complex problems, and ensuring user satisfaction.",
       "profile_path": "profiles/agency-support-specialist",
-      "primary_role": "Handles user support requests \u2014 triaging issues, providing solutions, escalating complex problems, and ensuring user satisfaction",
+      "primary_role": "Handles user support requests — triaging issues, providing solutions, escalating complex problems, and ensuring user satisfaction",
       "delegates_to": [
         "agency-qa-tester",
         "agency-docs-writer"
@@ -1323,12 +1287,10 @@
       "name": "agency-technical-artist",
       "display_name": "Technical Artist",
       "category": "design",
-      "summary": "Bridges art and engineering \u2014 creates shaders, visual effects, optimizes art assets for performance, and builds art pipelines.",
+      "summary": "Bridges art and engineering — creates shaders, visual effects, optimizes art assets for performance, and builds art pipelines.",
       "profile_path": "profiles/agency-technical-artist",
-      "primary_role": "Bridges art and engineering \u2014 creates shaders, visual effects, optimizes art assets for performance, and builds art pipelines",
-      "delegates_to": [
-        null
-      ],
+      "primary_role": "Bridges art and engineering — creates shaders, visual effects, optimizes art assets for performance, and builds art pipelines",
+      "delegates_to": [],
       "tags": [
         "design",
         "technical-art",
@@ -1340,9 +1302,9 @@
       "name": "agency-technical-lead",
       "display_name": "Technical Lead",
       "category": "engineering",
-      "summary": "Leads technical execution \u2014 makes implementation decisions, guides engineering team, reviews code, and ensures technical quality.",
+      "summary": "Leads technical execution — makes implementation decisions, guides engineering team, reviews code, and ensures technical quality.",
       "profile_path": "profiles/agency-technical-lead",
-      "primary_role": "Leads technical execution \u2014 makes implementation decisions, guides engineering team, reviews code, and ensures technical quality",
+      "primary_role": "Leads technical execution — makes implementation decisions, guides engineering team, reviews code, and ensures technical quality",
       "delegates_to": [
         "agency-fullstack-engineer",
         "agency-frontend-engineer",
@@ -1359,9 +1321,9 @@
       "name": "agency-technical-writer",
       "display_name": "Technical Writer",
       "category": "content",
-      "summary": "Writes technical documentation \u2014 API docs, SDK guides, architecture docs, and developer-facing content that enables users and developers.",
+      "summary": "Writes technical documentation — API docs, SDK guides, architecture docs, and developer-facing content that enables users and developers.",
       "profile_path": "profiles/agency-technical-writer",
-      "primary_role": "Writes technical documentation \u2014 API docs, SDK guides, architecture docs, and developer-facing content that enables users and developers",
+      "primary_role": "Writes technical documentation — API docs, SDK guides, architecture docs, and developer-facing content that enables users and developers",
       "delegates_to": [
         "agency-editor-in-chief"
       ],
@@ -1430,9 +1392,9 @@
       "name": "agency-ui-ux-designer",
       "display_name": "UI/UX Designer",
       "category": "design",
-      "summary": "Designs detailed user interfaces and user experiences \u2014 layouts, components, micro-interactions, and responsive patterns.",
+      "summary": "Designs detailed user interfaces and user experiences — layouts, components, micro-interactions, and responsive patterns.",
       "profile_path": "profiles/agency-ui-ux-designer",
-      "primary_role": "Designs detailed user interfaces and user experiences \u2014 layouts, components, micro-interactions, and responsive patterns",
+      "primary_role": "Designs detailed user interfaces and user experiences — layouts, components, micro-interactions, and responsive patterns",
       "delegates_to": [
         "agency-accessibility-reviewer"
       ],
@@ -1450,9 +1412,7 @@
       "summary": "Conducts user research, validates assumptions with real users, synthesizes feedback, and ensures product decisions are grounded in user reality.",
       "profile_path": "profiles/agency-user-researcher",
       "primary_role": "Conducts user research, validates assumptions with real users, synthesizes feedback, and ensures product decisions are grounded in user reality",
-      "delegates_to": [
-        null
-      ],
+      "delegates_to": [],
       "tags": [
         "product",
         "research",
@@ -1464,9 +1424,9 @@
       "name": "agency-worldbuilder",
       "display_name": "Worldbuilder",
       "category": "design",
-      "summary": "Creates and maintains game worlds \u2014 lore, history, geography, cultures, factions, and the narrative foundation that gives the game meaning.",
+      "summary": "Creates and maintains game worlds — lore, history, geography, cultures, factions, and the narrative foundation that gives the game meaning.",
       "profile_path": "profiles/agency-worldbuilder",
-      "primary_role": "Creates and maintains game worlds \u2014 lore, history, geography, cultures, factions, and the narrative foundation that gives the game meaning",
+      "primary_role": "Creates and maintains game worlds — lore, history, geography, cultures, factions, and the narrative foundation that gives the game meaning",
       "delegates_to": [
         "agency-lore-writer"
       ],
