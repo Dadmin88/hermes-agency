@@ -19,7 +19,7 @@ if __package__:
     from .tools import TOOLS, TOOLSET, check_agency_available
 
     def _auto_start_hook(**_: object) -> None:
-        """Start the Hermes Agency node and warm team discovery when configured."""
+        """Start the Hermes Agency node when explicit auto-start is configured."""
 
         manager.auto_start_if_configured()
 
@@ -99,7 +99,7 @@ if __package__:
         # a specific session-start event. This remains non-blocking. Do not attempt
         # startup when the optional SDK is unavailable; plugin discovery must stay
         # fail-open for profiles that have the plugin present but dependencies absent.
-        if cfg.enabled and check_agency_available() and (cfg.auto_start or cfg.team.auto_discover):
+        if cfg.enabled and check_agency_available() and cfg.auto_start:
             manager.start_background()
 else:
 

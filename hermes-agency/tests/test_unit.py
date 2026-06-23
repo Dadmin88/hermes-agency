@@ -1706,6 +1706,127 @@ def test_register_sdk_absent_gates_tools_and_does_not_start(plugin_modules, monk
     assert start_calls == []
 
 
+def test_register_auto_discover_does_not_start_when_auto_start_false(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    start_calls = []
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            team=cfg_mod.TeamConfig(auto_discover=True),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: start_calls.append("start"))
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+    for name, handler in ctx.hooks:
+        if name == "on_session_start":
+            handler()
+
+    assert start_calls == []
+
+
+def test_register_auto_start_true_starts_even_when_auto_discover_false(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    start_calls = []
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=True,
+            team=cfg_mod.TeamConfig(auto_discover=False),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: start_calls.append("start"))
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    assert start_calls == ["start"]
+
+
+def test_register_auto_start_and_auto_discover_starts_once(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    start_calls = []
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=True,
+            team=cfg_mod.TeamConfig(auto_discover=True),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: start_calls.append("start"))
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    assert start_calls == ["start"]
+
+
+def test_auto_start_if_configured_ignores_auto_discover_when_auto_start_false(
+    plugin_modules, monkeypatch
+):
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm_mod.NodeManager()
+    start_calls = []
+    monkeypatch.setattr(
+        nm_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            team=cfg_mod.TeamConfig(auto_discover=True),
+        ),
+    )
+    monkeypatch.setattr(manager, "start_background", lambda: start_calls.append("start"))
+
+    manager.auto_start_if_configured()
+
+    assert start_calls == []
+
+
+def test_explicit_start_works_regardless_of_auto_start(plugin_modules, monkeypatch):
+    tools = plugin_modules.tools
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(
+        enabled=True,
+        auto_start=False,
+        team=cfg_mod.TeamConfig(auto_discover=True),
+    )
+
+    class FakeState:
+        error = None
+        started = True
+
+        def as_dict(self):
+            return {"started": True, "peer_id": "peer-1", "config": cfg.as_dict()}
+
+    class FakeManager:
+        def start_sync(self):
+            return FakeState()
+
+    monkeypatch.setattr(tools, "manager", FakeManager())
+
+    data = json.loads(tools.a2a_start_node({}))
+
+    assert data["ok"] is True
+    assert data["node"]["started"] is True
+    assert data["node"]["config"]["auto_start"] is False
+
+
 def test_register_orchestrator_tools_only_for_promoted_profile(plugin_modules, monkeypatch):
     init_mod = _load_plugin_package_module(monkeypatch)
     cfg_mod = plugin_modules.config

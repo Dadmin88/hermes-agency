@@ -275,9 +275,56 @@ class DaemonManager:
         sock = self.sock_path
         return sock.exists()
 
+    async def _reuse_or_cleanup_existing_socket(self) -> bool:
+        """Return True for a healthy existing daemon; clean stale UDS files.
+
+        A leftover Unix socket from a crashed daemon is not proof that a daemon is
+        still running. Confirm the daemon answers gRPC before reusing it; when it
+        does not, remove the stale socket so a fresh daemon can bind normally.
+        """
+
+        if not self._grpc_listen.startswith("unix://"):
+            return False
+
+        sock = self.sock_path
+        if not sock.exists():
+            return False
+
+        try:
+            if await self._grpc_health_check(timeout=2.0, raise_on_timeout=True):
+                return True
+        except TimeoutError as exc:
+            raise DaemonConnectionError(
+                f"Health check timed out for existing daemon socket at {sock}.\n"
+                "\n"
+                "A daemon may be wedged or unreachable. Remediation:\n"
+                "  - Check daemon logs for errors\n"
+                "  - Kill stale daemon: pkill agentanycastd\n"
+                f"  - Remove stale socket after confirming no daemon is healthy: rm -f {sock}"
+            ) from exc
+
+        warning = f"Removed stale daemon socket at {sock}; daemon did not answer health check."
+        try:
+            sock.unlink()
+        except PermissionError as exc:
+            raise DaemonStartError(
+                f"Found stale daemon socket at {sock}, but could not remove it due to "
+                "permission error. Remove the stale socket manually or fix ownership, then "
+                f"retry. Suggested command: rm -f {sock}"
+            ) from exc
+        except OSError as exc:
+            raise DaemonStartError(
+                f"Found stale daemon socket at {sock}, but could not remove it: {exc}. "
+                f"Remove the stale socket manually, then retry: rm -f {sock}"
+            ) from exc
+
+        logger.warning(warning)
+        self._emit(f"Warning: {warning}")
+        return False
+
     async def start(self) -> None:
         """Start the daemon process if not already running."""
-        if self._is_daemon_running():
+        if await self._reuse_or_cleanup_existing_socket():
             logger.info("Daemon already running at %s", self._grpc_listen)
             self._emit("Daemon already running.")
             return
@@ -383,7 +430,9 @@ class DaemonManager:
             msg += f"\n\nRecent logs:\n{logs}"
         raise DaemonConnectionError(msg)
 
-    async def _grpc_health_check(self) -> bool:
+    async def _grpc_health_check(
+        self, *, timeout: float = 2.0, raise_on_timeout: bool = False
+    ) -> bool:
         """Attempt a single gRPC GetNodeInfo call to verify daemon readiness."""
         try:
             channel = grpc.aio.insecure_channel(self._grpc_listen)
@@ -391,13 +440,19 @@ class DaemonManager:
                 stub = node_service_pb2_grpc.NodeServiceStub(channel)
                 await stub.GetNodeInfo(
                     node_service_pb2.GetNodeInfoRequest(),
-                    timeout=2,
+                    timeout=timeout,
                 )
                 return True
-            except grpc.aio.AioRpcError:
+            except grpc.aio.AioRpcError as exc:
+                if raise_on_timeout and exc.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                    raise TimeoutError("daemon health check timed out") from exc
                 return False
             finally:
                 await channel.close()
+        except TimeoutError:
+            if raise_on_timeout:
+                raise
+            return False
         except Exception:
             return False
 

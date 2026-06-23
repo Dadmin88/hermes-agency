@@ -2105,7 +2105,7 @@ class NodeManager:
     def auto_start_if_configured(self) -> None:
         cfg = get_config()
         self.state.config = cfg
-        if cfg.enabled and (cfg.auto_start or cfg.team.auto_discover):
+        if cfg.enabled and cfg.auto_start:
             self.start_background()
 
     def cached_team_context(self) -> str:

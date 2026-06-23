@@ -12,7 +12,7 @@ from agentanycast.daemon import (
     DaemonManager,
     _detect_platform,
 )
-from agentanycast.exceptions import DaemonNotFoundError
+from agentanycast.exceptions import DaemonConnectionError, DaemonNotFoundError, DaemonStartError
 
 # ── Platform Detection ───────────────────────────────────────
 
@@ -200,6 +200,128 @@ class TestIsDaemonRunning:
         sock.touch()
         dm = DaemonManager(home=tmp_path)
         assert dm._is_daemon_running() is True
+
+
+class TestExistingSocketStartup:
+    @pytest.mark.asyncio
+    async def test_start_reuses_existing_healthy_socket_without_restart(self, tmp_path):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        emitted = []
+        dm = DaemonManager(home=tmp_path, status_callback=emitted.append)
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        async def ensure_binary():  # pragma: no cover - must not be called
+            raise AssertionError("healthy existing daemon should not resolve/start a binary")
+
+        dm._grpc_health_check = healthy
+        dm.ensure_binary = ensure_binary
+
+        await dm.start()
+
+        assert dm._managed is False
+        assert "Daemon already running." in emitted
+
+    @pytest.mark.asyncio
+    async def test_start_removes_stale_socket_and_starts_daemon(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        emitted = []
+        dm = DaemonManager(home=tmp_path, status_callback=emitted.append)
+        binary = tmp_path / "agentanycastd"
+        binary.write_text("#!/bin/sh\n")
+
+        class FakeProcess:
+            returncode = None
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                return None
+
+            def wait(self, timeout=None):
+                return 0
+
+            def kill(self):
+                return None
+
+        async def unhealthy(*, timeout=2.0, raise_on_timeout=False):
+            return False
+
+        async def ensure_binary():
+            return binary
+
+        async def wait_ready(timeout):
+            assert not sock.exists()
+
+        dm._grpc_health_check = unhealthy
+        dm.ensure_binary = ensure_binary
+        dm._wait_ready = wait_ready
+        popen_calls = []
+        monkeypatch.setattr(
+            "agentanycast.daemon.subprocess.Popen",
+            lambda *args, **kwargs: popen_calls.append((args, kwargs)) or FakeProcess(),
+        )
+
+        with caplog.at_level("WARNING"):
+            await dm.start()
+
+        assert not sock.exists()
+        assert popen_calls
+        assert dm._managed is True
+        assert "Removed stale daemon socket" in caplog.text
+        assert any("Removed stale daemon socket" in message for message in emitted)
+
+    @pytest.mark.asyncio
+    async def test_permission_error_removing_stale_socket_is_actionable(
+        self, tmp_path, monkeypatch
+    ):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        dm = DaemonManager(home=tmp_path)
+
+        async def unhealthy(*, timeout=2.0, raise_on_timeout=False):
+            return False
+
+        original_unlink = Path.unlink
+
+        def deny_socket_unlink(path, *args, **kwargs):
+            if path == sock:
+                raise PermissionError("denied")
+            return original_unlink(path, *args, **kwargs)
+
+        dm._grpc_health_check = unhealthy
+        monkeypatch.setattr(Path, "unlink", deny_socket_unlink)
+
+        with pytest.raises(DaemonStartError, match="permission") as excinfo:
+            await dm.start()
+
+        assert str(sock) in str(excinfo.value)
+        assert "Remove the stale socket manually" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_existing_socket_health_check_timeout_has_remediation(self, tmp_path):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        dm = DaemonManager(home=tmp_path)
+
+        async def timeout(*, timeout=2.0, raise_on_timeout=False):
+            raise TimeoutError("health check deadline exceeded")
+
+        dm._grpc_health_check = timeout
+
+        with pytest.raises(DaemonConnectionError, match="timed out") as excinfo:
+            await dm.start()
+
+        message = str(excinfo.value)
+        assert str(sock) in message
+        assert "pkill agentanycastd" in message
+        assert "rm -f" in message
 
 
 # ── Store Path ───────────────────────────────────────────────
