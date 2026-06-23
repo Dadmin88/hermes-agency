@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -557,6 +558,195 @@ def _string_tuple(value: Any) -> tuple[str, ...]:
             seen.add(peer_id)
             cleaned.append(peer_id)
     return tuple(cleaned)
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _add_peer_to_relay_allowlist_text(clean_peer_id: str) -> dict[str, Any]:
+    """Best-effort allowlist append when PyYAML is unavailable.
+
+    This fallback intentionally handles the common Hermes shape only. It avoids
+    dropping unrelated config when the standalone agency test/runtime venv does
+    not have PyYAML installed.
+    """
+
+    from hermes_cli.config import get_config_path
+
+    path = Path(get_config_path()).expanduser()
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if clean_peer_id in text:
+        return {
+            "ok": True,
+            "changed": False,
+            "reason": "already present",
+            "peer_id": clean_peer_id,
+            "allowlist": [clean_peer_id],
+            "path": str(path),
+        }
+    lines = text.splitlines()
+    item_line = f"      - {clean_peer_id}"
+    if not lines:
+        lines = ["agency:", "  relay:", "    allowlist:", item_line]
+    else:
+        inserted = False
+        for index, line in enumerate(lines):
+            if line.strip() == "allowlist: []":
+                indent = line[: len(line) - len(line.lstrip())]
+                lines[index] = f"{indent}allowlist:"
+                lines.insert(index + 1, f"{indent}  - {clean_peer_id}")
+                inserted = True
+                break
+            if line.strip() == "allowlist:":
+                indent = line[: len(line) - len(line.lstrip())]
+                lines.insert(index + 1, f"{indent}  - {clean_peer_id}")
+                inserted = True
+                break
+        if not inserted:
+            for index, line in enumerate(lines):
+                if line.strip() == "relay:":
+                    indent = line[: len(line) - len(line.lstrip())]
+                    lines[index + 1 : index + 1] = [
+                        f"{indent}  allowlist:",
+                        f"{indent}    - {clean_peer_id}",
+                    ]
+                    inserted = True
+                    break
+        if not inserted:
+            lines.extend(["", "agency:", "  relay:", "    allowlist:", item_line])
+    _write_text_atomic(path, "\n".join(lines).rstrip() + "\n")
+    return {
+        "ok": True,
+        "changed": True,
+        "peer_id": clean_peer_id,
+        "allowlist": [clean_peer_id],
+        "path": str(path),
+        "fallback": "text",
+    }
+
+
+def _load_raw_user_config() -> tuple[dict[str, Any], Path]:
+    """Load the active profile's raw config.yaml without merged defaults."""
+
+    try:
+        import yaml
+    except Exception as exc:  # pragma: no cover - Hermes depends on PyYAML
+        raise RuntimeError("PyYAML is required to update config.yaml") from exc
+
+    from hermes_cli.config import get_config_path
+
+    path = Path(get_config_path()).expanduser()
+    if not path.exists():
+        return {}, path
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        data = {}
+    return data if isinstance(data, dict) else {}, path
+
+
+def _save_raw_user_config(config: dict[str, Any], path: Path) -> None:
+    """Atomically persist the active profile config."""
+
+    try:
+        from hermes_cli.config import ensure_hermes_home
+
+        ensure_hermes_home()
+    except Exception:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from utils import atomic_yaml_write
+
+        atomic_yaml_write(path, config, sort_keys=False)
+        return
+    except Exception:
+        pass
+
+    try:
+        import yaml
+    except Exception as exc:  # pragma: no cover - Hermes depends on PyYAML
+        raise RuntimeError("PyYAML is required to update config.yaml") from exc
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def add_peer_to_relay_allowlist(peer_id: str) -> dict[str, Any]:
+    """Persistently add ``peer_id`` to ``agency.relay.allowlist``.
+
+    The send path checks the effective relay allowlist before attempting direct
+    peer sends. Auto-handshake uses this helper so discovery/trust changes are
+    reflected both in the next in-memory ``get_config()`` resolution and in the
+    profile's ``config.yaml`` for future sessions.
+
+    Returns a small idempotent result with ``changed=false`` when the peer is
+    already present or when ``agency.relay.allow_all=true`` makes the append
+    unnecessary.
+    """
+
+    clean_peer_id = str(peer_id or "").strip()
+    if not clean_peer_id:
+        raise ValueError("peer_id is required")
+
+    try:
+        raw_config, path = _load_raw_user_config()
+    except RuntimeError as exc:
+        if "PyYAML" in str(exc):
+            return _add_peer_to_relay_allowlist_text(clean_peer_id)
+        raise
+    agency = raw_config.setdefault("agency", {})
+    if not isinstance(agency, dict):
+        agency = {}
+        raw_config["agency"] = agency
+
+    relay_raw = agency.get("relay")
+    if isinstance(relay_raw, dict):
+        relay = relay_raw
+    else:
+        relay = {}
+        if relay_raw not in (None, ""):
+            relay["address"] = relay_raw
+        agency["relay"] = relay
+
+    if bool(relay.get("allow_all")):
+        allowlist = list(_string_tuple(relay.get("allowlist") or []))
+        return {
+            "ok": True,
+            "changed": False,
+            "reason": "allow_all enabled",
+            "peer_id": clean_peer_id,
+            "allowlist": allowlist,
+            "path": str(path),
+        }
+
+    allowlist = list(_string_tuple(relay.get("allowlist") or []))
+    if clean_peer_id in allowlist:
+        return {
+            "ok": True,
+            "changed": False,
+            "reason": "already present",
+            "peer_id": clean_peer_id,
+            "allowlist": allowlist,
+            "path": str(path),
+        }
+
+    allowlist.append(clean_peer_id)
+    relay["allowlist"] = allowlist
+    _save_raw_user_config(raw_config, path)
+    return {
+        "ok": True,
+        "changed": True,
+        "peer_id": clean_peer_id,
+        "allowlist": allowlist,
+        "path": str(path),
+    }
 
 
 def _env_truthy(name: str) -> bool:

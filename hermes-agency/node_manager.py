@@ -37,7 +37,13 @@ from .announcements import (
 )
 from .bidding import get_bidding_state, handle_bid_message
 from .card_builder import build_card, card_to_dict
-from .config import AgencyConfig, current_profile_name, get_config, is_current_orchestrator
+from .config import (
+    AgencyConfig,
+    add_peer_to_relay_allowlist,
+    current_profile_name,
+    get_config,
+    is_current_orchestrator,
+)
 from .context_packet import (
     build_context_packet,
     packet_goal_or_text,
@@ -46,7 +52,7 @@ from .context_packet import (
 )
 from .conversation import build_conversation_context, build_conversation_history
 from .incoming_queue import IncomingQueueMixin, IncomingTaskRecord
-from .incoming_security import verify_incoming_sender
+from .incoming_security import extract_sender_peer_id, verify_incoming_sender
 from .kanban_bridge import add_comment as kanban_add_comment
 from .kanban_bridge import get_task as kanban_get_task
 from .kanban_bridge import list_tasks as kanban_list_tasks
@@ -80,7 +86,15 @@ from .registry_client import (
 from .task_processor import process_incoming_task
 from .team_context import get_team_state, visible_team_state
 from .team_discovery import TeamDiscoveryMixin
-from .trust import store_for_config, trust_summary, verify_peer_tofu
+from .trust import (
+    handle_peer_handshake,
+    handshake_due,
+    record_peer_handshake_attempt,
+    store_for_config,
+    trust_peer_for_handshake,
+    trust_summary,
+    verify_peer_tofu,
+)
 
 __all__ = [
     "IncomingTaskRecord",
@@ -93,6 +107,7 @@ __all__ = [
     "REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS",
     "REGISTRY_REREGISTER_INTERVAL_SECONDS",
     "REGISTRY_REREGISTER_MAX_BACKOFF_SECONDS",
+    "add_peer_to_relay_allowlist",
     "announce_complete",
     "announce_delegate",
     "announce_error",
@@ -106,8 +121,11 @@ __all__ = [
     "check_autonomy",
     "current_profile_name",
     "deregister_agent",
+    "extract_sender_peer_id",
     "handle_bid_message",
+    "handle_peer_handshake",
     "handle_registration_message",
+    "handshake_due",
     "is_current_orchestrator",
     "kanban_add_comment",
     "kanban_get_task",
@@ -120,9 +138,11 @@ __all__ = [
     "parse_context_packet",
     "parse_control_message",
     "process_incoming_task",
+    "record_peer_handshake_attempt",
     "register_agent",
     "start_node",
     "stop_node",
+    "trust_peer_for_handshake",
     "verify_incoming_sender",
     "verify_peer_tofu",
     "_registry_addresses",

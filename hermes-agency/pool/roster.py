@@ -20,7 +20,7 @@ LEGACY_ROSTER_PATH = Path.home() / ".hermes" / "pool" / "roster.json"
 ROSTER_STATE_FILENAME = "roster_state.json"
 OFFLINE_QUEUE_FILENAME = "offline_task_queue.json"
 DEFAULT_MODEL = "gpt-5.5"
-DEFAULT_PROVIDER = "openai"
+DEFAULT_PROVIDER = "openai-codex"
 
 
 def _plugin_setup_module():

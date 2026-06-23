@@ -11,13 +11,13 @@ import yaml
 AGENCY_DIR = Path("/home/dadmin/.hermes/agency")
 CONFIG_PATH = AGENCY_DIR / "config.yaml"
 PROVIDERS = {
-    "1": {"name": "gpt-5.5", "provider": "openai"},
-    "2": {"name": "grok-4.3", "provider": "xai"},
+    "1": {"name": "gpt-5.5", "provider": "openai-codex"},
+    "2": {"name": "grok-4.3", "provider": "xai-oauth"},
     "3": {"name": "mimo-v2.5-pro", "provider": "xiaomi"},
 }
 IMAGE_PROVIDERS = {
-    "1": {"name": "GPT-Image-2", "provider": "openai"},
-    "2": {"name": "Grok Imagine", "provider": "xai"},
+    "1": {"name": "GPT-Image-2", "provider": "openai-codex"},
+    "2": {"name": "Grok Imagine", "provider": "xai-oauth"},
     "3": {"name": "None", "provider": None},
 }
 

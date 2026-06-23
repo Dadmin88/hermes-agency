@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import stat
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,10 @@ from .config import AgencyConfig
 logger = logging.getLogger(__name__)
 
 TRUST_LEVELS = {"full", "limited", "blocked"}
+HANDSHAKE_BACKOFF_INITIAL_SECONDS = 5
+HANDSHAKE_BACKOFF_MAX_SECONDS = 300
+HANDSHAKE_TERMINAL_STATUSES = {"sent", "accepted"}
+_TRUST_STORE_LOCK = threading.RLock()
 
 
 class TrustError(RuntimeError):
@@ -106,7 +111,7 @@ class TrustStore:
                 self.path.parent,
                 exc,
             )
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp = self.path.with_name(f"{self.path.name}.tmp.{os.getpid()}.{time.time_ns()}")
         tmp.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
         try:
             os.chmod(tmp, 0o600)
@@ -162,6 +167,40 @@ class TrustStore:
         peers[peer_id] = record
         self.save(data)
         return dict(record)
+
+    def update_peer_metadata(self, peer_id: str, **updates: Any) -> dict[str, Any]:
+        """Merge auxiliary metadata into a peer record without changing trust level."""
+
+        peer_id = str(peer_id or "").strip()
+        if not peer_id:
+            raise ValueError("peer_id is required")
+        with _TRUST_STORE_LOCK:
+            now = self._now()
+            data = self.load()
+            peers = data.setdefault("peers", {})
+            existing = dict(peers.get(peer_id) or {})
+            record = {
+                **existing,
+                "peer_id": peer_id,
+                "trust_level": self._clean_level(existing.get("trust_level")),
+                "first_seen": existing.get("first_seen") or now,
+                "last_seen": now,
+            }
+            for key, value in updates.items():
+                if value is None:
+                    continue
+                key = str(key)
+                if (
+                    key == "handshake_status"
+                    and str(value or "").strip().lower() == "pending"
+                    and str(existing.get("handshake_status") or "").strip().lower()
+                    in HANDSHAKE_TERMINAL_STATUSES
+                ):
+                    continue
+                record[key] = value
+            peers[peer_id] = record
+            self.save(data)
+            return dict(record)
 
     def verify_peer(
         self,
@@ -278,6 +317,170 @@ def verify_peer_tofu(
     if not decision.allowed:
         raise TrustError(decision.reason or decision.action)
     return decision.record
+
+
+def _handshake_attempt_count(record: dict[str, Any] | None) -> int:
+    try:
+        return max(0, int((record or {}).get("handshake_attempts") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def handshake_due(cfg: AgencyConfig, peer_id: str, *, now: float | None = None) -> bool:
+    """Return True when an auto-handshake should be attempted for ``peer_id``."""
+
+    clean = str(peer_id or "").strip()
+    if not clean:
+        return False
+    record = store_for_config(cfg).list_peers().get(clean) or {}
+    if str(record.get("trust_level") or "").strip().lower() == "blocked":
+        return False
+    status = str(record.get("handshake_status") or "").strip().lower()
+    if status in HANDSHAKE_TERMINAL_STATUSES:
+        return False
+    try:
+        next_attempt = float(record.get("handshake_next_attempt_at") or 0)
+    except (TypeError, ValueError):
+        next_attempt = 0
+    return (now if now is not None else time.time()) >= next_attempt
+
+
+def record_peer_handshake_attempt(
+    cfg: AgencyConfig,
+    peer_id: str,
+    *,
+    status: str,
+    name: str = "",
+    direction: str = "outgoing",
+    error: str = "",
+    source: str = "handshake",
+) -> dict[str, Any]:
+    """Update trust-store handshake metadata for a peer.
+
+    ``status`` is intentionally stringly-typed so future states can be added
+    without a config migration. Failed states get exponential retry metadata;
+    successful states clear the backoff.
+    """
+
+    clean = str(peer_id or "").strip()
+    if not clean:
+        raise ValueError("peer_id is required")
+    store = store_for_config(cfg)
+    existing = store.list_peers().get(clean) or {}
+    clean_status = str(status or "pending").strip().lower() or "pending"
+    existing_status = str(existing.get("handshake_status") or "").strip().lower()
+    if clean_status == "pending" and existing_status in HANDSHAKE_TERMINAL_STATUSES:
+        return dict(existing)
+    attempts = _handshake_attempt_count(existing)
+    updates: dict[str, Any] = {
+        "name": str(name or existing.get("name") or "").strip(),
+        "last_source": source,
+        "handshake_status": clean_status,
+        "handshake_direction": direction,
+        "handshake_updated_at": time.time(),
+        "handshake_last_error": str(error or ""),
+    }
+    if clean_status in {"failed", "queued"}:
+        attempts += 1
+        backoff = min(
+            HANDSHAKE_BACKOFF_MAX_SECONDS,
+            HANDSHAKE_BACKOFF_INITIAL_SECONDS * (2 ** max(0, attempts - 1)),
+        )
+        updates["handshake_attempts"] = attempts
+        updates["handshake_next_attempt_at"] = time.time() + backoff
+    else:
+        updates["handshake_attempts"] = attempts
+        updates["handshake_next_attempt_at"] = 0
+    return store.update_peer_metadata(clean, **updates)
+
+
+def trust_peer_for_handshake(
+    cfg: AgencyConfig,
+    peer_id: str,
+    *,
+    name: str = "",
+    card: dict[str, Any] | None = None,
+    direction: str = "outgoing",
+    source: str = "handshake",
+) -> dict[str, Any] | None:
+    """Verify and mark a peer as trusted for automatic handshake."""
+
+    record = verify_peer_tofu(
+        cfg,
+        peer_id,
+        name=name,
+        card=card,
+        source=source,
+        trust_level="full",
+    )
+    if record is None:
+        return None
+    return record_peer_handshake_attempt(
+        cfg,
+        peer_id,
+        status="pending",
+        name=name or str((card or {}).get("name") or ""),
+        direction=direction,
+        source=source,
+    )
+
+
+def handle_peer_handshake(
+    cfg: AgencyConfig,
+    payload: dict[str, Any],
+    *,
+    sender_peer_id: str = "",
+) -> dict[str, Any]:
+    """Accept an incoming peer handshake and persist reciprocal trust/allowlist state."""
+
+    if payload.get("protocol") != "agency.autonomous.v1" or payload.get("type") != "handshake":
+        return {"ok": False, "ignored": True, "type": payload.get("type")}
+    payload_peer_id = str(payload.get("peer_id") or "").strip()
+    sender_peer_id = str(sender_peer_id or "").strip()
+    peer_id = sender_peer_id or payload_peer_id
+    if not peer_id:
+        raise TrustError("handshake missing peer_id")
+    if payload_peer_id and sender_peer_id and payload_peer_id != sender_peer_id:
+        raise TrustError("handshake peer_id does not match sender peer_id")
+
+    agent = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    name = str(agent.get("name") or payload.get("agent_name") or payload.get("name") or "").strip()
+    card = {"name": name, "description": str(agent.get("description") or "").strip()}
+    trust_record = trust_peer_for_handshake(
+        cfg,
+        peer_id,
+        name=name,
+        card=card,
+        direction="incoming",
+        source="incoming_handshake",
+    )
+    from .config import add_peer_to_relay_allowlist
+
+    try:
+        allowlist_result = add_peer_to_relay_allowlist(peer_id)
+    except Exception as exc:
+        allowlist_result = {
+            "ok": False,
+            "changed": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "peer_id": peer_id,
+        }
+    record_peer_handshake_attempt(
+        cfg,
+        peer_id,
+        status="accepted",
+        name=name,
+        direction="incoming",
+        source="incoming_handshake",
+    )
+    return {
+        "ok": True,
+        "type": "handshake",
+        "peer_id": peer_id,
+        "agent_name": name,
+        "trust": trust_record,
+        "allowlist": allowlist_result,
+    }
 
 
 def peer_allowed_by_config(cfg: AgencyConfig, peer_id: str) -> bool:

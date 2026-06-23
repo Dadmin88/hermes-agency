@@ -22,6 +22,38 @@ async def handle_control_message(manager: Any, task: Any, message_text: str, cfg
     if not control_payload:
         return False
 
+    if control_payload.get("type") == "handshake":
+        try:
+            sender_peer_id = nm.extract_sender_peer_id(task, control_payload)
+            control_result = nm.handle_peer_handshake(
+                cfg,
+                control_payload,
+                sender_peer_id=sender_peer_id,
+            )
+        except Exception as exc:
+            reason = f"{type(exc).__name__}: {exc}"
+            try:
+                await task.fail(reason)
+            except Exception:
+                pass
+            logger.warning("Hermes Agency rejected incoming handshake: %s", reason)
+            return True
+        try:
+            await task.complete(
+                artifacts=[
+                    {
+                        "artifact_id": f"agency-handshake-{getattr(task, 'task_id', 'unknown')}",
+                        "name": "agency-handshake-ack",
+                        "parts": [
+                            {"text": json.dumps(control_result, sort_keys=True, default=str)}
+                        ],
+                    }
+                ]
+            )
+        except Exception:
+            pass
+        return True
+
     security = nm.verify_incoming_sender(
         task, cfg, purpose="control", control_payload=control_payload
     )
