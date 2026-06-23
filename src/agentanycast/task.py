@@ -227,7 +227,7 @@ class Artifact:
     metadata: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        d = {
+        d: dict[str, Any] = {
             "artifact_id": self.artifact_id,
             "name": self.name,
             "parts": [p.to_dict() for p in self.parts],

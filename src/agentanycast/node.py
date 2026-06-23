@@ -196,10 +196,11 @@ def _nested_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
 
 
 def _split_patterns(value: Any) -> tuple[str, ...]:
+    raw_items: list[Any]
     if isinstance(value, str):
         raw_items = value.split(",")
     elif isinstance(value, (list, tuple, set)):
-        raw_items = value
+        raw_items = list(value)
     else:
         raw_items = []
     seen: set[str] = set()
@@ -216,7 +217,7 @@ def _load_outbound_url_policy() -> _OutboundUrlPolicy:
     validation = os.getenv("AGENTANYCAST_OUTBOUND_URL_VALIDATION", "").strip().lower()
     allowlist = _split_patterns(os.getenv("AGENTANYCAST_OUTBOUND_URL_ALLOWLIST", ""))
     try:
-        from hermes_cli.config import load_config
+        from hermes_cli.config import load_config  # type: ignore[import-not-found]
 
         config = load_config()
     except Exception:
