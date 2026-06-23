@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Agency Pool Manager
+After=network.target
+
+[Service]
+Type=simple
+User=dadmin
+WorkingDirectory=/home/dadmin/Hermes_Agency/hermes-agency/pool
+ExecStart=/usr/bin/python3 /home/dadmin/Hermes_Agency/hermes-agency/pool/service.py
+Restart=always
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

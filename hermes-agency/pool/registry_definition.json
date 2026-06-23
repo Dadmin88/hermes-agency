@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "description": "Hermes Agency agent registry - provider agnostic definitions for agency-* profiles only",
+  "agents": {
+    "agency-accessibility-reviewer": {
+      "name": "agency-accessibility-reviewer",
+      "description": "Reviews interfaces and code for accessibility compliance (WCAG, ARIA, screen readers)",
+      "skills": ["accessibility", "a11y", "wcag", "aria", "screen-reader-testing", "inclusive-design"],
+      "category": "quality"
+    },
+    "agency-ai-engineer": {
+      "name": "agency-ai-engineer",
+      "description": "Builds and integrates AI/ML models, LLMs, and intelligent systems",
+      "skills": ["ai", "llm", "machine-learning", "model-integration", "prompt-engineering", "rag"],
+      "category": "engineering"
+    },
+    "agency-analytics-specialist": {
+      "name": "agency-analytics-specialist",
+      "description": "Analyzes data, builds dashboards, tracks metrics and KPIs",
+      "skills": ["analytics", "dashboards", "kpi-tracking", "data-visualization", "sql", "bi-tools"],
+      "category": "research"
+    },
+    "agency-art-director": {
+      "name": "agency-art-director",
+      "description": "Leads creative vision, art direction, and visual storytelling",
+      "skills": ["art-direction", "visual-design", "brand-vision", "creative-leadership", "illustration-direction"],
+      "category": "design"
+    },
+    "agency-asset-artist": {
+      "name": "agency-asset-artist",
+      "description": "Creates 2D/3D assets, icons, illustrations, and game assets",
+      "skills": ["asset-creation", "2d-art", "3d-modeling", "icon-design", "illustration"],
+      "category": "design"
+    },
+    "agency-audio-designer": {
+      "name": "agency-audio-designer",
+      "description": "Designs sound, music, voiceovers, and audio experiences",
+      "skills": ["audio-design", "sound-effects", "music-production", "voiceover", "audio-editing"],
+      "category": "design"
+    },
+    "agency-automation-engineer": {
+      "name": "agency-automation-engineer",
+      "description": "Builds automation scripts, workflows, and CI/CD pipelines",
+      "skills": ["automation", "scripting", "ci-cd", "workflow-automation", "devops"],
+      "category": "engineering"
+    },
+    "agency-backend-engineer": {
+      "name": "agency-backend-engineer",
+      "description": "Builds APIs, services, databases, and server-side logic",
+      "skills": ["backend", "api-development", "database-design", "microservices", "python", "node"],
+      "category": "engineering"
+    },
+    "agency-brand-designer": {
+      "name": "agency-brand-designer",
+      "description": "Develops brand identity, guidelines, logos, and visual systems",
+      "skills": ["branding", "logo-design", "brand-guidelines", "visual-identity", "typography"],
+      "category": "design"
+    },
+    "agency-business-analyst": {
+      "name": "agency-business-analyst",
+      "description": "Gathers requirements, analyzes business needs, and documents processes",
+      "skills": ["business-analysis", "requirements-gathering", "process-modeling", "stakeholder-management"],
+      "category": "research"
+    },
+    "agency-chief-of-staff": {
+      "name": "agency-chief-of-staff",
+      "description": "Supports leadership, manages operations, and drives strategic initiatives",
+      "skills": ["operations", "strategy", "executive-support", "project-coordination", "change-management"],
+      "category": "management"
+    },
+    "agency-code-reviewer": {
+      "name": "agency-code-reviewer",
+      "description": "Reviews code for quality, security, performance, and best practices",
+      "skills": ["code-review", "static-analysis", "best-practices", "refactoring", "security-review"],
+      "category": "quality"
+    },
+    "agency-community-manager": {
+      "name": "agency-community-manager",
+      "description": "Builds and engages communities, manages forums and social presence",
+      "skills": ["community-management", "social-engagement", "forum-moderation", "event-hosting"],
+      "category": "marketing"
+    },
+    "agency-competitive-analyst": {
+      "name": "agency-competitive-analyst",
+      "description": "Researches competitors, market trends, and strategic positioning",
+      "skills": ["competitive-analysis", "market-research", "swot", "trend-analysis"],
+      "category": "research"
+    },
+    "agency-compliance-reviewer": {
+      "name": "agency-compliance-reviewer",
+      "description": "Ensures regulatory compliance, audits processes and documentation",
+      "skills": ["compliance", "gdpr", "audit", "risk-assessment", "policy-review"],
+      "category": "quality"
+    },
+    "agency-content-writer": {
+      "name": "agency-content-writer",
+      "description": "Writes blog posts, articles, marketing copy, and long-form content",
+      "skills": ["content-writing", "blogging", "seo-writing", "long-form-content"],
+      "category": "content"
+    },
+    "agency-copywriter": {
+      "name": "agency-copywriter",
+      "description": "Crafts persuasive copy for ads, websites, emails, and campaigns",
+      "skills": ["copywriting", "persuasive-writing", "ad-copy", "email-campaigns", "headlines"],
+      "category": "content"
+    },
+    "agency-creative-director": {
+      "name": "agency-creative-director",
+      "description": "Leads creative teams and oversees all creative output",
+      "skills": ["creative-direction", "team-leadership", "campaign-oversight", "concept-development"],
+      "category": "design"
+    },
+    "agency-customer-success": {
+      "name": "agency-customer-success",
+      "description": "Manages customer relationships, onboarding, and retention",
+      "skills": ["customer-success", "onboarding", "retention", "support", "account-management"],
+      "category": "business"
+    },
+    "agency-data-engineer": {
+      "name": "agency-data-engineer",
+      "description": "Builds data pipelines, ETL processes, and data infrastructure",
+      "skills": ["data-engineering", "etl", "pipelines", "big-data", "spark", "airflow"],
+      "category": "engineering"
+    },
+    "agency-devops-engineer": {
+      "name": "agency-devops-engineer",
+      "description": "Manages infrastructure, deployments, monitoring, and reliability",
+      "skills": ["devops", "infrastructure-as-code", "kubernetes", "ci-cd", "monitoring", "terraform"],
+      "category": "engineering"
+    },
+    "agency-frontend-engineer": {
+      "name": "agency-frontend-engineer",
+      "description": "Builds user-facing interfaces with HTML, CSS, JavaScript, and modern frameworks",
+      "skills": ["html", "css", "javascript", "react", "responsive-design", "accessibility"],
+      "category": "engineering"
+    },
+    "agency-orchestrator": {
+      "name": "agency-orchestrator",
+      "description": "Coordinates tasks, routes work to specialists, and manages the agent pool",
+      "skills": ["task-routing", "decomposition", "coordination", "workflow-management", "delegation"],
+      "category": "management"
+    }
+  }
+}
