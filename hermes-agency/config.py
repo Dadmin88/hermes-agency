@@ -12,6 +12,8 @@ Config schema and defaults::
         mode: delegation          # template, delegation, subprocess
         delegation_timeout: 120   # seconds before falling back to template
         max_queue_size: 100       # max queued inbound tasks before newest is rejected
+        persist_queue: true       # persist incoming queue state across restarts
+        queue_persistence_path: null # optional path (default: <agency.home>/incoming_queue.json)
         handler_timeout_seconds: 300 # max seconds one incoming worker handler may run
         tool_access: safe         # safe, full, none
         max_iterations: 25        # max subagent turns
@@ -165,6 +167,8 @@ class IncomingConfig:
     mode: str = "delegation"
     delegation_timeout: int = 120
     max_queue_size: int = 100
+    persist_queue: bool = True
+    queue_persistence_path: Path | None = None
     handler_timeout_seconds: float = 300
     tool_access: str = "safe"
     max_iterations: int = 25
@@ -183,6 +187,10 @@ class IncomingConfig:
             "mode": self.mode,
             "delegation_timeout": self.delegation_timeout,
             "max_queue_size": self.max_queue_size,
+            "persist_queue": self.persist_queue,
+            "queue_persistence_path": str(self.queue_persistence_path)
+            if self.queue_persistence_path
+            else None,
             "handler_timeout_seconds": self.handler_timeout_seconds,
             "tool_access": self.tool_access,
             "max_iterations": self.max_iterations,
@@ -257,6 +265,10 @@ class AgencyConfig:
             "incoming_mode": self.incoming_mode,
             "delegation_timeout": self.delegation_timeout,
             "incoming_max_queue_size": self.incoming_max_queue_size,
+            "incoming_persist_queue": self.incoming_persist_queue,
+            "incoming_queue_persistence_path": str(self.incoming_queue_persistence_path)
+            if self.incoming_queue_persistence_path
+            else None,
             "incoming_handler_timeout_seconds": self.incoming_handler_timeout_seconds,
             "incoming_tool_access": self.incoming_tool_access,
             "incoming_max_iterations": self.incoming_max_iterations,
@@ -287,6 +299,18 @@ class AgencyConfig:
     @property
     def incoming_max_queue_size(self) -> int:
         return self.incoming.max_queue_size
+
+    @property
+    def incoming_persist_queue(self) -> bool:
+        return self.incoming.persist_queue
+
+    @property
+    def incoming_queue_persistence_path(self) -> Path | None:
+        if self.incoming.queue_persistence_path:
+            return self.incoming.queue_persistence_path
+        if self.home:
+            return self.home / "incoming_queue.json"
+        return None
 
     @property
     def incoming_handler_timeout_seconds(self) -> float:
@@ -629,6 +653,16 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
     )
     if min_subprocess_trust not in {"full", "limited"}:
         min_subprocess_trust = "full"
+    raw_persistence_path = str(
+        _cfg_get(
+            config,
+            "agency",
+            "incoming",
+            "queue_persistence_path",
+            default="",
+        )
+        or ""
+    ).strip()
     return IncomingConfig(
         mode=mode,
         delegation_timeout=_int_cfg(
@@ -647,6 +681,16 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             default=100,
             floor=1,
         ),
+        persist_queue=_bool_cfg(
+            config,
+            "agency",
+            "incoming",
+            "persist_queue",
+            default=True,
+        ),
+        queue_persistence_path=Path(raw_persistence_path).expanduser()
+        if raw_persistence_path
+        else None,
         handler_timeout_seconds=_float_cfg(
             config,
             "agency",

@@ -255,6 +255,7 @@ class NodeManager(
         self._registry_reregister_task: asyncio.Task[None] | None = None
         self._incoming_records: dict[str, IncomingTaskRecord] = {}
         self._incoming_order: deque[str] = deque()
+        self._queued_incoming_task_ids: set[str] = set()
         self._conversation_threads: dict[str, list[dict[str, Any]]] = {}
         self._task_handles: dict[str, Any] = {}
         self._orchestrator_tasks: dict[str, OrchestratorTaskRecord] = {}

@@ -3,15 +3,83 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .control_messages import handle_control_message
 
 logger = logging.getLogger(__name__)
+
+_INCOMING_ACTIVE_STATUSES = {"received", "queued", "processing"}
+_INCOMING_TERMINAL_STATUSES = {"completed", "failed"}
+_INCOMING_PERSISTENCE_MAX_RECORDS = 200
+
+
+class RecoveredIncomingTask:
+    """Minimal IncomingTask-compatible wrapper for tasks restored from disk."""
+
+    def __init__(self, record: IncomingTaskRecord, node: Any) -> None:
+        self._record = record
+        self._node = node
+        self.sender_card = record.sender_card
+        self.metadata = dict(record.metadata)
+
+    @property
+    def task_id(self) -> str:
+        return self._record.task_id
+
+    @property
+    def peer_id(self) -> str:
+        return self._record.sender_peer_id
+
+    @property
+    def messages(self) -> list[Any]:
+        return []
+
+    @property
+    def target_skill_id(self) -> str:
+        return self._record.target_skill_id
+
+    def _grpc(self) -> Any:
+        grpc = getattr(self._node, "_grpc", None)
+        if grpc is None:
+            raise RuntimeError("Recovered task cannot update remote state without an active node")
+        return grpc
+
+    async def update_status(self, status: str) -> None:
+        from agentanycast.node import _python_status_to_proto
+        from agentanycast.task import TaskStatus
+
+        await self._grpc().update_task_status(
+            self.task_id,
+            _python_status_to_proto(TaskStatus.from_value(status)),
+        )
+
+    async def complete(self, artifacts: list[dict[str, Any]] | None = None) -> None:
+        from agentanycast.node import _artifact_to_proto
+        from agentanycast.task import Artifact
+
+        pb_artifacts = [
+            _artifact_to_proto(item if isinstance(item, Artifact) else Artifact.from_dict(item))
+            for item in (artifacts or [])
+        ]
+        await self._grpc().complete_task(self.task_id, pb_artifacts)
+
+    async def fail(self, error: str) -> None:
+        await self._grpc().fail_task(self.task_id, error)
+
+    async def send_artifact(self, artifacts: list[dict[str, Any]]) -> None:
+        # The current SDK IncomingTask surface does not expose progress-only
+        # delivery. Keep recovered progress local instead of risking a terminal
+        # CompleteTask update for an intermediate artifact.
+        del artifacts
 
 
 @dataclass
@@ -54,6 +122,38 @@ class IncomingTaskRecord:
             "updated_at": self.updated_at,
             "completed_at": self.completed_at,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> IncomingTaskRecord:
+        metadata_raw = data.get("metadata")
+        metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
+        progress_raw = data.get("progress_updates")
+        progress = progress_raw if isinstance(progress_raw, list) else []
+        completed_raw = data.get("completed_at")
+        return cls(
+            task_id=str(data.get("task_id") or ""),
+            sender_peer_id=str(data.get("sender_peer_id") or ""),
+            sender_card=data.get("sender_card")
+            if isinstance(data.get("sender_card"), dict)
+            else None,
+            target_skill_id=str(data.get("target_skill_id") or ""),
+            message_text=str(data.get("message_text") or ""),
+            context_id=str(data.get("context_id") or ""),
+            context_packet=data.get("context_packet")
+            if isinstance(data.get("context_packet"), dict)
+            else None,
+            metadata={str(k): v for k, v in metadata.items()},
+            kanban_task_id=str(data.get("kanban_task_id") or "") or None,
+            progress_updates=[item for item in progress if isinstance(item, dict)],
+            status=str(data.get("status") or "queued"),
+            result_text=str(data.get("result_text"))
+            if data.get("result_text") is not None
+            else None,
+            error=str(data.get("error")) if data.get("error") is not None else None,
+            created_at=float(data.get("created_at") or time.time()),
+            updated_at=float(data.get("updated_at") or time.time()),
+            completed_at=float(completed_raw) if completed_raw is not None else None,
+        )
 
 
 class IncomingQueueMixin:
@@ -136,6 +236,160 @@ class IncomingQueueMixin:
         text = str(exc)
         return "terminal state COMPLETED" in text
 
+    @staticmethod
+    def _incoming_persistence_path(cfg: Any) -> Path | None:
+        path = getattr(cfg, "incoming_queue_persistence_path", None)
+        return Path(path).expanduser() if path else None
+
+    @staticmethod
+    def _incoming_persistence_enabled(cfg: Any) -> bool:
+        return bool(getattr(cfg, "incoming_persist_queue", False))
+
+    def _incoming_queued_task_ids(self) -> set[str]:
+        queued_ids = getattr(self, "_queued_incoming_task_ids", None)
+        if queued_ids is None:
+            queued_ids = set()
+            self._queued_incoming_task_ids = queued_ids
+        return queued_ids
+
+    def _prune_incoming_records_for_persistence(self) -> None:
+        """Keep persistent queue state bounded without dropping active tasks."""
+
+        active_ids = [
+            task_id
+            for task_id in self._incoming_order
+            if self._incoming_records.get(task_id)
+            and self._incoming_records[task_id].status in _INCOMING_ACTIVE_STATUSES
+        ]
+        terminal_ids = [
+            task_id
+            for task_id in self._incoming_order
+            if self._incoming_records.get(task_id)
+            and self._incoming_records[task_id].status in _INCOMING_TERMINAL_STATUSES
+        ]
+        keep_terminal = max(0, _INCOMING_PERSISTENCE_MAX_RECORDS - len(active_ids))
+        kept_terminal_ids = terminal_ids[-keep_terminal:] if keep_terminal else []
+        keep_ids = set(active_ids + kept_terminal_ids)
+        self._incoming_order = self._nm().deque(
+            task_id for task_id in self._incoming_order if task_id in keep_ids
+        )
+        for task_id in list(self._incoming_records):
+            if task_id not in keep_ids:
+                self._incoming_records.pop(task_id, None)
+                self._incoming_queued_task_ids().discard(task_id)
+
+    def _persist_incoming_records(self) -> None:
+        cfg = self._nm().get_config()
+        if not self._incoming_persistence_enabled(cfg):
+            return
+        path = self._incoming_persistence_path(cfg)
+        if path is None:
+            return
+        self._prune_incoming_records_for_persistence()
+        records = [
+            self._incoming_records[task_id].as_dict()
+            for task_id in self._incoming_order
+            if task_id in self._incoming_records
+        ]
+        payload = {"version": 1, "updated_at": time.time(), "records": records}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_name: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=str(path.parent),
+                prefix=f".{path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as fh:
+                tmp_name = fh.name
+                json.dump(payload, fh, ensure_ascii=False, sort_keys=True)
+                fh.write("\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp_name, path)
+        except Exception as exc:
+            if tmp_name:
+                try:
+                    Path(tmp_name).unlink(missing_ok=True)
+                except Exception:
+                    pass
+            logger.warning("Hermes Agency failed to persist incoming queue: %s", exc)
+
+    def _load_persisted_incoming_records(self) -> list[IncomingTaskRecord]:
+        cfg = self._nm().get_config()
+        if not self._incoming_persistence_enabled(cfg):
+            return []
+        path = self._incoming_persistence_path(cfg)
+        if path is None or not path.exists():
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("Hermes Agency ignored corrupt incoming queue state %s: %s", path, exc)
+            return []
+        raw_records = data.get("records") if isinstance(data, dict) else []
+        if not isinstance(raw_records, list):
+            return []
+        records: list[IncomingTaskRecord] = []
+        for item in raw_records:
+            if not isinstance(item, dict):
+                continue
+            try:
+                record = IncomingTaskRecord.from_dict(item)
+            except Exception:
+                continue
+            if record.task_id:
+                records.append(record)
+        return records
+
+    def _requeue_persisted_incoming_tasks(self) -> int:
+        if self._incoming_queue is None or self._node is None:
+            return 0
+        recovered = 0
+        queued_ids = self._incoming_queued_task_ids()
+        for record in self._load_persisted_incoming_records():
+            self._incoming_records[record.task_id] = record
+            if record.task_id not in self._incoming_order:
+                self._incoming_order.append(record.task_id)
+            if record.status not in _INCOMING_ACTIVE_STATUSES:
+                continue
+            record.metadata = dict(record.metadata)
+            record.metadata["recovered"] = True
+            record.metadata.setdefault("interrupted_status", record.status)
+            record.status = "queued"
+            record.updated_at = time.time()
+            if self._incoming_queue.full():
+                continue
+            self._incoming_queue.put_nowait(
+                (RecoveredIncomingTask(record, self._node), record.task_id)
+            )
+            queued_ids.add(record.task_id)
+            recovered += 1
+        self._refresh_incoming_state()
+        self._persist_incoming_records()
+        if recovered:
+            logger.info("Hermes Agency recovered %s incoming task(s) from disk", recovered)
+        return recovered
+
+    def _queue_waiting_recovered_tasks(self) -> None:
+        if self._incoming_queue is None or self._node is None:
+            return
+        queued_ids = self._incoming_queued_task_ids()
+        for task_id in list(self._incoming_order):
+            if self._incoming_queue.full():
+                break
+            if task_id in queued_ids:
+                continue
+            record = self._incoming_records.get(task_id)
+            if record is None or record.status != "queued":
+                continue
+            if not record.metadata.get("recovered"):
+                continue
+            self._incoming_queue.put_nowait((RecoveredIncomingTask(record, self._node), task_id))
+            queued_ids.add(task_id)
+
     def _refresh_incoming_state(self) -> None:
         if self._incoming_queue is not None:
             queue_size = self._incoming_queue.qsize()
@@ -165,6 +419,7 @@ class IncomingQueueMixin:
             old_task_id = self._incoming_order.popleft()
             self._incoming_records.pop(old_task_id, None)
         self._refresh_incoming_state()
+        self._persist_incoming_records()
 
     async def _handle_incoming_task(self, task: Any) -> None:
         """Queue an incoming remote task and mark it working immediately."""
@@ -274,6 +529,7 @@ class IncomingQueueMixin:
             record.updated_at = time.time()
             record.completed_at = time.time()
             self._refresh_incoming_state()
+            self._persist_incoming_records()
             try:
                 await task.fail(record.error)
             except Exception:
@@ -293,6 +549,7 @@ class IncomingQueueMixin:
                     record.kanban_task_id, status="blocked", error=record.error
                 )
             self._refresh_incoming_state()
+            self._persist_incoming_records()
             logger.warning(
                 "Hermes Agency incoming queue full; dropping newest task %s from %s "
                 "(queue=%s/%s dropped=%s)",
@@ -316,7 +573,9 @@ class IncomingQueueMixin:
             record.status = "queued"
             record.updated_at = time.time()
             self._incoming_queue.put_nowait((task, record.task_id))
+            self._incoming_queued_task_ids().add(record.task_id)
             self._refresh_incoming_state()
+            self._persist_incoming_records()
         except Exception as exc:
             record.status = "failed"
             record.error = f"{type(exc).__name__}: {exc}"
@@ -327,6 +586,7 @@ class IncomingQueueMixin:
                     record.kanban_task_id, status="blocked", error=record.error
                 )
             self._refresh_incoming_state()
+            self._persist_incoming_records()
             try:
                 await task.fail(record.error)
             except Exception:
@@ -380,6 +640,7 @@ class IncomingQueueMixin:
         update = {"timestamp": timestamp, "text": message}
         record.progress_updates.append(update)
         record.updated_at = timestamp
+        self._persist_incoming_records()
         artifact = {
             "artifact_id": f"progress-{record.task_id}-{len(record.progress_updates)}",
             "name": "agency-progress-update",
@@ -438,12 +699,19 @@ class IncomingQueueMixin:
             try:
                 if record is None:
                     continue
+                if record.metadata.get("recovered"):
+                    try:
+                        await task.update_status("working")
+                    except Exception as exc:
+                        if not self._is_duplicate_working_transition(exc):
+                            raise
                 record.status = "processing"
                 record.updated_at = time.time()
                 if record.kanban_task_id:
                     self._nm().kanban_update_task(record.kanban_task_id, status="running")
                 self._nm().announce_start(record.message_text)
                 self._refresh_incoming_state()
+                self._persist_incoming_records()
                 cfg = self._nm().get_config()
                 if not cfg.allow_remote_tasks:
                     response = self._safe_stub_response(record)
@@ -501,6 +769,7 @@ class IncomingQueueMixin:
                 record.result_text = response
                 record.updated_at = time.time()
                 record.completed_at = time.time()
+                self._persist_incoming_records()
                 self._remember_conversation_turn(record, response)
                 if record.kanban_task_id:
                     self._nm().kanban_update_task(
@@ -521,6 +790,7 @@ class IncomingQueueMixin:
                         self._nm().kanban_update_task(
                             record.kanban_task_id, status="blocked", error=record.error
                         )
+                    self._persist_incoming_records()
                     self._nm().announce_error(
                         record.message_text, record.error, kanban_task_id=record.kanban_task_id
                     )
@@ -531,8 +801,11 @@ class IncomingQueueMixin:
                 except Exception:
                     pass
             finally:
+                self._incoming_queued_task_ids().discard(task_id)
                 self._incoming_queue.task_done()
+                self._queue_waiting_recovered_tasks()
                 self._refresh_incoming_state()
+                self._persist_incoming_records()
 
     async def _incoming_tasks_impl(self, limit: int = 20) -> list[dict[str, Any]]:
         self._refresh_incoming_state()

@@ -129,6 +129,7 @@ class NodeLifecycleMixin:
 
             self._incoming_queue = asyncio.Queue(maxsize=cfg.incoming_max_queue_size)
             self.state.incoming_queue_max_size = cfg.incoming_max_queue_size
+            self._requeue_persisted_incoming_tasks()
             self._incoming_worker_task = asyncio.create_task(self._incoming_worker())
             self._serve_task = asyncio.create_task(node.serve_forever())
             self._serve_task.add_done_callback(self._serve_done)
@@ -204,6 +205,7 @@ class NodeLifecycleMixin:
             self._team_refresh_task = None
             self._registry_reregister_task = None
             self._incoming_queue = None
+            self._queued_incoming_task_ids.clear()
             self._node = None
             self._task_handles.clear()
             self.state.started = False
