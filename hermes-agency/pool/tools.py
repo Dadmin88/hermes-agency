@@ -12,9 +12,8 @@ from __future__ import annotations
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
 
-from .roster import load_roster, find_agent, save_roster, build_roster
+from .roster import build_roster, find_agent, load_roster, save_roster
 
 PROFILES = Path.home() / ".hermes" / "profiles"
 RELAY = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWGE3zmqw2FJTyuNGAzSNCUxSNSeMvCtocULczXfX9Y8nK"
@@ -30,7 +29,8 @@ def pool_roster(query: str = "", show_offline: bool = True) -> str:
     if query:
         q = query.lower()
         profiles = [
-            p for p in profiles
+            p
+            for p in profiles
             if q in p["name"].lower()
             or any(q in s.lower() for s in p.get("skills", []))
             or q in p.get("description", "").lower()
@@ -71,6 +71,7 @@ def pool_wake(name: str) -> str:
     if not bin_path.exists() and HERMES_BIN.exists():
         bin_path.parent.mkdir(parents=True, exist_ok=True)
         import shutil
+
         shutil.copy2(HERMES_BIN, bin_path)
         bin_path.chmod(0o755)
 
@@ -89,8 +90,13 @@ def pool_wake(name: str) -> str:
     log.write_text("")
 
     proc = subprocess.Popen(
-        [str(bin_path), f"--key={key}", f"--grpc-listen=unix://{sock}",
-         "--log-level=info", f"--bootstrap-peers={RELAY}"],
+        [
+            str(bin_path),
+            f"--key={key}",
+            f"--grpc-listen=unix://{sock}",
+            "--log-level=info",
+            f"--bootstrap-peers={RELAY}",
+        ],
         stdout=open(log, "a"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -101,6 +107,7 @@ def pool_wake(name: str) -> str:
 
     # Resolve peer_id
     import re
+
     peer_id = None
     for _ in range(3):
         try:
@@ -134,7 +141,8 @@ def pool_sleep(name: str) -> str:
     # Kill daemon
     subprocess.run(
         ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
-        capture_output=True, timeout=3
+        capture_output=True,
+        timeout=3,
     )
     time.sleep(0.5)
 

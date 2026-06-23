@@ -482,13 +482,17 @@ def cmd_agency(args: Namespace) -> None:
             raise SystemExit(f"Unknown staff command: {staff_cmd}")
     elif verb == "roster":
         from .pool.roster import load_roster
+
         roster = load_roster()
         query = getattr(args, "query", "")
         profiles = roster["profiles"]
         if query:
             q = query.lower()
-            profiles = [p for p in profiles if q in p["name"].lower()
-                         or any(q in s.lower() for s in p.get("skills", []))]
+            profiles = [
+                p
+                for p in profiles
+                if q in p["name"].lower() or any(q in s.lower() for s in p.get("skills", []))
+            ]
         print(f"Pool roster: {roster['online']}/{roster['total']} online")
         for p in profiles:
             icon = "🟢" if p["online"] else "⚫"
@@ -496,9 +500,11 @@ def cmd_agency(args: Namespace) -> None:
             print(f"  {icon} {p['name']} — {skills}")
     elif verb == "wake":
         from .pool.tools import pool_wake
+
         print(pool_wake(getattr(args, "agent", "")))
     elif verb == "sleep":
         from .pool.tools import pool_sleep
+
         print(pool_sleep(getattr(args, "agent", "")))
     else:
         raise SystemExit(f"Unknown agency command: {verb}")

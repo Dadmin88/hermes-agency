@@ -6,12 +6,11 @@ Usage:
   python3 batch_wake_persistent.py --start-index 0
 """
 
-import subprocess
-import sys
-import time
-import shutil
-import re
 import json
+import re
+import shutil
+import subprocess
+import time
 from pathlib import Path
 
 PROFILES = Path.home() / ".hermes" / "profiles"
@@ -22,10 +21,7 @@ STATE_FILE = Path.home() / "batch_wake_persistent_state.json"
 
 
 def get_agency_profiles():
-    return sorted(
-        p.name for p in PROFILES.iterdir()
-        if p.is_dir() and p.name.startswith("agency-")
-    )
+    return sorted(p.name for p in PROFILES.iterdir() if p.is_dir() and p.name.startswith("agency-"))
 
 
 def peer_id_from_log(log_path):
@@ -35,13 +31,13 @@ def peer_id_from_log(log_path):
         text = log_path.read_text()
         for pattern in [
             r'"peer_id":"(12D3KooW[^"]+)"',
-            r'peer_id=(12D3KooW\S+)',
-            r'PeerID:\s+(12D3KooW\S+)',
-            r'(12D3KooW[A-Za-z0-9]{20,})',
+            r"peer_id=(12D3KooW\S+)",
+            r"PeerID:\s+(12D3KooW\S+)",
+            r"(12D3KooW[A-Za-z0-9]{20,})",
         ]:
             m = re.search(pattern, text)
             if m:
-                return m.group(1).rstrip(')')
+                return m.group(1).rstrip(")")
     except Exception:
         pass
     return None
@@ -62,7 +58,8 @@ def ensure_binary(name):
 def clean_stale(name):
     subprocess.run(
         ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
-        capture_output=True, timeout=3
+        capture_output=True,
+        timeout=3,
     )
     time.sleep(0.5)
     agency_dir = PROFILES / name / ".agency"
@@ -76,7 +73,8 @@ def is_daemon_running(name):
     """Check if daemon is already running for this profile."""
     result = subprocess.run(
         ["pgrep", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     return result.returncode == 0
 
@@ -103,9 +101,14 @@ def wake_profile(name):
         d.mkdir(parents=True, exist_ok=True)
     log.write_text("")
 
-    proc = subprocess.Popen(
-        [str(bin_path), f"--key={key}", f"--grpc-listen=unix://{sock}",
-         "--log-level=info", f"--bootstrap-peers={RELAY}"],
+    subprocess.Popen(
+        [
+            str(bin_path),
+            f"--key={key}",
+            f"--grpc-listen=unix://{sock}",
+            "--log-level=info",
+            f"--bootstrap-peers={RELAY}",
+        ],
         stdout=open(log, "a"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -139,6 +142,7 @@ def save_state(state):
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--start-index", type=int, default=0)
@@ -188,10 +192,10 @@ def main():
     state["last_index"] = len(profiles)
     save_state(state)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"COMPLETE: {len(succeeded)}/{len(profiles)} succeeded")
-    print(f"All daemons are running. To stop them all:")
-    print(f"  pkill -f 'agentanycastd.*agency-'")
+    print("All daemons are running. To stop them all:")
+    print("  pkill -f 'agentanycastd.*agency-'")
     if failed:
         print(f"Failed ({len(failed)}): {', '.join(failed[:15])}")
 

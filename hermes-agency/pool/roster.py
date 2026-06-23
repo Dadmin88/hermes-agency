@@ -7,7 +7,6 @@ who's online, what they do, and how to reach them.
 from __future__ import annotations
 
 import json
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,6 @@ def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
     """Read minimal metadata from a profile directory."""
     name = profile_dir.name
     soul = profile_dir / "SOUL.md"
-    config = profile_dir / "config.yaml"
 
     description = ""
     if soul.exists():
@@ -41,7 +39,7 @@ def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
             try:
                 for line in sf.read_text().splitlines():
                     if line.strip().startswith("name:"):
-                        skill_name = line.split(":", 1)[1].strip().strip('"\'')
+                        skill_name = line.split(":", 1)[1].strip().strip("\"'")
                         if skill_name:
                             skills.append(skill_name)
                         break
@@ -69,6 +67,7 @@ def _read_peer_id(name: str) -> str | None:
         return None
     try:
         import re
+
         text = log.read_text()
         m = re.search(r'"peer_id":"(12D3KooW[^"]+)"', text)
         if m:
@@ -87,11 +86,13 @@ def build_roster() -> dict[str, Any]:
         meta = _read_profile_meta(d)
         online = _is_daemon_running(d.name)
         peer_id = _read_peer_id(d.name) if online else None
-        profiles.append({
-            **meta,
-            "online": online,
-            "peer_id": peer_id,
-        })
+        profiles.append(
+            {
+                **meta,
+                "online": online,
+                "peer_id": peer_id,
+            }
+        )
 
     roster = {
         "updated_at": time.time(),
