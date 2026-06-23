@@ -10,6 +10,7 @@ import asyncio
 import inspect
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .config import AgencyConfig, get_config
@@ -426,10 +427,101 @@ def refresh_capability_map_sync(
     )
 
 
+def _is_pool_agent(name: str) -> bool:
+    """Return True if the peer name indicates a pool-managed agent (agency-*)."""
+    return name.startswith("agency-")
+
+
+def _local_profile_skills(profile_name: str) -> list[dict[str, str]]:
+    """Read skills from a local Hermes profile's skills directory.
+
+    Returns an empty list when the profile doesn't exist locally or has no
+    skills.  This is used to enrich discovered peers whose AgentCard or
+    registration data is sparse (e.g. the daemon had no card set at startup).
+    """
+
+    try:
+        from hermes_constants import get_hermes_home
+
+        active_home = Path(get_hermes_home()).expanduser()
+        if active_home.parent.name == "profiles":
+            profiles_dir = active_home.parent
+        else:
+            profiles_dir = active_home / "profiles"
+        skills_dir = profiles_dir / profile_name / "skills"
+        if not skills_dir.exists():
+            return []
+
+        # Lazy import of the card-builder helpers to avoid circular deps.
+        from .card_builder import read_profile_skills
+
+        return read_profile_skills(profiles_dir / profile_name)
+    except Exception:
+        return []
+
+
+def _enriched_skills(
+    peer: PeerCapability,
+    registration: dict[str, Any] | None = None,
+    *,
+    sparse_threshold: int = 5,
+) -> list[dict[str, str]]:
+    """Return display skills, enriching from local disk when sparse.
+
+    When a peer has fewer than *sparse_threshold* skills (common when the
+    daemon was started without a card), try reading from the local profile
+    directory.  Only works on machines where the profile exists locally.
+    """
+
+    skills = _display_skills(peer, registration)
+    if len(skills) >= sparse_threshold:
+        return skills
+
+    # Derive the profile name from the display label (card_name or peer name).
+    profile_name = peer.card_name or peer.name
+    if not profile_name:
+        return skills
+
+    local = _local_profile_skills(profile_name)
+    return local if len(local) > len(skills) else skills
+
+
+def _render_peer(
+    peer: PeerCapability,
+    registration: dict[str, Any] | None,
+    max_skills: int,
+) -> list[str]:
+    """Render a single peer entry for the team context."""
+
+    lines: list[str] = []
+    label = _display_name(peer, registration)
+    skills = _enriched_skills(peer, registration)
+    if skills:
+        skill_text = ", ".join(_format_skill(skill) for skill in skills[:max_skills])
+        omitted_skills = len(skills) - max_skills
+        if omitted_skills > 0:
+            skill_text = f"{skill_text}, … (+{omitted_skills} more)"
+        lines.append(f"- {label} — skills: {skill_text}")
+    else:
+        lines.append(f"- {label}")
+        lines.append(
+            "  Top skills: unknown from peer discovery; direct peer delegation is still available."
+        )
+    description = _display_description(peer, registration)
+    if description:
+        lines.append(f"  Description: {description}")
+    lines.append(f"  peer_id: {peer.peer_id}")
+    return lines
+
+
 def build_team_context(config: AgencyConfig | None = None) -> str:
     """Build the prompt block that tells an agent about available teammates.
 
     Returns an empty string when injection is disabled or no peers are known.
+
+    Peers are split into two sections:
+    - **Pool agents** (``agency-*``): managed by the pool manager.
+    - **Personal agents**: the user's own Hermes profiles (designer, git, …).
     """
 
     cfg = config or get_config()
@@ -450,36 +542,70 @@ def build_team_context(config: AgencyConfig | None = None) -> str:
     lines = [
         "Hermes Agency team context:",
         f"Tenant: {cfg.team.tenant}",
-        "The following teammate agents are currently discoverable on the A2A network.",
     ]
-    sorted_peers = sorted(
-        visible_peers,
-        key=lambda item: _display_name(item, registered_by_peer.get(item.peer_id)).lower(),
-    )
-    shown_peers = sorted_peers[:max_peers]
-    for peer in shown_peers:
-        registration = registered_by_peer.get(peer.peer_id)
-        label = _display_name(peer, registration)
-        skills = _display_skills(peer, registration)
-        if skills:
-            skill_text = ", ".join(_format_skill(skill) for skill in skills[:max_skills])
-            omitted_skills = len(skills) - max_skills
-            if omitted_skills > 0:
-                skill_text = f"{skill_text}, … (+{omitted_skills} more)"
-            lines.append(f"- {label} — skills: {skill_text}")
+
+    # --- Classify peers into pool vs personal ---
+    pool_peers: list[PeerCapability] = []
+    personal_peers: list[PeerCapability] = []
+    for peer in visible_peers:
+        name = (
+            peer.card_name
+            or peer.name
+            or str((registered_by_peer.get(peer.peer_id) or {}).get("name") or "").strip()
+        )
+        if _is_pool_agent(name):
+            pool_peers.append(peer)
         else:
-            lines.append(f"- {label}")
-            lines.append(
-                "  Top skills: unknown from peer discovery; direct peer delegation is still available."
+            personal_peers.append(peer)
+
+    def sort_key(item: PeerCapability) -> str:
+        return _display_name(item, registered_by_peer.get(item.peer_id)).lower()
+
+    pool_peers.sort(key=sort_key)
+    personal_peers.sort(key=sort_key)
+
+    def _render_section(
+        section_peers: list[PeerCapability],
+        header: str,
+        budget: int,
+    ) -> list[str]:
+        section_lines: list[str] = []
+        if not section_peers:
+            return section_lines
+        section_lines.append(header)
+        shown = section_peers[:budget]
+        for peer in shown:
+            registration = registered_by_peer.get(peer.peer_id)
+            section_lines.extend(_render_peer(peer, registration, max_skills))
+        omitted = len(section_peers) - len(shown)
+        if omitted > 0:
+            section_lines.append(
+                f"  ({omitted} more omitted — use a2a_discover for the full list.)"
             )
-        description = _display_description(peer, registration)
-        if description:
-            lines.append(f"  Description: {description}")
-        lines.append(f"  peer_id: {peer.peer_id}")
-    omitted_peers = len(sorted_peers) - len(shown_peers)
-    if omitted_peers > 0:
+        return section_lines
+
+    # Budget: split max_peers across sections, giving pool agents priority
+    # when they exist, otherwise give all budget to personal agents.
+    if pool_peers and personal_peers:
+        pool_budget = min(len(pool_peers), max(1, max_peers // 2))
+        personal_budget = min(len(personal_peers), max_peers - pool_budget)
+    elif pool_peers:
+        pool_budget = min(len(pool_peers), max_peers)
+        personal_budget = 0
+    else:
+        pool_budget = 0
+        personal_budget = min(len(personal_peers), max_peers)
+
+    lines.append("The following teammate agents are currently discoverable on the A2A network.")
+    lines.extend(_render_section(pool_peers, "Pool agents (agency-*):", pool_budget))
+    lines.extend(_render_section(personal_peers, "Personal agents:", personal_budget))
+
+    total_shown = min(len(pool_peers), pool_budget) + min(len(personal_peers), personal_budget)
+    total_peers = len(pool_peers) + len(personal_peers)
+    total_omitted = total_peers - total_shown
+    if total_omitted > 0:
         lines.append(
-            f"{omitted_peers} more teammate agent(s) omitted from this compact prompt context. "
+            f"{total_omitted} more teammate agent(s) omitted from this compact prompt context. "
             "Use a2a_discover for the full live directory."
         )
     lines.append(
