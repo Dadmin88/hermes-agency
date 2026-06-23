@@ -405,37 +405,65 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
     monkeypatch.setitem(sys.modules, "agentanycast", fake_sdk)
 
     profile = tmp_path / "secret_profile"
-    profile.mkdir()
+    (profile / "skills" / "safe").mkdir(parents=True)
     (profile / "SOUL.md").write_text(
-        "Name: Safe Card\n\nA safe profile description.\n", encoding="utf-8"
+        "Name: Safe Card\n\n"
+        "Do not leak API key sk-abc123SECRET or Bearer token-secret.\n\n"
+        "A safe profile description.\n\n"
+        "Profile path /home/user/.hermes/profiles/katana/ and env ${API_TOKEN}.\n",
+        encoding="utf-8",
+    )
+    (profile / "skills" / "safe" / "SKILL.md").write_text(
+        "---\nname: Safe Skill\ndescription: Helps safely.\n---\n",
+        encoding="utf-8",
     )
     (profile / "config.yaml").write_text(
         "model:\n"
         "  provider: openai\n"
         "  default: gpt-test\n"
-        "  api_key: sk-test-secret-value\n"
+        "  api_key: sk-abc123SECRET\n"
+        "  bearer_token: Bearer token-secret\n"
         "  base_url: https://api.example.test\n"
+        "toolsets:\n"
+        "  - search\n"
+        "  - coding\n"
+        "  - $SECRET_KEY\n"
         "discord:\n"
-        "  home_channel: '1234567890'\n"
+        "  home_channel: '123456789012345678'\n"
         "agency:\n"
         "  card_name: Public Name\n"
-        "  daemon_bin: /home/kyle/src/hermes-agentanycast/bin/agentanycastd\n",
+        "  skills_from_profile: true\n"
+        "  daemon_bin: /home/user/.agentanycast/daemon.sock\n"
+        "  home: /home/user/.hermes/profiles/katana/.agency\n",
         encoding="utf-8",
     )
 
     data = plugin_modules.card_builder.card_to_dict(plugin_modules.card_builder.build_card(profile))
     serialized = json.dumps(data, sort_keys=True)
 
+    assert data["name"] == "Public Name"
+    assert data["description"] == "A safe profile description."
+    assert {skill["id"] for skill in data["skills"]} >= {"safe-skill", "hermes-chat"}
     assert data["metadata"]["hermes"]["model"] == {
         "provider": "openai",
         "default": "gpt-test",
         "base_url_configured": True,
     }
-    assert "sk-test-secret-value" not in serialized
-    assert "api_key" not in serialized
-    assert "1234567890" not in serialized
-    assert "/home/kyle" not in serialized
-    assert "daemon_bin" not in serialized
+    sensitive_values = [
+        "sk-abc123SECRET",
+        "Bearer token-secret",
+        "123456789012345678",
+        "/home/user/.agentanycast/daemon.sock",
+        "/home/user/.hermes/profiles/katana/",
+        "/home/user/.hermes/profiles/katana/.agency",
+        "$SECRET_KEY",
+        "${API_TOKEN}",
+        "api_key",
+        "bearer_token",
+        "daemon_bin",
+    ]
+    for sensitive in sensitive_values:
+        assert sensitive not in serialized
 
 
 def test_get_config_defaults(plugin_modules, monkeypatch):

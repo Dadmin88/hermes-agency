@@ -1,6 +1,13 @@
 """Tests for AgentCard and Skill data models."""
 
+import pytest
+
 from agentanycast import AgentCard, Skill
+from agentanycast.card import (
+    MAX_AGENT_CARD_NAME_LENGTH,
+    MAX_SKILL_DESCRIPTION_LENGTH,
+    MAX_SKILL_ID_LENGTH,
+)
 
 
 def test_skill_roundtrip():
@@ -100,3 +107,65 @@ def test_agent_card_without_p2p_extension():
     card = AgentCard(name="Simple")
     d = card.to_dict()
     assert "agentanycast" not in d
+
+
+def test_skill_from_dict_accepts_boundary_lengths():
+    skill = Skill.from_dict(
+        {
+            "id": "a" * MAX_SKILL_ID_LENGTH,
+            "description": "d" * MAX_SKILL_DESCRIPTION_LENGTH,
+        }
+    )
+
+    assert skill.id == "a" * MAX_SKILL_ID_LENGTH
+    assert skill.description == "d" * MAX_SKILL_DESCRIPTION_LENGTH
+
+
+@pytest.mark.parametrize(
+    "skill_id",
+    [
+        "",
+        "a" * (MAX_SKILL_ID_LENGTH + 1),
+        "unsafe skill",
+        "../escape",
+        "skill;rm-rf",
+        "ユニコード",
+    ],
+)
+def test_skill_from_dict_rejects_invalid_ids(skill_id):
+    with pytest.raises(ValueError, match="Skill id"):
+        Skill.from_dict({"id": skill_id, "description": "safe"})
+
+
+def test_skill_from_dict_rejects_oversized_description():
+    with pytest.raises(ValueError, match="description"):
+        Skill.from_dict(
+            {"id": "safe.skill", "description": "d" * (MAX_SKILL_DESCRIPTION_LENGTH + 1)}
+        )
+
+
+def test_skill_from_dict_rejects_missing_required_id():
+    with pytest.raises(ValueError, match="id"):
+        Skill.from_dict({"description": "missing id"})
+
+
+def test_agent_card_from_dict_accepts_name_at_limit():
+    card = AgentCard.from_dict({"name": "n" * MAX_AGENT_CARD_NAME_LENGTH, "skills": []})
+
+    assert card.name == "n" * MAX_AGENT_CARD_NAME_LENGTH
+
+
+@pytest.mark.parametrize("name", ["", None, "n" * (MAX_AGENT_CARD_NAME_LENGTH + 1)])
+def test_agent_card_from_dict_rejects_invalid_name(name):
+    with pytest.raises(ValueError, match="AgentCard name"):
+        AgentCard.from_dict({"name": name, "skills": []})
+
+
+def test_agent_card_from_dict_rejects_missing_required_name():
+    with pytest.raises(ValueError, match="name"):
+        AgentCard.from_dict({"skills": []})
+
+
+def test_agent_card_from_dict_rejects_non_list_skills():
+    with pytest.raises(ValueError, match="skills"):
+        AgentCard.from_dict({"name": "BadSkills", "skills": {"id": "oops"}})

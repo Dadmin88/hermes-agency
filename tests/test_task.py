@@ -5,7 +5,15 @@ import asyncio
 import pytest
 
 from agentanycast import Artifact, Message, Part, Task, TaskStatus
-from agentanycast.task import IncomingTask, TaskHandle
+from agentanycast.task import (
+    MAX_MESSAGE_TEXT_SIZE,
+    MAX_METADATA_ENTRIES,
+    MAX_METADATA_KEY_LENGTH,
+    MAX_METADATA_VALUE_LENGTH,
+    MAX_PART_PAYLOAD_SIZE,
+    IncomingTask,
+    TaskHandle,
+)
 
 
 def test_part_text_roundtrip():
@@ -50,6 +58,97 @@ def test_artifact_roundtrip():
     assert restored.parts[0].data == {"status": "ok"}
 
 
+def test_part_from_dict_accepts_text_metadata_raw_and_data_at_limits():
+    metadata = {"k" * MAX_METADATA_KEY_LENGTH: "v" * MAX_METADATA_VALUE_LENGTH}
+    max_data_blob = "x" * (MAX_PART_PAYLOAD_SIZE - len('{"blob":""}'))
+    part = Part.from_dict(
+        {
+            "text": "t" * MAX_MESSAGE_TEXT_SIZE,
+            "data": {"blob": max_data_blob},
+            "raw": b"r" * MAX_PART_PAYLOAD_SIZE,
+            "metadata": metadata,
+        }
+    )
+
+    assert part.text == "t" * MAX_MESSAGE_TEXT_SIZE
+    assert part.data == {"blob": max_data_blob}
+    assert part.raw == b"r" * MAX_PART_PAYLOAD_SIZE
+    assert part.metadata == metadata
+
+
+def test_part_from_dict_rejects_oversized_text():
+    with pytest.raises(ValueError, match="text"):
+        Part.from_dict({"text": "t" * (MAX_MESSAGE_TEXT_SIZE + 1)})
+
+
+def test_part_from_dict_rejects_oversized_raw_payload():
+    with pytest.raises(ValueError, match="raw"):
+        Part.from_dict({"raw": b"r" * (MAX_PART_PAYLOAD_SIZE + 1)})
+
+
+def test_part_from_dict_rejects_oversized_data_payload():
+    with pytest.raises(ValueError, match="data"):
+        Part.from_dict({"data": {"blob": "x" * (MAX_PART_PAYLOAD_SIZE + 1)}})
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"k" * (MAX_METADATA_KEY_LENGTH + 1): "v"},
+        {"k": "v" * (MAX_METADATA_VALUE_LENGTH + 1)},
+        {"k": 123},
+        {f"k{i}": "v" for i in range(MAX_METADATA_ENTRIES + 1)},
+        [("k", "v")],
+    ],
+)
+def test_part_from_dict_rejects_invalid_metadata(metadata):
+    with pytest.raises(ValueError, match="metadata"):
+        Part.from_dict({"text": "safe", "metadata": metadata})
+
+
+@pytest.mark.parametrize("url", ["https://example.com/a", "http://example.com/a"])
+def test_part_from_dict_accepts_http_urls(url):
+    assert Part.from_dict({"url": url}).url == url
+
+
+@pytest.mark.parametrize("url", ["", None, "not a url", "ftp://example.com/a"])
+def test_part_from_dict_rejects_invalid_urls(url):
+    with pytest.raises(ValueError, match="url"):
+        Part.from_dict({"url": url})
+
+
+def test_message_from_dict_rejects_invalid_role():
+    with pytest.raises(ValueError, match="role"):
+        Message.from_dict({"role": "system", "parts": []})
+
+
+def test_message_from_dict_rejects_missing_required_role():
+    with pytest.raises(ValueError, match="role"):
+        Message.from_dict({"parts": []})
+
+
+def test_message_from_dict_rejects_non_list_parts():
+    with pytest.raises(ValueError, match="parts"):
+        Message.from_dict({"role": "user", "parts": {"text": "oops"}})
+
+
+def test_artifact_from_dict_accepts_metadata_at_limits():
+    metadata = {"k" * MAX_METADATA_KEY_LENGTH: "v" * MAX_METADATA_VALUE_LENGTH}
+    artifact = Artifact.from_dict({"name": "result", "parts": [], "metadata": metadata})
+
+    assert artifact.metadata == metadata
+
+
+def test_artifact_from_dict_rejects_invalid_metadata():
+    with pytest.raises(ValueError, match="metadata"):
+        Artifact.from_dict({"name": "result", "parts": [], "metadata": {"k": 1}})
+
+
+def test_artifact_from_dict_rejects_non_list_parts():
+    with pytest.raises(ValueError, match="parts"):
+        Artifact.from_dict({"name": "result", "parts": {"text": "oops"}})
+
+
 def test_task_status_terminal():
     assert TaskStatus.COMPLETED.is_terminal
     assert TaskStatus.FAILED.is_terminal
@@ -58,6 +157,12 @@ def test_task_status_terminal():
     assert not TaskStatus.SUBMITTED.is_terminal
     assert not TaskStatus.WORKING.is_terminal
     assert not TaskStatus.INPUT_REQUIRED.is_terminal
+
+
+def test_task_status_from_value_validates_known_statuses():
+    assert TaskStatus.from_value("working") is TaskStatus.WORKING
+    with pytest.raises(ValueError, match="TaskStatus"):
+        TaskStatus.from_value("unknown")
 
 
 @pytest.mark.asyncio

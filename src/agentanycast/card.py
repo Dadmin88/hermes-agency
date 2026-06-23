@@ -2,8 +2,55 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
+
+MAX_SKILL_ID_LENGTH = 128
+MAX_SKILL_DESCRIPTION_LENGTH = 4 * 1024
+MAX_AGENT_CARD_NAME_LENGTH = 256
+MAX_AGENT_CARD_DESCRIPTION_LENGTH = 4 * 1024
+MAX_SKILLS_PER_CARD = 256
+
+_SAFE_SKILL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,127}$")
+
+
+def _is_safe_skill_id(skill_id: str) -> bool:
+    if not _SAFE_SKILL_ID_RE.fullmatch(skill_id):
+        return False
+    if "/" not in skill_id:
+        return True
+    parts = skill_id.split("/")
+    return all(part and part not in {".", ".."} for part in parts)
+
+
+def _require_mapping(data: Any, model_name: str) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValueError(f"{model_name}.from_dict expected a dictionary")
+    return data
+
+
+def _require_string(data: dict[str, Any], field_name: str, model_name: str) -> str:
+    if field_name not in data:
+        raise ValueError(f"{model_name} requires '{field_name}'")
+    value = data[field_name]
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{model_name} {field_name} must be a non-empty string")
+    return value
+
+
+def _optional_string(data: dict[str, Any], field_name: str, model_name: str) -> str | None:
+    value = data.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{model_name} {field_name} must be a string")
+    return value
+
+
+def _validate_max_length(value: str, field_name: str, limit: int) -> None:
+    if len(value) > limit:
+        raise ValueError(f"{field_name} exceeds maximum length of {limit} characters")
 
 
 @dataclass
@@ -25,11 +72,22 @@ class Skill:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Skill:
+        data = _require_mapping(data, "Skill")
+        skill_id = _require_string(data, "id", "Skill")
+        if not _is_safe_skill_id(skill_id):
+            raise ValueError(
+                "Skill id must be 1-128 safe path-free characters: "
+                "alphanumeric, hyphen, underscore, dot, or slash separator"
+            )
+        description = data.get("description", "")
+        if not isinstance(description, str):
+            raise ValueError("Skill description must be a string")
+        _validate_max_length(description, "Skill description", MAX_SKILL_DESCRIPTION_LENGTH)
         return cls(
-            id=data["id"],
-            description=data.get("description", ""),
-            input_schema=data.get("input_schema"),
-            output_schema=data.get("output_schema"),
+            id=skill_id,
+            description=description,
+            input_schema=_optional_string(data, "input_schema", "Skill"),
+            output_schema=_optional_string(data, "output_schema", "Skill"),
         )
 
 
@@ -89,19 +147,58 @@ class AgentCard:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AgentCard:
-        skills = [Skill.from_dict(s) for s in data.get("skills", [])]
+        data = _require_mapping(data, "AgentCard")
+        name = _require_string(data, "name", "AgentCard")
+        _validate_max_length(name, "AgentCard name", MAX_AGENT_CARD_NAME_LENGTH)
+        description = data.get("description", "")
+        if not isinstance(description, str):
+            raise ValueError("AgentCard description must be a string")
+        _validate_max_length(
+            description,
+            "AgentCard description",
+            MAX_AGENT_CARD_DESCRIPTION_LENGTH,
+        )
+
+        raw_skills = data.get("skills", [])
+        if not isinstance(raw_skills, list):
+            raise ValueError("AgentCard skills must be a list")
+        if len(raw_skills) > MAX_SKILLS_PER_CARD:
+            raise ValueError(f"AgentCard skills exceeds maximum count of {MAX_SKILLS_PER_CARD}")
+        skills = [Skill.from_dict(s) for s in raw_skills]
+
         p2p = data.get("agentanycast", {})
+        if p2p is None:
+            p2p = {}
+        if not isinstance(p2p, dict):
+            raise ValueError("AgentCard agentanycast extension must be a dictionary")
+
+        supported_transports = p2p.get("supported_transports", [])
+        if not isinstance(supported_transports, list) or not all(
+            isinstance(item, str) for item in supported_transports
+        ):
+            raise ValueError("AgentCard supported_transports must be a list of strings")
+        relay_addresses = p2p.get("relay_addresses", [])
+        if not isinstance(relay_addresses, list) or not all(
+            isinstance(item, str) for item in relay_addresses
+        ):
+            raise ValueError("AgentCard relay_addresses must be a list of strings")
+        verifiable_credentials = p2p.get("verifiable_credentials", [])
+        if not isinstance(verifiable_credentials, list) or not all(
+            isinstance(item, str) for item in verifiable_credentials
+        ):
+            raise ValueError("AgentCard verifiable_credentials must be a list of strings")
+
         return cls(
-            name=data["name"],
-            description=data.get("description", ""),
-            version=data.get("version", "1.0.0"),
-            protocol_version=data.get("protocol_version", "a2a/0.3"),
+            name=name,
+            description=description,
+            version=_optional_string(data, "version", "AgentCard") or "1.0.0",
+            protocol_version=_optional_string(data, "protocol_version", "AgentCard") or "a2a/0.3",
             skills=skills,
-            peer_id=p2p.get("peer_id"),
-            supported_transports=p2p.get("supported_transports", []),
-            relay_addresses=p2p.get("relay_addresses", []),
-            did_key=p2p.get("did_key"),
-            did_web=p2p.get("did_web"),
-            did_dns=p2p.get("did_dns"),
-            verifiable_credentials=p2p.get("verifiable_credentials", []),
+            peer_id=_optional_string(p2p, "peer_id", "AgentCard"),
+            supported_transports=supported_transports,
+            relay_addresses=relay_addresses,
+            did_key=_optional_string(p2p, "did_key", "AgentCard"),
+            did_web=_optional_string(p2p, "did_web", "AgentCard"),
+            did_dns=_optional_string(p2p, "did_dns", "AgentCard"),
+            verifiable_credentials=verifiable_credentials,
         )

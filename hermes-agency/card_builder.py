@@ -23,6 +23,15 @@ from hermes_constants import get_hermes_home
 DEFAULT_DESCRIPTION = "Hermes profile exposed over Hermes Agency."
 CARD_VERSION = "1.0.0"
 
+_PUBLIC_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
+_SENSITIVE_TEXT_PATTERNS = [
+    re.compile(r"(?i)\b(api[_-]?key|secret|token|bearer|authorization)\b"),
+    re.compile(r"\bsk-[A-Za-z0-9][A-Za-z0-9_.-]{8,}\b"),
+    re.compile(r"\b\d{17,20}\b"),
+    re.compile(r"\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"),
+    re.compile(r"/(?:home|Users)/[^\s\"']*(?:\.hermes|\.agentanycast|daemon\.sock)[^\s\"']*"),
+]
+
 
 try:  # Hermes already depends on PyYAML, but keep this plugin defensive.
     import yaml
@@ -78,6 +87,42 @@ def _cfg_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
             return default
         value = value[key]
     return value
+
+
+def _looks_sensitive(value: Any) -> bool:
+    """Return True when a value looks like a secret or local-only identifier."""
+
+    text = str(value)
+    return any(pattern.search(text) for pattern in _SENSITIVE_TEXT_PATTERNS)
+
+
+def _public_string(value: Any, *, allow_freeform: bool = False) -> str:
+    """Return a public-safe string or an empty string.
+
+    AgentCards are discoverable by remote peers, so metadata is deliberately
+    allowlisted. Credential-like strings, env var references, Discord snowflake
+    IDs, and local daemon/profile paths are never serialized.
+    """
+
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    if not text or _looks_sensitive(text):
+        return ""
+    if allow_freeform or _PUBLIC_IDENTIFIER_RE.fullmatch(text):
+        return text
+    return ""
+
+
+def _public_string_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    safe: list[str] = []
+    for value in values:
+        public = _public_string(value)
+        if public:
+            safe.append(public)
+    return safe
 
 
 def _extract_frontmatter(text: str) -> dict[str, Any]:
@@ -164,9 +209,14 @@ def read_profile_description(profile_home: str | Path | None = None) -> str:
 
     paragraphs = _paragraphs_from_markdown(soul_text)
     for paragraph in paragraphs:
-        if not _is_metadata_paragraph(paragraph):
+        is_profile_field = bool(re.match(r"(?i)^\s*(name|alias|role)\s*:", paragraph))
+        if (
+            not is_profile_field
+            and not _is_metadata_paragraph(paragraph)
+            and not _looks_sensitive(paragraph)
+        ):
             return paragraph[:500]
-    return paragraphs[0][:500] if paragraphs else DEFAULT_DESCRIPTION
+    return DEFAULT_DESCRIPTION
 
 
 def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str, str]]:
@@ -192,7 +242,7 @@ def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str
         description = str(frontmatter.get("description") or "").strip()
         if not description:
             description = _fallback_frontmatter_value(text, "description")
-        if not description:
+        if not description or _looks_sensitive(description):
             description = f"Hermes skill from {rel_parent}."
 
         raw_skills.append(
@@ -228,19 +278,19 @@ def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, A
     soul_text = _read_text(profile_dir / "SOUL.md")
 
     model = {
-        "provider": _cfg_get(config, "model", "provider", default="") or "",
-        "default": _cfg_get(config, "model", "default", default="") or "",
+        "provider": _public_string(_cfg_get(config, "model", "provider", default="")),
+        "default": _public_string(_cfg_get(config, "model", "default", default="")),
         "base_url_configured": bool(_cfg_get(config, "model", "base_url", default="")),
     }
 
-    toolsets = _cfg_get(config, "toolsets", default=[])
-    if not isinstance(toolsets, list):
-        toolsets = []
-    disabled_toolsets = _cfg_get(config, "agent", "disabled_toolsets", default=[])
-    if not isinstance(disabled_toolsets, list):
-        disabled_toolsets = []
-    configured_card_name = str(_cfg_get(config, "agency", "card_name", default="") or "").strip()
-    soul_name = _soul_profile_name(soul_text)
+    toolsets = _public_string_list(_cfg_get(config, "toolsets", default=[]))
+    disabled_toolsets = _public_string_list(
+        _cfg_get(config, "agent", "disabled_toolsets", default=[])
+    )
+    configured_card_name = _public_string(
+        _cfg_get(config, "agency", "card_name", default=""), allow_freeform=True
+    )
+    soul_name = _public_string(_soul_profile_name(soul_text), allow_freeform=True)
     card_name = configured_card_name or soul_name or profile_dir.name
 
     return {
@@ -257,7 +307,9 @@ def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, A
         },
         "agency": {
             "team": {
-                "tenant": _cfg_get(config, "agency", "team", "tenant", default="default")
+                "tenant": _public_string(
+                    _cfg_get(config, "agency", "team", "tenant", default="default") or "default"
+                )
                 or "default",
             }
         },
