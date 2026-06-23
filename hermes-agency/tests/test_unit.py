@@ -2499,7 +2499,7 @@ async def test_incoming_worker_handler_timeout_fails_task_and_survives(
 
     assert first_task.completed is None
     assert first_task.failed is not None
-    assert "timed out" in first_task.failed.lower()
+    assert "timeout" in first_task.failed.lower()
     assert first.status == "failed"
     assert "task-slow" in caplog.text
 
