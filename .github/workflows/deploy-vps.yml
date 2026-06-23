@@ -25,8 +25,18 @@ jobs:
               echo "Already up to date ($LOCAL)"
               exit 0
             fi
+            # Stash local changes to allow pull
+            STASHED=false
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              git stash push -m "auto-stash before deploy" && STASHED=true
+              echo "Stashed local changes"
+            fi
             git pull --ff-only origin main
             echo "Pulled $(git rev-parse --short HEAD)"
+            # Restore stashed changes if any
+            if [ "$STASHED" = true ]; then
+              git stash pop || echo "WARNING: stash pop had conflicts, stash preserved"
+            fi
             echo "Restarting Hermes gateway..."
             systemctl --user restart hermes-gateway
             sleep 3
