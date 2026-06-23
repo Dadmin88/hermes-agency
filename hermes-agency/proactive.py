@@ -42,5 +42,7 @@ def create_proactive_task(
         metadata=meta,
         priority=int(priority or 0),
     )
-    announcement = announce_proactive(clean_title, clean_description, kanban_task_id=str(task.get("task_id") or "") or None)
+    announcement = announce_proactive(
+        clean_title, clean_description, kanban_task_id=str(task.get("task_id") or "") or None
+    )
     return {"ok": bool(task.get("ok")), "task": task, "announcement": announcement}

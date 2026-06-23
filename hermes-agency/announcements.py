@@ -41,14 +41,16 @@ def _clean(value: Any, *, max_len: int = 500) -> str:
 def _record(kind: str, text: str | None, metadata: dict[str, Any] | None = None) -> str | None:
     if not text:
         return None
-    _RECENT.append(AnnouncementRecord(kind=kind, text=text, created_at=time.time(), metadata=metadata))
+    _RECENT.append(
+        AnnouncementRecord(kind=kind, text=text, created_at=time.time(), metadata=metadata)
+    )
     return text
 
 
 def recent_announcements(limit: int = 10) -> list[dict[str, Any]]:
     """Return recent announcement records for status/debug output."""
 
-    return [item.as_dict() for item in list(_RECENT)[-max(1, limit):]]
+    return [item.as_dict() for item in list(_RECENT)[-max(1, limit) :]]
 
 
 def announce_start(task: Any) -> str:
@@ -84,7 +86,10 @@ def announce_delegate(task: Any, target: Any, *, kanban_task_id: str | None = No
 
     suffix = f" (Kanban: {kanban_task_id})" if kanban_task_id else ""
     metadata = {"kanban_task_id": kanban_task_id} if kanban_task_id else None
-    return _record("delegate", f"Delegating to {_clean(target, max_len=220)}{suffix}...", metadata) or ""
+    return (
+        _record("delegate", f"Delegating to {_clean(target, max_len=220)}{suffix}...", metadata)
+        or ""
+    )
 
 
 def announce_escalate(task: Any, reason: Any) -> str:
@@ -99,35 +104,69 @@ def announce_registration(agent: Any, event: str, *, peer_id: str | None = None)
     """Announce agent registration/deregistration/update events."""
 
     suffix = f" ({peer_id})" if peer_id else ""
-    return _record("registration", f"Agent registration {event}: {_clean(agent, max_len=220)}{suffix}", {"peer_id": peer_id, "event": event}) or ""
+    return (
+        _record(
+            "registration",
+            f"Agent registration {event}: {_clean(agent, max_len=220)}{suffix}",
+            {"peer_id": peer_id, "event": event},
+        )
+        or ""
+    )
 
 
 def announce_bid(task_id: str, winner: Any, *, status: str = "selected") -> str:
     """Announce bidding outcome for a task."""
 
-    return _record("bid", f"Bidding {status} for task {_clean(task_id, max_len=120)}: {_clean(winner, max_len=220)}", {"task_id": task_id, "status": status}) or ""
+    return (
+        _record(
+            "bid",
+            f"Bidding {status} for task {_clean(task_id, max_len=120)}: {_clean(winner, max_len=220)}",
+            {"task_id": task_id, "status": status},
+        )
+        or ""
+    )
 
 
-def announce_proactive(title: Any, description: Any = "", *, kanban_task_id: str | None = None) -> str:
+def announce_proactive(
+    title: Any, description: Any = "", *, kanban_task_id: str | None = None
+) -> str:
     """Announce creation of a proactive agent-initiated task."""
 
     suffix = f" (Kanban: {kanban_task_id})" if kanban_task_id else ""
     body = _clean(description, max_len=320)
-    text = f"Proactive task created{suffix}: {_clean(title, max_len=220)}" + (f" — {body}" if body else "")
-    return _record("proactive", text, {"kanban_task_id": kanban_task_id} if kanban_task_id else None) or ""
+    text = f"Proactive task created{suffix}: {_clean(title, max_len=220)}" + (
+        f" — {body}" if body else ""
+    )
+    return (
+        _record("proactive", text, {"kanban_task_id": kanban_task_id} if kanban_task_id else None)
+        or ""
+    )
 
 
 def announce_policy(action: Any, decision: Any, *, agent: str | None = None) -> str:
     """Announce an autonomy policy decision."""
 
     target = f" for {agent}" if agent else ""
-    return _record("policy", f"Autonomy policy{target}: {_clean(action, max_len=120)} -> {_clean(decision, max_len=80)}") or ""
+    return (
+        _record(
+            "policy",
+            f"Autonomy policy{target}: {_clean(action, max_len=120)} -> {_clean(decision, max_len=80)}",
+        )
+        or ""
+    )
 
 
 def announce_workflow(name: str, workflow_id: str, step_count: int) -> str:
     """Announce workflow creation."""
 
-    return _record("workflow", f"Workflow started: {_clean(name, max_len=120)} ({workflow_id}) with {step_count} step task(s).", {"workflow_id": workflow_id}) or ""
+    return (
+        _record(
+            "workflow",
+            f"Workflow started: {_clean(name, max_len=120)} ({workflow_id}) with {step_count} step task(s).",
+            {"workflow_id": workflow_id},
+        )
+        or ""
+    )
 
 
 def announce_progress(task: Any, update: Any) -> str | None:
@@ -151,7 +190,9 @@ def build_blocked_context(task: Any, why: Any, needed: Any = "") -> dict[str, st
     }
 
 
-def mark_blocked_hook(task: Any, why: Any, needed: Any = "", *, task_id: str | None = None) -> dict[str, Any]:
+def mark_blocked_hook(
+    task: Any, why: Any, needed: Any = "", *, task_id: str | None = None
+) -> dict[str, Any]:
     """Mark a Kanban task blocked when available, otherwise return context."""
 
     context = build_blocked_context(task, why, needed)
@@ -160,7 +201,15 @@ def mark_blocked_hook(task: Any, why: Any, needed: Any = "", *, task_id: str | N
             from .kanban_bridge import update_task
 
             result = update_task(task_id, status="blocked", error=context["why_stuck"])
-            return {"implemented": bool(result.get("available")), "kanban": result, "context": context}
+            return {
+                "implemented": bool(result.get("available")),
+                "kanban": result,
+                "context": context,
+            }
         except Exception as exc:  # pragma: no cover - defensive fail-open hook
-            return {"implemented": False, "error": f"{type(exc).__name__}: {exc}", "context": context}
+            return {
+                "implemented": False,
+                "error": f"{type(exc).__name__}: {exc}",
+                "context": context,
+            }
     return {"implemented": False, "context": context}

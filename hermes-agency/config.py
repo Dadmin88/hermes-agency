@@ -54,8 +54,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from hermes_constants import get_hermes_home
 from hermes_cli.config import cfg_get, load_config
+from hermes_constants import get_hermes_home
 
 
 @dataclass(frozen=True)
@@ -349,8 +349,9 @@ def _team_config(config: dict[str, Any]) -> TeamConfig:
             default=False,
         ),
         tenant=(
-            str(_cfg_get(config, "agency", "team", "tenant", default="default") or "default")
-            .strip()
+            str(
+                _cfg_get(config, "agency", "team", "tenant", default="default") or "default"
+            ).strip()
             or "default"
         ),
         context_refresh_minutes=max(1, refresh_minutes),
@@ -429,19 +430,27 @@ def _string_tuple(value: Any) -> tuple[str, ...]:
 def _relay_security_config(config: dict[str, Any]) -> RelaySecurityConfig:
     raw_relay = _cfg_get(config, "agency", "relay", default=None)
     relay_map = raw_relay if isinstance(raw_relay, dict) else {}
-    allowlist_raw = relay_map.get("allowlist") if relay_map else _cfg_get(
-        config,
-        "agency",
-        "relay",
-        "allowlist",
-        default=[],
+    allowlist_raw = (
+        relay_map.get("allowlist")
+        if relay_map
+        else _cfg_get(
+            config,
+            "agency",
+            "relay",
+            "allowlist",
+            default=[],
+        )
     )
-    token_raw = relay_map.get("token") if relay_map else _cfg_get(
-        config,
-        "agency",
-        "relay",
-        "token",
-        default=None,
+    token_raw = (
+        relay_map.get("token")
+        if relay_map
+        else _cfg_get(
+            config,
+            "agency",
+            "relay",
+            "token",
+            default=None,
+        )
     )
     token = str(token_raw or "").strip()
     return RelaySecurityConfig(
@@ -459,7 +468,11 @@ def _relay_security_config(config: dict[str, Any]) -> RelaySecurityConfig:
 
 def _trust_config(config: dict[str, Any]) -> TrustConfig:
     raw_path = _cfg_get(config, "agency", "trust", "store_path", default="") or ""
-    store_path = Path(str(raw_path)).expanduser() if raw_path else get_hermes_home() / "agency" / "trust.json"
+    store_path = (
+        Path(str(raw_path)).expanduser()
+        if raw_path
+        else get_hermes_home() / "agency" / "trust.json"
+    )
     return TrustConfig(
         store_path=store_path,
         tofu=_bool_cfg(config, "agency", "trust", "tofu", default=True),
@@ -467,16 +480,18 @@ def _trust_config(config: dict[str, Any]) -> TrustConfig:
 
 
 def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
-    mode = str(
-        _cfg_get(config, "agency", "incoming", "mode", default="delegation")
-        or "delegation"
-    ).strip().lower()
+    mode = (
+        str(_cfg_get(config, "agency", "incoming", "mode", default="delegation") or "delegation")
+        .strip()
+        .lower()
+    )
     if mode not in {"template", "delegation", "subprocess"}:
         mode = "delegation"
-    tool_access = str(
-        _cfg_get(config, "agency", "incoming", "tool_access", default="safe")
-        or "safe"
-    ).strip().lower()
+    tool_access = (
+        str(_cfg_get(config, "agency", "incoming", "tool_access", default="safe") or "safe")
+        .strip()
+        .lower()
+    )
     if tool_access not in {"safe", "full", "none"}:
         tool_access = "safe"
     subprocess_profile = str(

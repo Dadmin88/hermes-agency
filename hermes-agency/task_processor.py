@@ -18,9 +18,10 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .conversation import format_conversation_history
 
@@ -88,7 +89,9 @@ def load_skill_context(skill_id: str, profile_home: str | Path) -> str | None:
 
     match = _find_skill_file(requested, profile_dir)
     if match is None:
-        logger.info("Requested Hermes Agency skill %r was not found under %s", requested_raw, profile_dir)
+        logger.info(
+            "Requested Hermes Agency skill %r was not found under %s", requested_raw, profile_dir
+        )
         return None
 
     matched_id, skill_file = match
@@ -98,7 +101,9 @@ def load_skill_context(skill_id: str, profile_home: str | Path) -> str | None:
     if not description:
         description = _fallback_frontmatter_value(text, "description")
     if not description:
-        description = f"Hermes skill from {skill_file.parent.relative_to(profile_dir / 'skills').as_posix()}."
+        description = (
+            f"Hermes skill from {skill_file.parent.relative_to(profile_dir / 'skills').as_posix()}."
+        )
 
     logger.info(
         "Matched requested Hermes Agency skill %r to local Hermes skill %r at %s",
@@ -131,7 +136,9 @@ def build_delegation_prompt(task_record: Any, skill_context: str | None = None) 
     if isinstance(context_packet, dict):
         history_block = format_conversation_history(context_packet.get("conversation_history"))
     request_block = (
-        f"{history_block}\n\nCurrent request:\n{message_text}" if history_block else f"Message:\n{message_text}"
+        f"{history_block}\n\nCurrent request:\n{message_text}"
+        if history_block
+        else f"Message:\n{message_text}"
     )
     skill_block = f"\n\n{skill_context.strip()}" if skill_context else ""
     return (
@@ -155,7 +162,9 @@ def build_delegation_context(task_record: Any) -> str:
     context_packet_json = ""
     if context_packet:
         try:
-            context_packet_json = json.dumps(context_packet, ensure_ascii=False, indent=2, default=str)
+            context_packet_json = json.dumps(
+                context_packet, ensure_ascii=False, indent=2, default=str
+            )
         except Exception:
             context_packet_json = str(context_packet)
 
@@ -234,7 +243,9 @@ def process_incoming_task(
     skill_context = None
     if skill_id:
         skill_context = load_skill_context(skill_id, _active_profile_home())
-        if skill_context is None and bool(getattr(config, "incoming_reject_unmatched_skills", False)):
+        if skill_context is None and bool(
+            getattr(config, "incoming_reject_unmatched_skills", False)
+        ):
             raise TaskProcessingError(f"I don't have the {skill_id} skill")
     prompt = build_delegation_prompt(task_record, skill_context=skill_context)
     context = build_delegation_context(task_record)
@@ -282,7 +293,9 @@ def process_incoming_task(
                 return response.strip()
             logger.error("Incoming Hermes Agency subprocess fallback failed: %s", response)
         else:
-            logger.error("Incoming Hermes Agency subprocess fallback skipped: profile could not be resolved")
+            logger.error(
+                "Incoming Hermes Agency subprocess fallback skipped: profile could not be resolved"
+            )
 
     if fallback_response is not None:
         return fallback_response(task_record)
@@ -555,7 +568,9 @@ def _build_parent_agent():
 
     env_model = os.getenv("HERMES_INFERENCE_MODEL", "").strip()
     effective_model = env_model or cfg_model
-    effective_provider = os.getenv("HERMES_INFERENCE_PROVIDER", "").strip().lower() or cfg_provider or None
+    effective_provider = (
+        os.getenv("HERMES_INFERENCE_PROVIDER", "").strip().lower() or cfg_provider or None
+    )
 
     if env_model and effective_provider is None:
         detected = detect_provider_for_model(env_model, cfg_provider or "auto")
@@ -764,4 +779,6 @@ def _sender_name(task_record: Any) -> str | None:
 def _noninteractive_clarify_callback(question: str, choices=None) -> str:
     if choices:
         return f"[No user available for clarification. Pick the best option from {choices} and continue.]"
-    return "[No user available for clarification. Make the most reasonable assumption and continue.]"
+    return (
+        "[No user available for clarification. Make the most reasonable assumption and continue.]"
+    )

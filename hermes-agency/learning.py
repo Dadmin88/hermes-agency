@@ -56,7 +56,11 @@ def log_routing_correction(
         "note": str(note or "").strip(),
         "timestamp": time.time(),
     }
-    if not correction["task_type"] or not correction["wrong_target"] or not correction["correct_target"]:
+    if (
+        not correction["task_type"]
+        or not correction["wrong_target"]
+        or not correction["correct_target"]
+    ):
         return {"ok": False, "error": "task_type, wrong_target, and correct_target are required"}
     items = _read()
     items.append(correction)
@@ -73,7 +77,7 @@ def correction_history(task_type: str | None = None, *, limit: int = 20) -> list
     if task_type:
         needle = str(task_type).strip().lower()
         items = [item for item in items if needle in str(item.get("task_type") or "").lower()]
-    return list(reversed(items[-max(1, limit):]))
+    return list(reversed(items[-max(1, limit) :]))
 
 
 def learning_summary(task_type: str | None = None) -> dict[str, Any]:

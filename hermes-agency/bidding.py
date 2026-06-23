@@ -78,7 +78,9 @@ def _tokens(text: str) -> set[str]:
 def _skill_id(skill: Any) -> str:
     if isinstance(skill, dict):
         return str(skill.get("id") or skill.get("skill_id") or skill.get("name") or "").strip()
-    return str(getattr(skill, "id", "") or getattr(skill, "skill_id", "") or getattr(skill, "name", "")).strip()
+    return str(
+        getattr(skill, "id", "") or getattr(skill, "skill_id", "") or getattr(skill, "name", "")
+    ).strip()
 
 
 def calculate_capability_match(task: dict[str, Any], skills: list[Any]) -> float:
@@ -212,7 +214,9 @@ def handle_bid_message(payload: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def choose_best_bid(task_id: str, *, past_performance: dict[str, float] | None = None) -> dict[str, Any] | None:
+def choose_best_bid(
+    task_id: str, *, past_performance: dict[str, float] | None = None
+) -> dict[str, Any] | None:
     """Choose the best bid by availability, capability, performance, and time."""
 
     bids = list(_state.bids.get(str(task_id), []))
@@ -221,7 +225,13 @@ def choose_best_bid(task_id: str, *, past_performance: dict[str, float] | None =
     performance = past_performance or {}
 
     def score(bid: BidRecord) -> tuple[float, float, float, float]:
-        available = 1.0 if bid.status == "available" else 0.25 if bid.status.startswith("delegating_to:") else 0.0
+        available = (
+            1.0
+            if bid.status == "available"
+            else 0.25
+            if bid.status.startswith("delegating_to:")
+            else 0.0
+        )
         capability = max(0.0, min(1.0, bid.capability_match))
         perf = max(0.0, min(1.0, float(performance.get(bid.agent, 0.5))))
         time_score = 0.5
@@ -247,7 +257,11 @@ async def broadcast_bid_request(node: Any, request: dict[str, Any]) -> dict[str,
         peers = []
         errors.append(f"list_peers: {type(exc).__name__}: {exc}")
     for peer in peers or []:
-        peer_id = str(peer.get("peer_id") or peer.get("id") or "").strip() if isinstance(peer, dict) else str(getattr(peer, "peer_id", "") or getattr(peer, "id", "")).strip()
+        peer_id = (
+            str(peer.get("peer_id") or peer.get("id") or "").strip()
+            if isinstance(peer, dict)
+            else str(getattr(peer, "peer_id", "") or getattr(peer, "id", "")).strip()
+        )
         if not peer_id or peer_id == str(getattr(node, "peer_id", "") or ""):
             continue
         try:
@@ -255,7 +269,10 @@ async def broadcast_bid_request(node: Any, request: dict[str, Any]) -> dict[str,
                 node.send_task(
                     message={"role": "user", "parts": [{"text": message_text}]},
                     peer_id=peer_id,
-                    metadata={"agency_control": "bid_request", "task_id": str(request.get("task_id") or "")},
+                    metadata={
+                        "agency_control": "bid_request",
+                        "task_id": str(request.get("task_id") or ""),
+                    },
                 )
             )
             sent.append(peer_id)
@@ -274,5 +291,9 @@ def bid_to_payload(bid: BidRecord) -> dict[str, Any]:
 
 def bidding_summary(task_id: str | None = None) -> dict[str, Any]:
     if task_id:
-        return {"task_id": task_id, "bids": [bid.as_dict() for bid in _state.bids.get(task_id, [])], "winner": choose_best_bid(task_id)}
+        return {
+            "task_id": task_id,
+            "bids": [bid.as_dict() for bid in _state.bids.get(task_id, [])],
+            "winner": choose_best_bid(task_id),
+        }
     return _state.as_dict()

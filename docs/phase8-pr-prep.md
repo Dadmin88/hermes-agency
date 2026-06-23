@@ -58,8 +58,8 @@ Current unit coverage includes or now asserts:
 Current standalone scripts:
 
 ```bash
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e_full.py
+make integration-agency
+make integration-agency-full
 ```
 
 `test_e2e.py` now runs its local SDK nodes with isolated temporary daemon homes and no relay/registry unless explicitly configured through environment variables. `test_e2e_full.py` still exercises real profile/Kanban/relay assumptions, so before upstream CI it should be converted to fixtures/skips or kept as explicit manual validation.
@@ -87,10 +87,10 @@ Phase 7 live validation already proved:
 Last local validation command set:
 
 ```bash
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pytest hermes-agency/tests/test_unit.py -q
-# 83 passed in 1.24s
+make test-agency
+# 87 passed
 
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e.py
+make integration-agency
 # PASS: Scenario A: Node lifecycle
 # PASS: Scenario B: a2a_list_peers both directions
 # PASS: Scenario B: Self-send (two localhost nodes)
@@ -98,19 +98,10 @@ Last local validation command set:
 # PASS: Scenario D: Incoming task queue
 # All scenarios passed
 
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m py_compile \
-  hermes-agency/*.py \
-  hermes-agency/tests/test_e2e.py \
-  hermes-agency/tests/test_e2e_full.py
-# pass
-
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m ruff check \
-  hermes-agency \
-  --select F \
-  --exclude hermes-agency/tests/__pycache__
+make lint-agency
 # All checks passed!
 
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pip check
+python -m pip check
 # No broken requirements found.
 ```
 

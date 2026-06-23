@@ -117,7 +117,9 @@ def _context_from(conversation_context: Any) -> str:
             return _summarize_messages(conversation_context["messages"])
         metadata = conversation_context.get("metadata")
         if isinstance(metadata, dict) and metadata:
-            pairs = [f"{key}: {value}" for key, value in metadata.items() if value not in (None, "")]
+            pairs = [
+                f"{key}: {value}" for key, value in metadata.items() if value not in (None, "")
+            ]
             return "\n".join(pairs)
     return str(conversation_context).strip()
 
@@ -164,7 +166,9 @@ def build_context_packet(message: str, conversation_context: Any = None) -> dict
             validation=str(ctx.get("validation") or "").strip(),
             context_id=str(ctx.get("context_id") or "").strip(),
             conversation_history=_conversation_history_from(ctx.get("conversation_history")),
-            metadata={str(k): v for k, v in (ctx.get("metadata") or {}).items()} if isinstance(ctx.get("metadata"), dict) else {},
+            metadata={str(k): v for k, v in (ctx.get("metadata") or {}).items()}
+            if isinstance(ctx.get("metadata"), dict)
+            else {},
         )
         return packet.as_dict()
     except Exception:
@@ -184,7 +188,7 @@ def parse_context_packet(text: str) -> dict[str, Any] | None:
 
     raw = (text or "").strip()
     if raw.startswith(_PACKET_PREFIX):
-        raw = raw[len(_PACKET_PREFIX):].strip()
+        raw = raw[len(_PACKET_PREFIX) :].strip()
     elif not raw.startswith("{"):
         return None
     try:

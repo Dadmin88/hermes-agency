@@ -2,6 +2,8 @@
 
 **Build P2P agents in Python.** Discover, communicate, and collaborate with AI agents across any network -- encrypted, decentralized, NAT-traversing.
 
+AgentAnycast is the Python SDK/runtime. Hermes Agency is the optional Hermes Agent plugin in `hermes-agency/` built on top of that SDK.
+
 [![CI](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentanycast?color=3776AB)](https://pypi.org/project/agentanycast/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
@@ -193,12 +195,26 @@ from agentanycast.compat.agntcy import AGNTCYDirectory
 
 ## Development
 
+Prerequisite:
+
 ```bash
-pip install -e ".[dev]"    # Install in editable mode with dev deps
-pytest                     # Run all tests
-ruff check .               # Lint
-ruff format .              # Format
-mypy src/                  # Type check (strict)
+python -m pip install -e ".[dev]"    # Install in editable mode with dev deps
+```
+
+Canonical local checks:
+
+```bash
+make test-agency                     # Hermes Agency plugin unit tests (87 tests)
+make lint-agency                     # Ruff check/format for the plugin
+make test                            # SDK tests + Hermes Agency unit tests
+mypy src/                            # Type check SDK (strict)
+```
+
+The default pytest configuration skips tests marked `integration`. Run live daemon/relay checks manually with:
+
+```bash
+make integration-agency              # isolated local daemon homes; optional relay via env vars
+make integration-agency-full         # live profile/Kanban/relay validation
 ```
 
 ## Requirements

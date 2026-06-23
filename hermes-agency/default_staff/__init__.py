@@ -17,7 +17,6 @@ Safety guarantees:
 from __future__ import annotations
 
 import json
-import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -30,6 +29,7 @@ except Exception:  # pragma: no cover
 # ---------------------------------------------------------------------------
 # Path resolution
 # ---------------------------------------------------------------------------
+
 
 def _plugin_root() -> Path:
     """Return the hermes-agency plugin directory (contains __init__.py)."""
@@ -54,6 +54,7 @@ def manifest_path() -> Path | None:
 # ---------------------------------------------------------------------------
 # Manifest loading
 # ---------------------------------------------------------------------------
+
 
 def load_manifest() -> dict[str, Any] | None:
     """Load and return the default staff manifest, or None if unavailable."""
@@ -132,9 +133,11 @@ def read_profile_metadata(name: str) -> dict[str, Any] | None:
 # Installation helpers
 # ---------------------------------------------------------------------------
 
+
 def _hermes_profiles_dir() -> Path:
     """Resolve the Hermes profiles directory."""
     from hermes_constants import get_hermes_home
+
     home = Path(get_hermes_home()).expanduser()
     if home.parent.name == "profiles":
         return home.parent

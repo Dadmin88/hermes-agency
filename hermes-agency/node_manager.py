@@ -37,6 +37,7 @@ from .announcements import (
     announce_start,
     recent_announcements,
 )
+from .bidding import get_bidding_state, handle_bid_message
 from .card_builder import build_card, card_to_dict
 from .config import AgencyConfig, current_profile_name, get_config, is_current_orchestrator
 from .context_packet import (
@@ -51,7 +52,6 @@ from .kanban_bridge import get_task as kanban_get_task
 from .kanban_bridge import list_tasks as kanban_list_tasks
 from .kanban_bridge import track_delegation as kanban_track_delegation
 from .kanban_bridge import update_task as kanban_update_task
-from .bidding import handle_bid_message, get_bidding_state
 from .learning import correction_history
 from .policy import check_autonomy
 from .registration import (
@@ -62,9 +62,15 @@ from .registration import (
     register_agent,
     update_registration,
 )
-from .team_context import build_team_context, get_team_state, refresh_capability_map
 from .task_processor import process_incoming_task
-from .trust import TrustError, store_for_config, sync_relay_allowlist, trust_summary, verify_peer_tofu
+from .team_context import build_team_context, get_team_state, refresh_capability_map
+from .trust import (
+    TrustError,
+    store_for_config,
+    sync_relay_allowlist,
+    trust_summary,
+    verify_peer_tofu,
+)
 
 REGISTRY_REREGISTER_INTERVAL_SECONDS = 20
 REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS = 1
@@ -434,10 +440,9 @@ class NodeManager:
     def _is_progress_artifact(cls, artifact: Any) -> bool:
         data = cls._serialize_artifact(artifact)
         metadata = data.get("metadata") or {}
-        return (
-            data.get("name") == "agency-progress-update"
-            or str(metadata.get("agency_progress") or "").lower() in {"1", "true", "yes"}
-        )
+        return data.get("name") == "agency-progress-update" or str(
+            metadata.get("agency_progress") or ""
+        ).lower() in {"1", "true", "yes"}
 
     @classmethod
     def _progress_update_from_artifact(cls, artifact: Any) -> dict[str, Any] | None:
@@ -483,7 +488,9 @@ class NodeManager:
         return {
             "task_id": getattr(handle, "task_id", ""),
             "status": getattr(status, "value", str(status)),
-            "artifacts": [cls._serialize_artifact(item) for item in getattr(handle, "artifacts", [])],
+            "artifacts": [
+                cls._serialize_artifact(item) for item in getattr(handle, "artifacts", [])
+            ],
         }
 
     async def _ensure_started_impl(self) -> None:
@@ -509,7 +516,10 @@ class NodeManager:
         try:
             return card_to_dict(sender_card)
         except Exception:
-            return {"name": getattr(sender_card, "name", ""), "description": getattr(sender_card, "description", "")}
+            return {
+                "name": getattr(sender_card, "name", ""),
+                "description": getattr(sender_card, "description", ""),
+            }
 
     @staticmethod
     def _metadata_to_dict(value: Any) -> dict[str, Any]:
@@ -526,7 +536,9 @@ class NodeManager:
         return {}
 
     @staticmethod
-    def _kanban_task_id_from_metadata(metadata: dict[str, Any], context_packet: dict[str, Any] | None = None) -> str | None:
+    def _kanban_task_id_from_metadata(
+        metadata: dict[str, Any], context_packet: dict[str, Any] | None = None
+    ) -> str | None:
         for key in ("kanban_task_id", "agency_kanban_task_id"):
             value = metadata.get(key)
             if value:
@@ -564,24 +576,43 @@ class NodeManager:
         records = list(self._incoming_records.values())
         self.state.incoming_task_count = len(records)
         self.state.incoming_queue_size = queue_size
-        self.state.incoming_processing_count = sum(1 for item in records if item.status == "processing")
-        self.state.incoming_completed_count = sum(1 for item in records if item.status == "completed")
+        self.state.incoming_processing_count = sum(
+            1 for item in records if item.status == "processing"
+        )
+        self.state.incoming_completed_count = sum(
+            1 for item in records if item.status == "completed"
+        )
         self.state.incoming_failed_count = sum(1 for item in records if item.status == "failed")
 
     def _refresh_orchestrator_state(self) -> None:
         records = list(self._orchestrator_tasks.values())
         terminal = {"completed", "failed", "escalated", "cancelled"}
-        self.state.orchestrator_active_task_count = sum(1 for item in records if item.status not in terminal)
-        self.state.orchestrator_completed_task_count = sum(1 for item in records if item.status == "completed")
-        self.state.orchestrator_failed_task_count = sum(1 for item in records if item.status in {"failed", "escalated"})
+        self.state.orchestrator_active_task_count = sum(
+            1 for item in records if item.status not in terminal
+        )
+        self.state.orchestrator_completed_task_count = sum(
+            1 for item in records if item.status == "completed"
+        )
+        self.state.orchestrator_failed_task_count = sum(
+            1 for item in records if item.status in {"failed", "escalated"}
+        )
 
     def _current_load(self) -> int:
-        return sum(1 for item in self._incoming_records.values() if item.status in {"queued", "processing"}) + self.state.orchestrator_active_task_count
+        return (
+            sum(
+                1
+                for item in self._incoming_records.values()
+                if item.status in {"queued", "processing"}
+            )
+            + self.state.orchestrator_active_task_count
+        )
 
     def _refresh_autonomous_state(self) -> None:
         reg_state = get_registration_state()
         bid_state = get_bidding_state()
-        self.state.registration_count = len([item for item in reg_state.registrations.values() if item.alive])
+        self.state.registration_count = len(
+            [item for item in reg_state.registrations.values() if item.alive]
+        )
         self.state.bidding_request_count = len(bid_state.requests)
         self.state.bidding_bid_count = sum(len(items) for items in bid_state.bids.values())
 
@@ -658,7 +689,9 @@ class NodeManager:
             self._record_registry_registration_success()
             return True
         errors = result.get("errors") or [result.get("error") or "unknown registry refresh failure"]
-        self._record_registry_registration_failure("; ".join(str(item) for item in errors), retry_in_seconds)
+        self._record_registry_registration_failure(
+            "; ".join(str(item) for item in errors), retry_in_seconds
+        )
         return False
 
     def _refresh_team_state_fields(self) -> None:
@@ -713,7 +746,9 @@ class NodeManager:
                 logger.warning("Hermes Agency TOFU rejected discovered peer: %s", exc)
 
     async def _sync_effective_relay_allowlist(self, cfg: AgencyConfig) -> dict[str, Any]:
-        return await asyncio.to_thread(sync_relay_allowlist, cfg, self.effective_relay_allowlist(cfg))
+        return await asyncio.to_thread(
+            sync_relay_allowlist, cfg, self.effective_relay_allowlist(cfg)
+        )
 
     async def _refresh_team_context_impl(self, *, force: bool = False) -> None:
         cfg = get_config()
@@ -724,7 +759,11 @@ class NodeManager:
         now = time.time()
         team_state = get_team_state()
         refresh_seconds = max(60, cfg.team.context_refresh_minutes * 60)
-        if not force and team_state.last_refresh and now - team_state.last_refresh < refresh_seconds:
+        if (
+            not force
+            and team_state.last_refresh
+            and now - team_state.last_refresh < refresh_seconds
+        ):
             self._refresh_team_state_fields()
             return
         if self._node is None or not self.state.started:
@@ -761,7 +800,9 @@ class NodeManager:
     def _registry_skill_id(skill: Any) -> str:
         if isinstance(skill, dict):
             return str(skill.get("id") or skill.get("skill_id") or skill.get("name") or "").strip()
-        return str(getattr(skill, "id", "") or getattr(skill, "skill_id", "") or getattr(skill, "name", "")).strip()
+        return str(
+            getattr(skill, "id", "") or getattr(skill, "skill_id", "") or getattr(skill, "name", "")
+        ).strip()
 
     @staticmethod
     def _registry_skill_description(skill: Any) -> str:
@@ -782,7 +823,11 @@ class NodeManager:
             return {"ok": False, "skipped": True, "reason": "peer_id is not set"}
         addresses = _registry_addresses()
         if not addresses:
-            return {"ok": False, "skipped": True, "reason": "AGENTANYCAST_REGISTRY_ADDRS is not set"}
+            return {
+                "ok": False,
+                "skipped": True,
+                "reason": "AGENTANYCAST_REGISTRY_ADDRS is not set",
+            }
 
         import importlib
 
@@ -810,7 +855,9 @@ class NodeManager:
 
         request = registry_pb2.RegisterSkillsRequest(
             peer_id=self.state.peer_id,
-            agent_name=str(getattr(card, "name", "") or self.state.card_name or current_profile_name()),
+            agent_name=str(
+                getattr(card, "name", "") or self.state.card_name or current_profile_name()
+            ),
             agent_description=str(getattr(card, "description", "") or ""),
             skills=skills,
         )
@@ -908,7 +955,9 @@ class NodeManager:
             if not cancelled and self.state.started:
                 self.state.registry_reregister_loop_exited = True
                 self._refresh_registration_health()
-                logger.critical("Hermes Agency relay skill re-registration loop exited unexpectedly")
+                logger.critical(
+                    "Hermes Agency relay skill re-registration loop exited unexpectedly"
+                )
 
     def _remember_incoming_record(self, record: IncomingTaskRecord) -> None:
         cfg = get_config()
@@ -925,20 +974,32 @@ class NodeManager:
         message_text = self._message_text_from_incoming(task)
         control_payload = parse_control_message(message_text)
         if control_payload:
-            control_result = handle_registration_message(control_payload) or handle_bid_message(control_payload)
+            control_result = handle_registration_message(control_payload) or handle_bid_message(
+                control_payload
+            )
             if control_result is None:
                 control_result = {"ok": False, "ignored": True, "type": control_payload.get("type")}
             self._refresh_autonomous_state()
             try:
                 if control_payload.get("type") == "registration":
-                    agent = (control_payload.get("agent") or {}).get("name") if isinstance(control_payload.get("agent"), dict) else control_payload.get("peer_id")
-                    announce_registration(agent or control_payload.get("peer_id"), str(control_payload.get("event") or "received"), peer_id=str(control_payload.get("peer_id") or ""))
+                    agent = (
+                        (control_payload.get("agent") or {}).get("name")
+                        if isinstance(control_payload.get("agent"), dict)
+                        else control_payload.get("peer_id")
+                    )
+                    announce_registration(
+                        agent or control_payload.get("peer_id"),
+                        str(control_payload.get("event") or "received"),
+                        peer_id=str(control_payload.get("peer_id") or ""),
+                    )
                 await task.complete(
                     artifacts=[
                         {
                             "artifact_id": f"agency-control-{getattr(task, 'task_id', 'unknown')}",
                             "name": "agency-control-ack",
-                            "parts": [{"text": json.dumps(control_result, sort_keys=True, default=str)}],
+                            "parts": [
+                                {"text": json.dumps(control_result, sort_keys=True, default=str)}
+                            ],
                         }
                     ]
                 )
@@ -1051,7 +1112,10 @@ class NodeManager:
                 record.kanban_task_id = kanban_task_id
         if kanban_task_id:
             kanban_update_task(kanban_task_id, status="running")
-            kanban_add_comment(kanban_task_id, f"A2A task {record.task_id} received by {current_profile_name()} and queued for work.")
+            kanban_add_comment(
+                kanban_task_id,
+                f"A2A task {record.task_id} received by {current_profile_name()} and queued for work.",
+            )
         try:
             try:
                 await task.update_status("working")
@@ -1160,9 +1224,7 @@ class NodeManager:
         ttl = max(0, int(cfg.incoming_conversation_ttl or 0))
         if ttl:
             thread[:] = [
-                item
-                for item in thread
-                if now - float(item.get("created_at") or now) <= ttl
+                item for item in thread if now - float(item.get("created_at") or now) <= ttl
             ]
         thread.append(
             {
@@ -1241,7 +1303,9 @@ class NodeManager:
                 self._remember_conversation_turn(record, response)
                 if record.kanban_task_id:
                     kanban_update_task(record.kanban_task_id, status="done", result=response)
-                announce_complete(record.message_text, response, kanban_task_id=record.kanban_task_id)
+                announce_complete(
+                    record.message_text, response, kanban_task_id=record.kanban_task_id
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -1251,10 +1315,16 @@ class NodeManager:
                     record.updated_at = time.time()
                     record.completed_at = time.time()
                     if record.kanban_task_id:
-                        kanban_update_task(record.kanban_task_id, status="blocked", error=record.error)
-                    announce_error(record.message_text, record.error, kanban_task_id=record.kanban_task_id)
+                        kanban_update_task(
+                            record.kanban_task_id, status="blocked", error=record.error
+                        )
+                    announce_error(
+                        record.message_text, record.error, kanban_task_id=record.kanban_task_id
+                    )
                 try:
-                    await task.fail(record.error if record is not None else f"{type(exc).__name__}: {exc}")
+                    await task.fail(
+                        record.error if record is not None else f"{type(exc).__name__}: {exc}"
+                    )
                 except Exception:
                     pass
             finally:
@@ -1317,13 +1387,19 @@ class NodeManager:
                     registration_result,
                     retry_in_seconds=float(REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS),
                 )
-                announce_registration(self.state.card_name or current_profile_name(), "registered", peer_id=self.state.peer_id)
+                announce_registration(
+                    self.state.card_name or current_profile_name(),
+                    "registered",
+                    peer_id=self.state.peer_id,
+                )
             await self._refresh_team_context_impl(force=True)
             if cfg.team.auto_discover and self._team_refresh_task is None:
                 self._team_refresh_task = asyncio.create_task(self._team_refresh_loop())
             if cfg.team.auto_register and self._registry_reregister_task is None:
                 self.state.registry_reregister_loop_exited = False
-                self._registry_reregister_task = asyncio.create_task(self._registry_reregister_loop())
+                self._registry_reregister_task = asyncio.create_task(
+                    self._registry_reregister_loop()
+                )
                 self._registry_reregister_task.add_done_callback(self._registry_reregister_done)
         except Exception as exc:
             self._node = None
@@ -1348,7 +1424,10 @@ class NodeManager:
                 self._team_refresh_task.cancel()
                 await asyncio.gather(self._team_refresh_task, return_exceptions=True)
 
-            if self._registry_reregister_task is not None and not self._registry_reregister_task.done():
+            if (
+                self._registry_reregister_task is not None
+                and not self._registry_reregister_task.done()
+            ):
                 self._registry_reregister_task.cancel()
                 await asyncio.gather(self._registry_reregister_task, return_exceptions=True)
 
@@ -1356,7 +1435,11 @@ class NodeManager:
                 try:
                     if get_config().team.auto_register:
                         await deregister_agent(self._node, card=build_card())
-                        announce_registration(self.state.card_name or current_profile_name(), "deregistered", peer_id=self.state.peer_id)
+                        announce_registration(
+                            self.state.card_name or current_profile_name(),
+                            "deregistered",
+                            peer_id=self.state.peer_id,
+                        )
                 except Exception:
                     pass
                 await self._node.stop()
@@ -1419,7 +1502,9 @@ class NodeManager:
         cfg = get_config()
         if peer_id:
             if not self._peer_allowed_by_effective_allowlist(cfg, peer_id):
-                raise PermissionError(f"target peer {peer_id} is not in effective agency.relay.allowlist")
+                raise PermissionError(
+                    f"target peer {peer_id} is not in effective agency.relay.allowlist"
+                )
             verify_peer_tofu(cfg, peer_id, source="outgoing_task")
 
         if isinstance(conversation_context, dict):
@@ -1427,7 +1512,10 @@ class NodeManager:
             if metadata:
                 packet_context.setdefault("metadata", metadata)
         else:
-            packet_context = {"summary": str(conversation_context or "").strip(), "metadata": metadata or {}}
+            packet_context = {
+                "summary": str(conversation_context or "").strip(),
+                "metadata": metadata or {},
+            }
         clean_context_id = str(context_id or packet_context.get("context_id") or "").strip()
         if clean_context_id:
             packet_context["context_id"] = clean_context_id
@@ -1450,7 +1538,9 @@ class NodeManager:
         message_text = packet_to_message_text(packet_or_message)
         target_label = peer_id or skill or "unknown target"
         clean_metadata = {str(k): str(v) for k, v in (metadata or {}).items()} or None
-        kanban_task_id = (clean_metadata or {}).get("kanban_task_id") or (clean_metadata or {}).get("agency_kanban_task_id")
+        kanban_task_id = (clean_metadata or {}).get("kanban_task_id") or (clean_metadata or {}).get(
+            "agency_kanban_task_id"
+        )
         announce_delegate(message, target_label, kanban_task_id=kanban_task_id)
         payload = {"role": "user", "parts": [{"text": message_text}]}
         if isinstance(packet_or_message, dict):
@@ -1484,7 +1574,9 @@ class NodeManager:
             send_error = f"{type(exc).__name__}: {exc}"
             if kanban_task_id:
                 kanban_update_task(kanban_task_id, status="blocked", error=send_error)
-                kanban_add_comment(kanban_task_id, f"A2A task send failed before remote acceptance: {send_error}")
+                kanban_add_comment(
+                    kanban_task_id, f"A2A task send failed before remote acceptance: {send_error}"
+                )
             announce_error(message, send_error, kanban_task_id=kanban_task_id)
             raise
         self._task_handles[handle.task_id] = handle
@@ -1510,7 +1602,9 @@ class NodeManager:
                 # callers can still poll a2a_status for the latest state.
                 wait_error = f"{type(exc).__name__}: {exc}"
                 if kanban_task_id:
-                    kanban_add_comment(kanban_task_id, f"A2A wait returned before completion: {wait_error}")
+                    kanban_add_comment(
+                        kanban_task_id, f"A2A wait returned before completion: {wait_error}"
+                    )
                 announce_error(message, wait_error, kanban_task_id=kanban_task_id)
 
         data = self._serialize_handle(handle)
@@ -1556,7 +1650,9 @@ class NodeManager:
             except Exception as exc:
                 wait_error = f"{type(exc).__name__}: {exc}"
                 if kanban_task_id:
-                    kanban_add_comment(kanban_task_id, f"A2A retry wait returned before completion: {wait_error}")
+                    kanban_add_comment(
+                        kanban_task_id, f"A2A retry wait returned before completion: {wait_error}"
+                    )
                 announce_error(message, wait_error, kanban_task_id=kanban_task_id)
             data = self._serialize_handle(handle)
         if not wait_error and wait_seconds and wait_seconds > 0:
@@ -1625,7 +1721,10 @@ class NodeManager:
             if kanban_status:
                 data["kanban_status"] = kanban_status
                 data["kanban_task_id"] = kanban_task_id
-            if kanban_status in {"done", "blocked", "failed"} and data.get("status") not in {"failed", "cancelled"}:
+            if kanban_status in {"done", "blocked", "failed"} and data.get("status") not in {
+                "failed",
+                "cancelled",
+            }:
                 data["a2a_status"] = data.get("status")
                 data["status"] = kanban_status
                 if task.get("result") is not None:
@@ -1634,7 +1733,7 @@ class NodeManager:
 
     async def _incoming_tasks_impl(self, limit: int = 20) -> list[dict[str, Any]]:
         self._refresh_incoming_state()
-        task_ids = list(self._incoming_order)[-max(1, limit):]
+        task_ids = list(self._incoming_order)[-max(1, limit) :]
         return [
             self._incoming_records[task_id].as_dict()
             for task_id in reversed(task_ids)
@@ -1675,7 +1774,9 @@ class NodeManager:
             self.state.error = "registry re-registration loop exited unexpectedly"
             logger.critical("Hermes Agency relay skill re-registration task exited; restarting")
         if self.state.started and self._loop is not None and self._loop.is_running():
-            self._registry_reregister_task = self._loop.create_task(self._registry_reregister_loop())
+            self._registry_reregister_task = self._loop.create_task(
+                self._registry_reregister_loop()
+            )
             self._registry_reregister_task.add_done_callback(self._registry_reregister_done)
 
     @staticmethod
@@ -1746,7 +1847,7 @@ class NodeManager:
     def incoming_tasks_sync(self, limit: int = 20, timeout: float = 30) -> list[dict[str, Any]]:
         if self._loop is None or not self._loop.is_running():
             self._refresh_incoming_state()
-            task_ids = list(self._incoming_order)[-max(1, limit):]
+            task_ids = list(self._incoming_order)[-max(1, limit) :]
             return [
                 self._incoming_records[task_id].as_dict()
                 for task_id in reversed(task_ids)
@@ -1835,7 +1936,10 @@ class NodeManager:
                 for idx, item in enumerate(updates["subtasks"], start=1)
                 if str(item.get("goal") or "").strip()
             ]
-        if record.status in {"completed", "failed", "escalated", "cancelled"} and record.completed_at is None:
+        if (
+            record.status in {"completed", "failed", "escalated", "cancelled"}
+            and record.completed_at is None
+        ):
             record.completed_at = time.time()
         record.updated_at = time.time()
         self._refresh_orchestrator_state()
@@ -1847,7 +1951,7 @@ class NodeManager:
 
     def orchestrator_tasks_sync(self, limit: int = 50) -> list[dict[str, Any]]:
         self._refresh_orchestrator_state()
-        task_ids = list(self._orchestrator_order)[-max(1, limit):]
+        task_ids = list(self._orchestrator_order)[-max(1, limit) :]
         return [
             self._orchestrator_tasks[task_id].as_dict()
             for task_id in reversed(task_ids)
@@ -1920,7 +2024,9 @@ class NodeManager:
                 "token_configured": bool(self.state.config.relay_security.token),
             },
             "trust": {
-                "store_path": str(self.state.config.trust.store_path) if self.state.config.trust.store_path else None,
+                "store_path": str(self.state.config.trust.store_path)
+                if self.state.config.trust.store_path
+                else None,
                 "tofu": self.state.config.trust.tofu,
                 "peer_count": len(store_for_config(self.state.config).list_peers()),
             },
@@ -1969,11 +2075,16 @@ class NodeManager:
         self.state.config = get_config()
         cfg = self.state.config
         team_state = get_team_state()
-        stale = (
-            team_state.last_refresh is None
-            or time.time() - team_state.last_refresh > max(60, cfg.team.context_refresh_minutes * 60)
+        stale = team_state.last_refresh is None or time.time() - team_state.last_refresh > max(
+            60, cfg.team.context_refresh_minutes * 60
         )
-        if self.state.started and cfg.team.auto_discover and stale and self._loop is not None and self._loop.is_running():
+        if (
+            self.state.started
+            and cfg.team.auto_discover
+            and stale
+            and self._loop is not None
+            and self._loop.is_running()
+        ):
             try:
                 self._submit(self._refresh_team_context_impl(force=True), timeout=10)
             except Exception as exc:
@@ -1989,8 +2100,14 @@ class NodeManager:
         if not is_current_orchestrator(cfg):
             return ""
         team_state = get_team_state()
-        kanban_tasks_result = kanban_list_tasks({"limit": 12, "include_archived": False, "sort": "created-desc"})
-        tasks = kanban_tasks_result.get("tasks") if kanban_tasks_result.get("available") else self.orchestrator_tasks_sync(limit=12)
+        kanban_tasks_result = kanban_list_tasks(
+            {"limit": 12, "include_archived": False, "sort": "created-desc"}
+        )
+        tasks = (
+            kanban_tasks_result.get("tasks")
+            if kanban_tasks_result.get("available")
+            else self.orchestrator_tasks_sync(limit=12)
+        )
         lines = [
             "Hermes Agency orchestrator context:",
             f"Current orchestrator profile: {current_profile_name()}",
@@ -2006,7 +2123,10 @@ class NodeManager:
             lines.append("Configured routing hints: none.")
         if team_state.peers:
             lines.append("Full team capability map:")
-            for peer in sorted(team_state.peers.values(), key=lambda item: (item.card_name or item.name or item.peer_id).lower()):
+            for peer in sorted(
+                team_state.peers.values(),
+                key=lambda item: (item.card_name or item.name or item.peer_id).lower(),
+            ):
                 label = peer.card_name or peer.name or f"{peer.peer_id[:20]}... (skills unknown)"
                 lines.append(f"- {label} — peer_id: {peer.peer_id}")
                 description = peer.card_description or peer.description
@@ -2015,7 +2135,8 @@ class NodeManager:
                 skills = peer.card_skills or peer.skills
                 if skills:
                     skill_text = ", ".join(
-                        f"{skill.get('id', '')}" + (f" ({skill.get('description')})" if skill.get("description") else "")
+                        f"{skill.get('id', '')}"
+                        + (f" ({skill.get('description')})" if skill.get("description") else "")
                         for skill in skills
                         if skill.get("id")
                     )
@@ -2025,9 +2146,13 @@ class NodeManager:
         else:
             lines.append("Full team capability map: no peers currently discovered.")
         if kanban_tasks_result.get("available"):
-            lines.append("Current Kanban state: available; Kanban is the source of truth for Hermes Agency work.")
+            lines.append(
+                "Current Kanban state: available; Kanban is the source of truth for Hermes Agency work."
+            )
         else:
-            lines.append("Current Kanban state: unavailable; using local orchestrator state fallback.")
+            lines.append(
+                "Current Kanban state: unavailable; using local orchestrator state fallback."
+            )
         if tasks:
             lines.append("Recent Kanban/local task history:")
             for task in tasks:
@@ -2038,12 +2163,16 @@ class NodeManager:
             lines.append("Recent local task history: none.")
         policy_read = check_autonomy("read", current_profile_name())
         policy_deploy = check_autonomy("deploy", current_profile_name())
-        lines.append(f"Autonomy policy examples: read={policy_read['decision']}; deploy={policy_deploy['decision']}.")
+        lines.append(
+            f"Autonomy policy examples: read={policy_read['decision']}; deploy={policy_deploy['decision']}."
+        )
         corrections = correction_history(limit=5)
         if corrections:
             lines.append("Recent routing corrections to consider:")
             for item in corrections:
-                lines.append(f"- {item.get('task_type')}: avoid {item.get('wrong_target')} -> prefer {item.get('correct_target')}")
+                lines.append(
+                    f"- {item.get('task_type')}: avoid {item.get('wrong_target')} -> prefer {item.get('correct_target')}"
+                )
         lines.append(
             "Use orch_decompose for complex work, orch_route to delegate via A2A, orch_status/orch_list_tasks for Kanban-backed tracking, and orch_escalate when no suitable/reachable agent exists."
         )

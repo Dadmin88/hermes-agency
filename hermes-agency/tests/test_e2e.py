@@ -21,10 +21,11 @@ import sys
 import tempfile
 import time
 import types
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 OVERALL_TIMEOUT_SECONDS = float(os.getenv("AGENTANYCAST_E2E_TIMEOUT", "90"))
 PEER_DISCOVERY_TIMEOUT_SECONDS = float(os.getenv("AGENTANYCAST_E2E_PEER_TIMEOUT", "10"))
@@ -315,7 +316,9 @@ def peer_seen(peers: list[dict[str, Any]], peer_id: str) -> bool:
     return any(p.get("peer_id") == peer_id for p in peers)
 
 
-def wait_for_peers(a: ProfileRuntime, b: ProfileRuntime, timeout: float = PEER_DISCOVERY_TIMEOUT_SECONDS) -> None:
+def wait_for_peers(
+    a: ProfileRuntime, b: ProfileRuntime, timeout: float = PEER_DISCOVERY_TIMEOUT_SECONDS
+) -> None:
     deadline = time.monotonic() + timeout
     last_a: list[dict[str, Any]] = []
     last_b: list[dict[str, Any]] = []
@@ -328,12 +331,13 @@ def wait_for_peers(a: ProfileRuntime, b: ProfileRuntime, timeout: float = PEER_D
             return
         time.sleep(POLL_INTERVAL_SECONDS)
     raise AssertionError(
-        f"peers did not discover each other in {timeout}s; "
-        f"A peers={last_a}; B peers={last_b}"
+        f"peers did not discover each other in {timeout}s; A peers={last_a}; B peers={last_b}"
     )
 
 
-def wait_completed(runtime: ProfileRuntime, task_id: str, timeout: float = TASK_TIMEOUT_SECONDS) -> dict[str, Any]:
+def wait_completed(
+    runtime: ProfileRuntime, task_id: str, timeout: float = TASK_TIMEOUT_SECONDS
+) -> dict[str, Any]:
     deadline = time.monotonic() + timeout
     last: dict[str, Any] | None = None
     while time.monotonic() < deadline:
@@ -363,7 +367,10 @@ def scenario_a() -> None:
         first_peer = state1.peer_id
         require(bool(first_peer), "peer_id was not set")
         require(state1.started is True, "state.started is not True")
-        require(runtime.manager._node is not None and runtime.manager._node.is_running, "node.is_running is not True")
+        require(
+            runtime.manager._node is not None and runtime.manager._node.is_running,
+            "node.is_running is not True",
+        )
         log(f"{name}: first start peer_id={first_peer} latency={time.monotonic() - t0:.2f}s")
 
         stopped1 = stop_runtime(runtime)
@@ -373,7 +380,9 @@ def scenario_a() -> None:
         t1 = time.monotonic()
         state2 = start_runtime(runtime)
         second_peer = state2.peer_id
-        require(second_peer == first_peer, f"persistent identity changed: {first_peer} -> {second_peer}")
+        require(
+            second_peer == first_peer, f"persistent identity changed: {first_peer} -> {second_peer}"
+        )
         log(f"{name}: second start peer_id={second_peer} latency={time.monotonic() - t1:.2f}s")
         stopped2 = stop_runtime(runtime)
         require(stopped2.started is False, "state.started still True after second stop")
@@ -395,13 +404,17 @@ def scenario_b() -> None:
         wait_for_peers(a, b)
         record("Scenario B: a2a_list_peers both directions", True)
 
-        sent_ab = send_task_checked(a, message="e2e hello from gpt to katana", peer_id=b.manager.state.peer_id)
+        sent_ab = send_task_checked(
+            a, message="e2e hello from gpt to katana", peer_id=b.manager.state.peer_id
+        )
         done_ab = wait_completed(a, sent_ab["task_id"])
         require(done_ab.get("status") == "completed", f"A->B status={done_ab.get('status')}")
         require(bool(done_ab.get("artifact_text")), "A->B artifact_text empty")
         log(f"{name}: A->B task={sent_ab['task_id']} completed")
 
-        sent_ba = send_task_checked(b, message="e2e hello from katana to gpt", peer_id=a.manager.state.peer_id)
+        sent_ba = send_task_checked(
+            b, message="e2e hello from katana to gpt", peer_id=a.manager.state.peer_id
+        )
         done_ba = wait_completed(b, sent_ba["task_id"])
         require(done_ba.get("status") == "completed", f"B->A status={done_ba.get('status')}")
         require(bool(done_ba.get("artifact_text")), "B->A artifact_text empty")
@@ -422,7 +435,9 @@ def scenario_c() -> None:
         checks: list[tuple[str, Callable[[], Any]]] = [
             (
                 "empty message",
-                lambda: send_task_checked(runtime, message="", peer_id=runtime.manager.state.peer_id),
+                lambda: send_task_checked(
+                    runtime, message="", peer_id=runtime.manager.state.peer_id
+                ),
             ),
             (
                 "both peer_id and skill",
@@ -499,7 +514,9 @@ def scenario_d() -> None:
         records = inbox(b, limit=10)
         sent_ids = {item["task_id"] for item in sent}
         relevant = [rec for rec in records if rec.get("task_id") in sent_ids]
-        require(len(relevant) == 3, f"expected 3 inbox records, got {len(relevant)}; records={records}")
+        require(
+            len(relevant) == 3, f"expected 3 inbox records, got {len(relevant)}; records={records}"
+        )
         for rec in relevant:
             require(rec.get("status") == "completed", f"record not completed: {rec}")
             for field in ("task_id", "sender_peer_id", "status", "result_text"):
@@ -525,7 +542,11 @@ def main() -> int:
     signal.alarm(0)
     log("==== Hermes Agency e2e results ====")
     for result in RESULTS:
-        print(f"{'PASS' if result.ok else 'FAIL'}: {result.name}" + (f" - {result.detail}" if result.detail else ""), flush=True)
+        print(
+            f"{'PASS' if result.ok else 'FAIL'}: {result.name}"
+            + (f" - {result.detail}" if result.detail else ""),
+            flush=True,
+        )
     if FAILURES:
         log("Failures:")
         for failure in FAILURES:

@@ -166,7 +166,7 @@ def read_profile_description(profile_home: str | Path | None = None) -> str:
     for paragraph in paragraphs:
         if not _is_metadata_paragraph(paragraph):
             return paragraph[:500]
-    return (paragraphs[0][:500] if paragraphs else DEFAULT_DESCRIPTION)
+    return paragraphs[0][:500] if paragraphs else DEFAULT_DESCRIPTION
 
 
 def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str, str]]:
@@ -239,9 +239,7 @@ def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, A
     disabled_toolsets = _cfg_get(config, "agent", "disabled_toolsets", default=[])
     if not isinstance(disabled_toolsets, list):
         disabled_toolsets = []
-    configured_card_name = str(
-        _cfg_get(config, "agency", "card_name", default="") or ""
-    ).strip()
+    configured_card_name = str(_cfg_get(config, "agency", "card_name", default="") or "").strip()
     soul_name = _soul_profile_name(soul_text)
     card_name = configured_card_name or soul_name or profile_dir.name
 
@@ -259,7 +257,8 @@ def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, A
         },
         "agency": {
             "team": {
-                "tenant": _cfg_get(config, "agency", "team", "tenant", default="default") or "default",
+                "tenant": _cfg_get(config, "agency", "team", "tenant", default="default")
+                or "default",
             }
         },
     }

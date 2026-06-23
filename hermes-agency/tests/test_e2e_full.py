@@ -26,10 +26,11 @@ import sys
 import tempfile
 import time
 import types
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 OVERALL_TIMEOUT_SECONDS = float(os.getenv("AGENTANYCAST_E2E_TIMEOUT", "180"))
 PEER_DISCOVERY_TIMEOUT_SECONDS = float(os.getenv("AGENTANYCAST_E2E_PEER_TIMEOUT", "20"))
@@ -113,8 +114,9 @@ def install_hermes_stubs_if_needed() -> None:
     """Install tiny Hermes stubs only if the real Hermes app is unavailable."""
 
     try:
-        import hermes_constants  # noqa: F401
         import hermes_cli.config  # noqa: F401
+        import hermes_constants  # noqa: F401
+
         return
     except Exception:
         pass
@@ -249,7 +251,9 @@ def call(runtime: ProfileRuntime, fn: Callable[..., Any], *args: Any, **kwargs: 
 
 
 def new_runtime(name: str, profile_home: Path, daemon_home: Path) -> ProfileRuntime:
-    return ProfileRuntime(name=name, profile_home=profile_home, daemon_home=daemon_home, manager=NodeManager())
+    return ProfileRuntime(
+        name=name, profile_home=profile_home, daemon_home=daemon_home, manager=NodeManager()
+    )
 
 
 def start_runtime(runtime: ProfileRuntime) -> Any:
@@ -274,7 +278,12 @@ def refresh_team(runtime: ProfileRuntime) -> None:
     # No public sync wrapper exists for team refresh; use the manager's normal
     # submit path so the coroutine runs on the owned event loop with profile
     # config/card patched for this runtime.
-    return call(runtime, runtime.manager._submit, runtime.manager._refresh_team_context_impl(force=True), timeout=20)  # noqa: SLF001
+    return call(
+        runtime,
+        runtime.manager._submit,
+        runtime.manager._refresh_team_context_impl(force=True),
+        timeout=20,
+    )  # noqa: SLF001
 
 
 def team_context(runtime: ProfileRuntime) -> str:
@@ -302,7 +311,11 @@ def send_task_checked(
         skill=skill,
         wait_seconds=wait_seconds,
         timeout=timeout,
-        conversation_context={"summary": "Phase 7 e2e validation", "sender": runtime.name, "channel": "test_e2e_full"},
+        conversation_context={
+            "summary": "Phase 7 e2e validation",
+            "sender": runtime.name,
+            "channel": "test_e2e_full",
+        },
     )
 
 
@@ -318,7 +331,9 @@ def peer_seen(peers: list[dict[str, Any]], peer_id: str) -> bool:
     return any(p.get("peer_id") == peer_id for p in peers)
 
 
-def wait_for_peers(a: ProfileRuntime, b: ProfileRuntime, timeout: float = PEER_DISCOVERY_TIMEOUT_SECONDS) -> None:
+def wait_for_peers(
+    a: ProfileRuntime, b: ProfileRuntime, timeout: float = PEER_DISCOVERY_TIMEOUT_SECONDS
+) -> None:
     deadline = time.monotonic() + timeout
     last_a: list[dict[str, Any]] = []
     last_b: list[dict[str, Any]] = []
@@ -335,7 +350,9 @@ def wait_for_peers(a: ProfileRuntime, b: ProfileRuntime, timeout: float = PEER_D
     )
 
 
-def wait_completed(runtime: ProfileRuntime, task_id: str, timeout: float = TASK_TIMEOUT_SECONDS) -> dict[str, Any]:
+def wait_completed(
+    runtime: ProfileRuntime, task_id: str, timeout: float = TASK_TIMEOUT_SECONDS
+) -> dict[str, Any]:
     deadline = time.monotonic() + timeout
     last: dict[str, Any] | None = None
     while time.monotonic() < deadline:
@@ -363,7 +380,10 @@ def validate_plugin_load() -> None:
     try:
         require(NodeManager is not None, "NodeManager not loaded")
         require(callable(getattr(kanban_mod, "track_delegation", None)), "Kanban bridge not loaded")
-        require(callable(getattr(announcements_mod, "recent_announcements", None)), "announcements not loaded")
+        require(
+            callable(getattr(announcements_mod, "recent_announcements", None)),
+            "announcements not loaded",
+        )
         require(callable(getattr(team_mod, "build_team_context", None)), "team context not loaded")
         record(name, True)
     except Exception as exc:
@@ -378,7 +398,11 @@ def validate_lan() -> None:
     try:
         start_runtime(gpt)
         start_runtime(katana)
-        record("7.1 start both LAN nodes", True, f"gpt={gpt.manager.state.peer_id}; katana={katana.manager.state.peer_id}")
+        record(
+            "7.1 start both LAN nodes",
+            True,
+            f"gpt={gpt.manager.state.peer_id}; katana={katana.manager.state.peer_id}",
+        )
 
         wait_for_peers(katana, gpt)
         record("7.1 a2a_list_peers sees both LAN nodes", True)
@@ -389,39 +413,79 @@ def validate_lan() -> None:
         katana_ctx = team_context(katana)
         ARTIFACTS["gpt_team_context"] = gpt_ctx
         ARTIFACTS["katana_team_context"] = katana_ctx
-        require("Katana" in gpt_ctx and "skills:" in gpt_ctx, f"GPT team context missing Katana/skills: {gpt_ctx}")
-        require("hermes-gpt" in katana_ctx and "skills:" in katana_ctx, f"Katana team context missing gpt/skills: {katana_ctx}")
+        require(
+            "Katana" in gpt_ctx and "skills:" in gpt_ctx,
+            f"GPT team context missing Katana/skills: {gpt_ctx}",
+        )
+        require(
+            "hermes-gpt" in katana_ctx and "skills:" in katana_ctx,
+            f"Katana team context missing gpt/skills: {katana_ctx}",
+        )
         record("7.1 team context shows names and skills", True)
 
         t0 = time.monotonic()
-        sent_kg = send_task_checked(katana, message="What is your name?", peer_id=gpt.manager.state.peer_id, wait_seconds=10)
+        sent_kg = send_task_checked(
+            katana, message="What is your name?", peer_id=gpt.manager.state.peer_id, wait_seconds=10
+        )
         done_kg = wait_completed(katana, sent_kg["task_id"])
         kg_latency = time.monotonic() - t0
         require(done_kg.get("status") == "completed", f"Katana->GPT status={done_kg.get('status')}")
         require(bool(done_kg.get("artifact_text")), "Katana->GPT artifact_text empty")
-        record("7.1 Katana -> GPT task completed with artifact", True, f"task={sent_kg['task_id']} latency={kg_latency:.3f}s")
+        record(
+            "7.1 Katana -> GPT task completed with artifact",
+            True,
+            f"task={sent_kg['task_id']} latency={kg_latency:.3f}s",
+        )
 
         t1 = time.monotonic()
-        sent_gk = send_task_checked(gpt, message="What is your name?", peer_id=katana.manager.state.peer_id, wait_seconds=10)
+        sent_gk = send_task_checked(
+            gpt, message="What is your name?", peer_id=katana.manager.state.peer_id, wait_seconds=10
+        )
         done_gk = wait_completed(gpt, sent_gk["task_id"])
         gk_latency = time.monotonic() - t1
         require(done_gk.get("status") == "completed", f"GPT->Katana status={done_gk.get('status')}")
         require(bool(done_gk.get("artifact_text")), "GPT->Katana artifact_text empty")
-        record("7.1 GPT -> Katana task completed with artifact", True, f"task={sent_gk['task_id']} latency={gk_latency:.3f}s")
+        record(
+            "7.1 GPT -> Katana task completed with artifact",
+            True,
+            f"task={sent_gk['task_id']} latency={gk_latency:.3f}s",
+        )
 
         katana_inbox = inbox(katana, limit=10)
         gpt_inbox = inbox(gpt, limit=10)
-        require(any(item.get("task_id") == sent_gk["task_id"] and item.get("status") == "completed" for item in katana_inbox), "Katana inbox missing completed GPT->Katana task")
-        require(any(item.get("task_id") == sent_kg["task_id"] and item.get("status") == "completed" for item in gpt_inbox), "GPT inbox missing completed Katana->GPT task")
+        require(
+            any(
+                item.get("task_id") == sent_gk["task_id"] and item.get("status") == "completed"
+                for item in katana_inbox
+            ),
+            "Katana inbox missing completed GPT->Katana task",
+        )
+        require(
+            any(
+                item.get("task_id") == sent_kg["task_id"] and item.get("status") == "completed"
+                for item in gpt_inbox
+            ),
+            "GPT inbox missing completed Katana->GPT task",
+        )
         record("7.1 incoming queues recorded completed tasks", True)
 
         kb_kg = get_kanban_task(katana, sent_kg["task_id"])
         kb_gk = get_kanban_task(gpt, sent_gk["task_id"])
         require(kb_kg.get("available") and kb_kg.get("ok"), f"Katana Kanban lookup failed: {kb_kg}")
         require(kb_gk.get("available") and kb_gk.get("ok"), f"GPT Kanban lookup failed: {kb_gk}")
-        require(kb_kg.get("task", {}).get("plugin_status") in {"done", "in_progress"}, f"Katana Kanban unexpected status: {kb_kg}")
-        require(kb_gk.get("task", {}).get("plugin_status") in {"done", "in_progress"}, f"GPT Kanban unexpected status: {kb_gk}")
-        record("7.1 Kanban tasks created for delegations", True, f"katana_kb={kb_kg.get('task_id')}; gpt_kb={kb_gk.get('task_id')}")
+        require(
+            kb_kg.get("task", {}).get("plugin_status") in {"done", "in_progress"},
+            f"Katana Kanban unexpected status: {kb_kg}",
+        )
+        require(
+            kb_gk.get("task", {}).get("plugin_status") in {"done", "in_progress"},
+            f"GPT Kanban unexpected status: {kb_gk}",
+        )
+        record(
+            "7.1 Kanban tasks created for delegations",
+            True,
+            f"katana_kb={kb_kg.get('task_id')}; gpt_kb={kb_gk.get('task_id')}",
+        )
 
         anns = announcements_mod.recent_announcements(50)
         kinds = {item.get("kind") for item in anns}
@@ -433,14 +497,27 @@ def validate_lan() -> None:
 
         info_gpt = gpt.manager.info()
         info_katana = katana.manager.info()
-        require(info_gpt.get("started") and info_gpt.get("serve_task_running"), f"bad GPT info: {info_gpt}")
-        require(info_katana.get("started") and info_katana.get("serve_task_running"), f"bad Katana info: {info_katana}")
+        require(
+            info_gpt.get("started") and info_gpt.get("serve_task_running"),
+            f"bad GPT info: {info_gpt}",
+        )
+        require(
+            info_katana.get("started") and info_katana.get("serve_task_running"),
+            f"bad Katana info: {info_katana}",
+        )
         record("7.5 a2a_info-equivalent node state is correct", True)
 
         try:
             agents = call(gpt, gpt.manager.discover_sync, skill="hermes-chat", limit=25, timeout=15)
             require(isinstance(agents, list), f"discover returned non-list: {agents!r}")
-            require(any((item.get("peer_id") == katana.manager.state.peer_id) for item in agents if isinstance(item, dict)), f"discover did not include Katana: {agents}")
+            require(
+                any(
+                    (item.get("peer_id") == katana.manager.state.peer_id)
+                    for item in agents
+                    if isinstance(item, dict)
+                ),
+                f"discover did not include Katana: {agents}",
+            )
             record("7.5 a2a_discover works via registry", True, f"results={len(agents)}")
         except Exception as exc:
             record("7.5 a2a_discover works via registry", False, f"{type(exc).__name__}: {exc}")
@@ -456,7 +533,10 @@ def validate_lan() -> None:
             if not peer_seen(last_peers, katana.manager.state.last_peer_id):
                 break
             time.sleep(POLL_INTERVAL_SECONDS)
-        require(not peer_seen(last_peers, katana.manager.state.last_peer_id), f"Katana still in GPT peer list after stop: {last_peers}")
+        require(
+            not peer_seen(last_peers, katana.manager.state.last_peer_id),
+            f"Katana still in GPT peer list after stop: {last_peers}",
+        )
         refresh_team(gpt)
         record("7.5 peer leave updates live peer list", True)
 
@@ -482,9 +562,17 @@ def main() -> int:
     signal.alarm(0)
     log("==== Phase 7 full e2e results ====")
     for result in RESULTS:
-        print(f"{'PASS' if result.ok else 'FAIL'}: {result.name}" + (f" - {result.detail}" if result.detail else ""), flush=True)
+        print(
+            f"{'PASS' if result.ok else 'FAIL'}: {result.name}"
+            + (f" - {result.detail}" if result.detail else ""),
+            flush=True,
+        )
     if ARTIFACTS:
-        print("ARTIFACTS:", json.dumps(ARTIFACTS, indent=2, sort_keys=True, default=str)[:12000], flush=True)
+        print(
+            "ARTIFACTS:",
+            json.dumps(ARTIFACTS, indent=2, sort_keys=True, default=str)[:12000],
+            flush=True,
+        )
     if FAILURES:
         log("Failures:")
         for failure in FAILURES:

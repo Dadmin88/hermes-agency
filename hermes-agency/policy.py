@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from hermes_constants import get_hermes_home
 from hermes_cli.config import cfg_get, load_config
+from hermes_constants import get_hermes_home
 
 from .config import current_profile_name
 
@@ -43,7 +43,11 @@ def _clean_action(action: Any) -> str:
 
 def _decision(value: Any) -> str | None:
     normalized = str(value or "").strip().lower().replace("-", "_")
-    return ALIASES.get(normalized) if normalized in ALIASES else (normalized if normalized in VALID_DECISIONS else None)
+    return (
+        ALIASES.get(normalized)
+        if normalized in ALIASES
+        else (normalized if normalized in VALID_DECISIONS else None)
+    )
 
 
 def _config_override(config: dict[str, Any], action: str, agent: str) -> str | None:
@@ -61,7 +65,13 @@ def _config_override(config: dict[str, Any], action: str, agent: str) -> str | N
     if direct:
         return direct
     # Group shape: agency.autonomy.always/notify/ask/never: [actions]
-    for group, decision in (("always", AUTONOMOUS), ("autonomous", AUTONOMOUS), ("notify", NOTIFY), ("ask", ASK), ("never", NEVER)):
+    for group, decision in (
+        ("always", AUTONOMOUS),
+        ("autonomous", AUTONOMOUS),
+        ("notify", NOTIFY),
+        ("ask", ASK),
+        ("never", NEVER),
+    ):
         values = root.get(group)
         if isinstance(values, list) and action in {_clean_action(item) for item in values}:
             return decision

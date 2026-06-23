@@ -6,9 +6,9 @@ import importlib.util
 import json
 from typing import Any
 
+from .autonomous_tools import AUTONOMOUS_TOOLS
 from .card_builder import build_card, card_to_dict
 from .node_manager import manager
-from .autonomous_tools import AUTONOMOUS_TOOLS
 
 TOOLSET = "agency"
 
@@ -63,7 +63,6 @@ def _compact_agents(agents: list[dict[str, Any]], requested_skill: str) -> list[
     return [_compact_agent(agent, requested_skill) for agent in agents if isinstance(agent, dict)]
 
 
-
 def a2a_info(args: dict[str, Any] | None = None, **_: Any) -> str:
     """Return local Hermes Agency plugin/SDK status and generated AgentCard."""
 
@@ -106,7 +105,9 @@ def a2a_start_node(args: dict[str, Any] | None = None, **_: Any) -> str:
         state = manager.start_sync()
         return _json({"ok": state.error is None and state.started, "node": state.as_dict()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
+        return _json(
+            {"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()}
+        )
 
 
 def a2a_stop_node(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -116,7 +117,9 @@ def a2a_stop_node(args: dict[str, Any] | None = None, **_: Any) -> str:
         state = manager.stop_sync()
         return _json({"ok": state.error is None, "node": state.as_dict()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
+        return _json(
+            {"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()}
+        )
 
 
 def a2a_list_peers(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -126,7 +129,9 @@ def a2a_list_peers(args: dict[str, Any] | None = None, **_: Any) -> str:
         peers = manager.list_peers_sync()
         return _json({"ok": True, "peers": peers, "node": _compact_node()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
+        return _json(
+            {"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()}
+        )
 
 
 def a2a_discover(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -170,7 +175,13 @@ def a2a_send(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     if not message:
         return _json({"ok": False, "error": "message is required", "node": _compact_node()})
     if sum(bool(item) for item in (peer_id, skill)) != 1:
-        return _json({"ok": False, "error": "exactly one of peer_id or skill is required", "node": _compact_node()})
+        return _json(
+            {
+                "ok": False,
+                "error": "exactly one of peer_id or skill is required",
+                "node": _compact_node(),
+            }
+        )
     if metadata is not None and not isinstance(metadata, dict):
         return _json({"ok": False, "error": "metadata must be an object", "node": _compact_node()})
     try:
@@ -188,7 +199,9 @@ def a2a_send(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
             conversation_context=conversation_context,
             context_id=context_id,
         )
-        return _json({"ok": True, "task_id": task.get("task_id"), "task": task, "node": _compact_node()})
+        return _json(
+            {"ok": True, "task_id": task.get("task_id"), "task": task, "node": _compact_node()}
+        )
     except Exception as exc:
         return _json(
             {
@@ -212,10 +225,24 @@ def a2a_status(args: dict[str, Any] | None = None, **_: Any) -> str:
     try:
         task = manager.task_status_sync(task_id)
         if task is None:
-            return _json({"ok": False, "error": f"unknown task_id: {task_id}", "task_id": task_id, "node": _compact_node()})
+            return _json(
+                {
+                    "ok": False,
+                    "error": f"unknown task_id: {task_id}",
+                    "task_id": task_id,
+                    "node": _compact_node(),
+                }
+            )
         return _json({"ok": True, "task_id": task_id, "task": task, "node": _compact_node()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "task_id": task_id, "node": _compact_node()})
+        return _json(
+            {
+                "ok": False,
+                "error": f"{type(exc).__name__}: {exc}",
+                "task_id": task_id,
+                "node": _compact_node(),
+            }
+        )
 
 
 def a2a_inbox(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -227,7 +254,9 @@ def a2a_inbox(args: dict[str, Any] | None = None, **_: Any) -> str:
         tasks = manager.incoming_tasks_sync(limit=limit)
         return _json({"ok": True, "tasks": tasks, "node": _compact_node()})
     except Exception as exc:
-        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()})
+        return _json(
+            {"ok": False, "error": f"{type(exc).__name__}: {exc}", "node": _compact_node()}
+        )
 
 
 A2A_INFO_SCHEMA = {
@@ -285,7 +314,10 @@ A2A_DISCOVER_SCHEMA = {
             "properties": {
                 "skill": {"type": "string", "description": "Skill ID to discover."},
                 "tags": {"type": "object", "description": "Optional tag filters."},
-                "limit": {"type": "integer", "description": "Maximum results; 0 means server default."},
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results; 0 means server default.",
+                },
                 "include_skills": {
                     "type": "boolean",
                     "description": "Include full per-agent skill lists. Defaults to false to keep tool output compact.",
@@ -305,12 +337,27 @@ A2A_SEND_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "peer_id": {"type": "string", "description": "Target peer ID for direct addressing. Mutually exclusive with skill."},
-                "skill": {"type": "string", "description": "Target skill for anycast routing. Mutually exclusive with peer_id."},
+                "peer_id": {
+                    "type": "string",
+                    "description": "Target peer ID for direct addressing. Mutually exclusive with skill.",
+                },
+                "skill": {
+                    "type": "string",
+                    "description": "Target skill for anycast routing. Mutually exclusive with peer_id.",
+                },
                 "message": {"type": "string", "description": "Task message text."},
-                "context_id": {"type": "string", "description": "Optional conversation/thread id for multi-turn continuity."},
-                "wait_seconds": {"type": "number", "description": "Optional seconds to wait for completion before returning."},
-                "metadata": {"type": "object", "description": "Optional string metadata to attach to the task."},
+                "context_id": {
+                    "type": "string",
+                    "description": "Optional conversation/thread id for multi-turn continuity.",
+                },
+                "wait_seconds": {
+                    "type": "number",
+                    "description": "Optional seconds to wait for completion before returning.",
+                },
+                "metadata": {
+                    "type": "object",
+                    "description": "Optional string metadata to attach to the task.",
+                },
             },
             "required": ["message"],
             "additionalProperties": False,
@@ -340,7 +387,10 @@ A2A_INBOX_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Maximum records to return; default 20."}
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum records to return; default 20.",
+                }
             },
             "additionalProperties": False,
         },

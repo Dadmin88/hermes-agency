@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -26,14 +25,13 @@ def manifest() -> dict:
 @pytest.fixture(scope="module")
 def profile_dirs() -> list[Path]:
     """List all profile directories."""
-    return sorted(
-        p for p in _PROFILES_DIR.iterdir() if p.is_dir()
-    )
+    return sorted(p for p in _PROFILES_DIR.iterdir() if p.is_dir())
 
 
 # ---------------------------------------------------------------------------
 # Manifest tests
 # ---------------------------------------------------------------------------
+
 
 class TestManifest:
     def test_manifest_exists(self):
@@ -87,6 +85,7 @@ class TestManifest:
 # Profile structure tests
 # ---------------------------------------------------------------------------
 
+
 class TestProfileStructure:
     def test_all_profiles_have_soul_md(self, profile_dirs: list[Path]):
         missing = [p.name for p in profile_dirs if not (p / "SOUL.md").is_file()]
@@ -123,6 +122,7 @@ class TestProfileStructure:
 # Profile content tests
 # ---------------------------------------------------------------------------
 
+
 class TestProfileContent:
     def test_soul_md_has_identity(self, profile_dirs: list[Path]):
         """Every SOUL.md should have an Identity section."""
@@ -151,6 +151,7 @@ class TestProfileContent:
 
     def test_profile_yaml_has_required_fields(self, profile_dirs: list[Path]):
         import yaml
+
         missing = []
         for p in profile_dirs:
             with open(p / "profile.yaml", encoding="utf-8") as f:
@@ -162,6 +163,7 @@ class TestProfileContent:
 
     def test_profile_yaml_names_match_directory(self, profile_dirs: list[Path]):
         import yaml
+
         mismatches = []
         for p in profile_dirs:
             with open(p / "profile.yaml", encoding="utf-8") as f:
@@ -173,6 +175,7 @@ class TestProfileContent:
     def test_profile_yaml_agency_enabled(self, profile_dirs: list[Path]):
         """All profiles should have agency.enabled = true."""
         import yaml
+
         disabled = []
         for p in profile_dirs:
             with open(p / "profile.yaml", encoding="utf-8") as f:
@@ -184,6 +187,7 @@ class TestProfileContent:
     def test_profile_yaml_auto_start_false(self, profile_dirs: list[Path]):
         """All profiles should have auto_start = false by default."""
         import yaml
+
         auto = []
         for p in profile_dirs:
             with open(p / "profile.yaml", encoding="utf-8") as f:
@@ -197,10 +201,12 @@ class TestProfileContent:
 # Discovery code tests
 # ---------------------------------------------------------------------------
 
+
 class TestDiscovery:
     def test_discovery_module_importable(self):
         """The discovery module should be importable."""
         import importlib.util
+
         init_file = _DEFAULT_STAFF / "__init__.py"
         assert init_file.is_file(), f"default_staff/__init__.py not found at {init_file}"
         spec = importlib.util.spec_from_file_location("default_staff", init_file)
@@ -209,7 +215,9 @@ class TestDiscovery:
         spec.loader.exec_module(mod)
         assert callable(getattr(mod, "list_default_staff", None)), "list_default_staff not callable"
         assert callable(getattr(mod, "load_manifest", None)), "load_manifest not callable"
-        assert callable(getattr(mod, "install_default_staff", None)), "install_default_staff not callable"
+        assert callable(getattr(mod, "install_default_staff", None)), (
+            "install_default_staff not callable"
+        )
 
     def test_staff_contract_exists(self):
         contract = _DEFAULT_STAFF / "STAFF_CONTRACT.md"
@@ -221,6 +229,7 @@ class TestDiscovery:
 # ---------------------------------------------------------------------------
 # Cross-profile consistency tests
 # ---------------------------------------------------------------------------
+
 
 class TestConsistency:
     def test_no_existing_profile_names_referenced(self, manifest: dict):
@@ -249,6 +258,4 @@ class TestConsistency:
                     external_targets.add(d)
         # It's OK to have null/empty delegates (leaf roles)
         # But non-existent named targets should be flagged
-        assert not external_targets, (
-            f"Delegation targets not in manifest: {external_targets}"
-        )
+        assert not external_targets, f"Delegation targets not in manifest: {external_targets}"

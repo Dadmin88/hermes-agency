@@ -20,14 +20,22 @@ from .announcements import (
     mark_blocked_hook,
     recent_announcements,
 )
+from .bidding import choose_best_bid
 from .config import AgencyConfig, current_profile_name, get_config, is_current_orchestrator
 from .context_packet import build_context_packet
-from .bidding import choose_best_bid
 from .kanban_bridge import (
     create_task as kanban_create_task,
+)
+from .kanban_bridge import (
     get_task as kanban_get_task,
+)
+from .kanban_bridge import (
     link_tasks as kanban_link_tasks,
+)
+from .kanban_bridge import (
     list_tasks as kanban_list_tasks,
+)
+from .kanban_bridge import (
     update_task as kanban_update_task,
 )
 from .node_manager import manager
@@ -94,15 +102,32 @@ def _resolve_target(target_agent: str) -> dict[str, Any]:
 
     if lowered.startswith("peer:"):
         peer_id = target.split(":", 1)[1].strip()
-        return {"ok": bool(peer_id), "peer_id": peer_id, "skill": None, "label": peer_id, "matched_rule": matched_rule}
+        return {
+            "ok": bool(peer_id),
+            "peer_id": peer_id,
+            "skill": None,
+            "label": peer_id,
+            "matched_rule": matched_rule,
+        }
     if lowered.startswith("skill:"):
         skill = target.split(":", 1)[1].strip()
-        return {"ok": bool(skill), "peer_id": None, "skill": skill, "label": skill, "matched_rule": matched_rule}
+        return {
+            "ok": bool(skill),
+            "peer_id": None,
+            "skill": skill,
+            "label": skill,
+            "matched_rule": matched_rule,
+        }
 
     team_state = get_team_state()
     for peer in team_state.peers.values():
         label = _peer_label(peer)
-        names = {peer.peer_id.lower(), label.lower(), (peer.name or "").lower(), (peer.card_name or "").lower()}
+        names = {
+            peer.peer_id.lower(),
+            label.lower(),
+            (peer.name or "").lower(),
+            (peer.card_name or "").lower(),
+        }
         if lowered in names:
             return {
                 "ok": True,
@@ -128,7 +153,13 @@ def _resolve_target(target_agent: str) -> dict[str, Any]:
     # Allow explicit-looking peer IDs even if discovery cache is cold. Display
     # names and arbitrary short words remain unknown and trigger escalation.
     if target.startswith("12D") or target.startswith("did:key:"):
-        return {"ok": True, "peer_id": target, "skill": None, "label": target, "matched_rule": matched_rule}
+        return {
+            "ok": True,
+            "peer_id": target,
+            "skill": None,
+            "label": target,
+            "matched_rule": matched_rule,
+        }
 
     return {
         "ok": False,
@@ -167,7 +198,11 @@ def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = N
         return [str(resolved["skill"])]
     peer_data = (resolved or {}).get("peer") if isinstance(resolved, dict) else None
     if isinstance(peer_data, dict):
-        skills = [str(item.get("id") or "").strip() for item in peer_data.get("skills") or [] if item.get("id")]
+        skills = [
+            str(item.get("id") or "").strip()
+            for item in peer_data.get("skills") or []
+            if item.get("id")
+        ]
         if skills:
             return skills
     lowered = _normalise(assigned_to)
@@ -175,7 +210,12 @@ def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = N
         return []
     for peer in get_team_state().peers.values():
         label = _peer_label(peer)
-        names = {peer.peer_id.lower(), label.lower(), (peer.name or "").lower(), (peer.card_name or "").lower()}
+        names = {
+            peer.peer_id.lower(),
+            label.lower(),
+            (peer.name or "").lower(),
+            (peer.card_name or "").lower(),
+        }
         if lowered in names:
             return _peer_skills(peer)
     return []
@@ -207,15 +247,45 @@ def _heuristic_subtasks(task_description: str) -> list[dict[str, Any]]:
     lowered = text.lower()
     candidates: list[tuple[str, str, str]] = []
     if any(word in lowered for word in ("plan", "design", "spec", "architecture")):
-        candidates.append(("plan", f"Plan the approach for: {text}", "Review the plan for clear next steps and risks."))
+        candidates.append(
+            (
+                "plan",
+                f"Plan the approach for: {text}",
+                "Review the plan for clear next steps and risks.",
+            )
+        )
     if any(word in lowered for word in ("build", "implement", "code", "fix", "write")):
-        candidates.append(("code", f"Implement the code changes for: {text}", "Run the relevant tests or compile checks."))
+        candidates.append(
+            (
+                "code",
+                f"Implement the code changes for: {text}",
+                "Run the relevant tests or compile checks.",
+            )
+        )
     if any(word in lowered for word in ("test", "validate", "qa", "verify")):
-        candidates.append(("test", f"Validate the implementation for: {text}", "Report concrete test/verification results."))
+        candidates.append(
+            (
+                "test",
+                f"Validate the implementation for: {text}",
+                "Report concrete test/verification results.",
+            )
+        )
     if any(word in lowered for word in ("deploy", "release", "ship", "rollout")):
-        candidates.append(("deploy", f"Handle deployment/release work for: {text}", "Confirm the deployed service is healthy."))
+        candidates.append(
+            (
+                "deploy",
+                f"Handle deployment/release work for: {text}",
+                "Confirm the deployed service is healthy.",
+            )
+        )
     if any(word in lowered for word in ("doc", "readme", "writeup", "guide")):
-        candidates.append(("docs", f"Document the result for: {text}", "Confirm the documentation is accurate and discoverable."))
+        candidates.append(
+            (
+                "docs",
+                f"Document the result for: {text}",
+                "Confirm the documentation is accurate and discoverable.",
+            )
+        )
 
     if not candidates:
         candidates.append(("task", text, "Verify the task is complete and summarize evidence."))
@@ -247,21 +317,28 @@ def orch_decompose(args: dict[str, Any] | None = None, **_: Any) -> str:
 
     cfg = get_config()
     model_prompt = _decomposition_prompt(task_description)
-    subtasks = _heuristic_subtasks(task_description) if cfg.orchestrator.auto_decompose else [
-        {
-            "id": "subtask-1",
-            "goal": task_description,
-            "assigned_to": _suggest_assignment(task_description),
-            "dependencies": [],
-            "validation": "Verify the task is complete and summarize concrete evidence.",
-        }
-    ]
+    subtasks = (
+        _heuristic_subtasks(task_description)
+        if cfg.orchestrator.auto_decompose
+        else [
+            {
+                "id": "subtask-1",
+                "goal": task_description,
+                "assigned_to": _suggest_assignment(task_description),
+                "dependencies": [],
+                "validation": "Verify the task is complete and summarize concrete evidence.",
+            }
+        ]
+    )
     local_task = manager.create_orchestrator_task(
         task_description,
         kind="decomposition",
         status="decomposed",
         subtasks=subtasks,
-        metadata={"auto_decompose": cfg.orchestrator.auto_decompose, "decomposition_prompt": model_prompt},
+        metadata={
+            "auto_decompose": cfg.orchestrator.auto_decompose,
+            "decomposition_prompt": model_prompt,
+        },
     )
 
     kanban_parent = kanban_create_task(
@@ -283,7 +360,9 @@ def orch_decompose(args: dict[str, Any] | None = None, **_: Any) -> str:
         parent_id = str(kanban_parent["task_id"])
         # The parent is a grouping/decomposition record. Mark it done so the
         # existing parent->child dependency semantics do not block every child.
-        kanban_update_task(parent_id, status="done", result="Decomposed into child Hermes Agency Kanban tasks.")
+        kanban_update_task(
+            parent_id, status="done", result="Decomposed into child Hermes Agency Kanban tasks."
+        )
         for subtask in subtasks:
             child = kanban_create_task(
                 title=_clean(subtask.get("goal"), max_len=80),
@@ -317,14 +396,17 @@ def orch_decompose(args: dict[str, Any] | None = None, **_: Any) -> str:
     else:
         parent_id = None
 
-    updated_local = manager.update_orchestrator_task(
-        local_task["task_id"],
-        metadata={
-            "kanban_parent_task_id": parent_id,
-            "kanban_child_task_ids": subtask_to_kanban,
-            "kanban_available": bool(kanban_parent.get("available")),
-        },
-    ) or local_task
+    updated_local = (
+        manager.update_orchestrator_task(
+            local_task["task_id"],
+            metadata={
+                "kanban_parent_task_id": parent_id,
+                "kanban_child_task_ids": subtask_to_kanban,
+                "kanban_available": bool(kanban_parent.get("available")),
+            },
+        )
+        or local_task
+    )
     return _json(
         {
             "ok": True,
@@ -344,10 +426,22 @@ def orch_decompose(args: dict[str, Any] | None = None, **_: Any) -> str:
     )
 
 
-def _escalation_payload(task_description: str, reason: str, *, task_id: str | None = None, kanban_task_id: str | None = None) -> dict[str, Any]:
+def _escalation_payload(
+    task_description: str,
+    reason: str,
+    *,
+    task_id: str | None = None,
+    kanban_task_id: str | None = None,
+) -> dict[str, Any]:
     message = announce_escalate(task_description, reason)
-    blocked = build_blocked_context(task_description, reason, "Kyle should choose a target agent, clarify scope, or approve a manual route.")
-    hook = mark_blocked_hook(task_description, reason, blocked["needed_from_kyle"], task_id=kanban_task_id)
+    blocked = build_blocked_context(
+        task_description,
+        reason,
+        "Kyle should choose a target agent, clarify scope, or approve a manual route.",
+    )
+    hook = mark_blocked_hook(
+        task_description, reason, blocked["needed_from_kyle"], task_id=kanban_task_id
+    )
     return {
         "task_id": task_id,
         "kanban_task_id": kanban_task_id,
@@ -370,16 +464,42 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
 
     if not task_description:
         return _json({"ok": False, "error": "task_description is required"})
-    policy_action = "deploy" if any(word in task_description.lower() for word in ("deploy", "release", "production", "ship")) else "api_call"
+    policy_action = (
+        "deploy"
+        if any(
+            word in task_description.lower() for word in ("deploy", "release", "production", "ship")
+        )
+        else "api_call"
+    )
     policy = check_autonomy(policy_action, current_profile_name())
     announce_policy(policy_action, policy["decision"], agent=current_profile_name())
     if policy["prohibited"]:
-        return _json({"ok": False, "error": f"policy prohibits autonomous action: {policy_action}", "policy": policy})
+        return _json(
+            {
+                "ok": False,
+                "error": f"policy prohibits autonomous action: {policy_action}",
+                "policy": policy,
+            }
+        )
     if policy["requires_approval"] and not args.get("approved", False):
         task = manager.create_orchestrator_task(task_description, kind="route", status="escalated")
-        escalation = _escalation_payload(task_description, f"Autonomy policy requires Kyle approval for {policy_action}.", task_id=task["task_id"])
-        manager.update_orchestrator_task(task["task_id"], escalation=escalation, metadata={"policy": policy})
-        return _json({"ok": False, "approval_required": True, "policy": policy, "escalation": escalation, "local_task": manager.orchestrator_task_sync(task["task_id"])})
+        escalation = _escalation_payload(
+            task_description,
+            f"Autonomy policy requires Kyle approval for {policy_action}.",
+            task_id=task["task_id"],
+        )
+        manager.update_orchestrator_task(
+            task["task_id"], escalation=escalation, metadata={"policy": policy}
+        )
+        return _json(
+            {
+                "ok": False,
+                "approval_required": True,
+                "policy": policy,
+                "escalation": escalation,
+                "local_task": manager.orchestrator_task_sync(task["task_id"]),
+            }
+        )
     if not target_agent:
         target_agent = _suggest_assignment(task_description)
     if not target_agent and get_config().team.bidding:
@@ -397,17 +517,35 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
             dependencies=[],
             metadata={"agency_kind": "route_escalation", "orchestrator_task_id": task["task_id"]},
         )
-        kanban_task_id = str(kanban_task["task_id"]) if kanban_task.get("available") and kanban_task.get("ok") else None
+        kanban_task_id = (
+            str(kanban_task["task_id"])
+            if kanban_task.get("available") and kanban_task.get("ok")
+            else None
+        )
         if kanban_task_id:
-            kanban_update_task(kanban_task_id, status="blocked", error="No target_agent was provided and no routing hint matched.")
+            kanban_update_task(
+                kanban_task_id,
+                status="blocked",
+                error="No target_agent was provided and no routing hint matched.",
+            )
         escalation = _escalation_payload(
             task_description,
             "No target_agent was provided and no routing hint matched.",
             task_id=task["task_id"],
             kanban_task_id=kanban_task_id,
         )
-        manager.update_orchestrator_task(task["task_id"], escalation=escalation, metadata={"kanban_task_id": kanban_task_id})
-        return _json({"ok": False, "error": "target_agent is required", "escalation": escalation, "local_task": manager.orchestrator_task_sync(task["task_id"]), "kanban": kanban_task})
+        manager.update_orchestrator_task(
+            task["task_id"], escalation=escalation, metadata={"kanban_task_id": kanban_task_id}
+        )
+        return _json(
+            {
+                "ok": False,
+                "error": "target_agent is required",
+                "escalation": escalation,
+                "local_task": manager.orchestrator_task_sync(task["task_id"]),
+                "kanban": kanban_task,
+            }
+        )
 
     resolved = _resolve_target(target_agent)
     task = manager.create_orchestrator_task(
@@ -421,7 +559,9 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         title=_clean(task_description, max_len=80),
         description=task_description,
         assigned_to=(resolved.get("label") or target_agent) if resolved.get("ok") else None,
-        skills=_skills_for_assignment(target_agent, resolved if isinstance(resolved, dict) else None),
+        skills=_skills_for_assignment(
+            target_agent, resolved if isinstance(resolved, dict) else None
+        ),
         dependencies=[str(dep) for dep in dependencies if str(dep).strip()],
         metadata={
             "agency_kind": "orch_route",
@@ -432,15 +572,38 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
             "sender": current_profile_name(),
         },
     )
-    kanban_task_id = str(kanban_task["task_id"]) if kanban_task.get("available") and kanban_task.get("ok") else None
-    manager.update_orchestrator_task(task["task_id"], metadata={"kanban_task_id": kanban_task_id, "kanban_available": bool(kanban_task.get("available"))})
+    kanban_task_id = (
+        str(kanban_task["task_id"])
+        if kanban_task.get("available") and kanban_task.get("ok")
+        else None
+    )
+    manager.update_orchestrator_task(
+        task["task_id"],
+        metadata={
+            "kanban_task_id": kanban_task_id,
+            "kanban_available": bool(kanban_task.get("available")),
+        },
+    )
     if not resolved.get("ok"):
         reason = str(resolved.get("error") or "Unknown target agent")
         if kanban_task_id:
             kanban_update_task(kanban_task_id, status="blocked", error=reason)
-        escalation = _escalation_payload(task_description, reason, task_id=task["task_id"], kanban_task_id=kanban_task_id)
-        manager.update_orchestrator_task(task["task_id"], status="escalated", error=reason, escalation=escalation)
-        return _json({"ok": False, "error": reason, "resolution": resolved, "escalation": escalation, "local_task": manager.orchestrator_task_sync(task["task_id"]), "kanban": kanban_task})
+        escalation = _escalation_payload(
+            task_description, reason, task_id=task["task_id"], kanban_task_id=kanban_task_id
+        )
+        manager.update_orchestrator_task(
+            task["task_id"], status="escalated", error=reason, escalation=escalation
+        )
+        return _json(
+            {
+                "ok": False,
+                "error": reason,
+                "resolution": resolved,
+                "escalation": escalation,
+                "local_task": manager.orchestrator_task_sync(task["task_id"]),
+                "kanban": kanban_task,
+            }
+        )
 
     conversation_context = {
         "summary": str(kwargs.get("user_task") or task_description).strip(),
@@ -456,7 +619,9 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         },
     }
     context_packet = build_context_packet(task_description, conversation_context)
-    announce_delegate(task_description, resolved.get("label") or target_agent, kanban_task_id=kanban_task_id)
+    announce_delegate(
+        task_description, resolved.get("label") or target_agent, kanban_task_id=kanban_task_id
+    )
     try:
         routed = manager.send_task_sync(
             message=task_description,
@@ -494,9 +659,25 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         if kanban_task_id:
             kanban_update_task(kanban_task_id, status="failed", error=error)
         announce_error(task_description, error, kanban_task_id=kanban_task_id)
-        escalation = _escalation_payload(task_description, f"Target unreachable or send failed: {error}", task_id=task["task_id"], kanban_task_id=kanban_task_id)
-        updated = manager.update_orchestrator_task(task["task_id"], status="escalated", error=error, escalation=escalation)
-        return _json({"ok": False, "error": error, "target": resolved, "escalation": escalation, "local_task": updated, "kanban": kanban_task})
+        escalation = _escalation_payload(
+            task_description,
+            f"Target unreachable or send failed: {error}",
+            task_id=task["task_id"],
+            kanban_task_id=kanban_task_id,
+        )
+        updated = manager.update_orchestrator_task(
+            task["task_id"], status="escalated", error=error, escalation=escalation
+        )
+        return _json(
+            {
+                "ok": False,
+                "error": error,
+                "target": resolved,
+                "escalation": escalation,
+                "local_task": updated,
+                "kanban": kanban_task,
+            }
+        )
 
 
 def orch_status(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -519,15 +700,32 @@ def orch_status(args: dict[str, Any] | None = None, **_: Any) -> str:
                 a2a_status = manager.task_status_sync(str(local["a2a_task_id"]))
             except Exception as exc:
                 a2a_status = {"error": f"{type(exc).__name__}: {exc}"}
-        return _json({"ok": True, "task_id": task_id, "local_task": local, "a2a_status": a2a_status, "kanban": {"available": False}})
+        return _json(
+            {
+                "ok": True,
+                "task_id": task_id,
+                "local_task": local,
+                "a2a_status": a2a_status,
+                "kanban": {"available": False},
+            }
+        )
 
     try:
         a2a_task = manager.task_status_sync(task_id)
     except Exception as exc:
         return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}", "task_id": task_id})
     if a2a_task is None:
-        return _json({"ok": False, "error": f"unknown task_id: {task_id}", "task_id": task_id, "kanban": {"available": False}})
-    return _json({"ok": True, "task_id": task_id, "a2a_status": a2a_task, "kanban": {"available": False}})
+        return _json(
+            {
+                "ok": False,
+                "error": f"unknown task_id: {task_id}",
+                "task_id": task_id,
+                "kanban": {"available": False},
+            }
+        )
+    return _json(
+        {"ok": True, "task_id": task_id, "a2a_status": a2a_task, "kanban": {"available": False}}
+    )
 
 
 def orch_list_tasks(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -536,7 +734,11 @@ def orch_list_tasks(args: dict[str, Any] | None = None, **_: Any) -> str:
     args = args or {}
     limit = int(args.get("limit") or 50)
     include_completed = bool(args.get("include_completed", True))
-    filters: dict[str, Any] = {"limit": limit, "include_archived": False, "sort": args.get("sort") or "created-desc"}
+    filters: dict[str, Any] = {
+        "limit": limit,
+        "include_archived": False,
+        "sort": args.get("sort") or "created-desc",
+    }
     if args.get("status"):
         filters["status"] = args.get("status")
     if args.get("assignee") or args.get("assigned_to"):
@@ -545,13 +747,36 @@ def orch_list_tasks(args: dict[str, Any] | None = None, **_: Any) -> str:
     if kanban.get("available") and kanban.get("ok"):
         tasks = kanban.get("tasks") or []
         if not include_completed:
-            tasks = [task for task in tasks if task.get("plugin_status") not in {"done", "blocked", "failed"} and task.get("status") not in {"archived"}]
-        return _json({"ok": True, "tasks": tasks, "kanban": {"available": True, "source_of_truth": True}, "announcements": recent_announcements(limit=5)})
+            tasks = [
+                task
+                for task in tasks
+                if task.get("plugin_status") not in {"done", "blocked", "failed"}
+                and task.get("status") not in {"archived"}
+            ]
+        return _json(
+            {
+                "ok": True,
+                "tasks": tasks,
+                "kanban": {"available": True, "source_of_truth": True},
+                "announcements": recent_announcements(limit=5),
+            }
+        )
 
     tasks = manager.orchestrator_tasks_sync(limit=limit)
     if not include_completed:
-        tasks = [task for task in tasks if task.get("status") not in {"completed", "failed", "escalated", "cancelled"}]
-    return _json({"ok": True, "tasks": tasks, "kanban": {"available": False, "using_local_state_fallback": True}, "announcements": recent_announcements(limit=5)})
+        tasks = [
+            task
+            for task in tasks
+            if task.get("status") not in {"completed", "failed", "escalated", "cancelled"}
+        ]
+    return _json(
+        {
+            "ok": True,
+            "tasks": tasks,
+            "kanban": {"available": False, "using_local_state_fallback": True},
+            "announcements": recent_announcements(limit=5),
+        }
+    )
 
 
 def orch_escalate(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -585,13 +810,34 @@ def orch_escalate(args: dict[str, Any] | None = None, **_: Any) -> str:
             dependencies=[],
             metadata={"agency_kind": "escalation", "reason": reason},
         )
-        kanban_task_id = str(kanban_task["task_id"]) if kanban_task.get("available") and kanban_task.get("ok") else None
+        kanban_task_id = (
+            str(kanban_task["task_id"])
+            if kanban_task.get("available") and kanban_task.get("ok")
+            else None
+        )
         if kanban_task_id:
             kanban_update_task(kanban_task_id, status="blocked", error=reason)
     task = manager.create_orchestrator_task(task_description, kind="escalation", status="escalated")
-    escalation = _escalation_payload(task_description, reason, task_id=task["task_id"], kanban_task_id=kanban_task_id)
-    updated = manager.update_orchestrator_task(task["task_id"], escalation=escalation, error=reason, metadata={"kanban_task_id": kanban_task_id})
-    return _json({"ok": True, "task_id": kanban_task_id or task["task_id"], "local_task_id": task["task_id"], "escalation_message": escalation["message"], "escalation": escalation, "local_task": updated, "kanban": kanban_task or (kanban_get_task(kanban_task_id) if kanban_task_id else None)})
+    escalation = _escalation_payload(
+        task_description, reason, task_id=task["task_id"], kanban_task_id=kanban_task_id
+    )
+    updated = manager.update_orchestrator_task(
+        task["task_id"],
+        escalation=escalation,
+        error=reason,
+        metadata={"kanban_task_id": kanban_task_id},
+    )
+    return _json(
+        {
+            "ok": True,
+            "task_id": kanban_task_id or task["task_id"],
+            "local_task_id": task["task_id"],
+            "escalation_message": escalation["message"],
+            "escalation": escalation,
+            "local_task": updated,
+            "kanban": kanban_task or (kanban_get_task(kanban_task_id) if kanban_task_id else None),
+        }
+    )
 
 
 ORCH_ROUTE_SCHEMA = {
@@ -603,11 +849,27 @@ ORCH_ROUTE_SCHEMA = {
             "type": "object",
             "properties": {
                 "task_description": {"type": "string", "description": "Task to assign."},
-                "target_agent": {"type": "string", "description": "Target peer_id, profile/name, or skill. Prefix with peer: or skill: for explicit mode."},
-                "dependencies": {"type": "array", "items": {"type": "string"}, "description": "Optional dependency task IDs."},
-                "validation": {"type": "string", "description": "How the target should verify completion."},
-                "wait_seconds": {"type": "number", "description": "Optional seconds to wait for immediate completion."},
-                "approved": {"type": "boolean", "description": "Set true only when Kyle has approved a policy-gated action."},
+                "target_agent": {
+                    "type": "string",
+                    "description": "Target peer_id, profile/name, or skill. Prefix with peer: or skill: for explicit mode.",
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional dependency task IDs.",
+                },
+                "validation": {
+                    "type": "string",
+                    "description": "How the target should verify completion.",
+                },
+                "wait_seconds": {
+                    "type": "number",
+                    "description": "Optional seconds to wait for immediate completion.",
+                },
+                "approved": {
+                    "type": "boolean",
+                    "description": "Set true only when Kyle has approved a policy-gated action.",
+                },
             },
             "required": ["task_description", "target_agent"],
             "additionalProperties": False,
@@ -622,7 +884,9 @@ ORCH_DECOMPOSE_SCHEMA = {
         "description": "Break a complex task into structured subtasks with assigned_to, dependencies, and validation. Creates linked Kanban tasks when available.",
         "parameters": {
             "type": "object",
-            "properties": {"task_description": {"type": "string", "description": "Complex task to decompose."}},
+            "properties": {
+                "task_description": {"type": "string", "description": "Complex task to decompose."}
+            },
             "required": ["task_description"],
             "additionalProperties": False,
         },
@@ -636,7 +900,9 @@ ORCH_STATUS_SCHEMA = {
         "description": "Check progress for a local orchestrator task or sent Hermes Agency task.",
         "parameters": {
             "type": "object",
-            "properties": {"task_id": {"type": "string", "description": "Local orch-* task ID or A2A task ID."}},
+            "properties": {
+                "task_id": {"type": "string", "description": "Local orch-* task ID or A2A task ID."}
+            },
             "required": ["task_id"],
             "additionalProperties": False,
         },
@@ -651,9 +917,18 @@ ORCH_LIST_TASKS_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Maximum records to return; default 50."},
-                "include_completed": {"type": "boolean", "description": "Include terminal records; default true."},
-                "status": {"type": "string", "description": "Optional Kanban/plugin status filter."},
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum records to return; default 50.",
+                },
+                "include_completed": {
+                    "type": "boolean",
+                    "description": "Include terminal records; default true.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Optional Kanban/plugin status filter.",
+                },
                 "assignee": {"type": "string", "description": "Optional assignee/profile filter."},
             },
             "additionalProperties": False,
@@ -670,7 +945,10 @@ ORCH_ESCALATE_SCHEMA = {
             "type": "object",
             "properties": {
                 "task_description": {"type": "string", "description": "Task needing Kyle's input."},
-                "task_id": {"type": "string", "description": "Optional existing Kanban/local task ID to mark blocked."},
+                "task_id": {
+                    "type": "string",
+                    "description": "Optional existing Kanban/local task ID to mark blocked.",
+                },
                 "reason": {"type": "string", "description": "Why escalation is needed."},
             },
             "required": ["reason"],

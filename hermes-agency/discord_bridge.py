@@ -50,7 +50,7 @@ def _get_bot_token() -> str | None:
                 for line in f:
                     line = line.strip()
                     if line.startswith(_TOKEN_PREFIX):
-                        _token_cache = line[len(_TOKEN_PREFIX):].strip()
+                        _token_cache = line[len(_TOKEN_PREFIX) :].strip()
                         return _token_cache
         except OSError:
             continue

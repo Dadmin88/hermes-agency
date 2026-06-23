@@ -74,7 +74,9 @@ def get_team_state() -> TeamState:
 def _skill_id(skill: Any) -> str:
     if isinstance(skill, dict):
         return str(skill.get("skill_id") or skill.get("id") or skill.get("name") or "").strip()
-    return str(getattr(skill, "skill_id", "") or getattr(skill, "id", "") or getattr(skill, "name", "")).strip()
+    return str(
+        getattr(skill, "skill_id", "") or getattr(skill, "id", "") or getattr(skill, "name", "")
+    ).strip()
 
 
 def _skill_description(skill: Any) -> str:
@@ -100,7 +102,9 @@ def _normalise_skills(skills: Any) -> list[dict[str, str]]:
 def _peer_id(item: Any) -> str:
     if isinstance(item, dict):
         return str(item.get("peer_id") or item.get("id") or item.get("did") or "").strip()
-    return str(getattr(item, "peer_id", "") or getattr(item, "id", "") or getattr(item, "did", "")).strip()
+    return str(
+        getattr(item, "peer_id", "") or getattr(item, "id", "") or getattr(item, "did", "")
+    ).strip()
 
 
 def _card_from_peer(item: Any) -> dict[str, Any]:
@@ -122,7 +126,10 @@ def _normalise_peer(item: Any) -> PeerCapability | None:
     if isinstance(item, dict):
         name = str(item.get("agent_name") or item.get("name") or card.get("name") or "").strip()
         description = str(
-            item.get("agent_description") or item.get("description") or card.get("description") or ""
+            item.get("agent_description")
+            or item.get("description")
+            or card.get("description")
+            or ""
         ).strip()
         raw_skills = item.get("skills") or card.get("skills") or []
         addresses = item.get("addresses") or []
@@ -246,7 +253,9 @@ def _display_description(peer: PeerCapability, registration: dict[str, Any] | No
     )
 
 
-def _display_skills(peer: PeerCapability, registration: dict[str, Any] | None = None) -> list[dict[str, str]]:
+def _display_skills(
+    peer: PeerCapability, registration: dict[str, Any] | None = None
+) -> list[dict[str, str]]:
     reg_skills = _normalise_skills(registration.get("skills") or []) if registration else []
     return peer.card_skills or peer.skills or reg_skills
 
@@ -460,7 +469,9 @@ def build_team_context(config: AgencyConfig | None = None) -> str:
             lines.append(f"- {label} — skills: {skill_text}")
         else:
             lines.append(f"- {label}")
-            lines.append("  Top skills: unknown from peer discovery; direct peer delegation is still available.")
+            lines.append(
+                "  Top skills: unknown from peer discovery; direct peer delegation is still available."
+            )
         description = _display_description(peer, registration)
         if description:
             lines.append(f"  Description: {description}")

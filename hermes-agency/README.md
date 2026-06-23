@@ -1,6 +1,8 @@
 # Hermes Agency Hermes Plugin
 
-P2P agent communication for [Hermes Agent](https://github.com/NousResearch/hermes-agent) profiles via [Hermes Agency](https://github.com/Hermes Agency/agency).
+P2P agent communication for [Hermes Agent](https://github.com/NousResearch/hermes-agent) profiles via the AgentAnycast Python SDK/runtime.
+
+AgentAnycast is the SDK/runtime; Hermes Agency is this optional Hermes Agent plugin built on top of it.
 
 Each Hermes profile gets its own Hermes Agency node with a persistent identity, an auto-generated AgentCard from `SOUL.md` + installed skills, and encrypted P2P communication with other agents.
 
@@ -186,19 +188,27 @@ Each profile gets its own daemon home:
 
 ## Validation
 
-From repo root:
+From repo root, after installing dev dependencies with `python -m pip install -e ".[dev]"`:
 
 ```bash
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pytest hermes-agency/tests/test_unit.py -q
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m py_compile hermes-agency/*.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pip check
+make test-agency
+make lint-agency
+python -m pip check
+```
+
+Equivalent direct commands:
+
+```bash
+python -m pytest hermes-agency/tests/test_unit.py -q -m "not integration"
+python -m ruff check hermes-agency/
+python -m ruff format --check hermes-agency/
 ```
 
 Manual/live P2P checks:
 
 ```bash
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e_full.py
+make integration-agency
+make integration-agency-full
 ```
 
 The lightweight `test_e2e.py` script starts real SDK nodes with isolated temporary daemon homes and does not use a registry/relay unless `AGENTANYCAST_E2E_REGISTRY` / `AGENTANYCAST_E2E_RELAY` are explicitly set. The full Phase 7 script still exercises live profile/Kanban/relay assumptions and should remain explicit manual validation until those assumptions are converted to fixtures or test skips.

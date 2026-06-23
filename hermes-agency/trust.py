@@ -150,7 +150,9 @@ class TrustStore:
         if existing:
             level = self._clean_level(existing.get("trust_level"))
             if level == "blocked":
-                return TrustDecision(peer_id, False, "blocked", level, "peer is blocked", dict(existing))
+                return TrustDecision(
+                    peer_id, False, "blocked", level, "peer is blocked", dict(existing)
+                )
             existing["last_seen"] = now
             existing["last_source"] = source
             if clean_name and not existing.get("name"):
@@ -175,7 +177,9 @@ class TrustStore:
                         )
 
         if not self.tofu:
-            return TrustDecision(peer_id, False, "untrusted", reason="TOFU is disabled and peer is unknown")
+            return TrustDecision(
+                peer_id, False, "untrusted", reason="TOFU is disabled and peer is unknown"
+            )
 
         record = {
             "peer_id": peer_id,
@@ -188,10 +192,13 @@ class TrustStore:
         }
         peers[peer_id] = record
         self.save(data)
-        return TrustDecision(peer_id, True, "tofu_recorded", record["trust_level"], record=dict(record))
+        return TrustDecision(
+            peer_id, True, "tofu_recorded", record["trust_level"], record=dict(record)
+        )
 
 
 # Backward-compatible helper functions used by NodeManager.
+
 
 def _trust_path(cfg: AgencyConfig) -> Path:
     if cfg.trust.store_path:

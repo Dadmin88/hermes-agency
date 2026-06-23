@@ -33,17 +33,17 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 
 ## Test expectations
 
-Run from the repo root:
+Run from the repo root after `python -m pip install -e ".[dev]"`:
 
 ```bash
 # Unit / PR-prep checks
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pytest hermes-agency/tests/test_unit.py -q
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m py_compile hermes-agency/*.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python -m pip check
+make test-agency
+make lint-agency
+python -m pip check
 
 # Standalone local P2P checks; require SDK + daemon and may use live relay env vars
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e.py
-/home/kyle/.hermes/hermes-agent/venv/bin/python hermes-agency/tests/test_e2e_full.py
+make integration-agency
+make integration-agency-full
 ```
 
 Before upstreaming, convert live-environment assumptions in standalone e2e scripts into temp-home fixtures or mark them explicit integration/manual tests.

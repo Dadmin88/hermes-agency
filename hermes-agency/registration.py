@@ -67,8 +67,7 @@ class RegistrationState:
             "last_broadcast_at": self.last_broadcast_at,
             "last_error": self.last_error,
             "registrations": {
-                peer_id: record.as_dict()
-                for peer_id, record in sorted(self.registrations.items())
+                peer_id: record.as_dict() for peer_id, record in sorted(self.registrations.items())
             },
         }
 
@@ -102,7 +101,7 @@ def parse_control_message(text: str) -> dict[str, Any] | None:
     if not raw.startswith(CONTROL_PREFIX):
         return None
     try:
-        data = json.loads(raw[len(CONTROL_PREFIX):].strip())
+        data = json.loads(raw[len(CONTROL_PREFIX) :].strip())
     except Exception:
         return None
     if isinstance(data, dict) and data.get("protocol") == "agency.autonomous.v1":
@@ -113,7 +112,9 @@ def parse_control_message(text: str) -> dict[str, Any] | None:
 def _skill_id(skill: Any) -> str:
     if isinstance(skill, dict):
         return str(skill.get("id") or skill.get("skill_id") or skill.get("name") or "").strip()
-    return str(getattr(skill, "id", "") or getattr(skill, "skill_id", "") or getattr(skill, "name", "")).strip()
+    return str(
+        getattr(skill, "id", "") or getattr(skill, "skill_id", "") or getattr(skill, "name", "")
+    ).strip()
 
 
 def _skill_description(skill: Any) -> str:
@@ -132,10 +133,14 @@ def _card_summary(card: Any) -> dict[str, Any]:
     tenant = "default"
     if isinstance(metadata, dict):
         tenant = (
-            metadata.get("agency", {}).get("team", {}).get("tenant")
-            if isinstance(metadata.get("agency"), dict)
-            else None
-        ) or metadata.get("tenant") or tenant
+            (
+                metadata.get("agency", {}).get("team", {}).get("tenant")
+                if isinstance(metadata.get("agency"), dict)
+                else None
+            )
+            or metadata.get("tenant")
+            or tenant
+        )
     try:
         tenant = get_config().team.tenant or str(tenant or "default")
     except Exception:
@@ -218,6 +223,7 @@ def _extract_relay_peer_id() -> str:
     """Extract the relay peer ID from config to skip it during broadcast."""
     try:
         from .config import get_config
+
         cfg = get_config()
         relay = cfg.relay or ""
         # relay format: /ip4/<addr>/tcp/<port>/p2p/<peer_id>
@@ -260,7 +266,10 @@ async def _broadcast(node: Any, payload: dict[str, Any]) -> dict[str, Any]:
                 node.send_task(
                     message={"role": "user", "parts": [{"text": message_text}]},
                     peer_id=target,
-                    metadata={"agency_control": "registration", "type": str(payload.get("event") or "registration")},
+                    metadata={
+                        "agency_control": "registration",
+                        "type": str(payload.get("event") or "registration"),
+                    },
                 )
             )
             sent.append(target)
@@ -350,7 +359,9 @@ def handle_registration_message(payload: dict[str, Any]) -> dict[str, Any] | Non
     return {"ok": True, "registration": record.as_dict()}
 
 
-def live_registrations(*, tenant: str | None = None, include_stale: bool = False) -> list[dict[str, Any]]:
+def live_registrations(
+    *, tenant: str | None = None, include_stale: bool = False
+) -> list[dict[str, Any]]:
     """Return live registrations, filtered by tenant unless explicitly overridden."""
 
     now = time.time()

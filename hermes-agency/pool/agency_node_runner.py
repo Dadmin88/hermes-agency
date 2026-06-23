@@ -11,7 +11,9 @@ import sys
 import time
 from pathlib import Path
 
-PLUGIN_PATH = Path(os.environ.get("HERMES_AGENCY_PLUGIN_PATH", "/home/dadmin/.hermes/plugins/hermes-agency"))
+PLUGIN_PATH = Path(
+    os.environ.get("HERMES_AGENCY_PLUGIN_PATH", "/home/dadmin/.hermes/plugins/hermes-agency")
+)
 PACKAGE_NAME = "hermes_agency"
 
 

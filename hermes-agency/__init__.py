@@ -16,7 +16,7 @@ if __package__:
     from .config import get_config, is_current_orchestrator
     from .node_manager import manager
     from .orchestrator import ORCHESTRATOR_TOOLS, check_orchestrator_enabled
-    from .tools import TOOLSET, TOOLS, check_agency_available
+    from .tools import TOOLS, TOOLSET, check_agency_available
 
     def _auto_start_hook(**_: object) -> None:
         """Start the Hermes Agency node and warm team discovery when configured."""
@@ -102,5 +102,6 @@ if __package__:
         if cfg.enabled and check_agency_available() and (cfg.auto_start or cfg.team.auto_discover):
             manager.start_background()
 else:
+
     def register(ctx) -> None:  # pragma: no cover - only for pytest collection fallback
         raise RuntimeError("Hermes Agency plugin package was imported without a package context")

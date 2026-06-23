@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import importlib.util
 import importlib
+import importlib.util
 import json
 import sys
 import types
@@ -401,7 +401,9 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
 
     profile = tmp_path / "secret_profile"
     profile.mkdir()
-    (profile / "SOUL.md").write_text("Name: Safe Card\n\nA safe profile description.\n", encoding="utf-8")
+    (profile / "SOUL.md").write_text(
+        "Name: Safe Card\n\nA safe profile description.\n", encoding="utf-8"
+    )
     (profile / "config.yaml").write_text(
         "model:\n"
         "  provider: openai\n"
@@ -617,7 +619,9 @@ def test_effective_relay_allowlist_includes_team_peers_when_enabled(plugin_modul
     team_context = importlib.import_module("hermes_plugin.team_context")
     team_context.get_team_state().peers = {
         "peer-team": team_context.PeerCapability(peer_id="peer-team", name="Team Peer"),
-        "peer-configured": team_context.PeerCapability(peer_id="peer-configured", name="Already Configured"),
+        "peer-configured": team_context.PeerCapability(
+            peer_id="peer-configured", name="Already Configured"
+        ),
     }
     monkeypatch.setattr(
         cfg_mod,
@@ -804,7 +808,9 @@ def test_load_skill_context_exact_prefix_substring_and_not_found(plugin_modules,
     assert tp.load_skill_context("nonexistent-skill", profile) is None
 
 
-def test_load_skill_context_caches_existing_files_but_not_missing(plugin_modules, tmp_path, monkeypatch):
+def test_load_skill_context_caches_existing_files_but_not_missing(
+    plugin_modules, tmp_path, monkeypatch
+):
     tp = plugin_modules.task_processor
     tp._SKILL_CONTEXT_CACHE.clear()
     profile = tmp_path / "profile"
@@ -923,7 +929,9 @@ def test_process_via_subprocess_streams_batched_progress(plugin_modules, monkeyp
     assert updates == ["first progress\nsecond progress\nthird progress"]
 
 
-def test_process_incoming_task_sends_delegation_heartbeat_after_threshold(plugin_modules, monkeypatch):
+def test_process_incoming_task_sends_delegation_heartbeat_after_threshold(
+    plugin_modules, monkeypatch
+):
     tp = plugin_modules.task_processor
     cfg = plugin_modules.config.AgencyConfig(
         allow_remote_tasks=True,
@@ -1003,7 +1011,9 @@ def test_process_incoming_task_extracts_delegate_summary(plugin_modules, monkeyp
     assert captured["max_iterations"] == 3
 
 
-def test_process_incoming_task_falls_back_to_subprocess_on_delegate_failure(plugin_modules, monkeypatch):
+def test_process_incoming_task_falls_back_to_subprocess_on_delegate_failure(
+    plugin_modules, monkeypatch
+):
     tp = plugin_modules.task_processor
     cfg = plugin_modules.config.AgencyConfig(
         allow_remote_tasks=True,
@@ -1022,12 +1032,19 @@ def test_process_incoming_task_falls_back_to_subprocess_on_delegate_failure(plug
         raise RuntimeError("boom")
 
     monkeypatch.setattr(tp, "_call_delegate_task", fake_delegate)
-    monkeypatch.setattr(tp, "process_via_subprocess", lambda profile, message, timeout: "subprocess response")
+    monkeypatch.setattr(
+        tp, "process_via_subprocess", lambda profile, message, timeout: "subprocess response"
+    )
 
-    assert tp.process_incoming_task(record, cfg, lambda _record: "template fallback") == "subprocess response"
+    assert (
+        tp.process_incoming_task(record, cfg, lambda _record: "template fallback")
+        == "subprocess response"
+    )
 
 
-def test_process_incoming_task_uses_template_fallback_when_subprocess_fails(plugin_modules, monkeypatch):
+def test_process_incoming_task_uses_template_fallback_when_subprocess_fails(
+    plugin_modules, monkeypatch
+):
     tp = plugin_modules.task_processor
     cfg = plugin_modules.config.AgencyConfig(
         allow_remote_tasks=True,
@@ -1046,9 +1063,14 @@ def test_process_incoming_task_uses_template_fallback_when_subprocess_fails(plug
         raise RuntimeError("boom")
 
     monkeypatch.setattr(tp, "_call_delegate_task", fake_delegate)
-    monkeypatch.setattr(tp, "process_via_subprocess", lambda profile, message, timeout: "ERROR: nope")
+    monkeypatch.setattr(
+        tp, "process_via_subprocess", lambda profile, message, timeout: "ERROR: nope"
+    )
 
-    assert tp.process_incoming_task(record, cfg, lambda _record: "template fallback") == "template fallback"
+    assert (
+        tp.process_incoming_task(record, cfg, lambda _record: "template fallback")
+        == "template fallback"
+    )
 
 
 def test_process_incoming_task_subprocess_mode_skips_delegation(plugin_modules, monkeypatch):
@@ -1070,9 +1092,14 @@ def test_process_incoming_task_subprocess_mode_skips_delegation(plugin_modules, 
         raise AssertionError("delegation should be skipped in subprocess mode")
 
     monkeypatch.setattr(tp, "_call_delegate_task", should_not_delegate)
-    monkeypatch.setattr(tp, "process_via_subprocess", lambda profile, message, timeout: "forced subprocess")
+    monkeypatch.setattr(
+        tp, "process_via_subprocess", lambda profile, message, timeout: "forced subprocess"
+    )
 
-    assert tp.process_incoming_task(record, cfg, lambda _record: "template fallback") == "forced subprocess"
+    assert (
+        tp.process_incoming_task(record, cfg, lambda _record: "template fallback")
+        == "forced subprocess"
+    )
 
 
 def test_resolve_subprocess_profile_uses_override_then_active_profile(plugin_modules, monkeypatch):
@@ -1096,7 +1123,9 @@ def test_process_via_subprocess_returns_error_string_on_crash(plugin_modules, mo
     assert response.startswith("ERROR:")
 
 
-def test_resolve_daemon_bin_prefers_config_then_protected_copy(plugin_modules, monkeypatch, tmp_path):
+def test_resolve_daemon_bin_prefers_config_then_protected_copy(
+    plugin_modules, monkeypatch, tmp_path
+):
     nm = plugin_modules.node_manager
     cfg_mod = plugin_modules.config
     configured = tmp_path / "configured" / "agentanycastd"
@@ -1275,7 +1304,10 @@ def test_register_orchestrator_tools_only_for_promoted_profile(plugin_modules, m
     ("args", "expected_error"),
     [
         ({"peer_id": "peer"}, "message is required"),
-        ({"message": "hello", "peer_id": "peer", "skill": "chat"}, "exactly one of peer_id or skill is required"),
+        (
+            {"message": "hello", "peer_id": "peer", "skill": "chat"},
+            "exactly one of peer_id or skill is required",
+        ),
         ({"message": "hello"}, "exactly one of peer_id or skill is required"),
     ],
 )
@@ -1466,7 +1498,10 @@ async def test_incoming_worker_delegation_mode_uses_task_processor(plugin_module
     assert called["cfg"] is cfg
     assert record.status == "completed"
     assert record.result_text == "4"
-    assert any(update["task_id"] == "kb-incoming" and update.get("status") == "running" for update in kanban_updates)
+    assert any(
+        update["task_id"] == "kb-incoming" and update.get("status") == "running"
+        for update in kanban_updates
+    )
     assert any(
         update["task_id"] == "kb-incoming"
         and update.get("status") == "done"
@@ -1713,7 +1748,9 @@ def test_artifact_text_extracts_text_from_parts(plugin_modules):
 
 
 @pytest.mark.asyncio
-async def test_handle_incoming_task_treats_duplicate_working_transition_as_idempotent(plugin_modules):
+async def test_handle_incoming_task_treats_duplicate_working_transition_as_idempotent(
+    plugin_modules,
+):
     nm_mod = plugin_modules.node_manager
     manager = nm_mod.NodeManager()
     manager._incoming_queue = __import__("asyncio").Queue()
@@ -1733,9 +1770,7 @@ async def test_handle_incoming_task_treats_duplicate_working_transition_as_idemp
         failed = None
 
         async def update_status(self, status):
-            raise RuntimeError(
-                "invalid transition: WORKING -> WORKING for task task-dup-working"
-            )
+            raise RuntimeError("invalid transition: WORKING -> WORKING for task task-dup-working")
 
         async def fail(self, error):
             self.failed = error
@@ -1797,9 +1832,7 @@ async def test_refresh_capability_map_fetches_agent_card_for_listed_peer(plugin_
 def test_build_team_context_uses_registration_when_card_unavailable(plugin_modules):
     team_context = importlib.import_module("hermes_plugin.team_context")
     registration = importlib.import_module("hermes_plugin.registration")
-    team_context._state.peers = {
-        "peer-katana": team_context.PeerCapability(peer_id="peer-katana")
-    }
+    team_context._state.peers = {"peer-katana": team_context.PeerCapability(peer_id="peer-katana")}
     registration._state.registrations = {
         "peer-katana": registration.RegistrationRecord(
             peer_id="peer-katana",
@@ -1819,7 +1852,9 @@ def test_build_team_context_uses_registration_when_card_unavailable(plugin_modul
 
 
 @pytest.mark.asyncio
-async def test_refresh_capability_map_falls_back_to_registration_when_get_card_fails(plugin_modules):
+async def test_refresh_capability_map_falls_back_to_registration_when_get_card_fails(
+    plugin_modules,
+):
     team_context = importlib.import_module("hermes_plugin.team_context")
     registration = importlib.import_module("hermes_plugin.registration")
     team_context._state.peers = {}
@@ -1928,7 +1963,9 @@ def test_registry_addresses_parse_env(plugin_modules, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_register_skills_with_registry_posts_card_to_each_registry(plugin_modules, monkeypatch):
+async def test_register_skills_with_registry_posts_card_to_each_registry(
+    plugin_modules, monkeypatch
+):
     nm = plugin_modules.node_manager
     calls = []
 
@@ -1967,12 +2004,20 @@ async def test_register_skills_with_registry_posts_card_to_each_registry(plugin_
         async def close(self):
             self.closed = True
 
-    fake_grpc = types.SimpleNamespace(aio=types.SimpleNamespace(insecure_channel=lambda addr: Channel(addr)))
+    fake_grpc = types.SimpleNamespace(
+        aio=types.SimpleNamespace(insecure_channel=lambda addr: Channel(addr))
+    )
     fake_pb2 = types.SimpleNamespace(RegisterSkillsRequest=Request, SkillInfo=SkillInfo)
     fake_grpc_pb2 = types.SimpleNamespace(RegistryServiceStub=Stub)
     monkeypatch.setitem(sys.modules, "grpc", fake_grpc)
-    monkeypatch.setitem(sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2", fake_pb2)
-    monkeypatch.setitem(sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2_grpc", fake_grpc_pb2)
+    monkeypatch.setitem(
+        sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2", fake_pb2
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "agentanycast._generated.agentanycast.v1.registry_service_pb2_grpc",
+        fake_grpc_pb2,
+    )
     monkeypatch.setenv("AGENTANYCAST_REGISTRY_ADDRS", "one:50052,two:50052")
 
     manager = nm.NodeManager()
@@ -1994,7 +2039,9 @@ async def test_register_skills_with_registry_posts_card_to_each_registry(plugin_
 
 
 @pytest.mark.asyncio
-async def test_registry_registration_failures_backoff_and_recover(plugin_modules, monkeypatch, caplog):
+async def test_registry_registration_failures_backoff_and_recover(
+    plugin_modules, monkeypatch, caplog
+):
     nm = plugin_modules.node_manager
 
     @dataclass
@@ -2030,12 +2077,20 @@ async def test_registry_registration_failures_backoff_and_recover(plugin_modules
         async def close(self):
             pass
 
-    fake_grpc = types.SimpleNamespace(aio=types.SimpleNamespace(insecure_channel=lambda addr: Channel(addr)))
+    fake_grpc = types.SimpleNamespace(
+        aio=types.SimpleNamespace(insecure_channel=lambda addr: Channel(addr))
+    )
     fake_pb2 = types.SimpleNamespace(RegisterSkillsRequest=Request, SkillInfo=SkillInfo)
     fake_grpc_pb2 = types.SimpleNamespace(RegistryServiceStub=FailingStub)
     monkeypatch.setitem(sys.modules, "grpc", fake_grpc)
-    monkeypatch.setitem(sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2", fake_pb2)
-    monkeypatch.setitem(sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2_grpc", fake_grpc_pb2)
+    monkeypatch.setitem(
+        sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2", fake_pb2
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "agentanycast._generated.agentanycast.v1.registry_service_pb2_grpc",
+        fake_grpc_pb2,
+    )
     monkeypatch.setenv("AGENTANYCAST_REGISTRY_ADDRS", "one:50052")
 
     manager = nm.NodeManager()
@@ -2043,7 +2098,9 @@ async def test_registry_registration_failures_backoff_and_recover(plugin_modules
     manager.state.peer_id = "peer-1"
 
     with caplog.at_level("WARNING"):
-        result = await manager._register_skills_with_registries(Card(skills=[Skill("chat", "Chat")]))
+        result = await manager._register_skills_with_registries(
+            Card(skills=[Skill("chat", "Chat")])
+        )
         assert result["ok"] is False
         manager._handle_registry_registration_result(result, retry_in_seconds=4)
         for _ in range(4):
@@ -2330,11 +2387,23 @@ def _install_kanban_spies(nm, monkeypatch, *, task_id="kb-1"):
 
     def track(**kwargs):
         calls["track"].append(kwargs)
-        return {"available": True, "ok": True, "task_id": task_id, "task": {"plugin_status": "running"}}
+        return {
+            "available": True,
+            "ok": True,
+            "task_id": task_id,
+            "task": {"plugin_status": "running"},
+        }
 
     def update(task_id, status=None, result=None, error=None):
-        calls["update"].append({"task_id": task_id, "status": status, "result": result, "error": error})
-        return {"available": True, "ok": True, "task_id": task_id, "task": {"plugin_status": status, "result": result}}
+        calls["update"].append(
+            {"task_id": task_id, "status": status, "result": result, "error": error}
+        )
+        return {
+            "available": True,
+            "ok": True,
+            "task_id": task_id,
+            "task": {"plugin_status": status, "result": result},
+        }
 
     def comment(task_id, body):
         calls["comment"].append({"task_id": task_id, "body": body})
@@ -2401,7 +2470,9 @@ async def test_send_task_marks_kanban_done_after_wait_success(plugin_modules, mo
 
     await _send_with_fake_node(manager, _FakeA2ANode(handle=_FakeA2AHandle()), wait_seconds=30)
 
-    assert any(call["status"] == "done" and call["result"] == "remote result" for call in calls["update"])
+    assert any(
+        call["status"] == "done" and call["result"] == "remote result" for call in calls["update"]
+    )
 
 
 @pytest.mark.asyncio
@@ -2423,10 +2494,15 @@ async def test_send_task_marks_kanban_blocked_when_send_fails(plugin_modules, mo
     manager = nm.NodeManager()
 
     with pytest.raises(RuntimeError):
-        await _send_with_fake_node(manager, _FakeA2ANode(send_error=RuntimeError("bad peer")), wait_seconds=30)
+        await _send_with_fake_node(
+            manager, _FakeA2ANode(send_error=RuntimeError("bad peer")), wait_seconds=30
+        )
 
     assert calls["track"]
-    assert any(call["status"] == "blocked" and "bad peer" in str(call["error"] or call["result"]) for call in calls["update"])
+    assert any(
+        call["status"] == "blocked" and "bad peer" in str(call["error"] or call["result"])
+        for call in calls["update"]
+    )
 
 
 @pytest.mark.asyncio

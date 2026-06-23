@@ -22,7 +22,12 @@ def a2a_registry(args: dict[str, Any] | None = None, **_: Any) -> str:
     args = args or {}
     tenant = args.get("tenant")
     include_stale = bool(args.get("include_stale", False))
-    return _json({"ok": True, "registrations": live_registrations(tenant=tenant, include_stale=include_stale)})
+    return _json(
+        {
+            "ok": True,
+            "registrations": live_registrations(tenant=tenant, include_stale=include_stale),
+        }
+    )
 
 
 def a2a_bid_task(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -49,7 +54,15 @@ def a2a_bid_task(args: dict[str, Any] | None = None, **_: Any) -> str:
             description=str(args.get("description") or ""),
             skills=[str(skill) for skill in (args.get("skills") or [])],
         )
-    return _json({"ok": True, "request": request, "bidding": bidding_summary(task_id), "winner": winner, "assignment": assignment})
+    return _json(
+        {
+            "ok": True,
+            "request": request,
+            "bidding": bidding_summary(task_id),
+            "winner": winner,
+            "assignment": assignment,
+        }
+    )
 
 
 def a2a_execute_workflow(args: dict[str, Any] | None = None, **_: Any) -> str:
@@ -90,7 +103,13 @@ def a2a_log_routing_correction(args: dict[str, Any] | None = None, **_: Any) -> 
         correct_target=str(args.get("correct_target") or ""),
         note=str(args.get("note") or ""),
     )
-    return _json({"ok": bool(result.get("ok")), "result": result, "learning": learning_summary(args.get("task_type"))})
+    return _json(
+        {
+            "ok": bool(result.get("ok")),
+            "result": result,
+            "learning": learning_summary(args.get("task_type")),
+        }
+    )
 
 
 A2A_REGISTRY_SCHEMA = {
@@ -101,8 +120,14 @@ A2A_REGISTRY_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "tenant": {"type": "string", "description": "Tenant to list; omit for configured tenant, '*' for all."},
-                "include_stale": {"type": "boolean", "description": "Include stale/deregistered records."},
+                "tenant": {
+                    "type": "string",
+                    "description": "Tenant to list; omit for configured tenant, '*' for all.",
+                },
+                "include_stale": {
+                    "type": "boolean",
+                    "description": "Include stale/deregistered records.",
+                },
             },
             "additionalProperties": False,
         },
@@ -207,7 +232,17 @@ AUTONOMOUS_TOOLS = (
     ("a2a_registry", A2A_REGISTRY_SCHEMA, a2a_registry, "🗂️"),
     ("a2a_bid_task", A2A_BID_TASK_SCHEMA, a2a_bid_task, "🤝"),
     ("a2a_execute_workflow", A2A_EXECUTE_WORKFLOW_SCHEMA, a2a_execute_workflow, "🔁"),
-    ("a2a_create_proactive_task", A2A_CREATE_PROACTIVE_TASK_SCHEMA, a2a_create_proactive_task, "⚡"),
+    (
+        "a2a_create_proactive_task",
+        A2A_CREATE_PROACTIVE_TASK_SCHEMA,
+        a2a_create_proactive_task,
+        "⚡",
+    ),
     ("a2a_check_autonomy", A2A_CHECK_AUTONOMY_SCHEMA, a2a_check_autonomy, "🛡️"),
-    ("a2a_log_routing_correction", A2A_LOG_ROUTING_CORRECTION_SCHEMA, a2a_log_routing_correction, "🧠"),
+    (
+        "a2a_log_routing_correction",
+        A2A_LOG_ROUTING_CORRECTION_SCHEMA,
+        a2a_log_routing_correction,
+        "🧠",
+    ),
 )

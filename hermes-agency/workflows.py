@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from hermes_cli.config import cfg_get, load_config
 
@@ -15,8 +16,18 @@ DEFAULT_WORKFLOWS: dict[str, dict[str, Any]] = {
     "ship_feature": {
         "steps": [
             {"name": "write_code", "skill": "code", "assigned_to": "katana"},
-            {"name": "write_tests", "skill": "testing", "assigned_to": "qa", "depends_on": ["write_code"]},
-            {"name": "deploy", "skill": "deployment", "assigned_to": "hermes", "depends_on": ["write_tests"]},
+            {
+                "name": "write_tests",
+                "skill": "testing",
+                "assigned_to": "qa",
+                "depends_on": ["write_code"],
+            },
+            {
+                "name": "deploy",
+                "skill": "deployment",
+                "assigned_to": "hermes",
+                "depends_on": ["write_tests"],
+            },
         ]
     },
     "fix_and_deploy": {
@@ -24,7 +35,12 @@ DEFAULT_WORKFLOWS: dict[str, dict[str, Any]] = {
             {"name": "diagnose", "skill": "debugging", "assigned_to": "katana"},
             {"name": "fix", "skill": "code", "assigned_to": "katana", "depends_on": ["diagnose"]},
             {"name": "verify", "skill": "testing", "assigned_to": "qa", "depends_on": ["fix"]},
-            {"name": "deploy", "skill": "deployment", "assigned_to": "hermes", "depends_on": ["verify"]},
+            {
+                "name": "deploy",
+                "skill": "deployment",
+                "assigned_to": "hermes",
+                "depends_on": ["verify"],
+            },
         ]
     },
 }
@@ -79,11 +95,17 @@ def execute_workflow(
     templates = workflow_templates()
     template = templates.get(str(name))
     if not template:
-        return {"ok": False, "error": f"unknown workflow template: {name}", "available_templates": sorted(templates)}
+        return {
+            "ok": False,
+            "error": f"unknown workflow template: {name}",
+            "available_templates": sorted(templates),
+        }
     cfg = get_config()
     ctx = dict(context or {})
     workflow_id = f"wf-{int(time.time())}-{_clean(name)}"
-    steps = [step for step in template.get("steps") or [] if isinstance(step, dict) and step.get("name")]
+    steps = [
+        step for step in template.get("steps") or [] if isinstance(step, dict) and step.get("name")
+    ]
     created: list[dict[str, Any]] = []
     step_to_task: dict[str, str] = {}
     for step in steps:
@@ -120,7 +142,9 @@ def execute_workflow(
             try:
                 delegated.append(delegate(step, task_id))
             except Exception as exc:
-                delegated.append({"ok": False, "step": step.get("name"), "error": f"{type(exc).__name__}: {exc}"})
+                delegated.append(
+                    {"ok": False, "step": step.get("name"), "error": f"{type(exc).__name__}: {exc}"}
+                )
     announcement = announce_workflow(name, workflow_id, len(created))
     return {
         "ok": True,

@@ -65,8 +65,10 @@ def build_conversation_history(
             }
         )
 
-    turns.sort(key=lambda item: (float(item.get("created_at") or 0), str(item.get("task_id") or "")))
-    return turns[-max(1, int(max_turns or DEFAULT_CONVERSATION_MAX_TURNS)):]
+    turns.sort(
+        key=lambda item: (float(item.get("created_at") or 0), str(item.get("task_id") or ""))
+    )
+    return turns[-max(1, int(max_turns or DEFAULT_CONVERSATION_MAX_TURNS)) :]
 
 
 def build_conversation_context(
@@ -84,13 +86,11 @@ def build_conversation_context(
         now = time.time()
         ttl_seconds = max(0.0, float(ttl or 0))
         history = [
-            item
-            for item in history
-            if now - float(item.get("created_at") or now) <= ttl_seconds
+            item for item in history if now - float(item.get("created_at") or now) <= ttl_seconds
         ]
     if not history:
         history = build_conversation_history(context_id, profile_home, max_turns=max_turns, ttl=ttl)
-    return format_conversation_history(history[-max(1, int(max_turns or 10)):])
+    return format_conversation_history(history[-max(1, int(max_turns or 10)) :])
 
 
 def format_conversation_history(history: list[dict[str, Any]] | None) -> str:

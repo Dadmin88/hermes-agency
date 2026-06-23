@@ -21,9 +21,10 @@ import json
 import logging
 import os
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
-from typing import Any, Iterator, cast
+from typing import Any, cast
 
 from .config import current_profile_name, get_config
 
@@ -227,7 +228,9 @@ def _resolve_task_id(kb: Any, conn: Any, task_id: str) -> str | None:
     return None
 
 
-def _append_event(kb: Any, conn: Any, task_id: str, kind: str, payload: dict[str, Any] | None = None) -> None:
+def _append_event(
+    kb: Any, conn: Any, task_id: str, kind: str, payload: dict[str, Any] | None = None
+) -> None:
     # kanban_db intentionally keeps event insertion private; this bridge uses it
     # rather than inventing a parallel audit table.  Fall back to raw SQL if the
     # helper ever moves.
@@ -296,7 +299,9 @@ def _create_task_impl(
     a2a_task_id = _clean(metadata.get("a2a_task_id")) or None
     session_id = _clean(metadata.get("session_id") or metadata.get("channel")) or None
     tenant = _clean(metadata.get("tenant")) or get_config().team.tenant or None
-    idempotency_key = _a2a_idempotency_key(a2a_task_id) or _clean(metadata.get("idempotency_key")) or None
+    idempotency_key = (
+        _a2a_idempotency_key(a2a_task_id) or _clean(metadata.get("idempotency_key")) or None
+    )
     body = _body_with_metadata(description, metadata)
 
     with _connection() as (kb, conn):
@@ -324,7 +329,8 @@ def _create_task_impl(
             task_id = kb.create_task(
                 conn,
                 title=clean_title,
-                body=body + "\n\n[Hermes Agency note: requested skills were not stored because Kanban rejected them as toolset names.]",
+                body=body
+                + "\n\n[Hermes Agency note: requested skills were not stored because Kanban rejected them as toolset names.]",
                 assignee=clean_assignee,
                 created_by=_author(),
                 parents=tuple(_clean(dep) for dep in dependencies if _clean(dep)),
@@ -444,7 +450,9 @@ def _has_unfinished_parents(kb: Any, conn: Any, task_id: str) -> bool:
     return any(row["status"] not in {"done", "archived"} for row in rows)
 
 
-def _set_status(kb: Any, conn: Any, task_id: str, status: str, payload: dict[str, Any] | None = None) -> None:
+def _set_status(
+    kb: Any, conn: Any, task_id: str, status: str, payload: dict[str, Any] | None = None
+) -> None:
     now = int(time.time())
     fields = ["status = ?"]
     params: list[Any] = [status]
@@ -459,11 +467,17 @@ def _set_status(kb: Any, conn: Any, task_id: str, status: str, payload: dict[str
     _append_event(kb, conn, task_id, "agency_status", {"status": status, **(payload or {})})
 
 
-def _update_task_impl(task_id: str, status: str | None, result: str | None, error: str | None) -> dict[str, Any]:
+def _update_task_impl(
+    task_id: str, status: str | None, result: str | None, error: str | None
+) -> dict[str, Any]:
     with _connection() as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
-            return {"available": True, "ok": False, "error": f"unknown Kanban/A2A task id: {task_id}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown Kanban/A2A task id: {task_id}",
+            }
         clean_status = _clean(status).lower()
         comment_bits = []
         if result:
@@ -499,7 +513,13 @@ def _update_task_impl(task_id: str, status: str | None, result: str | None, erro
             if clean_status == "unassigned":
                 conn.execute("UPDATE tasks SET assignee = NULL WHERE id = ?", (resolved,))
             target_status = "todo" if _has_unfinished_parents(kb, conn, resolved) else "ready"
-            _set_status(kb, conn, resolved, target_status, {"source": "agency", "requested_status": clean_status})
+            _set_status(
+                kb,
+                conn,
+                resolved,
+                target_status,
+                {"source": "agency", "requested_status": clean_status},
+            )
         elif clean_status:
             return {"available": True, "ok": False, "error": f"unsupported status: {status}"}
 
@@ -524,9 +544,18 @@ def _get_task_impl(task_id: str) -> dict[str, Any]:
     with _connection() as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
-            return {"available": True, "ok": False, "error": f"unknown Kanban/A2A task id: {task_id}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown Kanban/A2A task id: {task_id}",
+            }
         task = kb.get_task(conn, resolved)
-        return {"available": True, "ok": True, "task_id": resolved, "task": _task_to_dict(kb, conn, task, include_thread=True)}
+        return {
+            "available": True,
+            "ok": True,
+            "task_id": resolved,
+            "task": _task_to_dict(kb, conn, task, include_thread=True),
+        }
 
 
 def list_tasks(filters: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -539,7 +568,9 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
     status = _status_filter(filters.get("status"))
     assignee = _clean(filters.get("assignee") or filters.get("assigned_to")) or None
     requested_tenant = _clean(filters.get("tenant"))
-    tenant = None if requested_tenant == "*" else (requested_tenant or get_config().team.tenant or None)
+    tenant = (
+        None if requested_tenant == "*" else (requested_tenant or get_config().team.tenant or None)
+    )
     session_id = _clean(filters.get("session_id")) or None
     limit = filters.get("limit")
     include_archived = bool(filters.get("include_archived") or filters.get("archived"))
@@ -576,7 +607,11 @@ def _add_comment_impl(task_id: str, body: str) -> dict[str, Any]:
     with _connection() as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
-            return {"available": True, "ok": False, "error": f"unknown Kanban/A2A task id: {task_id}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown Kanban/A2A task id: {task_id}",
+            }
         comment_id = kb.add_comment(conn, resolved, _author(), str(body or ""))
         return {"available": True, "ok": True, "task_id": resolved, "comment_id": comment_id}
 
@@ -592,7 +627,11 @@ def _link_tasks_impl(parent_id: str, child_id: str) -> dict[str, Any]:
         parent = _resolve_task_id(kb, conn, parent_id)
         child = _resolve_task_id(kb, conn, child_id)
         if not parent or not child:
-            return {"available": True, "ok": False, "error": f"unknown task link endpoint: {parent_id} -> {child_id}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown task link endpoint: {parent_id} -> {child_id}",
+            }
         kb.link_tasks(conn, parent, child)
         kb.recompute_ready(conn)
         return {"available": True, "ok": True, "parent_id": parent, "child_id": child}
@@ -611,15 +650,28 @@ def _claim_task_impl(task_id: str, assignee: str, start: bool) -> dict[str, Any]
     with _connection() as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
-            return {"available": True, "ok": False, "error": f"unknown Kanban/A2A task id: {task_id}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown Kanban/A2A task id: {task_id}",
+            }
         task = kb.get_task(conn, resolved)
         if task.assignee and task.assignee != clean_assignee:
-            return {"available": True, "ok": False, "error": f"task already assigned to {task.assignee}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"task already assigned to {task.assignee}",
+            }
         kb.assign_task(conn, resolved, clean_assignee)
         if start:
             _set_status(kb, conn, resolved, "running", {"claimed_by": clean_assignee})
         task = kb.get_task(conn, resolved)
-        return {"available": True, "ok": True, "task_id": resolved, "task": _task_to_dict(kb, conn, task, include_thread=True)}
+        return {
+            "available": True,
+            "ok": True,
+            "task_id": resolved,
+            "task": _task_to_dict(kb, conn, task, include_thread=True),
+        }
 
 
 def assign_task(task_id: str, assignee: str | None) -> dict[str, Any]:
@@ -632,24 +684,43 @@ def _assign_task_impl(task_id: str, assignee: str | None) -> dict[str, Any]:
     with _connection() as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
-            return {"available": True, "ok": False, "error": f"unknown Kanban/A2A task id: {task_id}"}
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown Kanban/A2A task id: {task_id}",
+            }
         if not kb.assign_task(conn, resolved, _clean(assignee) or None):
             return {"available": True, "ok": False, "error": f"could not assign task: {resolved}"}
         task = kb.get_task(conn, resolved)
-        return {"available": True, "ok": True, "task_id": resolved, "task": _task_to_dict(kb, conn, task, include_thread=True)}
+        return {
+            "available": True,
+            "ok": True,
+            "task_id": resolved,
+            "task": _task_to_dict(kb, conn, task, include_thread=True),
+        }
 
 
-def find_self_serve_tasks(skills: list[str] | tuple[str, ...], *, assignee: str | None = None, limit: int = 20) -> dict[str, Any]:
+def find_self_serve_tasks(
+    skills: list[str] | tuple[str, ...], *, assignee: str | None = None, limit: int = 20
+) -> dict[str, Any]:
     """Return unassigned ready/todo tasks whose requested skills overlap ``skills``."""
 
     return _safe_call(_find_self_serve_tasks_impl, list(skills or []), assignee, limit)
 
 
-def _find_self_serve_tasks_impl(skills: list[str], assignee: str | None, limit: int) -> dict[str, Any]:
+def _find_self_serve_tasks_impl(
+    skills: list[str], assignee: str | None, limit: int
+) -> dict[str, Any]:
     wanted = {str(skill).strip().lower() for skill in skills if str(skill).strip()}
     with _connection() as (kb, conn):
         kb.recompute_ready(conn)
-        tasks = kb.list_tasks(conn, status="ready", tenant=get_config().team.tenant, limit=max(limit * 3, limit), include_archived=False)
+        tasks = kb.list_tasks(
+            conn,
+            status="ready",
+            tenant=get_config().team.tenant,
+            limit=max(limit * 3, limit),
+            include_archived=False,
+        )
         candidates = []
         for task in tasks:
             if task.assignee and (not assignee or task.assignee != assignee):

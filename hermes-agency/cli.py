@@ -86,10 +86,17 @@ def _restart_after_promotion_change() -> str:
         if was_started:
             manager.stop_sync(timeout=60)
         manager.auto_start_if_configured()
-        node_text = "Hermes Agency node restarted." if was_started else "Hermes Agency node reload requested."
+        node_text = (
+            "Hermes Agency node restarted."
+            if was_started
+            else "Hermes Agency node reload requested."
+        )
     except Exception as exc:  # pragma: no cover - runtime dependent
         node_text = f"Hermes Agency node restart failed: {type(exc).__name__}: {exc}"
-    return node_text + " Start a new Hermes session or restart the gateway/desktop session for orch_* tool surface changes."
+    return (
+        node_text
+        + " Start a new Hermes session or restart the gateway/desktop session for orch_* tool surface changes."
+    )
 
 
 def _promote_text(agent: str) -> str:
@@ -213,7 +220,6 @@ def _staff_list_text(category: str = "") -> str:
         lines.append(f"\n  [{cat}]")
         for p in sorted(by_cat[cat], key=lambda x: x.get("name", "")):
             name = p.get("name", "?")
-            display = p.get("display_name", "")
             summary = p.get("summary", "")
             short = summary[:80] + "..." if len(summary) > 80 else summary
             lines.append(f"    {name:<40} {short}")
@@ -370,7 +376,9 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     discover_parser.add_argument("skill", help="Skill ID/name to discover")
     discover_parser.set_defaults(func=cmd_agency)
 
-    registry_parser = subparsers.add_parser("registry", help="Show live Hermes Agency self-registration records")
+    registry_parser = subparsers.add_parser(
+        "registry", help="Show live Hermes Agency self-registration records"
+    )
     registry_parser.set_defaults(func=cmd_agency)
 
     promote_parser = subparsers.add_parser(
@@ -398,7 +406,9 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     staff_list.set_defaults(func=cmd_agency, agency_command="staff")
 
     staff_install = staff_sub.add_parser("install", help="Install default staff profiles")
-    staff_install.add_argument("names", nargs="*", default=[], help="Profile names to install (default: all)")
+    staff_install.add_argument(
+        "names", nargs="*", default=[], help="Profile names to install (default: all)"
+    )
     staff_install.add_argument("--dry-run", action="store_true", help="Preview without installing")
     staff_install.add_argument("--force", action="store_true", help="Overwrite existing profiles")
     staff_install.set_defaults(func=cmd_agency, agency_command="staff")
@@ -431,11 +441,13 @@ def cmd_agency(args: Namespace) -> None:
         if staff_cmd == "list":
             print(_staff_list_text(getattr(args, "category", "")))
         elif staff_cmd == "install":
-            print(_staff_install_text(
-                getattr(args, "names", []),
-                dry_run=getattr(args, "dry_run", False),
-                force=getattr(args, "force", False),
-            ))
+            print(
+                _staff_install_text(
+                    getattr(args, "names", []),
+                    dry_run=getattr(args, "dry_run", False),
+                    force=getattr(args, "force", False),
+                )
+            )
         elif staff_cmd == "info":
             print(_staff_info_text(getattr(args, "name", "")))
         else:
