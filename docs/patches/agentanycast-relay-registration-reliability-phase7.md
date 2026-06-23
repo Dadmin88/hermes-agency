@@ -109,14 +109,14 @@ a2a_info() explicit full path: "node": manager.info()
 The active gpt plugin path resolves to the source tree/fresh plugin files:
 
 ```text
-/home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/tools.py
+~/.hermes/profiles/<profile>/plugins/hermes-agency/tools.py
 ```
 
 Runtime syntax check passed:
 
 ```bash
-/home/kyle/.hermes/profiles/gpt/hermes-agent/venv/bin/python3 -m py_compile \
-  /home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/tools.py
+~/.hermes/profiles/<profile>/hermes-agent/venv/bin/python3 -m py_compile \
+  ~/.hermes/profiles/<profile>/plugins/hermes-agency/tools.py
 ```
 
 Direct runtime verification passed using the gpt profile plugin package.

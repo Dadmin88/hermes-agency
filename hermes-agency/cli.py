@@ -12,6 +12,7 @@ try:
 except Exception:  # pragma: no cover - Hermes normally depends on PyYAML
     yaml = None  # type: ignore[assignment]
 
+from .doctor import render_doctor_report, run_doctor
 from .node_manager import manager
 
 
@@ -337,6 +338,8 @@ def handle_agency_slash(raw_args: str = "") -> str:
         return _demote_text(" ".join(parts[1:]))
     if verb == "registry":
         return _json(manager.info().get("registration") or {})
+    if verb == "doctor":
+        return render_doctor_report(run_doctor(), json_output="--json" in parts[1:])
     if verb == "staff":
         sub = parts[1].lower() if len(parts) > 1 else "list"
         if sub == "list":
@@ -351,7 +354,7 @@ def handle_agency_slash(raw_args: str = "") -> str:
             name = parts[2] if len(parts) > 2 else ""
             return _staff_info_text(name)
         return "Usage: /agency staff [list [category]|install [--dry-run] [--force] [names...]|info <name>]"
-    return "Usage: /agency [status|start|stop|discover <skill>|promote <agent>|demote <agent>|registry|staff]"
+    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|promote <agent>|demote <agent>|registry|staff]"
 
 
 def setup_agency_parser(parser: ArgumentParser) -> None:
@@ -380,6 +383,14 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
         "registry", help="Show live Hermes Agency self-registration records"
     )
     registry_parser.set_defaults(func=cmd_agency)
+
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Run Hermes Agency self-diagnostics",
+        description="Check Hermes Agency plugin health and print actionable remediation.",
+    )
+    doctor_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    doctor_parser.set_defaults(func=cmd_agency)
 
     promote_parser = subparsers.add_parser(
         "promote",
@@ -432,6 +443,11 @@ def cmd_agency(args: Namespace) -> None:
         print(_discover_text(getattr(args, "skill", "")))
     elif verb == "registry":
         print(_json(manager.info().get("registration") or {}))
+    elif verb == "doctor":
+        report = run_doctor()
+        print(render_doctor_report(report, json_output=getattr(args, "json", False)))
+        if report.exit_code:
+            raise SystemExit(report.exit_code)
     elif verb == "promote":
         print(_promote_text(getattr(args, "agent", "")))
     elif verb == "demote":

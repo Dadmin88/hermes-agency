@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
+import logging
+import os
+from collections.abc import Callable
 from typing import Any
 
 from .autonomous_tools import AUTONOMOUS_TOOLS
@@ -11,6 +15,7 @@ from .card_builder import build_card, card_to_dict
 from .node_manager import manager
 
 TOOLSET = "agency"
+logger = logging.getLogger(__name__)
 
 
 def _json(data: dict[str, Any]) -> str:
@@ -259,6 +264,77 @@ def a2a_inbox(args: dict[str, Any] | None = None, **_: Any) -> str:
         )
 
 
+Handler = Callable[..., str]
+
+
+def _deprecation_verbose(args: dict[str, Any] | None, kwargs: dict[str, Any]) -> bool:
+    if isinstance(args, dict) and bool(args.get("verbose")):
+        return True
+    if bool(kwargs.get("verbose")):
+        return True
+    return str(os.getenv("HERMES_AGENCY_VERBOSE_DEPRECATIONS", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    } or str(os.getenv("HERMES_AGENCY_DEV_MODE", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "dev",
+    }
+
+
+def _deprecated_alias(old_name: str, new_name: str, handler: Handler) -> Handler:
+    def wrapper(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
+        if _deprecation_verbose(args, kwargs):
+            logger.warning("%s is deprecated; use %s", old_name, new_name)
+        return handler(args, **kwargs)
+
+    wrapper.__name__ = old_name
+    wrapper.__doc__ = f"Deprecated alias for {new_name}."
+    return wrapper
+
+
+def _schema_with_name(
+    schema: dict[str, Any], name: str, description: str | None = None
+) -> dict[str, Any]:
+    clone = copy.deepcopy(schema)
+    clone["function"]["name"] = name
+    if description is not None:
+        clone["function"]["description"] = description
+    return clone
+
+
+_a2a_info_impl = a2a_info
+_a2a_start_node_impl = a2a_start_node
+_a2a_stop_node_impl = a2a_stop_node
+_a2a_list_peers_impl = a2a_list_peers
+_a2a_discover_impl = a2a_discover
+_a2a_send_impl = a2a_send
+_a2a_status_impl = a2a_status
+_a2a_inbox_impl = a2a_inbox
+
+agency_info = _a2a_info_impl
+agency_start_node = _a2a_start_node_impl
+agency_stop_node = _a2a_stop_node_impl
+agency_list_peers = _a2a_list_peers_impl
+agency_discover = _a2a_discover_impl
+agency_send = _a2a_send_impl
+agency_status = _a2a_status_impl
+agency_inbox = _a2a_inbox_impl
+
+a2a_info = _deprecated_alias("a2a_info", "agency_info", _a2a_info_impl)
+a2a_start_node = _deprecated_alias("a2a_start_node", "agency_start_node", _a2a_start_node_impl)
+a2a_stop_node = _deprecated_alias("a2a_stop_node", "agency_stop_node", _a2a_stop_node_impl)
+a2a_list_peers = _deprecated_alias("a2a_list_peers", "agency_list_peers", _a2a_list_peers_impl)
+a2a_discover = _deprecated_alias("a2a_discover", "agency_discover", _a2a_discover_impl)
+a2a_send = _deprecated_alias("a2a_send", "agency_send", _a2a_send_impl)
+a2a_status = _deprecated_alias("a2a_status", "agency_status", _a2a_status_impl)
+a2a_inbox = _deprecated_alias("a2a_inbox", "agency_inbox", _a2a_inbox_impl)
+
+
 A2A_INFO_SCHEMA = {
     "type": "function",
     "function": {
@@ -397,14 +473,174 @@ A2A_INBOX_SCHEMA = {
     },
 }
 
+AGENCY_TOOLS = (
+    (
+        "agency_discover",
+        _schema_with_name(
+            A2A_DISCOVER_SCHEMA,
+            "agency_discover",
+            "Discover Hermes Agency peers offering a skill via anycast routing. Starts the local node if needed.",
+        ),
+        agency_discover,
+        "🔎",
+    ),
+    (
+        "agency_send",
+        _schema_with_name(
+            A2A_SEND_SCHEMA,
+            "agency_send",
+            "Send a task to a Hermes Agency peer_id or skill. Starts the local node if needed and returns a task_id plus initial/latest status.",
+        ),
+        agency_send,
+        "📨",
+    ),
+    (
+        "agency_status",
+        _schema_with_name(
+            A2A_STATUS_SCHEMA,
+            "agency_status",
+            "Check latest locally tracked status and artifacts for a task sent by agency_send.",
+        ),
+        agency_status,
+        "📋",
+    ),
+    (
+        "agency_inbox",
+        _schema_with_name(
+            A2A_INBOX_SCHEMA,
+            "agency_inbox",
+            "List recent incoming Hermes Agency tasks queued/processed by this profile's safe stub handler.",
+        ),
+        agency_inbox,
+        "📥",
+    ),
+    (
+        "agency_start_node",
+        _schema_with_name(
+            A2A_START_NODE_SCHEMA,
+            "agency_start_node",
+            "Start this Hermes profile's Hermes Agency P2P node and begin listening for incoming tasks.",
+        ),
+        agency_start_node,
+        "▶️",
+    ),
+    (
+        "agency_stop_node",
+        _schema_with_name(
+            A2A_STOP_NODE_SCHEMA,
+            "agency_stop_node",
+            "Stop this Hermes profile's Hermes Agency P2P node and daemon cleanly.",
+        ),
+        agency_stop_node,
+        "⏹️",
+    ),
+    (
+        "agency_list_peers",
+        _schema_with_name(
+            A2A_LIST_PEERS_SCHEMA,
+            "agency_list_peers",
+            "List Hermes Agency peers currently connected to this profile's node.",
+        ),
+        agency_list_peers,
+        "🧭",
+    ),
+    (
+        "agency_info",
+        _schema_with_name(
+            A2A_INFO_SCHEMA,
+            "agency_info",
+            "Show this Hermes profile's Hermes Agency plugin, SDK, config, and node status.",
+        ),
+        agency_info,
+        "🛰️",
+    ),
+)
+
+A2A_ALIAS_TOOLS = (
+    (
+        "a2a_discover",
+        _schema_with_name(
+            A2A_DISCOVER_SCHEMA,
+            "a2a_discover",
+            "Deprecated alias for agency_discover; kept for A2A protocol compatibility.",
+        ),
+        a2a_discover,
+        "🔎",
+    ),
+    (
+        "a2a_send",
+        _schema_with_name(
+            A2A_SEND_SCHEMA,
+            "a2a_send",
+            "Deprecated alias for agency_send; kept for A2A protocol compatibility.",
+        ),
+        a2a_send,
+        "📨",
+    ),
+    (
+        "a2a_status",
+        _schema_with_name(
+            A2A_STATUS_SCHEMA,
+            "a2a_status",
+            "Deprecated alias for agency_status; kept for A2A protocol compatibility.",
+        ),
+        a2a_status,
+        "📋",
+    ),
+    (
+        "a2a_inbox",
+        _schema_with_name(
+            A2A_INBOX_SCHEMA,
+            "a2a_inbox",
+            "Deprecated alias for agency_inbox; kept for A2A protocol compatibility.",
+        ),
+        a2a_inbox,
+        "📥",
+    ),
+    (
+        "a2a_start_node",
+        _schema_with_name(
+            A2A_START_NODE_SCHEMA,
+            "a2a_start_node",
+            "Deprecated alias for agency_start_node; kept for A2A protocol compatibility.",
+        ),
+        a2a_start_node,
+        "▶️",
+    ),
+    (
+        "a2a_stop_node",
+        _schema_with_name(
+            A2A_STOP_NODE_SCHEMA,
+            "a2a_stop_node",
+            "Deprecated alias for agency_stop_node; kept for A2A protocol compatibility.",
+        ),
+        a2a_stop_node,
+        "⏹️",
+    ),
+    (
+        "a2a_list_peers",
+        _schema_with_name(
+            A2A_LIST_PEERS_SCHEMA,
+            "a2a_list_peers",
+            "Deprecated alias for agency_list_peers; kept for A2A protocol compatibility.",
+        ),
+        a2a_list_peers,
+        "🧭",
+    ),
+    (
+        "a2a_info",
+        _schema_with_name(
+            A2A_INFO_SCHEMA,
+            "a2a_info",
+            "Deprecated alias for agency_info; kept for A2A protocol compatibility.",
+        ),
+        a2a_info,
+        "🛰️",
+    ),
+)
+
 TOOLS = (
-    ("a2a_discover", A2A_DISCOVER_SCHEMA, a2a_discover, "🔎"),
-    ("a2a_send", A2A_SEND_SCHEMA, a2a_send, "📨"),
-    ("a2a_status", A2A_STATUS_SCHEMA, a2a_status, "📋"),
-    ("a2a_inbox", A2A_INBOX_SCHEMA, a2a_inbox, "📥"),
-    ("a2a_start_node", A2A_START_NODE_SCHEMA, a2a_start_node, "▶️"),
-    ("a2a_stop_node", A2A_STOP_NODE_SCHEMA, a2a_stop_node, "⏹️"),
-    ("a2a_list_peers", A2A_LIST_PEERS_SCHEMA, a2a_list_peers, "🧭"),
-    ("a2a_info", A2A_INFO_SCHEMA, a2a_info, "🛰️"),
+    *AGENCY_TOOLS,
     *AUTONOMOUS_TOOLS,
+    *A2A_ALIAS_TOOLS,
 )

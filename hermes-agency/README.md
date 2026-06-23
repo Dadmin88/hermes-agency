@@ -6,7 +6,7 @@ AgentAnycast is the SDK/runtime; Hermes Agency is this optional Hermes Agent plu
 
 Each Hermes profile gets its own Hermes Agency node with a persistent identity, an auto-generated AgentCard from `SOUL.md` + installed skills, and encrypted P2P communication with other agents.
 
-> Status: local testing / PR-prep. Do not open upstream PRs from this checkout unless Kyle explicitly asks.
+> Status: local testing / PR-prep. Do not open upstream PRs from this checkout without explicit maintainer approval.
 
 ## What It Does
 
@@ -16,7 +16,7 @@ Each Hermes profile gets its own Hermes Agency node with a persistent identity, 
 - **Team context** — compact teammate summaries injected through plugin context, bounded by config budgets.
 - **Task send/receive** — send tasks to peers, receive tasks from remote agents, return artifacts to the sender.
 - **Safe incoming handler** — remote tasks default to safe/no-dangerous-tool behavior unless explicitly enabled.
-- **Kanban tracking** — outbound and inbound A2A tasks reconcile with Hermes Kanban when available.
+- **Kanban tracking** — outbound and inbound Hermes Agency tasks reconcile with Hermes Kanban when available.
 - **Autonomous collaboration helpers** — self-registration, bidding, workflows, proactive tasks, autonomy checks, and routing-correction logging.
 - **CLI and slash command** — `hermes agency ...` and `/agency ...` for status/start/stop/discovery.
 
@@ -27,7 +27,7 @@ Each Hermes profile gets its own Hermes Agency node with a persistent identity, 
 - Optional: `agentanycast` Python SDK (`pip install agentanycast` or editable install from this fork)
 - Optional for cross-network discovery: an Hermes Agency relay with registry service
 
-The SDK is optional at plugin load time. If it is absent, the plugin must load cleanly and its tool check functions should gate A2A tools off.
+The SDK is optional at plugin load time. If it is absent, the plugin must load cleanly and its tool check functions should gate Hermes Agency tools off.
 
 ## Install
 
@@ -99,7 +99,7 @@ agency:
 For relay-backed skill discovery, set the daemon environment separately:
 
 ```bash
-export AGENTANYCAST_REGISTRY_ADDRS=100.123.57.115:50052
+export AGENTANYCAST_REGISTRY_ADDRS=<registry-host>:50052
 ```
 
 Relay/bootstrap and skill registry are separate: `agency.relay` connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS` enables anycast skill discovery.
@@ -108,20 +108,22 @@ Relay/bootstrap and skill registry are separate: `agency.relay` connects libp2p;
 
 | Tool | Description |
 |------|-------------|
-| `a2a_info` | Show plugin/SDK/card/node status; use `compact: true` for health checks |
-| `a2a_start_node` | Start this profile's P2P node |
-| `a2a_stop_node` | Stop the node cleanly |
-| `a2a_list_peers` | List connected P2P peers |
-| `a2a_discover` | Find agents by skill through anycast routing |
-| `a2a_send` | Send a task to a `peer_id` or skill and optionally wait for completion |
-| `a2a_status` | Check latest tracked status/artifacts for a sent task |
-| `a2a_inbox` | Inspect recent incoming tasks |
-| `a2a_registry` | List live self-registration records |
-| `a2a_bid_task` | Record/simulate bids and optionally assign the best bidder |
-| `a2a_execute_workflow` | Create dependency-linked Kanban tasks from configured workflows |
-| `a2a_create_proactive_task` | Create proactive tasks when enabled |
-| `a2a_check_autonomy` | Check autonomy policy for a proposed action |
-| `a2a_log_routing_correction` | Record routing-correction feedback when learning is enabled |
+| `agency_info` | Show plugin/SDK/card/node status; use `compact: true` for health checks |
+| `agency_start_node` | Start this profile's P2P node |
+| `agency_stop_node` | Stop the node cleanly |
+| `agency_list_peers` | List connected P2P peers |
+| `agency_discover` | Find agents by skill through anycast routing |
+| `agency_send` | Send a task to a `peer_id` or skill and optionally wait for completion |
+| `agency_status` | Check latest tracked status/artifacts for a sent task |
+| `agency_inbox` | Inspect recent incoming tasks |
+| `agency_registry` | List live self-registration records |
+| `agency_bid_task` | Record/simulate bids and optionally assign the best bidder |
+| `agency_execute_workflow` | Create dependency-linked Kanban tasks from configured workflows |
+| `agency_create_proactive_task` | Create proactive tasks when enabled |
+| `agency_check_autonomy` | Check autonomy policy for a proposed action |
+| `agency_log_routing_correction` | Record routing-correction feedback when learning is enabled |
+
+The legacy `a2a_*` tool names are still registered as deprecated aliases for protocol/backward compatibility. New prompts and docs should use `agency_*` names.
 
 Orchestrator-only tools are exposed only for the promoted/configured orchestrator profile:
 
@@ -139,6 +141,8 @@ hermes agency start
 hermes agency stop
 hermes agency discover <skill>
 hermes agency registry
+hermes agency doctor
+hermes agency doctor --json
 hermes agency promote <profile>
 hermes agency demote <profile>
 ```
@@ -151,6 +155,7 @@ In a Hermes session:
 /agency stop
 /agency discover <skill>
 /agency registry
+/agency doctor
 ```
 
 ## Security Model
@@ -175,7 +180,7 @@ Hermes profile
     ├── config.py        → profile-safe config resolver
     ├── card_builder.py  → AgentCard builder with secret-safe metadata
     ├── node_manager.py  → daemon/node lifecycle, incoming queue, registry refresh
-    ├── tools.py         → a2a_* model tools
+    ├── tools.py         → agency_* model tools; a2a_* deprecated compatibility aliases
     ├── orchestrator.py  → orch_* model tools
     └── *_bridge.py      → Kanban/team/context helpers
 ```
@@ -187,6 +192,8 @@ Each profile gets its own daemon home:
 ```
 
 ## Validation
+
+See [`docs/troubleshooting.md`](../docs/troubleshooting.md) for symptom → cause → fix guidance for daemon, discovery, relay, registry, trust, and auto-start issues.
 
 From repo root, after installing dev dependencies with `python -m pip install -e ".[dev]"`:
 

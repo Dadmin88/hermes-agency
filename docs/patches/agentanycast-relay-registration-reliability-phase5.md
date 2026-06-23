@@ -93,14 +93,14 @@ Result:
 The active gpt profile plugin path is the source file itself:
 
 ```text
-/home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/tools.py -> /home/kyle/src/hermes-agentanycast/hermes-agency/tools.py
+~/.hermes/profiles/<profile>/plugins/hermes-agency/tools.py -> ~/src/hermes-agentanycast/hermes-agency/tools.py
 ```
 
 Runtime syntax check:
 
 ```bash
-/home/kyle/.hermes/profiles/gpt/hermes-agent/venv/bin/python3 -m py_compile \
-  /home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/tools.py
+~/.hermes/profiles/<profile>/hermes-agent/venv/bin/python3 -m py_compile \
+  ~/.hermes/profiles/<profile>/plugins/hermes-agency/tools.py
 ```
 
 Result: passed.

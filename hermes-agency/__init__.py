@@ -62,7 +62,7 @@ if __package__:
             name="agency",
             handler=handle_agency_slash,
             description="Manage the Hermes Agency P2P node",
-            args_hint="[status|start|stop|discover <skill>|promote <agent>|demote <agent>|registry]",
+            args_hint="[status|start|stop|discover <skill>|doctor|promote <agent>|demote <agent>|registry]",
         )
 
         cfg = get_config()

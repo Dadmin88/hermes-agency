@@ -606,10 +606,10 @@ def build_team_context(config: AgencyConfig | None = None) -> str:
     if total_omitted > 0:
         lines.append(
             f"{total_omitted} more teammate agent(s) omitted from this compact prompt context. "
-            "Use a2a_discover for the full live directory."
+            "Use agency_discover for the full live directory."
         )
     lines.append(
-        "To delegate directly, call a2a_send with the target peer_id and a clear task message. "
+        "To delegate directly, call agency_send with the target peer_id and a clear task message. "
         "The Hermes Agency plugin will wrap the message in a structured context packet automatically."
     )
     return _enforce_context_budget("\n".join(lines), max_chars)

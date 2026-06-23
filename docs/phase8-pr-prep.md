@@ -1,6 +1,6 @@
 # Hermes Agency Hermes Plugin — Phase 8 PR-Prep Notes
 
-> Status: testing only. Do **not** open PRs from this work unless Kyle explicitly asks.
+> Status: testing only. Do **not** open PRs from this work without explicit maintainer approval.
 
 ## Phase 8 goal
 
@@ -164,10 +164,10 @@ Manual/live validation also exercised local and cross-network A2A task completio
 
 ## Remaining blockers before any upstream PR
 
-- Convert standalone e2e scripts away from Kyle-specific profile/relay assumptions.
+- Convert standalone e2e scripts away from developer-specific profile/relay assumptions.
 - Decide plugin code license/dual-license story for Hermes MIT upstream.
 - Decide dependency packaging: optional extra vs bundled plugin dependency metadata.
 - Add or adapt Hermes-core tests if moving from user plugin to bundled plugin.
 - Re-run a clean fresh-venv install + `pip check` before proposing upstream.
 - Run the exact upstream Hermes lint/format target after the bundled-plugin layout is chosen; current Phase 8 validation proves syntax plus `ruff --select F`, but full line-length/style cleanup may still be required by upstream CI.
-- Get Kyle's explicit instruction before opening any PR.
+- Get explicit maintainer approval before opening any PR.

@@ -76,9 +76,9 @@ This lets the external VPS-local watchdog inspect the running wrapper's live sta
 
 Files installed locally:
 
-- `/home/kyle/.local/bin/agency-outside-in-watchdog.py`
-- `/home/kyle/.config/systemd/user/agency-outside-in-watchdog.service`
-- `/home/kyle/.config/systemd/user/agency-outside-in-watchdog.timer`
+- `~/.local/bin/agency-outside-in-watchdog.py`
+- `~/.config/systemd/user/agency-outside-in-watchdog.service`
+- `~/.config/systemd/user/agency-outside-in-watchdog.timer`
 
 Timer schedule:
 
@@ -88,7 +88,7 @@ Timer schedule:
 The outside-in watchdog uses an isolated SDK home:
 
 ```text
-/home/kyle/.cache/agency-outside-in-watchdog
+~/.cache/agency-outside-in-watchdog
 ```
 
 This avoids colliding with profile-owned daemon sockets for Katana or gpt.
@@ -152,4 +152,4 @@ Notes:
 - Katana/gpt profile daemons were not restarted.
 - The local systemd timer runs an isolated SDK node for outside-in checks and cleans it up; it does not use the Katana or gpt daemon sockets.
 - The VPS timer is active and will repair local relay/node failures that are visible from service/process/health-file state.
-- The outside-in timer is active and proves the higher-level condition Kyle actually cares about: another machine can discover Hermes VPS and receive a completed task response.
+- The outside-in timer is active and proves the higher-level condition: another machine can discover Hermes VPS and receive a completed task response.

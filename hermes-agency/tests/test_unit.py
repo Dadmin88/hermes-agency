@@ -94,6 +94,8 @@ def plugin_modules(tmp_path, monkeypatch):
         "task_processor",
         "node_manager",
         "tools",
+        "doctor",
+        "cli",
     ):
         full_name = f"hermes_plugin.{module_name}"
         spec = importlib.util.spec_from_file_location(full_name, PLUGIN_DIR / f"{module_name}.py")
@@ -1612,6 +1614,163 @@ def test_a2a_info_handles_unavailable_sdk(plugin_modules, monkeypatch):
     assert data["card"] is None
     assert data["card_error"] is None
     assert data["node"] == {"started": False}
+
+
+def test_agency_tool_aliases_match_a2a_handlers(plugin_modules, monkeypatch):
+    tools = plugin_modules.tools
+    compact = {"node_started": False}
+    monkeypatch.setattr(tools.manager, "compact_info", lambda: compact)
+
+    agency_data = json.loads(tools.agency_send({"peer_id": "peer"}))
+    a2a_data = json.loads(tools.a2a_send({"peer_id": "peer"}))
+
+    assert (
+        agency_data
+        == a2a_data
+        == {
+            "ok": False,
+            "error": "message is required",
+            "node": compact,
+        }
+    )
+
+
+def test_a2a_deprecated_alias_warns_only_when_verbose(plugin_modules, monkeypatch, caplog):
+    tools = plugin_modules.tools
+    monkeypatch.setattr(tools.manager, "compact_info", lambda: {"node_started": False})
+
+    json.loads(tools.a2a_send({"peer_id": "peer"}))
+    assert "deprecated" not in caplog.text.lower()
+
+    caplog.clear()
+    json.loads(tools.a2a_send({"peer_id": "peer", "verbose": True}))
+    assert "a2a_send is deprecated; use agency_send" in caplog.text
+
+
+def test_registered_tools_include_agency_primary_and_deprecated_a2a_aliases(
+    plugin_modules, monkeypatch
+):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(enabled=True, auto_start=False),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: None)
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    tool_names = [tool["name"] for tool in ctx.tools]
+    assert "agency_send" in tool_names
+    assert "agency_status" in tool_names
+    assert "agency_info" in tool_names
+    assert "a2a_send" in tool_names
+    assert tool_names.index("agency_send") < tool_names.index("a2a_send")
+    send_schema = next(tool["schema"] for tool in ctx.tools if tool["name"] == "agency_send")
+    assert send_schema["function"]["name"] == "agency_send"
+    assert "Hermes Agency" in send_schema["function"]["description"]
+
+
+def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    daemon = tmp_path / "agentanycastd"
+    daemon.write_text("#!/bin/sh\n", encoding="utf-8")
+    daemon.chmod(0o755)
+    trust_store = tmp_path / "trust.json"
+    trust_store.write_text(
+        '{"version":1,"peers":{"peer-1":{"trust_level":"full"}}}', encoding="utf-8"
+    )
+    cfg = cfg_mod.AgencyConfig(
+        enabled=True,
+        auto_start=True,
+        allow_remote_tasks=True,
+        daemon_bin=daemon,
+        relay="https://relay-control.example.invalid",
+        trust=cfg_mod.TrustConfig(store_path=trust_store, tofu=True),
+        relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-1",), allow_all=False),
+        incoming=cfg_mod.IncomingConfig(mode="delegation", allow_subprocess=False),
+    )
+    monkeypatch.setattr(doctor, "get_config", lambda: cfg)
+    monkeypatch.setattr(doctor, "get_hermes_home", lambda: plugin_modules.hermes_home)
+    monkeypatch.setattr(doctor, "check_agency_available", lambda: True)
+    monkeypatch.setattr(doctor, "build_card", lambda: object())
+    monkeypatch.setattr(doctor, "card_to_dict", lambda _card: {"name": "Test", "skills": []})
+    monkeypatch.setattr(doctor.manager, "compact_info", lambda: {"ok": True, "started": True})
+    monkeypatch.setattr(doctor, "_registry_addresses", lambda: ["registry.example.invalid:50052"])
+    monkeypatch.setattr(doctor, "_kanban_available", lambda: True)
+    monkeypatch.setattr(
+        doctor, "_editable_install_state", lambda: ("pass", "editable install detected")
+    )
+    monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
+
+    report = doctor.run_doctor()
+    payload = json.loads(doctor.render_doctor_report(report, json_output=True))
+
+    assert report.exit_code == 0
+    assert payload["exit_code"] == 0
+    assert all(check["status"] == "pass" for check in payload["checks"])
+    assert [check["id"] for check in payload["checks"]][:3] == [
+        "plugin_load",
+        "profile_path",
+        "config_file",
+    ]
+
+
+def test_doctor_missing_daemon_reports_actionable_fix(plugin_modules, monkeypatch, tmp_path):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(daemon_bin=tmp_path / "missing-agentanycastd")
+    monkeypatch.setattr(doctor, "get_config", lambda: cfg)
+    monkeypatch.setattr(doctor, "get_hermes_home", lambda: plugin_modules.hermes_home)
+    monkeypatch.setattr(doctor, "check_agency_available", lambda: True)
+    monkeypatch.setattr(doctor.manager, "compact_info", lambda: {"ok": False, "started": False})
+    monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
+
+    report = doctor.run_doctor()
+    daemon_check = next(check for check in report.checks if check.id == "daemon_binary")
+
+    assert report.exit_code == 2
+    assert daemon_check.status == "fail"
+    assert "Set agency.daemon_bin or install the daemon" in daemon_check.remediation
+
+
+def test_doctor_insecure_relay_warns(plugin_modules, monkeypatch):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(relay="http://relay.example.invalid/control")
+    monkeypatch.setattr(doctor, "get_config", lambda: cfg)
+    monkeypatch.setattr(doctor, "get_hermes_home", lambda: plugin_modules.hermes_home)
+    monkeypatch.setattr(doctor, "check_agency_available", lambda: True)
+    monkeypatch.setattr(doctor.manager, "compact_info", lambda: {"ok": False, "started": False})
+    monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
+
+    report = doctor.run_doctor()
+    relay_check = next(check for check in report.checks if check.id == "relay_config")
+
+    assert report.exit_code == 2
+    assert relay_check.status == "fail"
+    assert relay_check.remediation == "Use HTTPS or localhost for relay control"
+
+
+def test_doctor_sdk_missing_still_runs(plugin_modules, monkeypatch):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    monkeypatch.setattr(doctor, "get_config", lambda: cfg_mod.AgencyConfig())
+    monkeypatch.setattr(doctor, "get_hermes_home", lambda: plugin_modules.hermes_home)
+    monkeypatch.setattr(doctor, "check_agency_available", lambda: False)
+    monkeypatch.setattr(doctor.manager, "compact_info", lambda: {"ok": False, "started": False})
+    monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
+
+    payload = json.loads(doctor.render_doctor_report(doctor.run_doctor(), json_output=True))
+    sdk_check = next(check for check in payload["checks"] if check["id"] == "sdk_dependency")
+
+    assert payload["exit_code"] == 2
+    assert sdk_check["status"] == "fail"
+    assert "agentanycast" in sdk_check["message"]
 
 
 def _load_plugin_package_module(monkeypatch):

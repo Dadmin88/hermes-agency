@@ -5,8 +5,8 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 ## Current status
 
 - This plugin is still in local testing / PR-prep mode.
-- Do **not** open pull requests from this checkout unless Kyle explicitly asks.
-- Keep changes profile-safe: do not depend on Kyle's real `~/.hermes` homes, real peer IDs, the VPS relay, Discord channels, or local daemon sockets in tests that should run in CI.
+- Do **not** open pull requests from this checkout without explicit maintainer approval.
+- Keep changes profile-safe: do not depend on real `~/.hermes` homes, real peer IDs, private relays, messaging channels, or local daemon sockets in tests that should run in CI.
 
 ## Plugin shape
 
@@ -14,7 +14,7 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 - `__init__.py` registers the `/agency` slash command, `hermes agency` CLI command, model tools, and lifecycle hooks.
 - `card_builder.py` builds an AgentCard from profile `SOUL.md`, installed `skills/**/SKILL.md`, and a strict non-secret config allowlist.
 - `node_manager.py` owns the async Hermes Agency SDK node, daemon lifecycle, incoming task queue, compact health, registry refresh, and Kanban reconciliation.
-- `tools.py` exposes the core `a2a_*` tools.
+- `tools.py` exposes primary `agency_*` tools and deprecated `a2a_*` compatibility aliases.
 - `orchestrator.py` exposes `orch_*` tools only for the promoted/configured orchestrator profile.
 - `autonomous_tools.py` exposes registry, bidding, workflow, proactive, autonomy, and learning helpers.
 
@@ -29,7 +29,7 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 - Never expose API keys, tokens, Discord channel IDs, raw env vars, daemon paths, or local profile paths in AgentCards.
 - Treat relay configuration and anycast registry configuration as separate concerns: relay/bootstrap connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
 - Always transition incoming tasks through `WORKING` before `COMPLETED`; daemon builds reject direct `SUBMITTED -> COMPLETED`.
-- Keep routine model-tool responses compact. Use full `a2a_info` only for troubleshooting; health checks should call `a2a_info({"compact": true})` or `NodeManager.compact_info()`.
+- Keep routine model-tool responses compact. Use full `agency_info` only for troubleshooting; health checks should call `agency_info({"compact": true})` or `NodeManager.compact_info()`.
 
 ## Test expectations
 

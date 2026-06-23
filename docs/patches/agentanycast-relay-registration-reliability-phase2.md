@@ -25,7 +25,7 @@ Status:
 
 ### gpt profile
 
-- Plugin path: `/home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/node_manager.py`
+- Plugin path: `~/.hermes/profiles/<profile>/plugins/hermes-agency/node_manager.py`
 
 Status:
 
@@ -34,7 +34,7 @@ Status:
 
 ### Katana profile
 
-- Plugin path: `/home/kyle/.hermes/profiles/katana/plugins/hermes-agency/node_manager.py`
+- Plugin path: `~/.hermes/profiles/<profile>/plugins/hermes-agency/node_manager.py`
 
 Status:
 

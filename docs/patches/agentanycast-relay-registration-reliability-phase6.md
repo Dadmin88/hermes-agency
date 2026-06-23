@@ -103,16 +103,16 @@ Result:
 The active gpt plugin path resolves to the source tree, so source changes are already visible for future fresh Hermes plugin loads:
 
 ```text
-/home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/config.py
-/home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/team_context.py
+~/.hermes/profiles/<profile>/plugins/hermes-agency/config.py
+~/.hermes/profiles/<profile>/plugins/hermes-agency/team_context.py
 ```
 
 Runtime syntax check passed:
 
 ```bash
-/home/kyle/.hermes/profiles/gpt/hermes-agent/venv/bin/python3 -m py_compile \
-  /home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/config.py \
-  /home/kyle/.hermes/profiles/gpt/plugins/hermes-agency/team_context.py
+~/.hermes/profiles/<profile>/hermes-agent/venv/bin/python3 -m py_compile \
+  ~/.hermes/profiles/<profile>/plugins/hermes-agency/config.py \
+  ~/.hermes/profiles/<profile>/plugins/hermes-agency/team_context.py
 ```
 
 ### VPS profile
