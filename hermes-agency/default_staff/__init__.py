@@ -33,7 +33,7 @@ except Exception:  # pragma: no cover
 
 def _plugin_root() -> Path:
     """Return the hermes-agency plugin directory (contains __init__.py)."""
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().parent.parent
 
 
 def default_staff_dir() -> Path | None:
