@@ -64,7 +64,7 @@ class TeamDiscoveryMixin:
                 continue
             trust_level = str(trust_record.get("trust_level") or "").strip().lower()
             handshake_status = str(trust_record.get("handshake_status") or "").strip().lower()
-            if trust_level in {"limited", "full"} and handshake_status in {"sent", "accepted"}:
+            if trust_level == "full" or (trust_level == "limited" and handshake_status in {"sent", "accepted"}):
                 seen.add(clean)
                 allowlist.append(clean)
         if cfg.relay_security.auto_allow_team:
