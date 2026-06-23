@@ -3,54 +3,33 @@
 Hermes Agency Pool CLI
 hermes agency pool <command>
 """
-
-import argparse
+import sys
 import requests
 from manager import PoolManager
 
 pm = PoolManager()
 BASE = f"http://localhost:{pm.config['pool']['port']}"
 
-def status():
-    try:
-        r = requests.get(f"{BASE}/pool/status")
-        print(r.json())
-    except:
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: hermes agency pool [status|list|wake|sleep|find]")
+        return
+
+    cmd = sys.argv[1]
+    if cmd == "status":
         print(pm.get_status())
-
-def list_agents():
-    try:
-        r = requests.get(f"{BASE}/pool/agents")
-        print(r.json())
-    except:
-        print("Active:", list(pm.active_agents.keys()))
-
-def wake(agent):
-    r = requests.post(f"{BASE}/pool/agents/{agent}/wake")
-    print(r.json())
-
-def sleep(agent):
-    r = requests.post(f"{BASE}/pool/agents/{agent}/sleep")
-    print(r.json())
-
-def find(skill):
-    matches = [name for name, data in pm.registry.items() 
-               if skill.lower() in str(data.get("skills", [])).lower()]
-    print(matches[:10])
+    elif cmd == "list":
+        print(list(pm.registry["agents"].keys()))
+    elif cmd == "wake" and len(sys.argv) > 2:
+        print(pm.wake_agent(sys.argv[2]))
+    elif cmd == "sleep" and len(sys.argv) > 2:
+        print(pm.sleep_agent(sys.argv[2]))
+    elif cmd == "find" and len(sys.argv) > 2:
+        skill = sys.argv[2]
+        matches = [n for n, a in pm.registry["agents"].items() if skill.lower() in str(a.get("skills", [])).lower()]
+        print(matches)
+    else:
+        print("Unknown command")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("status")
-    sub.add_parser("list")
-    p = sub.add_parser("wake"); p.add_argument("agent")
-    p = sub.add_parser("sleep"); p.add_argument("agent")
-    p = sub.add_parser("find"); p.add_argument("skill")
-    args = parser.parse_args()
-    
-    if args.cmd == "status": status()
-    elif args.cmd == "list": list_agents()
-    elif args.cmd == "wake": wake(args.agent)
-    elif args.cmd == "sleep": sleep(args.agent)
-    elif args.cmd == "find": find(args.skill)
-    else: parser.print_help()
+    main()
