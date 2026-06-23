@@ -52,9 +52,9 @@ Config schema and defaults::
         announce_progress: false
         context_refresh_minutes: 5
         context_filter: agency-only # agency-only or all; agency-only hides personal profiles
-        max_context_peers: 5      # max peers included in injected prompt context
-        max_context_skills: 5     # max skills shown per peer in injected context
-        context_max_chars: 4000   # hard character budget for injected context block
+        max_context_peers: 100    # max peers included in injected prompt context
+        max_context_skills: 8     # max skills shown per peer in injected context
+        context_max_chars: 20000  # hard character budget for injected context block
       orchestrator:
         enabled: false
         agent: null
@@ -123,9 +123,9 @@ class TeamConfig:
     tenant: str = "default"
     context_refresh_minutes: int = 5
     context_filter: str = "all"
-    max_context_peers: int = 5
-    max_context_skills: int = 5
-    context_max_chars: int = 4000
+    max_context_peers: int = 100
+    max_context_skills: int = 8
+    context_max_chars: int = 20000
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -483,21 +483,21 @@ def _team_config(config: dict[str, Any]) -> TeamConfig:
             "agency",
             "team",
             "max_context_peers",
-            default=5,
+            default=100,
         ),
         max_context_skills=_int_cfg(
             config,
             "agency",
             "team",
             "max_context_skills",
-            default=5,
+            default=8,
         ),
         context_max_chars=_int_cfg(
             config,
             "agency",
             "team",
             "context_max_chars",
-            default=4000,
+            default=20000,
             floor=240,
         ),
     )

@@ -17,6 +17,28 @@ from .config import AgencyConfig, get_config
 from .registration import live_registrations
 
 
+def _load_pool_roster() -> dict[str, Any]:
+    """Best-effort load of the persistent agency-* roster."""
+
+    try:
+        from .pool.roster import build_roster, save_roster
+
+        return save_roster(build_roster(include_plugin_setup=False))
+    except Exception:
+        return {"profiles": [], "total": 0, "online": 0}
+
+
+def _update_pool_roster_from_discovery(peers: dict[str, PeerCapability]) -> None:
+    """Persist live discovery overlay without making discovery depend on roster I/O."""
+
+    try:
+        from .pool.roster import update_roster_from_discovery
+
+        update_roster_from_discovery({peer_id: peer.as_dict() for peer_id, peer in peers.items()})
+    except Exception:
+        return
+
+
 @dataclass
 class PeerCapability:
     """Normalized capability record for one discovered A2A peer."""
@@ -305,9 +327,19 @@ def visible_team_state(config: AgencyConfig | None = None) -> dict[str, Any]:
 
 
 def visible_team_peer_count(config: AgencyConfig | None = None) -> int:
-    """Return the number of peers visible after team-context filtering."""
+    """Return the number of teammates visible after team-context filtering."""
 
-    return len(visible_team_state(config).get("peers") or {})
+    cfg = config or get_config()
+    if team_context_filter(cfg) == "agency-only":
+        roster = _load_pool_roster()
+        return len(
+            [
+                agent
+                for agent in roster.get("profiles", [])
+                if str(agent.get("name") or "").startswith("agency-")
+            ]
+        )
+    return len(visible_team_state(cfg).get("peers") or {})
 
 
 def _display_description(peer: PeerCapability, registration: dict[str, Any] | None = None) -> str:
@@ -341,9 +373,9 @@ def _format_skill(skill: dict[str, str]) -> str:
 
 def _team_context_limits(cfg: AgencyConfig) -> tuple[int, int, int]:
     return (
-        max(1, int(getattr(cfg.team, "max_context_peers", 5) or 5)),
-        max(1, int(getattr(cfg.team, "max_context_skills", 5) or 5)),
-        max(240, int(getattr(cfg.team, "context_max_chars", 4000) or 4000)),
+        max(1, int(getattr(cfg.team, "max_context_peers", 100) or 100)),
+        max(1, int(getattr(cfg.team, "max_context_skills", 8) or 8)),
+        max(240, int(getattr(cfg.team, "context_max_chars", 20000) or 20000)),
     )
 
 
@@ -475,6 +507,7 @@ async def refresh_capability_map(
     _state.last_refresh = time.time()
     _state.last_error = "; ".join(errors) if errors and not discovered else None
     _state.refresh_count += 1
+    _update_pool_roster_from_discovery(_state.peers)
     return _state.peers
 
 
@@ -578,6 +611,57 @@ def _render_peer(
     return lines
 
 
+def _format_last_seen(timestamp: Any) -> str:
+    try:
+        seconds = max(0, time.time() - float(timestamp))
+    except (TypeError, ValueError):
+        return "never"
+    if seconds < 60:
+        return "just now"
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = int(minutes // 60)
+    if hours < 48:
+        return f"{hours}h ago"
+    return f"{int(hours // 24)}d ago"
+
+
+def _render_roster_agent(agent: dict[str, Any], max_skills: int) -> list[str]:
+    """Render a persistent roster entry with online/offline status."""
+
+    skills = [str(skill) for skill in agent.get("skills") or [] if str(skill).strip()]
+    status = "ONLINE" if agent.get("online") else "OFFLINE"
+    skill_text = ", ".join(skills[:max_skills]) or "unknown"
+    omitted_skills = len(skills) - max_skills
+    if omitted_skills > 0:
+        skill_text = f"{skill_text}, … (+{omitted_skills} more)"
+    line = f"- {agent.get('name')} — skills: {skill_text} [{status}]"
+    if agent.get("online") and agent.get("peer_id"):
+        line += f" peer_id: {agent['peer_id']}"
+    elif agent.get("last_seen"):
+        line += f" last_seen: {_format_last_seen(agent.get('last_seen'))}"
+    else:
+        line += " last_seen: never"
+
+    lines = [line]
+    description = str(agent.get("description") or "").strip()
+    if description:
+        lines.append(f"  Description: {description}")
+    if agent.get("model") or agent.get("provider"):
+        lines.append(
+            f"  model/provider: {agent.get('model') or 'unknown'} / {agent.get('provider') or 'unknown'}"
+        )
+    if agent.get("last_wake_attempt_at"):
+        wake = _format_last_seen(agent.get("last_wake_attempt_at"))
+        wake_count = int(agent.get("wake_attempt_count") or 0)
+        wake_text = f"  wake attempts: {wake_count}; last_attempt: {wake}"
+        if agent.get("last_wake_error"):
+            wake_text += f"; last_error: {agent.get('last_wake_error')}"
+        lines.append(wake_text)
+    return lines
+
+
 def build_team_context(config: AgencyConfig | None = None) -> str:
     """Build the prompt block that tells an agent about available teammates.
 
@@ -634,20 +718,37 @@ def build_team_context(config: AgencyConfig | None = None) -> str:
         return section_lines
 
     if filter_mode == "agency-only":
-        agency_peers = sorted(visible_peers, key=sort_key)
-        lines.append("Teammate agents:")
-        if not agency_peers:
-            lines.append("No agency teammates currently discoverable.")
+        roster = _load_pool_roster()
+        roster_agents = sorted(
+            [
+                agent
+                for agent in roster.get("profiles", [])
+                if str(agent.get("name", "")).startswith("agency-")
+            ],
+            key=lambda item: str(item.get("name") or "").lower(),
+        )
+        lines.append(
+            f"Registered agency roster: {roster.get('online', 0)}/{roster.get('total', len(roster_agents))} online"
+        )
+        lines.append(
+            "Use skill fit first when delegating. Offline agents are still valid targets: "
+            "agency_pool_send/orchestrator routing will attempt wake and persistently queue if wake fails."
+        )
+        if not roster_agents:
+            # The static registry should normally prevent this branch; keep a
+            # diagnostic instead of the old misleading "no teammates" message.
+            lines.append(
+                "Roster registry unavailable; no agency-* agents loaded from registry_definition.json."
+            )
         else:
-            shown = agency_peers[:max_peers]
-            for peer in shown:
-                registration = registered_by_peer.get(peer.peer_id)
-                lines.extend(_render_peer(peer, registration, max_skills))
-            omitted = len(agency_peers) - len(shown)
+            shown = roster_agents[:max_peers]
+            for agent in shown:
+                lines.extend(_render_roster_agent(agent, max_skills))
+            omitted = len(roster_agents) - len(shown)
             if omitted > 0:
                 lines.append(
-                    f"{omitted} more agency teammate agent(s) omitted from this compact prompt "
-                    "context. Use agency_discover for the full live directory."
+                    f"{omitted} more registered agency teammate agent(s) omitted by context budget. "
+                    "Use agency_roster for the full persistent roster."
                 )
     else:
         pool_peers: list[PeerCapability] = []

@@ -4,6 +4,7 @@ Hermes Agency Pool Manager
 Handles wake/sleep for agency-* profiles only. Direct NodeManager integration.
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -15,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-REGISTRY_DEF = Path("/home/dadmin/Hermes_Agency/hermes-agency/pool/registry_definition.json")
+REGISTRY_DEF = Path(__file__).with_name("registry_definition.json")
 AGENCY_CONFIG = Path("/home/dadmin/.hermes/agency/config.yaml")
 PROFILES_DIR = Path("/home/dadmin/.hermes/profiles")
 PLUGIN_PATH = Path("/home/dadmin/.hermes/plugins/hermes-agency")
@@ -81,6 +82,52 @@ class PoolManager:
             with open(REGISTRY_DEF) as f:
                 return json.load(f)
         return {"agents": []}
+
+    def _roster_module(self):
+        """Load pool.roster in package and direct-script execution modes."""
+
+        try:
+            from . import roster
+
+            return roster
+        except ImportError:
+            module_path = Path(__file__).with_name("roster.py")
+            spec = importlib.util.spec_from_file_location("hermes_agency_pool_roster", module_path)
+            if spec is None or spec.loader is None:
+                raise
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+    def _record_roster_wake(
+        self,
+        name: str,
+        *,
+        success: bool,
+        peer_id: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        try:
+            self._roster_module().record_wake_attempt(
+                name, success=success, peer_id=peer_id, error=error
+            )
+        except Exception as exc:
+            print(f"[PoolManager] roster wake update warning for {name}: {exc}")
+
+    def _record_roster_status(
+        self,
+        name: str,
+        *,
+        online: bool,
+        peer_id: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        try:
+            self._roster_module().update_agent_status(
+                name, online=online, peer_id=peer_id, error=error
+            )
+        except Exception as exc:
+            print(f"[PoolManager] roster status update warning for {name}: {exc}")
 
     def _get_model(self, name):
         models = self.config.get("models", {})
@@ -330,6 +377,7 @@ class PoolManager:
                 proc = existing.get("proc")
                 if proc is None or proc.poll() is None:
                     existing["last_active"] = datetime.now()
+                    self._record_roster_status(name, online=True, peer_id=existing.get("peer_id"))
                     return existing["peer_id"]
                 print(f"[PoolManager] Removing stale process for {name}")
                 del self.active[name]
@@ -375,10 +423,13 @@ class PoolManager:
                     if not peer_id:
                         agency_files = self._check_agency_files(name)
                         details = runner_output or cli_output or "no output"
-                        raise RuntimeError(
+                        error = (
                             f"Unable to determine real peer_id for {name}. "
-                            f"agency_files={agency_files}; key_files={key_files}; log_path={log_path}; output={details[:1000]}"
+                            f"agency_files={agency_files}; key_files={key_files}; "
+                            f"log_path={log_path}; output={details[:1000]}"
                         )
+                        self._record_roster_wake(name, success=False, error=error)
+                        raise RuntimeError(error)
 
             self.active[name] = {
                 "peer_id": peer_id,
@@ -390,6 +441,7 @@ class PoolManager:
                 a for a in self.registry.get("agents", []) if a["name"] != name
             ]
             print(f"[PoolManager] Woke {name} with peer_id {peer_id} (persistent={persistent})")
+            self._record_roster_wake(name, success=True, peer_id=peer_id)
             return peer_id
 
     def sleep(self, name):
@@ -419,6 +471,7 @@ class PoolManager:
                         f"[PoolManager] CLI stop unavailable/failed for {name}; removing from active registry only"
                     )
             del self.active[name]
+            self._record_roster_status(name, online=False)
             print(f"[PoolManager] Slept {name}")
             return True
 

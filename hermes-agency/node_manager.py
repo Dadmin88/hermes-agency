@@ -268,6 +268,31 @@ class NodeManager(
         self.state = NodeState()
         atexit.register(self._atexit_stop)
 
+    def _update_pool_roster_status(self, *, online: bool, error: str | None = None) -> None:
+        """Best-effort roster overlay update for profile start/stop events."""
+
+        try:
+            from .pool.roster import update_agent_status
+
+            update_agent_status(
+                current_profile_name(), online=online, peer_id=self.state.peer_id, error=error
+            )
+        except Exception:
+            return
+
+    def start_sync(self, timeout: float = 120) -> Any:
+        state = super().start_sync(timeout=timeout)
+        self._update_pool_roster_status(
+            online=bool(getattr(state, "started", False) and not getattr(state, "error", None)),
+            error=getattr(state, "error", None),
+        )
+        return state
+
+    def stop_sync(self, timeout: float = 60) -> Any:
+        state = super().stop_sync(timeout=timeout)
+        self._update_pool_roster_status(online=False, error=getattr(state, "error", None))
+        return state
+
     # ------------------------------------------------------------------
     # Dedicated event loop plumbing
     # ------------------------------------------------------------------

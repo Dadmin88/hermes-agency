@@ -659,12 +659,17 @@ def pool_roster(args: dict[str, Any] | None = None, **_: Any) -> str:
         profiles = [p for p in profiles if p["online"]]
     lines = [f"Pool roster: {roster['online']}/{roster['total']} online"]
     for p in profiles:
-        icon = "🟢" if p["online"] else "⚫"
+        status = "ONLINE" if p["online"] else "OFFLINE"
         skills = ", ".join(p.get("skills", [])[:5])
         cnt = p.get("skill_count", 0)
         if cnt > 5:
             skills += f" +{cnt - 5}"
-        lines.append(f"  {icon} {p['name']} — {skills}")
+        line = f"  {p['name']} — skills: {skills} [{status}]"
+        if p.get("online") and p.get("peer_id"):
+            line += f" peer_id: {p['peer_id']}"
+        elif p.get("last_seen"):
+            line += f" last_seen: {p['last_seen']}"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -741,7 +746,7 @@ POOL_TOOLS = (
         "agency_pool_send",
         _pool_schema(
             "agency_pool_send",
-            "Send work to an agency agent. Auto-wakes if offline. Returns peer_id for a2a_send.",
+            "Send work to an agency agent. Auto-wakes if offline and persistently queues if wake/send fails.",
             {
                 "type": "object",
                 "properties": {"name": {"type": "string"}, "message": {"type": "string"}},

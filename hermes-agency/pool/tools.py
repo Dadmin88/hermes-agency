@@ -12,8 +12,18 @@ from __future__ import annotations
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
-from .roster import build_roster, ensure_profile_plugins, find_agent, load_roster, save_roster
+from .roster import (
+    build_roster,
+    ensure_profile_plugins,
+    find_agent,
+    load_roster,
+    queue_offline_task,
+    record_wake_attempt,
+    save_roster,
+    update_agent_status,
+)
 
 PROFILES = Path.home() / ".hermes" / "profiles"
 RELAY = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWGE3zmqw2FJTyuNGAzSNCUxSNSeMvCtocULczXfX9Y8nK"
@@ -41,11 +51,16 @@ def pool_roster(query: str = "", show_offline: bool = True) -> str:
 
     lines = [f"Agency roster: {roster['online']}/{roster['total']} online"]
     for p in profiles:
-        status = "🟢" if p["online"] else "⚫"
+        status = "ONLINE" if p["online"] else "OFFLINE"
         skills_str = ", ".join(p.get("skills", [])[:5])
         if p.get("skill_count", 0) > 5:
             skills_str += f" +{p['skill_count'] - 5}"
-        lines.append(f"  {status} {p['name']} — {skills_str}")
+        line = f"  {p['name']} — skills: {skills_str} [{status}]"
+        if p.get("online") and p.get("peer_id"):
+            line += f" peer_id: {p['peer_id']}"
+        elif p.get("last_seen"):
+            line += f" last_seen: {p['last_seen']}"
+        lines.append(line)
 
     return "\n".join(lines)
 
@@ -57,6 +72,7 @@ def pool_wake(name: str) -> str:
 
     profile_dir = PROFILES / name
     if not profile_dir.exists():
+        record_wake_attempt(name, success=False, error=f"profile {name} not found")
         return f"Error: profile {name} not found"
 
     setup = ensure_profile_plugins()
@@ -71,6 +87,9 @@ def pool_wake(name: str) -> str:
     if sock.exists():
         # Refresh roster
         save_roster(build_roster())
+        agent = find_agent(name)
+        peer_id = agent.get("peer_id") if agent else None
+        update_agent_status(name, online=True, peer_id=peer_id)
         return f"{name} is already online"
 
     # Ensure binary
@@ -83,6 +102,7 @@ def pool_wake(name: str) -> str:
         bin_path.chmod(0o755)
 
     if not bin_path.exists():
+        record_wake_attempt(name, success=False, error=f"no daemon binary for {name}")
         return f"Error: no daemon binary for {name}"
 
     # Clean stale locks
@@ -131,8 +151,10 @@ def pool_wake(name: str) -> str:
     save_roster(build_roster())
 
     if peer_id:
+        record_wake_attempt(name, success=True, peer_id=peer_id)
         return f"{name} online — peer_id: {peer_id[:24]}..."
     else:
+        record_wake_attempt(name, success=True, peer_id=None)
         return f"{name} daemon started (pid={proc.pid}) — peer_id not yet resolved"
 
 
@@ -160,13 +182,25 @@ def pool_sleep(name: str) -> str:
     sock.unlink(missing_ok=True)
 
     # Update roster
+    update_agent_status(name, online=False)
     save_roster(build_roster())
 
     return f"{name} offline"
 
 
+def _recent_failed_wake(agent: dict[str, Any], cooldown_seconds: int = 60) -> bool:
+    """Return True when a recent failed wake should be respected."""
+
+    if not agent.get("last_wake_error") or not agent.get("last_wake_attempt_at"):
+        return False
+    try:
+        return time.time() - float(agent["last_wake_attempt_at"]) < cooldown_seconds
+    except (TypeError, ValueError):
+        return False
+
+
 def pool_send(name: str, message: str) -> str:
-    """Send work to an agent. Auto-wakes if offline."""
+    """Send work to an agent. Auto-wakes if offline; queues if wake/send fails."""
     if not name.startswith("agency-"):
         name = f"agency-{name}"
 
@@ -174,16 +208,48 @@ def pool_send(name: str, message: str) -> str:
     if not agent:
         return f"Error: agent '{name}' not found in roster"
 
-    # Auto-wake if offline
-    if not agent["online"]:
+    if not agent["online"] or not agent.get("peer_id"):
+        if _recent_failed_wake(agent):
+            queued = queue_offline_task(
+                name,
+                message,
+                reason=f"recent wake failure: {agent.get('last_wake_error')}",
+            )
+            return (
+                f"Queued task for {name}; recent wake failure is still cooling down. "
+                f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+            )
         wake_result = pool_wake(name)
         if "Error" in wake_result:
-            return wake_result
-        # Re-read roster to get updated peer_id
-        agent = find_agent(name)
+            queued = queue_offline_task(name, message, reason=wake_result)
+            return (
+                f"Queued task for {name}; wake failed: {wake_result}. "
+                f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+            )
+        agent = find_agent(name) or agent
 
     if not agent.get("peer_id"):
-        return f"Error: {name} started but no peer_id resolved yet"
+        queued = queue_offline_task(name, message, reason="no peer_id resolved after wake")
+        return (
+            f"Queued task for {name}; daemon started but no peer_id resolved yet. "
+            f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+        )
 
-    # Return the peer_id so the caller can use a2a_send
-    return f"Ready to send to {name} (peer_id: {agent['peer_id'][:24]}...). Use a2a_send with this peer_id."
+    try:
+        from ..node_manager import manager
+
+        result = manager.send_task_sync(
+            message=message, peer_id=str(agent["peer_id"]), wait_seconds=0
+        )
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        queued = queue_offline_task(name, message, reason=error)
+        return (
+            f"Queued task for {name}; send failed after wake: {error}. "
+            f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+        )
+
+    return (
+        f"Sent task to {name} (peer_id: {str(agent['peer_id'])[:24]}...). "
+        f"task_id={result.get('task_id')} status={result.get('status')}"
+    )

@@ -533,9 +533,14 @@ def cmd_agency(args: Namespace) -> None:
             ]
         print(f"Pool roster: {roster['online']}/{roster['total']} online")
         for p in profiles:
-            icon = "🟢" if p["online"] else "⚫"
+            status = "ONLINE" if p["online"] else "OFFLINE"
             skills = ", ".join(p.get("skills", [])[:5])
-            print(f"  {icon} {p['name']} — {skills}")
+            line = f"  {p['name']} — skills: {skills} [{status}]"
+            if p.get("online") and p.get("peer_id"):
+                line += f" peer_id: {p['peer_id']}"
+            elif p.get("last_seen"):
+                line += f" last_seen: {p['last_seen']}"
+            print(line)
     elif verb == "wake":
         from .pool.tools import pool_wake
 

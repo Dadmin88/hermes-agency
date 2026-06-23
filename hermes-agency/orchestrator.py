@@ -44,6 +44,32 @@ from .registration import live_registrations
 from .team_context import PeerCapability, filter_team_peers, get_team_state
 
 
+def _persistent_roster() -> dict[str, Any]:
+    try:
+        from .pool.roster import build_roster, save_roster
+
+        return save_roster(build_roster(include_plugin_setup=False))
+    except Exception:
+        return {"profiles": []}
+
+
+def _queue_offline_profile_task(
+    profile_name: str, message: str, *, metadata: dict[str, Any] | None = None, reason: str = ""
+) -> dict[str, Any]:
+    try:
+        from .pool.roster import queue_offline_task
+
+        return queue_offline_task(profile_name, message, metadata=metadata, reason=reason)
+    except Exception as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _wake_profile(profile_name: str) -> str:
+    from .pool.tools import pool_wake
+
+    return pool_wake(profile_name)
+
+
 def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True, default=str)
 
@@ -73,6 +99,24 @@ def _peer_skills(peer: PeerCapability) -> list[str]:
     return [str(skill.get("id") or "").strip() for skill in skills if skill.get("id")]
 
 
+def _roster_skills(agent: dict[str, Any]) -> list[str]:
+    return [str(skill or "").strip() for skill in agent.get("skills") or [] if str(skill).strip()]
+
+
+def _roster_peer_payload(agent: dict[str, Any]) -> dict[str, Any]:
+    skills = [{"id": skill, "description": ""} for skill in _roster_skills(agent)]
+    return {
+        "peer_id": agent.get("peer_id"),
+        "name": agent.get("name"),
+        "card_name": agent.get("name"),
+        "description": agent.get("description"),
+        "skills": skills,
+        "card_skills": skills,
+        "online": bool(agent.get("online")),
+        "last_seen": agent.get("last_seen"),
+    }
+
+
 def _peer_label(peer: PeerCapability) -> str:
     return peer.card_name or peer.name or peer.peer_id
 
@@ -85,6 +129,35 @@ def _visible_team_peers(cfg: AgencyConfig | None = None) -> list[PeerCapability]
     registrations = live_registrations(tenant=active_cfg.team.tenant)
     visible = filter_team_peers(team_state.peers, active_cfg, registrations)
     return list(visible.values())
+
+
+def _visible_roster_agents() -> list[dict[str, Any]]:
+    """Return all registered agency-* agents from the persistent roster."""
+
+    agents = [
+        agent
+        for agent in _persistent_roster().get("profiles", [])
+        if str(agent.get("name") or "").startswith("agency-")
+    ]
+    return sorted(agents, key=lambda item: str(item.get("name") or "").lower())
+
+
+def _target_from_roster_agent(
+    agent: dict[str, Any], *, matched_rule: str | None = None, matched_skill: str | None = None
+) -> dict[str, Any]:
+    online_peer = str(agent.get("peer_id") or "").strip() if agent.get("online") else ""
+    return {
+        "ok": True,
+        "peer_id": online_peer or None,
+        "skill": None,
+        "label": str(agent.get("name") or ""),
+        "matched_rule": matched_rule,
+        "matched_skill": matched_skill,
+        "profile_name": str(agent.get("name") or ""),
+        "offline": not bool(online_peer),
+        "peer": _roster_peer_payload(agent),
+        "roster_agent": agent,
+    }
 
 
 def _apply_routing_hint(target_or_task: str, cfg: AgencyConfig) -> tuple[str, str | None]:
@@ -129,6 +202,20 @@ def _resolve_target(target_agent: str) -> dict[str, Any]:
             "label": skill,
             "matched_rule": matched_rule,
         }
+
+    roster_agents = _visible_roster_agents()
+    for agent in roster_agents:
+        name = str(agent.get("name") or "").lower()
+        short_name = name.removeprefix("agency-")
+        if lowered in {name, short_name}:
+            return _target_from_roster_agent(agent, matched_rule=matched_rule)
+
+    for agent in roster_agents:
+        for skill in _roster_skills(agent):
+            if lowered == skill.lower():
+                return _target_from_roster_agent(
+                    agent, matched_rule=matched_rule, matched_skill=skill
+                )
 
     visible_peers = _visible_team_peers(cfg)
     for peer in visible_peers:
@@ -190,6 +277,14 @@ def _suggest_assignment(goal: str) -> str:
         return hinted
 
     lowered = goal.lower()
+    for agent in _visible_roster_agents():
+        for skill in _roster_skills(agent):
+            if skill.lower() in lowered:
+                return str(agent.get("name") or "")
+    for agent in _visible_roster_agents():
+        name = str(agent.get("name") or "").lower()
+        if name and (name in lowered or name.removeprefix("agency-") in lowered):
+            return str(agent.get("name") or "")
     visible_peers = _visible_team_peers(cfg)
     for peer in visible_peers:
         for skill in _peer_skills(peer):
@@ -220,6 +315,10 @@ def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = N
     if not lowered:
         return []
     cfg = get_config()
+    for agent in _visible_roster_agents():
+        name = str(agent.get("name") or "").lower()
+        if lowered in {name, name.removeprefix("agency-")}:
+            return _roster_skills(agent)
     for peer in _visible_team_peers(cfg):
         label = _peer_label(peer)
         names = {
@@ -235,11 +334,19 @@ def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = N
 
 def _decomposition_prompt(task_description: str) -> str:
     cfg = get_config()
-    visible_peers = _visible_team_peers(cfg)
     team_lines: list[str] = []
-    for peer in sorted(visible_peers, key=lambda item: _peer_label(item).lower()):
-        skills = ", ".join(_peer_skills(peer)) or "unknown"
-        team_lines.append(f"- {_peer_label(peer)}: peer_id={peer.peer_id}; skills={skills}")
+    for agent in _visible_roster_agents():
+        skills = ", ".join(_roster_skills(agent)) or "unknown"
+        status = "ONLINE" if agent.get("online") else "OFFLINE"
+        peer_id = agent.get("peer_id") or "none"
+        team_lines.append(
+            f"- {agent.get('name')}: status={status}; peer_id={peer_id}; skills={skills}"
+        )
+    if not team_lines:
+        visible_peers = _visible_team_peers(cfg)
+        for peer in sorted(visible_peers, key=lambda item: _peer_label(item).lower()):
+            skills = ", ".join(_peer_skills(peer)) or "unknown"
+            team_lines.append(f"- {_peer_label(peer)}: peer_id={peer.peer_id}; skills={skills}")
     routing = ", ".join(f"{k}->{v}" for k, v in sorted(cfg.routing.items())) or "none"
     return (
         "Decompose the following task for Hermes Agency orchestration. Return JSON only with a "
@@ -247,8 +354,8 @@ def _decomposition_prompt(task_description: str) -> str:
         "or skill), dependencies (subtask IDs), and validation. Use routing hints as advisory only.\n\n"
         f"Task: {task_description}\n"
         f"Routing hints: {routing}\n"
-        "Team capability map:\n"
-        f"{chr(10).join(team_lines) if team_lines else '(no peers discovered)'}"
+        "Team capability roster (persistent registry with current online/offline overlay):\n"
+        f"{chr(10).join(team_lines) if team_lines else '(persistent roster unavailable)'}"
     )
 
 
@@ -464,6 +571,55 @@ def _escalation_payload(
     }
 
 
+def _send_or_queue_profile_task(
+    *,
+    profile_name: str,
+    task_description: str,
+    wait_seconds: float,
+    metadata: dict[str, str],
+    conversation_context: dict[str, Any],
+) -> dict[str, Any]:
+    """Wake an offline profile if needed, then send or persistently queue."""
+
+    resolved_after_wake = _resolve_target(profile_name)
+    peer_id = str(resolved_after_wake.get("peer_id") or "").strip()
+    wake_result = ""
+    if not peer_id:
+        try:
+            wake_result = _wake_profile(profile_name)
+        except Exception as exc:
+            wake_result = f"{type(exc).__name__}: {exc}"
+        resolved_after_wake = _resolve_target(profile_name)
+        peer_id = str(resolved_after_wake.get("peer_id") or "").strip()
+
+    if not peer_id:
+        queue = _queue_offline_profile_task(
+            profile_name,
+            task_description,
+            metadata=metadata,
+            reason=wake_result or "profile is offline and no peer_id is available",
+        )
+        return {
+            "task_id": queue.get("task", {}).get("id"),
+            "status": "queued",
+            "queued": True,
+            "queue": queue,
+            "target_profile": profile_name,
+            "wake_result": wake_result,
+        }
+
+    routed = manager.send_task_sync(
+        message=task_description,
+        peer_id=peer_id,
+        wait_seconds=wait_seconds,
+        metadata=metadata,
+        conversation_context=conversation_context,
+    )
+    routed["target_profile"] = profile_name
+    routed["wake_result"] = wake_result
+    return routed
+
+
 def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Route a task to a target Hermes Agency peer or skill and track it locally."""
 
@@ -635,19 +791,33 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         task_description, resolved.get("label") or target_agent, kanban_task_id=kanban_task_id
     )
     try:
-        routed = manager.send_task_sync(
-            message=task_description,
-            peer_id=resolved.get("peer_id"),
-            skill=resolved.get("skill"),
-            wait_seconds=wait_seconds,
-            metadata={
-                "orchestrator_task_id": task["task_id"],
-                "kanban_task_id": kanban_task_id or "",
-                "target_agent": target_agent,
-                "routed_by": current_profile_name(),
-            },
-            conversation_context=conversation_context,
-        )
+        route_metadata = {
+            "orchestrator_task_id": task["task_id"],
+            "kanban_task_id": kanban_task_id or "",
+            "target_agent": target_agent,
+            "routed_by": current_profile_name(),
+        }
+        if (
+            resolved.get("profile_name")
+            and not resolved.get("peer_id")
+            and not resolved.get("skill")
+        ):
+            routed = _send_or_queue_profile_task(
+                profile_name=str(resolved["profile_name"]),
+                task_description=task_description,
+                wait_seconds=wait_seconds,
+                metadata=route_metadata,
+                conversation_context=conversation_context,
+            )
+        else:
+            routed = manager.send_task_sync(
+                message=task_description,
+                peer_id=resolved.get("peer_id"),
+                skill=resolved.get("skill"),
+                wait_seconds=wait_seconds,
+                metadata=route_metadata,
+                conversation_context=conversation_context,
+            )
         updated = manager.update_orchestrator_task(
             task["task_id"],
             status="delegated",
@@ -668,6 +838,36 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         )
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
+        if resolved.get("profile_name"):
+            queued = _queue_offline_profile_task(
+                str(resolved["profile_name"]),
+                task_description,
+                metadata={
+                    "orchestrator_task_id": task["task_id"],
+                    "kanban_task_id": kanban_task_id or "",
+                    "target_agent": target_agent,
+                    "routed_by": current_profile_name(),
+                },
+                reason=error,
+            )
+            if kanban_task_id:
+                kanban_update_task(
+                    kanban_task_id, status="running", result="Queued for offline agent"
+                )
+            updated = manager.update_orchestrator_task(
+                task["task_id"], status="queued", error=error, result_text=json.dumps(queued)
+            )
+            return _json(
+                {
+                    "ok": True,
+                    "queued": True,
+                    "task_id": task["task_id"],
+                    "target": resolved,
+                    "queue": queued,
+                    "local_task": updated,
+                    "kanban": kanban_task,
+                }
+            )
         if kanban_task_id:
             kanban_update_task(kanban_task_id, status="failed", error=error)
         announce_error(task_description, error, kanban_task_id=kanban_task_id)
