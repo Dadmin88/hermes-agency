@@ -107,12 +107,11 @@ def start_daemon(name):
 
 def stop_daemon(name, proc):
     if proc and proc.poll() is None:
-        proc.terminate()
+        proc.kill()  # SIGKILL — bolt-db daemons ignore SIGTERM
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=5)
+            pass
     clean_stale(name)
 
 
