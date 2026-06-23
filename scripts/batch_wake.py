@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-"""Batch-wake agency profiles: keep N running simultaneously, rotate through all.
-
-Starts daemons one at a time (avoids bolt-db lock contention), keeps up to
---batch-size running at once, sleeps the oldest when the batch is full.
+"""Batch-register agency profiles on VPS: wake one at a time, register, sleep.
 
 Usage:
   python3 batch_wake.py --dry-run
-  python3 batch_wake.py --batch-size 10
-  python3 batch_wake.py --batch-size 10 --start-index 40
+  python3 batch_wake.py --resume
 """
 
 import subprocess
@@ -17,8 +13,6 @@ import shutil
 import re
 import json
 from pathlib import Path
-from datetime import datetime
-from collections import OrderedDict
 
 PROFILES = Path.home() / ".hermes" / "profiles"
 RELAY = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWGE3zmqw2FJTyuNGAzSNCUxSNSeMvCtocULczXfX9Y8nK"
@@ -66,9 +60,8 @@ def ensure_binary(name):
 
 
 def clean_stale(name):
-    """Kill stale daemon and remove lock files."""
     subprocess.run(
-        ["pkill", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
+        ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
         capture_output=True, timeout=3
     )
     time.sleep(0.3)
@@ -79,11 +72,11 @@ def clean_stale(name):
     sock.unlink(missing_ok=True)
 
 
-def start_daemon(name):
-    """Start daemon process. Returns (proc, log_path)."""
+def wake_and_register(name):
+    """Start daemon, wait for registration, return peer_id, then kill daemon."""
     bin_path = ensure_binary(name)
     if not bin_path:
-        return None, None
+        return None, "no binary"
 
     clean_stale(name)
 
@@ -102,17 +95,20 @@ def start_daemon(name):
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
-    return proc, log
 
+    time.sleep(STARTUP_WAIT)
 
-def stop_daemon(name, proc):
-    if proc and proc.poll() is None:
-        proc.kill()  # SIGKILL — bolt-db daemons ignore SIGTERM
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            pass
+    peer_id = peer_id_from_log(log)
+
+    # Kill daemon
+    proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
     clean_stale(name)
+
+    return peer_id, None if peer_id else "no peer_id in log"
 
 
 def load_state():
@@ -132,9 +128,8 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--batch-size", type=int, default=10)
     parser.add_argument("--start-index", type=int, default=0)
-    parser.add_argument("--resume", action="store_true", help="Resume from saved state")
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
     profiles = get_agency_profiles()
@@ -147,65 +142,30 @@ def main():
 
     state = load_state() if args.resume else {"succeeded": [], "failed": [], "last_index": 0}
     start = max(args.start_index, state.get("last_index", 0))
-    succeeded = set(state.get("succeeded", []))
+    succeeded = list(state.get("succeeded", []))
     failed = list(state.get("failed", []))
-
-    # active = OrderedDict of name -> (proc, log_path)
-    active = OrderedDict()
-
-    def register_batch():
-        """Wait for all active daemons to register, record results, then sleep them."""
-        if not active:
-            return
-        print(f"\n  Waiting {STARTUP_WAIT}s for {len(active)} registrations...")
-        time.sleep(STARTUP_WAIT)
-
-        for name, (proc, log_path) in list(active.items()):
-            peer_id = peer_id_from_log(log_path)
-            if peer_id:
-                print(f"    ✓ {name}: {peer_id[:24]}")
-                succeeded.add(name)
-            else:
-                print(f"    ✗ {name}: no peer_id")
-                failed.append(name)
-            stop_daemon(name, proc)
-
-        active.clear()
-        # Clean all lock files between batches
-        subprocess.run(
-            ["find", str(PROFILES), "-name", "*.lock", "-delete"],
-            capture_output=True, timeout=5
-        )
-        time.sleep(2)
 
     for i in range(start, len(profiles)):
         name = profiles[i]
+        print(f"  [{i}/{len(profiles)}] {name}...", end=" ", flush=True)
 
-        # If batch is full, register + sleep the current batch first
-        if len(active) >= args.batch_size:
-            print(f"\n--- Batch full ({len(active)}), registering ---")
-            register_batch()
-            state["succeeded"] = list(succeeded)
-            state["failed"] = failed
-            state["last_index"] = i
-            save_state(state)
-
-        # Start this daemon
-        print(f"  [{i}] Starting {name}...", end=" ", flush=True)
-        proc, log_path = start_daemon(name)
-        if proc:
-            print(f"pid={proc.pid}")
-            active[name] = (proc, log_path)
+        peer_id, err = wake_and_register(name)
+        if peer_id:
+            print(f"✓ {peer_id[:24]}")
+            succeeded.append(name)
         else:
-            print("✗ failed to start")
+            print(f"✗ {err}")
             failed.append(name)
 
-    # Register any remaining active daemons
-    if active:
-        print(f"\n--- Final batch ({len(active)}) ---")
-        register_batch()
+        # Save progress every 5 profiles
+        if (i + 1) % 5 == 0:
+            state["succeeded"] = succeeded
+            state["failed"] = failed
+            state["last_index"] = i + 1
+            save_state(state)
+            print(f"  [checkpoint: {len(succeeded)} ok, {len(failed)} failed]")
 
-    state["succeeded"] = list(succeeded)
+    state["succeeded"] = succeeded
     state["failed"] = failed
     state["last_index"] = len(profiles)
     save_state(state)
@@ -214,8 +174,6 @@ def main():
     print(f"COMPLETE: {len(succeeded)}/{len(profiles)} succeeded")
     if failed:
         print(f"Failed ({len(failed)}): {', '.join(failed[:15])}")
-        if len(failed) > 15:
-            print(f"  +{len(failed)-15} more")
 
 
 if __name__ == "__main__":
