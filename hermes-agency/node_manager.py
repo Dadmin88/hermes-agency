@@ -134,6 +134,8 @@ class NodeState:
     last_status: str | None = None
     incoming_task_count: int = 0
     incoming_queue_size: int = 0
+    incoming_queue_max_size: int = 100
+    incoming_dropped_count: int = 0
     incoming_processing_count: int = 0
     incoming_completed_count: int = 0
     incoming_failed_count: int = 0
@@ -169,6 +171,8 @@ class NodeState:
             "last_status": self.last_status,
             "incoming_task_count": self.incoming_task_count,
             "incoming_queue_size": self.incoming_queue_size,
+            "incoming_queue_max_size": self.incoming_queue_max_size,
+            "incoming_dropped_count": self.incoming_dropped_count,
             "incoming_processing_count": self.incoming_processing_count,
             "incoming_completed_count": self.incoming_completed_count,
             "incoming_failed_count": self.incoming_failed_count,
@@ -574,10 +578,16 @@ class NodeManager:
         return "terminal state COMPLETED" in text
 
     def _refresh_incoming_state(self) -> None:
-        queue_size = self._incoming_queue.qsize() if self._incoming_queue is not None else 0
+        if self._incoming_queue is not None:
+            queue_size = self._incoming_queue.qsize()
+            max_size = self._incoming_queue.maxsize or get_config().incoming_max_queue_size
+        else:
+            queue_size = 0
+            max_size = get_config().incoming_max_queue_size
         records = list(self._incoming_records.values())
         self.state.incoming_task_count = len(records)
         self.state.incoming_queue_size = queue_size
+        self.state.incoming_queue_max_size = max_size
         self.state.incoming_processing_count = sum(
             1 for item in records if item.status == "processing"
         )
@@ -1155,6 +1165,43 @@ class NodeManager:
                 kanban_task_id,
                 f"A2A task {record.task_id} received by {current_profile_name()} and queued for work.",
             )
+        if self._incoming_queue is None:
+            record.status = "failed"
+            record.error = "Incoming queue is not initialized"
+            record.updated_at = time.time()
+            record.completed_at = time.time()
+            self._refresh_incoming_state()
+            try:
+                await task.fail(record.error)
+            except Exception:
+                pass
+            return
+        if self._incoming_queue.full():
+            self.state.incoming_dropped_count += 1
+            record.status = "failed"
+            record.error = (
+                f"Incoming queue full ({self._incoming_queue.qsize()}/"
+                f"{self._incoming_queue.maxsize}); task rejected"
+            )
+            record.updated_at = time.time()
+            record.completed_at = time.time()
+            if record.kanban_task_id:
+                kanban_update_task(record.kanban_task_id, status="blocked", error=record.error)
+            self._refresh_incoming_state()
+            logger.warning(
+                "Hermes Agency incoming queue full; dropping newest task %s from %s "
+                "(queue=%s/%s dropped=%s)",
+                record.task_id,
+                record.sender_peer_id or "unknown peer",
+                self._incoming_queue.qsize(),
+                self._incoming_queue.maxsize,
+                self.state.incoming_dropped_count,
+            )
+            try:
+                await task.fail(record.error)
+            except Exception:
+                pass
+            return
         try:
             try:
                 await task.update_status("working")
@@ -1163,9 +1210,7 @@ class NodeManager:
                     raise
             record.status = "queued"
             record.updated_at = time.time()
-            if self._incoming_queue is None:
-                raise RuntimeError("Incoming queue is not initialized")
-            await self._incoming_queue.put((task, record.task_id))
+            self._incoming_queue.put_nowait((task, record.task_id))
             self._refresh_incoming_state()
         except Exception as exc:
             record.status = "failed"
@@ -1310,10 +1355,20 @@ class NodeManager:
                                 *process_args,
                                 **process_kwargs,
                             ),
-                            timeout=cfg.delegation_timeout,
+                            timeout=cfg.incoming_handler_timeout_seconds,
                         )
-                    except TimeoutError:
-                        response = self._generate_response(record)
+                    except TimeoutError as exc:
+                        message = (
+                            f"Handler timed out after {cfg.incoming_handler_timeout_seconds:g}s "
+                            f"for task {record.task_id}"
+                        )
+                        logger.warning(
+                            "Hermes Agency incoming handler timed out: handler=%s task_id=%s timeout=%ss",
+                            cfg.incoming_mode,
+                            record.task_id,
+                            cfg.incoming_handler_timeout_seconds,
+                        )
+                        raise TimeoutError(message) from exc
                 else:
                     response = self._generate_response(record)
                 # The daemon can deliver the WORKING status update and the
@@ -1414,7 +1469,8 @@ class NodeManager:
             self.state.stopped_at = None
             self.state.error = None
 
-            self._incoming_queue = asyncio.Queue()
+            self._incoming_queue = asyncio.Queue(maxsize=cfg.incoming_max_queue_size)
+            self.state.incoming_queue_max_size = cfg.incoming_max_queue_size
             self._incoming_worker_task = asyncio.create_task(self._incoming_worker())
             self._serve_task = asyncio.create_task(node.serve_forever())
             self._serve_task.add_done_callback(self._serve_done)
@@ -2072,6 +2128,8 @@ class NodeManager:
             "incoming": {
                 "total": self.state.incoming_task_count,
                 "queued": self.state.incoming_queue_size,
+                "max_queue_size": self.state.incoming_queue_max_size,
+                "dropped": self.state.incoming_dropped_count,
                 "processing": self.state.incoming_processing_count,
                 "completed": self.state.incoming_completed_count,
                 "failed": self.state.incoming_failed_count,

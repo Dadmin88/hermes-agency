@@ -79,6 +79,14 @@ Then restart the Hermes CLI/gateway/desktop session so tools are reloaded.
 
 **Fix:** Add the peer to `agency.relay.allowlist` and/or the trust store. Use `allow_all` only on trusted development networks.
 
+## MCP HTTP endpoint exposed to network
+
+**Symptom:** MCP HTTP endpoint is reachable from other hosts, or doctor reports `mcp_http_exposure` as a warning.
+
+**Cause:** MCP HTTP mode serves tools without built-in authentication. If bound beyond localhost, any network client that can reach the endpoint may be able to invoke tools.
+
+**Fix:** Bind MCP HTTP mode to localhost only, put it behind a reverse proxy with authentication and network restrictions, or disable MCP HTTP mode when it is not explicitly needed.
+
 ## `auto_start` not working
 
 **Symptom:** The node does not start automatically when Hermes starts.

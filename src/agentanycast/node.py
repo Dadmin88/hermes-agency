@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import fnmatch
+import ipaddress
 import logging
+import os
 from collections.abc import Callable, Coroutine, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from agentanycast._generated.agentanycast.v1 import (
     a2a_models_pb2,
@@ -173,6 +178,120 @@ _STATUS_TO_PROTO_MAP = {
     TaskStatus.CANCELED: a2a_models_pb2.TASK_STATUS_CANCELED,
     TaskStatus.REJECTED: a2a_models_pb2.TASK_STATUS_REJECTED,
 }
+
+
+@dataclass(frozen=True)
+class _OutboundUrlPolicy:
+    validation_mode: str = "warn"
+    allowlist: tuple[str, ...] = ()
+
+
+def _nested_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
+    value: Any = config
+    for key in path:
+        if not isinstance(value, dict) or key not in value:
+            return default
+        value = value[key]
+    return value
+
+
+def _split_patterns(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        raw_items = value.split(",")
+    elif isinstance(value, (list, tuple, set)):
+        raw_items = value
+    else:
+        raw_items = []
+    seen: set[str] = set()
+    items: list[str] = []
+    for item in raw_items:
+        clean = str(item or "").strip()
+        if clean and clean not in seen:
+            seen.add(clean)
+            items.append(clean)
+    return tuple(items)
+
+
+def _load_outbound_url_policy() -> _OutboundUrlPolicy:
+    validation = os.getenv("AGENTANYCAST_OUTBOUND_URL_VALIDATION", "").strip().lower()
+    allowlist = _split_patterns(os.getenv("AGENTANYCAST_OUTBOUND_URL_ALLOWLIST", ""))
+    try:
+        from hermes_cli.config import load_config
+
+        config = load_config()
+    except Exception:
+        config = {}
+    if not validation:
+        validation = (
+            str(
+                _nested_get(config, "agency", "outbound", "url_validation", default="warn")
+                or "warn"
+            )
+            .strip()
+            .lower()
+        )
+    if not allowlist:
+        allowlist = _split_patterns(
+            _nested_get(config, "agency", "outbound", "url_allowlist", default=[])
+        )
+    if validation not in {"warn", "strict"}:
+        validation = "warn"
+    return _OutboundUrlPolicy(validation_mode=validation, allowlist=allowlist)
+
+
+def _host_is_private_or_internal(host: str) -> bool:
+    clean = host.strip().strip("[]").lower()
+    if not clean:
+        return True
+    if clean in {"localhost", "localhost.localdomain"} or clean.endswith(".localhost"):
+        return True
+    if clean.endswith(".local") or ".internal" in clean or ".localdomain" in clean:
+        return True
+    if "." not in clean and ":" not in clean:
+        return True
+    try:
+        ip = ipaddress.ip_address(clean)
+    except ValueError:
+        return False
+    return bool(
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+def _url_matches_pattern(url: str, host: str, pattern: str) -> bool:
+    clean = pattern.strip()
+    if not clean:
+        return False
+    if "://" in clean:
+        return fnmatch.fnmatch(url, clean) or fnmatch.fnmatch(f"{url}/", clean.rstrip("/") + "/*")
+    return fnmatch.fnmatch(host, clean)
+
+
+def _validate_outbound_url(url: str, policy: _OutboundUrlPolicy | None = None) -> str:
+    clean_url = str(url or "").strip()
+    parsed = urlparse(clean_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("send_task url must use http:// or https:// scheme")
+    host = (parsed.hostname or "").strip().lower()
+    port = parsed.port
+    if port is not None and port not in ({80} if parsed.scheme == "http" else {443}):
+        logger.warning("send_task url uses non-standard port %s: %s", port, clean_url)
+    effective_policy = policy or _load_outbound_url_policy()
+    if effective_policy.allowlist and not any(
+        _url_matches_pattern(clean_url, host, pattern) for pattern in effective_policy.allowlist
+    ):
+        raise ValueError("send_task url host is not allowed by outbound URL allowlist")
+    if _host_is_private_or_internal(host):
+        message = f"send_task url targets a private/internal host: {host}"
+        if effective_policy.validation_mode == "strict":
+            raise ValueError(message)
+        logger.warning(message)
+    return clean_url
 
 
 def _proto_status_to_python(s: int) -> TaskStatus:
@@ -571,6 +690,8 @@ class Node:
         targets = sum(x is not None for x in (peer_id, skill, url))
         if targets != 1:
             raise ValueError("Exactly one of peer_id, skill, or url must be provided")
+        if url is not None:
+            url = _validate_outbound_url(url)
 
         # Inject OTel trace context into metadata (no-op when OTel is absent).
         metadata = _inject_trace_context(metadata)

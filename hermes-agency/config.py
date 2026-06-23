@@ -11,6 +11,8 @@ Config schema and defaults::
       incoming:
         mode: delegation          # template, delegation, subprocess
         delegation_timeout: 120   # seconds before falling back to template
+        max_queue_size: 100       # max queued inbound tasks before newest is rejected
+        handler_timeout_seconds: 300 # max seconds one incoming worker handler may run
         tool_access: safe         # safe, full, none
         max_iterations: 25        # max subagent turns
         subprocess_profile: null  # optional Hermes profile override for subprocess fallback
@@ -34,6 +36,9 @@ Config schema and defaults::
         token: null             # shared secret for relay allowlist/token control plane
       registry:
         allow_insecure_token_transport: false  # true = send registry token over insecure gRPC
+      outbound:
+        url_validation: warn      # warn or strict for send_task(url=...) SSRF checks
+        url_allowlist: []         # optional URL/host patterns allowed for outbound HTTP bridge
       trust:
         store_path: null        # custom trust store path (default: $HERMES_HOME/agency/trust.json)
         tofu: true              # trust-on-first-use for new peers
@@ -159,6 +164,8 @@ class IncomingConfig:
 
     mode: str = "delegation"
     delegation_timeout: int = 120
+    max_queue_size: int = 100
+    handler_timeout_seconds: float = 300
     tool_access: str = "safe"
     max_iterations: int = 25
     subprocess_profile: str | None = None
@@ -175,6 +182,8 @@ class IncomingConfig:
         return {
             "mode": self.mode,
             "delegation_timeout": self.delegation_timeout,
+            "max_queue_size": self.max_queue_size,
+            "handler_timeout_seconds": self.handler_timeout_seconds,
             "tool_access": self.tool_access,
             "max_iterations": self.max_iterations,
             "subprocess_profile": self.subprocess_profile,
@@ -186,6 +195,20 @@ class IncomingConfig:
             "send_progress": self.send_progress,
             "conversation_ttl": self.conversation_ttl,
             "conversation_max_turns": self.conversation_max_turns,
+        }
+
+
+@dataclass(frozen=True)
+class OutboundConfig:
+    """Resolved outbound HTTP bridge policy."""
+
+    url_validation: str = "warn"
+    url_allowlist: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "url_validation": self.url_validation,
+            "url_allowlist": list(self.url_allowlist),
         }
 
 
@@ -206,6 +229,7 @@ class AgencyConfig:
     incoming: IncomingConfig = field(default_factory=IncomingConfig)
     relay_security: RelaySecurityConfig = field(default_factory=RelaySecurityConfig)
     registry_allow_insecure_token_transport: bool = False
+    outbound: OutboundConfig = field(default_factory=OutboundConfig)
     trust: TrustConfig = field(default_factory=TrustConfig)
     team: TeamConfig = field(default_factory=TeamConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
@@ -228,9 +252,12 @@ class AgencyConfig:
             "incoming": self.incoming.as_dict(),
             "relay_security": self.relay_security.as_dict(),
             "registry_allow_insecure_token_transport": self.registry_allow_insecure_token_transport,
+            "outbound": self.outbound.as_dict(),
             "trust": self.trust.as_dict(),
             "incoming_mode": self.incoming_mode,
             "delegation_timeout": self.delegation_timeout,
+            "incoming_max_queue_size": self.incoming_max_queue_size,
+            "incoming_handler_timeout_seconds": self.incoming_handler_timeout_seconds,
             "incoming_tool_access": self.incoming_tool_access,
             "incoming_max_iterations": self.incoming_max_iterations,
             "incoming_subprocess_profile": self.incoming_subprocess_profile,
@@ -256,6 +283,14 @@ class AgencyConfig:
     @property
     def delegation_timeout(self) -> int:
         return self.incoming.delegation_timeout
+
+    @property
+    def incoming_max_queue_size(self) -> int:
+        return self.incoming.max_queue_size
+
+    @property
+    def incoming_handler_timeout_seconds(self) -> float:
+        return self.incoming.handler_timeout_seconds
 
     @property
     def incoming_tool_access(self) -> str:
@@ -454,6 +489,15 @@ def _int_cfg(config: dict[str, Any], *path: str, default: int, floor: int = 1) -
     return max(floor, value)
 
 
+def _float_cfg(config: dict[str, Any], *path: str, default: float, floor: float = 0.001) -> float:
+    raw = _cfg_get(config, *path, default=default)
+    try:
+        value = float(raw if raw is not None else default)
+    except (TypeError, ValueError):
+        value = default
+    return max(floor, value)
+
+
 def _string_tuple(value: Any) -> tuple[str, ...]:
     if isinstance(value, str):
         items = value.split(",")
@@ -595,6 +639,22 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             default=120,
             floor=1,
         ),
+        max_queue_size=_int_cfg(
+            config,
+            "agency",
+            "incoming",
+            "max_queue_size",
+            default=100,
+            floor=1,
+        ),
+        handler_timeout_seconds=_float_cfg(
+            config,
+            "agency",
+            "incoming",
+            "handler_timeout_seconds",
+            default=300,
+            floor=0.001,
+        ),
         tool_access=tool_access,
         max_iterations=_int_cfg(
             config,
@@ -671,6 +731,22 @@ def _routing_config(config: dict[str, Any]) -> dict[str, str]:
         if clean_key and clean_value:
             rules[clean_key] = clean_value
     return rules
+
+
+def _outbound_config(config: dict[str, Any]) -> OutboundConfig:
+    validation = (
+        str(_cfg_get(config, "agency", "outbound", "url_validation", default="warn") or "warn")
+        .strip()
+        .lower()
+    )
+    if validation not in {"warn", "strict"}:
+        validation = "warn"
+    return OutboundConfig(
+        url_validation=validation,
+        url_allowlist=_string_tuple(
+            _cfg_get(config, "agency", "outbound", "url_allowlist", default=[])
+        ),
+    )
 
 
 def _dict_config(config: dict[str, Any], key: str) -> dict[str, Any]:
@@ -763,6 +839,7 @@ def get_config() -> AgencyConfig:
             "allow_insecure_token_transport",
             default=False,
         ),
+        outbound=_outbound_config(config),
         trust=_trust_config(config),
         team=_team_config(config),
         orchestrator=_orchestrator_config(config),

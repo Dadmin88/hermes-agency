@@ -16,12 +16,14 @@ from agentanycast.node import (
     _artifact_to_proto,
     _card_to_proto,
     _message_to_proto,
+    _OutboundUrlPolicy,
     _proto_artifact_to_python,
     _proto_card_to_python,
     _proto_message_to_python,
     _proto_status_to_python,
     _proto_task_to_python,
     _python_status_to_proto,
+    _validate_outbound_url,
 )
 from agentanycast.task import Artifact, Message, Part, TaskStatus
 
@@ -499,6 +501,41 @@ class TestNodeStateGuards:
         card = AgentCard(name="TestNode")
         node = Node(card=card)
         assert node.is_running is False
+
+
+class TestOutboundUrlValidation:
+    @pytest.mark.parametrize("url", ["http://example.com/a2a", "https://example.com/a2a"])
+    def test_http_and_https_urls_pass_with_empty_allowlist(self, url):
+        assert _validate_outbound_url(url, _OutboundUrlPolicy()) == url
+
+    @pytest.mark.parametrize(
+        "url", ["file:///etc/passwd", "ftp://example.com/a2a", "data:text/plain,hi"]
+    )
+    def test_non_http_schemes_are_rejected(self, url):
+        with pytest.raises(ValueError, match="http:// or https://"):
+            _validate_outbound_url(url, _OutboundUrlPolicy())
+
+    def test_allowlist_permits_matching_url_and_rejects_other_hosts(self):
+        policy = _OutboundUrlPolicy(
+            allowlist=("https://agents.example.com", "https://*.trusted.test")
+        )
+
+        assert _validate_outbound_url("https://agents.example.com/a2a", policy)
+        assert _validate_outbound_url("https://worker.trusted.test/a2a", policy)
+        with pytest.raises(ValueError, match="not allowed"):
+            _validate_outbound_url("https://evil.example/a2a", policy)
+
+    def test_warns_on_nonstandard_port(self, caplog):
+        with caplog.at_level("WARNING"):
+            _validate_outbound_url("https://example.com:8443/a2a", _OutboundUrlPolicy())
+
+        assert "non-standard port" in caplog.text
+
+    def test_strict_mode_rejects_private_or_internal_hosts(self):
+        with pytest.raises(ValueError, match="private/internal"):
+            _validate_outbound_url(
+                "http://127.0.0.1:8080/a2a", _OutboundUrlPolicy(validation_mode="strict")
+            )
 
 
 # ── on_task Decorator ────────────────────────────────────────

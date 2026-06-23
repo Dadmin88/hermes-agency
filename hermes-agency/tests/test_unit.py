@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import json
+import os
 import sys
 import types
 from dataclasses import dataclass
@@ -490,6 +491,8 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.trust.store_path == plugin_modules.hermes_home / "agency" / "trust.json"
     assert cfg.trust.tofu is True
     assert cfg.incoming.delegation_timeout == 120
+    assert cfg.incoming.max_queue_size == 100
+    assert cfg.incoming.handler_timeout_seconds == 300
     assert cfg.incoming.tool_access == "safe"
     assert cfg.incoming.max_iterations == 25
     assert cfg.incoming.subprocess_profile is None
@@ -520,6 +523,8 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.routing == {}
     assert cfg.autonomy == {}
     assert cfg.workflows == {}
+    assert cfg.outbound.url_validation == "warn"
+    assert cfg.outbound.url_allowlist == ()
 
 
 def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatch, tmp_path):
@@ -550,6 +555,8 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                 "incoming": {
                     "mode": "template",
                     "delegation_timeout": 9,
+                    "max_queue_size": 2,
+                    "handler_timeout_seconds": 11,
                     "tool_access": "none",
                     "max_iterations": 3,
                     "subprocess_profile": "gpt-subprocess",
@@ -582,6 +589,10 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                     "auto_decompose": False,
                 },
                 "routing": {"deploy": "hermes", "code": "katana"},
+                "outbound": {
+                    "url_validation": "strict",
+                    "url_allowlist": ["https://agents.example.com", "https://*.trusted.test"],
+                },
             }
         },
     )
@@ -606,6 +617,8 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.daemon_bin == daemon_bin
     assert cfg.incoming.mode == "template"
     assert cfg.incoming.delegation_timeout == 9
+    assert cfg.incoming.max_queue_size == 2
+    assert cfg.incoming.handler_timeout_seconds == 11
     assert cfg.incoming.tool_access == "none"
     assert cfg.incoming.max_iterations == 3
     assert cfg.incoming.subprocess_profile == "gpt-subprocess"
@@ -629,6 +642,8 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.orchestrator.agent == "katana"
     assert cfg.orchestrator.auto_decompose is False
     assert cfg.routing == {"deploy": "hermes", "code": "katana"}
+    assert cfg.outbound.url_validation == "strict"
+    assert cfg.outbound.url_allowlist == ("https://agents.example.com", "https://*.trusted.test")
 
 
 def test_trust_store_tofu_records_and_verifies_known_peer(plugin_modules, tmp_path):
@@ -646,6 +661,38 @@ def test_trust_store_tofu_records_and_verifies_known_peer(plugin_modules, tmp_pa
     data = json.loads((tmp_path / "trust.json").read_text(encoding="utf-8"))
     assert data["peers"]["peer-1"]["name"] == "Hermes VPS"
     assert data["peers"]["peer-1"]["trust_level"] == "limited"
+
+
+def stat_mode(path):
+    return os.stat(path).st_mode & 0o777
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX file modes")
+def test_trust_store_save_restricts_file_and_parent_permissions(plugin_modules, tmp_path):
+    trust = plugin_modules.trust
+    store = trust.TrustStore(tmp_path / "trust-dir" / "trust.json", tofu=True)
+
+    store.verify_peer("peer-1", name="Hermes VPS")
+
+    assert stat_mode(store.path) == 0o600
+    assert stat_mode(store.path.parent) == 0o700
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX file modes")
+def test_trust_store_load_warns_on_permissive_file_permissions(plugin_modules, tmp_path, caplog):
+    trust_path = tmp_path / "trust.json"
+    trust_path.write_text(
+        '{"version":1,"peers":{"peer-1":{"trust_level":"full"}}}', encoding="utf-8"
+    )
+    trust_path.chmod(0o644)
+    store = plugin_modules.trust.TrustStore(trust_path, tofu=True)
+
+    with caplog.at_level("WARNING"):
+        data = store.load()
+
+    assert data["peers"]["peer-1"]["trust_level"] == "full"
+    assert "permissions" in caplog.text
+    assert "0600" in caplog.text
 
 
 def test_trust_store_rejects_name_peer_id_mismatch_and_blocked_peer(plugin_modules, tmp_path):
@@ -842,6 +889,82 @@ async def test_trusted_peer_can_send_normal_task(plugin_modules, monkeypatch, tm
 
 
 @pytest.mark.asyncio
+async def test_incoming_queue_accepts_tasks_under_limit(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=("peer-good",)),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+        incoming=plugin_modules.config.IncomingConfig(max_queue_size=2),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue(maxsize=cfg.incoming.max_queue_size)
+
+    await manager._handle_incoming_task(_FakeIncomingTask("one", task_id="task-1"))
+    await manager._handle_incoming_task(_FakeIncomingTask("two", task_id="task-2"))
+
+    assert manager._incoming_queue.qsize() == 2
+    assert manager.state.incoming_dropped_count == 0
+    assert manager.state.incoming_queue_size == 2
+    assert manager.state.incoming_queue_max_size == 2
+
+
+@pytest.mark.asyncio
+async def test_incoming_queue_drops_newest_task_when_full(
+    plugin_modules, monkeypatch, tmp_path, caplog
+):
+    nm = plugin_modules.node_manager
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=("peer-good",)),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+        incoming=plugin_modules.config.IncomingConfig(max_queue_size=1),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue(maxsize=cfg.incoming.max_queue_size)
+
+    await manager._handle_incoming_task(_FakeIncomingTask("one", task_id="task-1"))
+    dropped = _FakeIncomingTask("two", task_id="task-2")
+    with caplog.at_level("WARNING"):
+        await manager._handle_incoming_task(dropped)
+
+    assert manager._incoming_queue.qsize() == 1
+    assert dropped.failed is not None
+    assert "queue full" in dropped.failed.lower()
+    assert manager._incoming_records["task-2"].status == "failed"
+    assert manager.state.incoming_dropped_count == 1
+    assert "peer-good" in caplog.text
+    assert manager.compact_info()["incoming"]["dropped"] == 1
+
+
+@pytest.mark.asyncio
+async def test_incoming_queue_recovers_after_draining(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=("peer-good",)),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+        incoming=plugin_modules.config.IncomingConfig(max_queue_size=1),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue(maxsize=cfg.incoming.max_queue_size)
+
+    await manager._handle_incoming_task(_FakeIncomingTask("one", task_id="task-1"))
+    manager._incoming_queue.get_nowait()
+    manager._incoming_queue.task_done()
+    second = _FakeIncomingTask("two", task_id="task-2")
+    await manager._handle_incoming_task(second)
+
+    queued_task, queued_task_id = manager._incoming_queue.get_nowait()
+    assert queued_task is second
+    assert queued_task_id == "task-2"
+    assert second.failed is None
+
+
+@pytest.mark.asyncio
 async def test_rejected_control_message_does_not_mutate_registration_state(
     plugin_modules, monkeypatch, tmp_path
 ):
@@ -978,6 +1101,8 @@ def test_incoming_config_invalid_values_fall_back_to_safe_defaults(plugin_module
                 "incoming": {
                     "mode": "bogus",
                     "delegation_timeout": "bad",
+                    "max_queue_size": "bad",
+                    "handler_timeout_seconds": "bad",
                     "tool_access": "root",
                     "max_iterations": 0,
                 }
@@ -989,6 +1114,8 @@ def test_incoming_config_invalid_values_fall_back_to_safe_defaults(plugin_module
 
     assert cfg.incoming.mode == "delegation"
     assert cfg.incoming.delegation_timeout == 120
+    assert cfg.incoming.max_queue_size == 100
+    assert cfg.incoming.handler_timeout_seconds == 300
     assert cfg.incoming.tool_access == "safe"
     assert cfg.incoming.max_iterations == 1
     assert cfg.incoming.subprocess_profile is None
@@ -1784,6 +1911,28 @@ def test_doctor_insecure_relay_warns(plugin_modules, monkeypatch):
     assert relay_check.remediation == "Use HTTPS or localhost for relay control"
 
 
+def test_doctor_warns_when_mcp_http_mode_detected(plugin_modules, monkeypatch):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    monkeypatch.setattr(doctor, "get_config", lambda: cfg_mod.AgencyConfig())
+    monkeypatch.setattr(doctor, "get_hermes_home", lambda: plugin_modules.hermes_home)
+    monkeypatch.setattr(doctor, "check_agency_available", lambda: True)
+    monkeypatch.setattr(doctor.manager, "compact_info", lambda: {"ok": False, "started": False})
+    monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
+    monkeypatch.setattr(
+        doctor,
+        "_mcp_http_enabled_details",
+        lambda: {"source": "config", "transport": "http", "port": 8080},
+    )
+
+    report = doctor.run_doctor()
+    mcp_check = next(check for check in report.checks if check.id == "mcp_http_exposure")
+
+    assert mcp_check.status == "warn"
+    assert "unauthenticated tool server" in mcp_check.message
+    assert "Restrict network access or add authentication" in mcp_check.remediation
+
+
 def test_doctor_sdk_missing_still_runs(plugin_modules, monkeypatch):
     doctor = plugin_modules.doctor
     cfg_mod = plugin_modules.config
@@ -2091,6 +2240,8 @@ def test_node_state_as_dict_expected_keys(plugin_modules):
         last_status="ok",
         incoming_task_count=4,
         incoming_queue_size=5,
+        incoming_queue_max_size=15,
+        incoming_dropped_count=1,
         incoming_processing_count=6,
         incoming_completed_count=7,
         incoming_failed_count=8,
@@ -2121,6 +2272,8 @@ def test_node_state_as_dict_expected_keys(plugin_modules):
         "last_status": "ok",
         "incoming_task_count": 4,
         "incoming_queue_size": 5,
+        "incoming_queue_max_size": 15,
+        "incoming_dropped_count": 1,
         "incoming_processing_count": 6,
         "incoming_completed_count": 7,
         "incoming_failed_count": 8,
@@ -2250,6 +2403,124 @@ async def test_incoming_worker_delegation_mode_uses_task_processor(plugin_module
     )
     assert task.completed is not None
     assert task.completed[0]["parts"][0]["text"] == "4"
+
+
+class _WorkerTask:
+    def __init__(self):
+        self.completed = None
+        self.failed = None
+
+    async def complete(self, artifacts):
+        self.completed = artifacts
+
+    async def fail(self, error):
+        self.failed = error
+
+
+@pytest.mark.asyncio
+async def test_incoming_worker_handler_completes_within_timeout(plugin_modules, monkeypatch):
+    asyncio = __import__("asyncio")
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm_mod.NodeManager()
+    manager._incoming_queue = asyncio.Queue()
+    record = nm_mod.IncomingTaskRecord(
+        task_id="task-fast",
+        sender_peer_id="peer-a",
+        sender_card=None,
+        target_skill_id="",
+        message_text="fast task",
+    )
+    manager._incoming_records[record.task_id] = record
+    cfg = cfg_mod.AgencyConfig(
+        allow_remote_tasks=True,
+        incoming=cfg_mod.IncomingConfig(mode="delegation", handler_timeout_seconds=1),
+    )
+    monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
+    monkeypatch.setattr(nm_mod, "kanban_update_task", lambda *args, **kwargs: {})
+    monkeypatch.setattr(nm_mod, "announce_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "announce_complete", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "announce_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "process_incoming_task", lambda *args, **kwargs: "done")
+
+    task = _WorkerTask()
+    worker = asyncio.create_task(manager._incoming_worker())
+    await manager._incoming_queue.put((task, record.task_id))
+    await asyncio.wait_for(manager._incoming_queue.join(), timeout=2)
+    worker.cancel()
+    await asyncio.gather(worker, return_exceptions=True)
+
+    assert task.completed is not None
+    assert task.failed is None
+    assert record.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_incoming_worker_handler_timeout_fails_task_and_survives(
+    plugin_modules, monkeypatch, caplog
+):
+    asyncio = __import__("asyncio")
+    import time as real_time
+
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm_mod.NodeManager()
+    manager._incoming_queue = asyncio.Queue()
+    cfg = cfg_mod.AgencyConfig(
+        allow_remote_tasks=True,
+        incoming=cfg_mod.IncomingConfig(
+            mode="delegation", delegation_timeout=5, handler_timeout_seconds=0.01
+        ),
+    )
+    monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
+    monkeypatch.setattr(nm_mod, "kanban_update_task", lambda *args, **kwargs: {})
+    monkeypatch.setattr(nm_mod, "announce_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "announce_complete", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "announce_error", lambda *args, **kwargs: None)
+
+    def slow_process(*_args, **_kwargs):
+        real_time.sleep(0.1)
+        return "too late"
+
+    monkeypatch.setattr(nm_mod, "process_incoming_task", slow_process)
+    first = nm_mod.IncomingTaskRecord(
+        task_id="task-slow",
+        sender_peer_id="peer-a",
+        sender_card=None,
+        target_skill_id="",
+        message_text="slow task",
+    )
+    manager._incoming_records[first.task_id] = first
+    first_task = _WorkerTask()
+    worker = asyncio.create_task(manager._incoming_worker())
+    with caplog.at_level("WARNING"):
+        await manager._incoming_queue.put((first_task, first.task_id))
+        await asyncio.wait_for(manager._incoming_queue.join(), timeout=2)
+
+    assert first_task.completed is None
+    assert first_task.failed is not None
+    assert "timed out" in first_task.failed.lower()
+    assert first.status == "failed"
+    assert "task-slow" in caplog.text
+
+    monkeypatch.setattr(nm_mod, "process_incoming_task", lambda *args, **kwargs: "recovered")
+    second = nm_mod.IncomingTaskRecord(
+        task_id="task-after-timeout",
+        sender_peer_id="peer-a",
+        sender_card=None,
+        target_skill_id="",
+        message_text="next task",
+    )
+    manager._incoming_records[second.task_id] = second
+    second_task = _WorkerTask()
+    await manager._incoming_queue.put((second_task, second.task_id))
+    await asyncio.wait_for(manager._incoming_queue.join(), timeout=2)
+    worker.cancel()
+    await asyncio.gather(worker, return_exceptions=True)
+
+    assert second_task.completed is not None
+    assert second_task.failed is None
+    assert second.result_text == "recovered"
 
 
 @pytest.mark.asyncio

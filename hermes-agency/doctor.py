@@ -421,6 +421,65 @@ def _kanban_check(cfg: AgencyConfig) -> DoctorCheck:
     )
 
 
+def _nested_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
+    value: Any = config
+    for key in path:
+        if not isinstance(value, dict) or key not in value:
+            return default
+        value = value[key]
+    return value
+
+
+def _mcp_http_enabled_details() -> dict[str, Any] | None:
+    env_transport = (
+        (
+            os.getenv("AGENTANYCAST_MCP_TRANSPORT")
+            or os.getenv("HERMES_MCP_TRANSPORT")
+            or os.getenv("MCP_TRANSPORT")
+            or ""
+        )
+        .strip()
+        .lower()
+    )
+    if env_transport == "http":
+        return {"source": "env", "transport": "http"}
+    try:
+        from hermes_cli.config import load_config
+
+        raw_config = load_config()
+    except Exception:
+        raw_config = {}
+    candidates = [
+        ("mcp.transport", _nested_get(raw_config, "mcp", "transport")),
+        ("mcp.server.transport", _nested_get(raw_config, "mcp", "server", "transport")),
+        ("mcp.http.enabled", _nested_get(raw_config, "mcp", "http", "enabled")),
+        ("agency.mcp.transport", _nested_get(raw_config, "agency", "mcp", "transport")),
+    ]
+    for key, value in candidates:
+        if str(value or "").strip().lower() == "http" or value is True:
+            return {"source": "config", "key": key, "value": value}
+    return None
+
+
+def _mcp_http_exposure_check() -> DoctorCheck:
+    details = _mcp_http_enabled_details()
+    if not details:
+        return _check(
+            "mcp_http_exposure",
+            "MCP HTTP exposure",
+            PASS,
+            "MCP HTTP mode was not detected in environment or config",
+        )
+    return _check(
+        "mcp_http_exposure",
+        "MCP HTTP exposure",
+        WARN,
+        "MCP HTTP mode is enabled; this is an unauthenticated tool server by default",
+        "MCP HTTP mode is an unauthenticated tool server. Restrict network access or add authentication.",
+        **details,
+    )
+
+
 def _editable_install_state() -> tuple[str, str]:
     root = Path(__file__).resolve().parents[1]
     if (root / ".git").exists() and (root / "pyproject.toml").exists():
@@ -500,6 +559,7 @@ def run_doctor() -> DoctorReport:
     checks.append(_trust_store_check(cfg))
     checks.append(_allowlist_check(cfg))
     checks.append(_remote_task_policy_check(cfg))
+    checks.append(_mcp_http_exposure_check())
     checks.append(_agent_card_check())
     checks.append(_kanban_check(cfg))
 

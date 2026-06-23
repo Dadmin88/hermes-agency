@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,7 +66,21 @@ class TrustStore:
     def _empty(self) -> dict[str, Any]:
         return {"version": 1, "peers": {}}
 
+    def _check_file_permissions(self) -> None:
+        try:
+            mode = stat.S_IMODE(self.path.stat().st_mode)
+        except OSError:
+            return
+        if mode & 0o077:
+            logger.warning(
+                "Hermes Agency trust store %s has permissions %s; expected 0600 "
+                "(owner read/write only)",
+                self.path,
+                oct(mode),
+            )
+
     def load(self) -> dict[str, Any]:
+        self._check_file_permissions()
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
@@ -82,9 +98,27 @@ class TrustStore:
 
     def save(self, data: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(self.path.parent, 0o700)
+        except OSError as exc:
+            logger.warning(
+                "failed to restrict Hermes Agency trust store directory %s: %s",
+                self.path.parent,
+                exc,
+            )
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError as exc:
+            logger.warning(
+                "failed to restrict temporary Hermes Agency trust store %s: %s", tmp, exc
+            )
         tmp.replace(self.path)
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError as exc:
+            logger.warning("failed to restrict Hermes Agency trust store %s: %s", self.path, exc)
 
     @staticmethod
     def _now() -> str:
