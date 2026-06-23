@@ -13,7 +13,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from .roster import build_roster, find_agent, load_roster, save_roster
+from .roster import build_roster, ensure_profile_plugins, find_agent, load_roster, save_roster
 
 PROFILES = Path.home() / ".hermes" / "profiles"
 RELAY = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWGE3zmqw2FJTyuNGAzSNCUxSNSeMvCtocULczXfX9Y8nK"
@@ -58,6 +58,13 @@ def pool_wake(name: str) -> str:
     profile_dir = PROFILES / name
     if not profile_dir.exists():
         return f"Error: profile {name} not found"
+
+    setup = ensure_profile_plugins()
+    if setup.get("profiles_errors"):
+        return (
+            "Error: Hermes Agency plugin setup failed for "
+            f"{setup['profiles_errors']} profile(s); run `hermes agency setup-plugins`."
+        )
 
     # Check if already running
     sock = profile_dir / ".agency" / "daemon.sock"

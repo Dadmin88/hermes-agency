@@ -6,6 +6,7 @@ who's online, what they do, and how to reach them.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import time
 from pathlib import Path
@@ -13,6 +14,32 @@ from typing import Any
 
 PROFILES = Path.home() / ".hermes" / "profiles"
 ROSTER_PATH = Path.home() / ".hermes" / "pool" / "roster.json"
+
+
+def _plugin_setup_module():
+    """Load pool.plugin_setup in package and direct-script execution modes."""
+
+    try:
+        from . import plugin_setup
+
+        return plugin_setup
+    except ImportError:
+        module_path = Path(__file__).with_name("plugin_setup.py")
+        spec = importlib.util.spec_from_file_location(
+            "hermes_agency_pool_plugin_setup", module_path
+        )
+        if spec is None or spec.loader is None:
+            raise
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+
+def ensure_profile_plugins() -> dict[str, Any]:
+    """Ensure every Hermes profile can load the Hermes Agency plugin."""
+
+    plugin_setup = _plugin_setup_module()
+    return plugin_setup.setup_all_profile_plugins(include_main=True)
 
 
 def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
@@ -79,7 +106,17 @@ def _read_peer_id(name: str) -> str | None:
 
 def build_roster() -> dict[str, Any]:
     """Build a fresh roster from the filesystem."""
+    plugin_summary = ensure_profile_plugins()
     profiles = []
+    if not PROFILES.is_dir():
+        return {
+            "updated_at": time.time(),
+            "total": 0,
+            "online": 0,
+            "profiles": [],
+            "plugin_setup": _plugin_setup_module().compact_setup_summary(plugin_summary),
+        }
+
     for d in sorted(PROFILES.iterdir()):
         if not d.is_dir() or not d.name.startswith("agency-"):
             continue
@@ -99,6 +136,7 @@ def build_roster() -> dict[str, Any]:
         "total": len(profiles),
         "online": sum(1 for p in profiles if p["online"]),
         "profiles": profiles,
+        "plugin_setup": _plugin_setup_module().compact_setup_summary(plugin_summary),
     }
     return roster
 
@@ -119,6 +157,11 @@ def load_roster() -> dict[str, Any]:
             data = json.loads(ROSTER_PATH.read_text())
             # Refresh if older than 5 minutes
             if time.time() - data.get("updated_at", 0) < 300:
+                # Symlink setup is idempotent and should happen even when roster
+                # data is fresh, so newly created profiles do not wait for cache
+                # expiry before becoming Agency-capable.
+                plugin_summary = ensure_profile_plugins()
+                data["plugin_setup"] = _plugin_setup_module().compact_setup_summary(plugin_summary)
                 return data
         except Exception:
             pass
@@ -147,3 +190,16 @@ def find_agent(query: str) -> dict[str, Any] | None:
             return p
 
     return None
+
+
+if __name__ == "__main__":
+    current = save_roster()
+    setup = current.get("plugin_setup", {})
+    print(f"Roster saved: {current['online']}/{current['total']} agency profiles online")
+    print(
+        "Plugin setup: "
+        f"{setup.get('profiles_updated', 0)} updated, "
+        f"{setup.get('profiles_already', 0)} already, "
+        f"{setup.get('profiles_errors', 0)} profile errors, "
+        f"main={setup.get('main_status', 'skipped')}"
+    )

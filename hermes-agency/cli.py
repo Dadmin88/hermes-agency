@@ -255,8 +255,35 @@ def _staff_install_text(names: list[str], *, dry_run: bool = False, force: bool 
         lines.append(f"Errors ({len(errors)}):")
         for item in errors:
             lines.append(f"  ! {item}")
+    if not dry_run:
+        lines.append("")
+        lines.append(_setup_plugins_text())
     if not installed and not skipped and not errors:
         lines.append("Nothing to do.")
+    return "\n".join(lines)
+
+
+def _setup_plugins_text() -> str:
+    """Symlink Hermes Agency into every Hermes profile's plugins directory."""
+    from .pool.plugin_setup import setup_all_profile_plugins
+
+    summary = setup_all_profile_plugins(include_main=True)
+    lines = [
+        "Hermes Agency plugin setup complete.",
+        f"  Source: {summary['source']}",
+        f"  Profiles scanned: {summary['profiles_total']}",
+        f"  Profiles updated: {summary['profiles_updated']}",
+        f"  Profiles already linked: {summary['profiles_already']}",
+        f"  Profile errors: {summary['profiles_errors']}",
+        f"  Main/default plugin: {summary['main_status']} ({summary['main_path']})",
+    ]
+    if summary.get("errors"):
+        lines.append("  Errors:")
+        for item in summary["errors"]:
+            lines.append(
+                f"    ! {item.get('profile')}: {item.get('error', 'unknown error')} "
+                f"({item.get('path')})"
+            )
     return "\n".join(lines)
 
 
@@ -340,6 +367,8 @@ def handle_agency_slash(raw_args: str = "") -> str:
         return _json(manager.info().get("registration") or {})
     if verb == "doctor":
         return render_doctor_report(run_doctor(), json_output="--json" in parts[1:])
+    if verb == "setup-plugins":
+        return _setup_plugins_text()
     if verb == "staff":
         sub = parts[1].lower() if len(parts) > 1 else "list"
         if sub == "list":
@@ -354,7 +383,7 @@ def handle_agency_slash(raw_args: str = "") -> str:
             name = parts[2] if len(parts) > 2 else ""
             return _staff_info_text(name)
         return "Usage: /agency staff [list [category]|install [--dry-run] [--force] [names...]|info <name>]"
-    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|promote <agent>|demote <agent>|registry|staff]"
+    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|setup-plugins|promote <agent>|demote <agent>|registry|staff]"
 
 
 def setup_agency_parser(parser: ArgumentParser) -> None:
@@ -391,6 +420,13 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     )
     doctor_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     doctor_parser.set_defaults(func=cmd_agency)
+
+    setup_plugins_parser = subparsers.add_parser(
+        "setup-plugins",
+        help="Symlink Hermes Agency into every Hermes profile",
+        description="Ensure all ~/.hermes/profiles/*/plugins/hermes-agency links exist.",
+    )
+    setup_plugins_parser.set_defaults(func=cmd_agency)
 
     promote_parser = subparsers.add_parser(
         "promote",
@@ -460,6 +496,8 @@ def cmd_agency(args: Namespace) -> None:
         print(render_doctor_report(report, json_output=getattr(args, "json", False)))
         if report.exit_code:
             raise SystemExit(report.exit_code)
+    elif verb == "setup-plugins":
+        print(_setup_plugins_text())
     elif verb == "promote":
         print(_promote_text(getattr(args, "agent", "")))
     elif verb == "demote":
