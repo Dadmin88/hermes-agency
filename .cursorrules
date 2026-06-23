@@ -1,6 +1,6 @@
-# AgentAnycast Python SDK
+# Hermes Agency (with AgentAnycast Python SDK dependency)
 
-Python SDK for the AgentAnycast P2P runtime. Communicates with the Go sidecar daemon via gRPC over Unix domain socket.
+Hermes Agency plugin for Hermes, with AgentAnycast Python SDK as the core P2P dependency. Communicates with the Go sidecar daemon via gRPC over Unix domain socket.
 
 ## Architecture
 

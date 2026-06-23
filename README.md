@@ -1,10 +1,10 @@
-# AgentAnycast Python SDK
+# Hermes Agency
 
-**Build P2P agents in Python.** Discover, communicate, and collaborate with AI agents across any network -- encrypted, decentralized, NAT-traversing.
+**Hermes Agency P2P Agent Plugin for Hermes Agent.** The complete P2P multi-agent orchestration system for Hermes, built on the AgentAnycast Python SDK.
 
-AgentAnycast is the Python SDK/runtime. Hermes Agency is the optional Hermes Agent plugin in `hermes-agency/` built on top of that SDK.
+Hermes Agency is the primary component in this repository. The AgentAnycast Python SDK (`src/agentanycast/`) is included as the foundational dependency for P2P communication, daemon management, and A2A protocol support. The Hermes Agency plugin lives in `hermes-agency/` and provides the full roster of 83 specialized agents, orchestration, Kanban integration, team context, and autonomous workflows.
 
-[![CI](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentAnycast/agentanycast-python/actions/workflows/ci.yml)
+[![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentanycast?color=3776AB)](https://pypi.org/project/agentanycast/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
@@ -100,7 +100,7 @@ agentanycast info                        # Show Peer ID, DID, version
 ```
 
 - **LAN** -- agents discover each other via mDNS. Zero configuration.
-- **WAN** -- deploy a [self-hosted relay](https://github.com/AgentAnycast/agentanycast-relay) and point agents to it.
+- **WAN** -- deploy a [self-hosted relay](https://github.com/DeployFaith/agentanycast-relay (or original AgentAnycast relay)) and point agents to it.
 - The Go daemon is **auto-downloaded and managed** by the SDK. No manual setup.
 
 ## Framework Adapters
@@ -220,11 +220,11 @@ make integration-agency-full         # live profile/Kanban/relay validation
 ## Requirements
 
 - Python 3.10+
-- The [agentanycastd](https://github.com/AgentAnycast/agentanycast-node) daemon (auto-managed by the SDK)
+- The [agentanycastd](https://github.com/DeployFaith/agentanycast-node (or original)) daemon (auto-managed by the SDK)
 
 ---
 
-**Part of [AgentAnycast](https://github.com/AgentAnycast/agentanycast)** -- see the main repo for architecture docs, protocol reference, and examples.
+**Hermes Agency** (this repo) is the primary project. The AgentAnycast Python SDK is the P2P foundation included here. See `hermes-agency/AGENTS.md` and the roster of 83 specialized agents.
 
 ## License
 
