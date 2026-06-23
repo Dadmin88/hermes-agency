@@ -40,7 +40,8 @@ from .kanban_bridge import (
 )
 from .node_manager import manager
 from .policy import check_autonomy
-from .team_context import PeerCapability, get_team_state
+from .registration import live_registrations
+from .team_context import PeerCapability, filter_team_peers, get_team_state
 
 
 def _json(data: dict[str, Any]) -> str:
@@ -74,6 +75,16 @@ def _peer_skills(peer: PeerCapability) -> list[str]:
 
 def _peer_label(peer: PeerCapability) -> str:
     return peer.card_name or peer.name or peer.peer_id
+
+
+def _visible_team_peers(cfg: AgencyConfig | None = None) -> list[PeerCapability]:
+    """Return team peers visible to orchestrator routing/decomposition."""
+
+    active_cfg = cfg or get_config()
+    team_state = get_team_state()
+    registrations = live_registrations(tenant=active_cfg.team.tenant)
+    visible = filter_team_peers(team_state.peers, active_cfg, registrations)
+    return list(visible.values())
 
 
 def _apply_routing_hint(target_or_task: str, cfg: AgencyConfig) -> tuple[str, str | None]:
@@ -119,8 +130,8 @@ def _resolve_target(target_agent: str) -> dict[str, Any]:
             "matched_rule": matched_rule,
         }
 
-    team_state = get_team_state()
-    for peer in team_state.peers.values():
+    visible_peers = _visible_team_peers(cfg)
+    for peer in visible_peers:
         label = _peer_label(peer)
         names = {
             peer.peer_id.lower(),
@@ -138,7 +149,7 @@ def _resolve_target(target_agent: str) -> dict[str, Any]:
                 "peer": peer.as_dict(),
             }
 
-    for peer in team_state.peers.values():
+    for peer in visible_peers:
         for skill in _peer_skills(peer):
             if lowered == skill.lower():
                 return {
@@ -179,12 +190,12 @@ def _suggest_assignment(goal: str) -> str:
         return hinted
 
     lowered = goal.lower()
-    team_state = get_team_state()
-    for peer in team_state.peers.values():
+    visible_peers = _visible_team_peers(cfg)
+    for peer in visible_peers:
         for skill in _peer_skills(peer):
             if skill.lower() in lowered:
                 return _peer_label(peer)
-    for peer in team_state.peers.values():
+    for peer in visible_peers:
         name = (_peer_label(peer) or "").lower()
         if name and name in lowered:
             return _peer_label(peer)
@@ -208,7 +219,8 @@ def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = N
     lowered = _normalise(assigned_to)
     if not lowered:
         return []
-    for peer in get_team_state().peers.values():
+    cfg = get_config()
+    for peer in _visible_team_peers(cfg):
         label = _peer_label(peer)
         names = {
             peer.peer_id.lower(),
@@ -223,9 +235,9 @@ def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = N
 
 def _decomposition_prompt(task_description: str) -> str:
     cfg = get_config()
-    team = get_team_state()
+    visible_peers = _visible_team_peers(cfg)
     team_lines: list[str] = []
-    for peer in sorted(team.peers.values(), key=lambda item: _peer_label(item).lower()):
+    for peer in sorted(visible_peers, key=lambda item: _peer_label(item).lower()):
         skills = ", ".join(_peer_skills(peer)) or "unknown"
         team_lines.append(f"- {_peer_label(peer)}: peer_id={peer.peer_id}; skills={skills}")
     routing = ", ".join(f"{k}->{v}" for k, v in sorted(cfg.routing.items())) or "none"

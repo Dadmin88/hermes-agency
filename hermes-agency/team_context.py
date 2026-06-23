@@ -246,6 +246,70 @@ def _display_name(peer: PeerCapability, registration: dict[str, Any] | None = No
     )
 
 
+def _agency_names(
+    peer: PeerCapability, registration: dict[str, Any] | None = None
+) -> tuple[str, ...]:
+    """Return all peer profile-name candidates used for agency namespace filtering."""
+
+    names = [peer.card_name, peer.name]
+    if registration:
+        names.append(str(registration.get("name") or "").strip())
+    return tuple(name.strip() for name in names if name and name.strip())
+
+
+def is_agency_peer(peer: PeerCapability, registration: dict[str, Any] | None = None) -> bool:
+    """Return True when a discovered peer belongs to the agency-* profile namespace."""
+
+    return any(name.startswith("agency-") for name in _agency_names(peer, registration))
+
+
+def team_context_filter(config: AgencyConfig | None = None) -> str:
+    """Return the configured team-context filter mode."""
+
+    cfg = config or get_config()
+    value = str(getattr(cfg.team, "context_filter", "agency-only") or "agency-only").strip().lower()
+    return value if value in {"agency-only", "all"} else "agency-only"
+
+
+def filter_team_peers(
+    peers: dict[str, PeerCapability],
+    config: AgencyConfig | None = None,
+    registrations: list[dict[str, Any]] | None = None,
+) -> dict[str, PeerCapability]:
+    """Return peers visible to team/orchestrator context under the configured filter."""
+
+    if team_context_filter(config) == "all":
+        return dict(peers)
+    registered_by_peer = {str(item.get("peer_id")): item for item in registrations or []}
+    return {
+        peer_id: peer
+        for peer_id, peer in peers.items()
+        if is_agency_peer(peer, registered_by_peer.get(peer_id))
+    }
+
+
+def visible_team_state(config: AgencyConfig | None = None) -> dict[str, Any]:
+    """Return the team cache as seen by prompts/status/info after filtering."""
+
+    cfg = config or get_config()
+    registrations = live_registrations(tenant=cfg.team.tenant)
+    visible = filter_team_peers(_state.peers, cfg, registrations)
+    return {
+        "peers": {peer_id: peer.as_dict() for peer_id, peer in sorted(visible.items())},
+        "last_refresh": _state.last_refresh,
+        "last_error": _state.last_error,
+        "refresh_count": _state.refresh_count,
+        "context_filter": team_context_filter(cfg),
+        "filtered_peer_count": len(visible),
+    }
+
+
+def visible_team_peer_count(config: AgencyConfig | None = None) -> int:
+    """Return the number of peers visible after team-context filtering."""
+
+    return len(visible_team_state(config).get("peers") or {})
+
+
 def _display_description(peer: PeerCapability, registration: dict[str, Any] | None = None) -> str:
     return (
         peer.card_description
@@ -517,52 +581,37 @@ def _render_peer(
 def build_team_context(config: AgencyConfig | None = None) -> str:
     """Build the prompt block that tells an agent about available teammates.
 
-    Returns an empty string when injection is disabled or no peers are known.
-
-    Peers are split into two sections:
-    - **Pool agents** (``agency-*``): managed by the pool manager.
-    - **Personal agents**: the user's own Hermes profiles (designer, git, …).
+    Returns an empty string when injection is disabled. By default, only peers
+    whose card/profile name starts with ``agency-`` are visible so orchestrators
+    do not see personal Hermes profiles as delegation targets. Set
+    ``agency.team.context_filter: all`` only for debugging the raw directory.
     """
 
     cfg = config or get_config()
+    if not cfg.team.inject_context:
+        return ""
+
     registrations = live_registrations(tenant=cfg.team.tenant)
     registered_by_peer = {str(item.get("peer_id")): item for item in registrations}
-    visible_by_peer: dict[str, PeerCapability] = dict(_state.peers)
+    all_by_peer: dict[str, PeerCapability] = dict(_state.peers)
     for item in registrations:
         peer = _normalise_registration(item)
         if peer is not None:
-            visible_by_peer[peer.peer_id] = _merge_peer(visible_by_peer.get(peer.peer_id), peer)
+            all_by_peer[peer.peer_id] = _merge_peer(all_by_peer.get(peer.peer_id), peer)
+
+    visible_by_peer = filter_team_peers(all_by_peer, cfg, registrations)
     visible_peers = list(visible_by_peer.values())
-    if not cfg.team.inject_context and not registrations:
-        return ""
-    if not visible_peers and not registrations:
-        return ""
+    filter_mode = team_context_filter(cfg)
 
     max_peers, max_skills, max_chars = _team_context_limits(cfg)
     lines = [
         "Hermes Agency team context:",
         f"Tenant: {cfg.team.tenant}",
+        f"Team context filter: {filter_mode}",
     ]
-
-    # --- Classify peers into pool vs personal ---
-    pool_peers: list[PeerCapability] = []
-    personal_peers: list[PeerCapability] = []
-    for peer in visible_peers:
-        name = (
-            peer.card_name
-            or peer.name
-            or str((registered_by_peer.get(peer.peer_id) or {}).get("name") or "").strip()
-        )
-        if _is_pool_agent(name):
-            pool_peers.append(peer)
-        else:
-            personal_peers.append(peer)
 
     def sort_key(item: PeerCapability) -> str:
         return _display_name(item, registered_by_peer.get(item.peer_id)).lower()
-
-    pool_peers.sort(key=sort_key)
-    personal_peers.sort(key=sort_key)
 
     def _render_section(
         section_peers: list[PeerCapability],
@@ -580,34 +629,61 @@ def build_team_context(config: AgencyConfig | None = None) -> str:
         omitted = len(section_peers) - len(shown)
         if omitted > 0:
             section_lines.append(
-                f"  ({omitted} more omitted — use a2a_discover for the full list.)"
+                f"  ({omitted} more omitted — use agency_discover for the full list.)"
             )
         return section_lines
 
-    # Budget: split max_peers across sections, giving pool agents priority
-    # when they exist, otherwise give all budget to personal agents.
-    if pool_peers and personal_peers:
-        pool_budget = min(len(pool_peers), max(1, max_peers // 2))
-        personal_budget = min(len(personal_peers), max_peers - pool_budget)
-    elif pool_peers:
-        pool_budget = min(len(pool_peers), max_peers)
-        personal_budget = 0
+    if filter_mode == "agency-only":
+        agency_peers = sorted(visible_peers, key=sort_key)
+        lines.append("Teammate agents:")
+        if not agency_peers:
+            lines.append("No agency teammates currently discoverable.")
+        else:
+            shown = agency_peers[:max_peers]
+            for peer in shown:
+                registration = registered_by_peer.get(peer.peer_id)
+                lines.extend(_render_peer(peer, registration, max_skills))
+            omitted = len(agency_peers) - len(shown)
+            if omitted > 0:
+                lines.append(
+                    f"{omitted} more agency teammate agent(s) omitted from this compact prompt "
+                    "context. Use agency_discover for the full live directory."
+                )
     else:
-        pool_budget = 0
-        personal_budget = min(len(personal_peers), max_peers)
+        pool_peers: list[PeerCapability] = []
+        personal_peers: list[PeerCapability] = []
+        for peer in visible_peers:
+            registration = registered_by_peer.get(peer.peer_id)
+            if is_agency_peer(peer, registration):
+                pool_peers.append(peer)
+            else:
+                personal_peers.append(peer)
+        pool_peers.sort(key=sort_key)
+        personal_peers.sort(key=sort_key)
 
-    lines.append("The following teammate agents are currently discoverable on the A2A network.")
-    lines.extend(_render_section(pool_peers, "Pool agents (agency-*):", pool_budget))
-    lines.extend(_render_section(personal_peers, "Personal agents:", personal_budget))
+        if pool_peers and personal_peers:
+            pool_budget = min(len(pool_peers), max(1, max_peers // 2))
+            personal_budget = min(len(personal_peers), max_peers - pool_budget)
+        elif pool_peers:
+            pool_budget = min(len(pool_peers), max_peers)
+            personal_budget = 0
+        else:
+            pool_budget = 0
+            personal_budget = min(len(personal_peers), max_peers)
 
-    total_shown = min(len(pool_peers), pool_budget) + min(len(personal_peers), personal_budget)
-    total_peers = len(pool_peers) + len(personal_peers)
-    total_omitted = total_peers - total_shown
-    if total_omitted > 0:
-        lines.append(
-            f"{total_omitted} more teammate agent(s) omitted from this compact prompt context. "
-            "Use agency_discover for the full live directory."
-        )
+        lines.append("The following teammate agents are currently discoverable on the A2A network.")
+        lines.extend(_render_section(pool_peers, "Pool agents (agency-*):", pool_budget))
+        lines.extend(_render_section(personal_peers, "Personal agents:", personal_budget))
+
+        total_shown = min(len(pool_peers), pool_budget) + min(len(personal_peers), personal_budget)
+        total_peers = len(pool_peers) + len(personal_peers)
+        total_omitted = total_peers - total_shown
+        if total_omitted > 0:
+            lines.append(
+                f"{total_omitted} more teammate agent(s) omitted from this compact prompt context. "
+                "Use agency_discover for the full live directory."
+            )
+
     lines.append(
         "To delegate directly, call agency_send with the target peer_id and a clear task message. "
         "The Hermes Agency plugin will wrap the message in a structured context packet automatically."

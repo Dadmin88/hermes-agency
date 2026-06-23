@@ -51,6 +51,7 @@ Config schema and defaults::
         self_serve: true
         announce_progress: false
         context_refresh_minutes: 5
+        context_filter: agency-only # agency-only or all; agency-only hides personal profiles
         max_context_peers: 5      # max peers included in injected prompt context
         max_context_skills: 5     # max skills shown per peer in injected context
         context_max_chars: 4000   # hard character budget for injected context block
@@ -121,6 +122,7 @@ class TeamConfig:
     learning: bool = False
     tenant: str = "default"
     context_refresh_minutes: int = 5
+    context_filter: str = "all"
     max_context_peers: int = 5
     max_context_skills: int = 5
     context_max_chars: int = 4000
@@ -138,6 +140,7 @@ class TeamConfig:
             "learning": self.learning,
             "tenant": self.tenant,
             "context_refresh_minutes": self.context_refresh_minutes,
+            "context_filter": self.context_filter,
             "max_context_peers": self.max_context_peers,
             "max_context_skills": self.max_context_skills,
             "context_max_chars": self.context_max_chars,
@@ -386,6 +389,22 @@ def _team_config(config: dict[str, Any]) -> TeamConfig:
         refresh_minutes = int(refresh_minutes_raw or 5)
     except (TypeError, ValueError):
         refresh_minutes = 5
+    context_filter = (
+        str(
+            _cfg_get(
+                config,
+                "agency",
+                "team",
+                "context_filter",
+                default="agency-only",
+            )
+            or "agency-only"
+        )
+        .strip()
+        .lower()
+    )
+    if context_filter not in {"agency-only", "all"}:
+        context_filter = "agency-only"
 
     return TeamConfig(
         auto_discover=_bool_cfg(
@@ -458,6 +477,7 @@ def _team_config(config: dict[str, Any]) -> TeamConfig:
             or "default"
         ),
         context_refresh_minutes=max(1, refresh_minutes),
+        context_filter=context_filter,
         max_context_peers=_int_cfg(
             config,
             "agency",

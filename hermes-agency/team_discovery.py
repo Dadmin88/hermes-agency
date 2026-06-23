@@ -10,7 +10,12 @@ from typing import Any
 from .card_builder import build_card
 from .config import AgencyConfig, get_config
 from .registration import update_registration
-from .team_context import build_team_context, get_team_state, refresh_capability_map
+from .team_context import (
+    build_team_context,
+    get_team_state,
+    refresh_capability_map,
+    visible_team_peer_count,
+)
 from .trust import (
     TrustError,
     peer_allowed_by_config,
@@ -27,7 +32,7 @@ class TeamDiscoveryMixin:
 
     def _refresh_team_state_fields(self) -> None:
         team_state = get_team_state()
-        self.state.team_peer_count = len(team_state.peers)
+        self.state.team_peer_count = visible_team_peer_count(self.state.config)
         self.state.team_last_refresh = team_state.last_refresh
         self.state.team_last_error = team_state.last_error
         self.state.team_context = build_team_context(self.state.config)

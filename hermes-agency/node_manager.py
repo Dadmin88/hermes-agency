@@ -78,7 +78,7 @@ from .registry_client import (
     _registry_addresses,
 )
 from .task_processor import process_incoming_task
-from .team_context import get_team_state
+from .team_context import get_team_state, visible_team_state
 from .team_discovery import TeamDiscoveryMixin
 from .trust import store_for_config, trust_summary, verify_peer_tofu
 
@@ -522,7 +522,7 @@ class NodeManager(
             "effective_allowlist": self.effective_relay_allowlist(self.state.config),
         }
         data["trust"] = trust_summary(self.state.config)
-        data["team"] = get_team_state().as_dict()
+        data["team"] = visible_team_state(self.state.config)
         registration_data = get_registration_state().as_dict()
         registration_data["registry_refresh"] = self._registration_health_dict()
         data["registration"] = registration_data
