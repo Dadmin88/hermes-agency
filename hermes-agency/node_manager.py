@@ -47,6 +47,7 @@ from .context_packet import (
     parse_context_packet,
 )
 from .conversation import build_conversation_context, build_conversation_history
+from .incoming_security import verify_incoming_sender
 from .kanban_bridge import add_comment as kanban_add_comment
 from .kanban_bridge import get_task as kanban_get_task
 from .kanban_bridge import list_tasks as kanban_list_tasks
@@ -66,6 +67,7 @@ from .task_processor import process_incoming_task
 from .team_context import build_team_context, get_team_state, refresh_capability_map
 from .trust import (
     TrustError,
+    peer_allowed_by_config,
     store_for_config,
     sync_relay_allowlist,
     trust_summary,
@@ -702,14 +704,15 @@ class NodeManager:
         self.state.team_context = build_team_context(self.state.config)
 
     def effective_relay_allowlist(self, config: AgencyConfig | None = None) -> list[str]:
-        """Return configured relay allowlist plus team peers when enabled.
+        """Return explicit allowlist plus verified team peers when enabled.
 
-        Empty configured allowlist still means allow-all at the relay. This helper
-        is for reporting/syncing; it never converts an empty allowlist into a
-        default-deny list unless explicit configured/team peers exist.
+        Empty allowlist is deny-by-default unless ``agency.relay.allow_all`` is
+        explicitly set. Auto-added team peers must already have a non-blocked
+        trust-store record; discovery alone is not sufficient.
         """
 
         cfg = config or get_config()
+        trusted_records = store_for_config(cfg).list_peers()
         seen: set[str] = set()
         allowlist: list[str] = []
         for peer_id in cfg.relay_security.allowlist:
@@ -720,16 +723,25 @@ class NodeManager:
         if cfg.relay_security.auto_allow_team:
             for peer_id in sorted(get_team_state().peers):
                 clean = str(peer_id or "").strip()
-                if clean and clean not in seen:
+                if not clean or clean in seen:
+                    continue
+                trust_record = trusted_records.get(clean) or {}
+                trust_level = str(trust_record.get("trust_level") or "").strip().lower()
+                if trust_level in {"limited", "full"}:
                     seen.add(clean)
                     allowlist.append(clean)
         return allowlist
 
     def _peer_allowed_by_effective_allowlist(self, cfg: AgencyConfig, peer_id: str) -> bool:
-        configured = set(cfg.relay_security.allowlist)
-        if not configured:
+        clean = str(peer_id or "").strip()
+        if not clean:
+            return False
+        trust_record = store_for_config(cfg).list_peers().get(clean) or {}
+        if str(trust_record.get("trust_level") or "").strip().lower() == "blocked":
+            return False
+        if peer_allowed_by_config(cfg, clean):
             return True
-        return str(peer_id or "").strip() in set(self.effective_relay_allowlist(cfg))
+        return clean in set(self.effective_relay_allowlist(cfg))
 
     def _verify_team_peers(self, cfg: AgencyConfig) -> None:
         for peer in get_team_state().peers.values():
@@ -810,6 +822,38 @@ class NodeManager:
             return str(skill.get("description") or "").strip()
         return str(getattr(skill, "description", "") or "").strip()
 
+    @staticmethod
+    def _registry_token_metadata(
+        config: AgencyConfig, addr: str
+    ) -> tuple[tuple[str, str], ...] | None:
+        """Return registry auth metadata when safe or explicitly allowed."""
+
+        token = config.relay_security.token
+        if not token:
+            return None
+
+        # Registry refresh currently uses grpc.aio.insecure_channel for every
+        # configured address. Never leak bearer-style tokens across that channel
+        # unless the user explicitly opts in for a trusted local network.
+        if not config.registry_allow_insecure_token_transport:
+            logger.warning(
+                "Configured registry token: not sending registry token over insecure gRPC "
+                "to %s. Set agency.registry.allow_insecure_token_transport=true only for "
+                "trusted local networks if this registry requires token metadata.",
+                addr,
+            )
+            return None
+
+        logger.warning(
+            "Configured registry token: sending registry token over insecure gRPC to %s "
+            "because agency.registry.allow_insecure_token_transport=true.",
+            addr,
+        )
+        return (
+            ("authorization", f"Bearer {token}"),
+            ("x-agency-relay-token", token),
+        )
+
     async def _register_skills_with_registries(self, card: Any) -> dict[str, Any]:
         """Refresh this node's relay skill-registry TTL.
 
@@ -867,12 +911,7 @@ class NodeManager:
             channel = grpc.aio.insecure_channel(addr)
             try:
                 stub = registry_grpc.RegistryServiceStub(channel)
-                call_metadata = None
-                if self.state.config.relay_security.token:
-                    call_metadata = (
-                        ("authorization", f"Bearer {self.state.config.relay_security.token}"),
-                        ("x-agency-relay-token", self.state.config.relay_security.token),
-                    )
+                call_metadata = self._registry_token_metadata(self.state.config, addr)
                 if call_metadata:
                     await stub.RegisterSkills(request, timeout=5, metadata=call_metadata)
                 else:
@@ -972,8 +1011,23 @@ class NodeManager:
         """Queue an incoming remote task and mark it working immediately."""
 
         message_text = self._message_text_from_incoming(task)
+        cfg = get_config()
         control_payload = parse_control_message(message_text)
         if control_payload:
+            security = verify_incoming_sender(
+                task, cfg, purpose="control", control_payload=control_payload
+            )
+            if not security.allowed:
+                try:
+                    await task.fail(security.reason)
+                except Exception:
+                    pass
+                logger.warning(
+                    "Hermes Agency rejected incoming control message from %s: %s",
+                    security.sender_peer_id or "unknown peer",
+                    security.reason,
+                )
+                return
             control_result = handle_registration_message(control_payload) or handle_bid_message(
                 control_payload
             )
@@ -1008,32 +1062,17 @@ class NodeManager:
             return
         context_packet = parse_context_packet(message_text)
         metadata = self._metadata_to_dict(getattr(task, "metadata", None))
-        sender_peer_id = str(getattr(task, "peer_id", "") or "").strip()
         sender_card = self._sender_card_to_dict(task)
-        cfg = get_config()
-        if sender_peer_id and not self._peer_allowed_by_effective_allowlist(cfg, sender_peer_id):
-            reason = f"sender peer {sender_peer_id} is not in effective agency.relay.allowlist"
+        security = verify_incoming_sender(task, cfg, purpose="task")
+        if not security.allowed:
+            reason = security.reason
             try:
                 await task.fail(reason)
             except Exception:
                 pass
             logger.warning("Hermes Agency rejected incoming task: %s", reason)
             return
-        try:
-            verify_peer_tofu(
-                cfg,
-                sender_peer_id,
-                card=sender_card,
-                source="incoming_task",
-            )
-        except TrustError as exc:
-            reason = str(exc)
-            try:
-                await task.fail(reason)
-            except Exception:
-                pass
-            logger.warning("Hermes Agency rejected incoming task: %s", reason)
-            return
+        sender_peer_id = security.sender_peer_id
         context_id = ""
         if context_packet:
             context_id = str(context_packet.get("context_id") or "").strip()

@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from .conversation import format_conversation_history
+from .trust import store_for_config
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ DELEGATION_FIRST_PROGRESS_SECONDS = 10.0
 DELEGATION_PROGRESS_INTERVAL_SECONDS = 30.0
 _SKILL_CONTEXT_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
 ProgressCallback = Callable[[str], None]
+TRUST_ORDER = {"blocked": 0, "limited": 1, "full": 2}
 
 
 class TaskProcessingError(RuntimeError):
@@ -273,10 +275,40 @@ def process_incoming_task(
             if not response.strip():
                 raise TaskProcessingError("Hermes delegation returned an empty response")
             return response.strip()
-        except Exception:  # noqa: BLE001 - fail open to subprocess/template
-            logger.exception("Incoming Hermes Agency delegation failed; trying subprocess fallback")
+        except Exception:  # noqa: BLE001 - fall back only when explicitly enabled
+            logger.exception("Incoming Hermes Agency delegation failed")
+            if not bool(getattr(config, "incoming_allow_subprocess_fallback", False)):
+                logger.warning(
+                    "Incoming Hermes Agency subprocess fallback disabled; returning safe fallback"
+                )
+                if fallback_response is not None:
+                    return fallback_response(task_record)
+                raise TaskProcessingError("Incoming Hermes Agency delegation failed")
 
     if mode in {"delegation", "subprocess"}:
+        if mode == "subprocess" and not bool(getattr(config, "incoming_allow_subprocess", False)):
+            logger.warning(
+                "Incoming Hermes Agency subprocess mode denied: agency.incoming.allow_subprocess=false"
+            )
+            if fallback_response is not None:
+                return fallback_response(task_record)
+            raise TaskProcessingError("incoming subprocess mode is disabled")
+        if mode == "delegation" and not bool(getattr(config, "incoming_allow_subprocess", False)):
+            logger.warning(
+                "Incoming Hermes Agency subprocess fallback denied: agency.incoming.allow_subprocess=false"
+            )
+            if fallback_response is not None:
+                return fallback_response(task_record)
+            raise TaskProcessingError("incoming subprocess fallback is disabled")
+        if not _subprocess_trust_allowed(task_record, config):
+            logger.warning(
+                "Incoming Hermes Agency subprocess denied for sender %s: requires %s trust",
+                _field(task_record, "sender_peer_id") or "unknown peer",
+                getattr(config, "incoming_min_subprocess_trust", "full"),
+            )
+            if fallback_response is not None:
+                return fallback_response(task_record)
+            raise TaskProcessingError("sender trust level is insufficient for subprocess")
         profile_name = resolve_subprocess_profile(config)
         if profile_name:
             subprocess_message = f"{prompt}\n\n{context}"
@@ -286,9 +318,18 @@ def process_incoming_task(
                     subprocess_message,
                     timeout,
                     progress_callback=active_progress_callback,
+                    allow_hooks=bool(getattr(config, "incoming_allow_hooks_for_remote", False)),
                 )
             else:
-                response = process_via_subprocess(profile_name, subprocess_message, timeout)
+                if bool(getattr(config, "incoming_allow_hooks_for_remote", False)):
+                    response = process_via_subprocess(
+                        profile_name,
+                        subprocess_message,
+                        timeout,
+                        allow_hooks=True,
+                    )
+                else:
+                    response = process_via_subprocess(profile_name, subprocess_message, timeout)
             if response.strip() and not _is_error_response(response):
                 return response.strip()
             logger.error("Incoming Hermes Agency subprocess fallback failed: %s", response)
@@ -300,6 +341,26 @@ def process_incoming_task(
     if fallback_response is not None:
         return fallback_response(task_record)
     raise TaskProcessingError("Incoming Hermes Agency task processing failed")
+
+
+def _subprocess_trust_allowed(task_record: Any, config: Any) -> bool:
+    sender_peer_id = str(_field(task_record, "sender_peer_id") or "").strip()
+    if not sender_peer_id:
+        return False
+    min_trust = (
+        str(getattr(config, "incoming_min_subprocess_trust", "full") or "full").strip().lower()
+    )
+    if min_trust not in {"limited", "full"}:
+        min_trust = "full"
+    try:
+        record = store_for_config(config).list_peers().get(sender_peer_id) or {}
+    except Exception:
+        logger.warning("Could not read trust store for subprocess authorization", exc_info=True)
+        return False
+    trust_level = str(record.get("trust_level") or "").strip().lower()
+    if trust_level == "blocked" or not trust_level:
+        return False
+    return TRUST_ORDER.get(trust_level, 0) >= TRUST_ORDER[min_trust]
 
 
 def resolve_subprocess_profile(config: Any) -> str | None:
@@ -331,6 +392,8 @@ def process_via_subprocess(
     task_message: str,
     timeout: int | float,
     progress_callback: ProgressCallback | None = None,
+    *,
+    allow_hooks: bool = False,
 ) -> str:
     """Process a task via `hermes -p <profile> chat -q ... --quiet`.
 
@@ -346,6 +409,7 @@ def process_via_subprocess(
                 task_message,
                 timeout,
                 progress_callback=progress_callback,
+                allow_hooks=allow_hooks,
             )
         )
     except Exception as exc:  # noqa: BLE001
@@ -357,6 +421,8 @@ async def _process_via_subprocess_async(
     task_message: str,
     timeout: int | float,
     progress_callback: ProgressCallback | None = None,
+    *,
+    allow_hooks: bool = False,
 ) -> str:
     profile = (profile_name or "").strip()
     if not profile:
@@ -369,8 +435,11 @@ async def _process_via_subprocess_async(
         raise SubprocessTaskError("could not locate hermes executable")
     timeout_seconds = max(1.0, float(timeout or 120))
     env = os.environ.copy()
-    env["HERMES_ACCEPT_HOOKS"] = "1"
-    env["HERMES_YOLO_MODE"] = "1"
+    env.pop("HERMES_YOLO_MODE", None)
+    if allow_hooks:
+        env["HERMES_ACCEPT_HOOKS"] = "1"
+    else:
+        env.pop("HERMES_ACCEPT_HOOKS", None)
     proc = await asyncio.create_subprocess_exec(
         hermes_cmd,
         "-p",

@@ -14,6 +14,10 @@ Config schema and defaults::
         tool_access: safe         # safe, full, none
         max_iterations: 25        # max subagent turns
         subprocess_profile: null  # optional Hermes profile override for subprocess fallback
+        allow_subprocess: false   # true = permit remote tasks to use subprocess mode
+        allow_subprocess_fallback: false # true = delegation failure may try subprocess
+        min_subprocess_trust: full # minimum trust level required for subprocess
+        allow_hooks_for_remote: false # true = set HERMES_ACCEPT_HOOKS=1 for remote subprocess
         reject_unmatched_skills: false  # true = fail if requested skill is not installed
         send_progress: false      # true = send intermediate A2A progress artifacts
         conversation_ttl: 3600    # seconds to preserve A2A conversation continuity
@@ -24,9 +28,12 @@ Config schema and defaults::
       home: null                  # override daemon home dir (default: $HERMES_HOME/.agency)
       daemon_bin: null            # explicit daemon binary path; prevents SDK auto-download/overwrite
       relay:
-        allowlist: []           # peer_ids allowed to reserve relay slots; empty = allow all
-        auto_allow_team: true   # auto-add discovered teammates to relay allowlist
+        allowlist: []           # peer_ids allowed to reserve relay slots; empty = deny unless allow_all
+        auto_allow_team: false  # auto-add discovered teammates only after local trust verification
+        allow_all: false        # explicit allow-all for trusted dev/local networks
         token: null             # shared secret for relay allowlist/token control plane
+      registry:
+        allow_insecure_token_transport: false  # true = send registry token over insecure gRPC
       trust:
         store_path: null        # custom trust store path (default: $HERMES_HOME/agency/trust.json)
         tofu: true              # trust-on-first-use for new peers
@@ -49,6 +56,7 @@ Config schema and defaults::
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -57,19 +65,25 @@ from typing import Any
 from hermes_cli.config import cfg_get, load_config
 from hermes_constants import get_hermes_home
 
+logger = logging.getLogger(__name__)
+_WARNED_EMPTY_ALLOWLIST_MIGRATION = False
+
 
 @dataclass(frozen=True)
 class RelaySecurityConfig:
     """Resolved relay-side security configuration."""
 
     allowlist: tuple[str, ...] = ()
-    auto_allow_team: bool = True
+    auto_allow_team: bool = False
+    allow_all: bool = False
     token: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "allowlist": list(self.allowlist),
             "auto_allow_team": self.auto_allow_team,
+            "allow_all": self.allow_all,
+            "mode": "allow_all" if self.allow_all else "allowlist",
             "token_configured": bool(self.token),
         }
 
@@ -148,6 +162,10 @@ class IncomingConfig:
     tool_access: str = "safe"
     max_iterations: int = 25
     subprocess_profile: str | None = None
+    allow_subprocess: bool = False
+    allow_subprocess_fallback: bool = False
+    min_subprocess_trust: str = "full"
+    allow_hooks_for_remote: bool = False
     reject_unmatched_skills: bool = False
     send_progress: bool = False
     conversation_ttl: int = 3600
@@ -160,6 +178,10 @@ class IncomingConfig:
             "tool_access": self.tool_access,
             "max_iterations": self.max_iterations,
             "subprocess_profile": self.subprocess_profile,
+            "allow_subprocess": self.allow_subprocess,
+            "allow_subprocess_fallback": self.allow_subprocess_fallback,
+            "min_subprocess_trust": self.min_subprocess_trust,
+            "allow_hooks_for_remote": self.allow_hooks_for_remote,
             "reject_unmatched_skills": self.reject_unmatched_skills,
             "send_progress": self.send_progress,
             "conversation_ttl": self.conversation_ttl,
@@ -183,6 +205,7 @@ class AgencyConfig:
     daemon_bin: Path | None = None
     incoming: IncomingConfig = field(default_factory=IncomingConfig)
     relay_security: RelaySecurityConfig = field(default_factory=RelaySecurityConfig)
+    registry_allow_insecure_token_transport: bool = False
     trust: TrustConfig = field(default_factory=TrustConfig)
     team: TeamConfig = field(default_factory=TeamConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
@@ -204,12 +227,17 @@ class AgencyConfig:
             "daemon_bin": str(self.daemon_bin) if self.daemon_bin else None,
             "incoming": self.incoming.as_dict(),
             "relay_security": self.relay_security.as_dict(),
+            "registry_allow_insecure_token_transport": self.registry_allow_insecure_token_transport,
             "trust": self.trust.as_dict(),
             "incoming_mode": self.incoming_mode,
             "delegation_timeout": self.delegation_timeout,
             "incoming_tool_access": self.incoming_tool_access,
             "incoming_max_iterations": self.incoming_max_iterations,
             "incoming_subprocess_profile": self.incoming_subprocess_profile,
+            "incoming_allow_subprocess": self.incoming_allow_subprocess,
+            "incoming_allow_subprocess_fallback": self.incoming_allow_subprocess_fallback,
+            "incoming_min_subprocess_trust": self.incoming_min_subprocess_trust,
+            "incoming_allow_hooks_for_remote": self.incoming_allow_hooks_for_remote,
             "incoming_reject_unmatched_skills": self.incoming_reject_unmatched_skills,
             "incoming_send_progress": self.incoming_send_progress,
             "incoming_conversation_ttl": self.incoming_conversation_ttl,
@@ -240,6 +268,22 @@ class AgencyConfig:
     @property
     def incoming_subprocess_profile(self) -> str | None:
         return self.incoming.subprocess_profile
+
+    @property
+    def incoming_allow_subprocess(self) -> bool:
+        return self.incoming.allow_subprocess
+
+    @property
+    def incoming_allow_subprocess_fallback(self) -> bool:
+        return self.incoming.allow_subprocess_fallback
+
+    @property
+    def incoming_min_subprocess_trust(self) -> str:
+        return self.incoming.min_subprocess_trust
+
+    @property
+    def incoming_allow_hooks_for_remote(self) -> bool:
+        return self.incoming.allow_hooks_for_remote
 
     @property
     def incoming_reject_unmatched_skills(self) -> bool:
@@ -427,6 +471,25 @@ def _string_tuple(value: Any) -> tuple[str, ...]:
     return tuple(cleaned)
 
 
+def _env_truthy(name: str) -> bool:
+    return str(os.getenv(name, "")).strip().lower() in {"1", "true", "yes", "on", "dev"}
+
+
+def _warn_empty_allowlist_migration(
+    relay_map: dict[str, Any], allowlist: tuple[str, ...], allow_all: bool
+) -> None:
+    global _WARNED_EMPTY_ALLOWLIST_MIGRATION
+    if _WARNED_EMPTY_ALLOWLIST_MIGRATION or allowlist or allow_all:
+        return
+    if relay_map and "allow_all" not in relay_map:
+        logger.warning(
+            "Hermes Agency relay allowlist is empty and agency.relay.allow_all is not set; "
+            "empty allowlist now means deny. Set agency.relay.allow_all=true only for "
+            "trusted development/local networks."
+        )
+        _WARNED_EMPTY_ALLOWLIST_MIGRATION = True
+
+
 def _relay_security_config(config: dict[str, Any]) -> RelaySecurityConfig:
     raw_relay = _cfg_get(config, "agency", "relay", default=None)
     relay_map = raw_relay if isinstance(raw_relay, dict) else {}
@@ -453,15 +516,31 @@ def _relay_security_config(config: dict[str, Any]) -> RelaySecurityConfig:
         )
     )
     token = str(token_raw or "").strip()
+    allowlist = _string_tuple(allowlist_raw)
+    allow_all = _bool_cfg(
+        config,
+        "agency",
+        "relay",
+        "allow_all",
+        default=bool(relay_map.get("allow_all", False)) if relay_map else False,
+    )
+    if not allowlist and not allow_all and _env_truthy("HERMES_AGENCY_DEV_MODE"):
+        logger.warning(
+            "HERMES_AGENCY_DEV_MODE enabled legacy empty-allowlist allow-all behavior; "
+            "set agency.relay.allow_all=true explicitly before relying on this outside dev"
+        )
+        allow_all = True
+    _warn_empty_allowlist_migration(relay_map, allowlist, allow_all)
     return RelaySecurityConfig(
-        allowlist=_string_tuple(allowlist_raw),
+        allowlist=allowlist,
         auto_allow_team=_bool_cfg(
             config,
             "agency",
             "relay",
             "auto_allow_team",
-            default=bool(relay_map.get("auto_allow_team", True)) if relay_map else True,
+            default=bool(relay_map.get("auto_allow_team", False)) if relay_map else False,
         ),
+        allow_all=allow_all,
         token=token or None,
     )
 
@@ -497,6 +576,15 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
     subprocess_profile = str(
         _cfg_get(config, "agency", "incoming", "subprocess_profile", default="") or ""
     ).strip()
+    min_subprocess_trust = (
+        str(
+            _cfg_get(config, "agency", "incoming", "min_subprocess_trust", default="full") or "full"
+        )
+        .strip()
+        .lower()
+    )
+    if min_subprocess_trust not in {"full", "limited"}:
+        min_subprocess_trust = "full"
     return IncomingConfig(
         mode=mode,
         delegation_timeout=_int_cfg(
@@ -517,6 +605,28 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             floor=1,
         ),
         subprocess_profile=subprocess_profile or None,
+        allow_subprocess=_bool_cfg(
+            config,
+            "agency",
+            "incoming",
+            "allow_subprocess",
+            default=False,
+        ),
+        allow_subprocess_fallback=_bool_cfg(
+            config,
+            "agency",
+            "incoming",
+            "allow_subprocess_fallback",
+            default=False,
+        ),
+        min_subprocess_trust=min_subprocess_trust,
+        allow_hooks_for_remote=_bool_cfg(
+            config,
+            "agency",
+            "incoming",
+            "allow_hooks_for_remote",
+            default=False,
+        ),
         reject_unmatched_skills=_bool_cfg(
             config,
             "agency",
@@ -646,6 +756,13 @@ def get_config() -> AgencyConfig:
         daemon_bin=daemon_bin,
         incoming=_incoming_config(config),
         relay_security=_relay_security_config(config),
+        registry_allow_insecure_token_transport=_bool_cfg(
+            config,
+            "agency",
+            "registry",
+            "allow_insecure_token_transport",
+            default=False,
+        ),
         trust=_trust_config(config),
         team=_team_config(config),
         orchestrator=_orchestrator_config(config),

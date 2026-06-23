@@ -363,6 +363,7 @@ class Node:
         transport: str | None = None,
         namespace: str | None = None,
         status_callback: Callable[[str], None] | None = None,
+        daemon_verify_checksum: bool = True,
     ) -> None:
         """Initialize the Node.
 
@@ -387,6 +388,9 @@ class Node:
                 defaults to ``"default"``.
             status_callback: Optional callback for progress messages (e.g.,
                 daemon download, startup). Useful for CLI tools.
+            daemon_verify_checksum: Verify the SDK-managed daemon download
+                against the release ``.sha256`` file before execution. Disable
+                only for trusted legacy releases that do not publish checksums.
         """
         self._card = card
         self._relay = relay
@@ -396,6 +400,7 @@ class Node:
         self._transport = transport
         self._namespace = namespace
         self._status_callback = status_callback
+        self._daemon_verify_checksum = daemon_verify_checksum
         # daemon_path takes precedence over daemon_bin for user convenience
         self._daemon_bin = daemon_path or daemon_bin
 
@@ -451,6 +456,7 @@ class Node:
                 transport=self._transport,
                 namespace=self._namespace,
                 status_callback=self._status_callback,
+                verify_checksum=self._daemon_verify_checksum,
             )
             await self._daemon.start()
             self._daemon_addr = self._daemon.grpc_address

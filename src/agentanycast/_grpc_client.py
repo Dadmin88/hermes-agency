@@ -80,7 +80,11 @@ async def _retry_unary(
 class GrpcClient:
     """Async gRPC client wrapping NodeService calls.
 
-    Translates gRPC errors into AgentAnycast exception types.
+    Translates gRPC errors into AgentAnycast exception types. ``tcp://`` daemon
+    addresses are supported for compatibility but currently use
+    ``grpc.aio.insecure_channel`` and are therefore unencrypted; prefer
+    ``unix://`` for local daemon communication or restrict TCP listeners to
+    trusted local networks.
     """
 
     def __init__(self, address: str) -> None:
@@ -94,6 +98,11 @@ class GrpcClient:
         if target.startswith("unix://"):
             target = self._address  # grpc.aio handles unix:// natively
         elif target.startswith("tcp://"):
+            logger.warning(
+                "Using unencrypted daemon gRPC connection for %s. Prefer unix:// "
+                "local sockets or restrict TCP daemon listeners to trusted local networks.",
+                self._address,
+            )
             target = target[6:]
 
         self._channel = grpc.aio.insecure_channel(target)

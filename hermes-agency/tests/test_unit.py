@@ -85,6 +85,9 @@ def plugin_modules(tmp_path, monkeypatch):
     for module_name in (
         "config",
         "trust",
+        "incoming_security",
+        "registration",
+        "bidding",
         "card_builder",
         "context_packet",
         "conversation",
@@ -450,8 +453,10 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.daemon_bin is None
     assert cfg.incoming.mode == "delegation"
     assert cfg.relay_security.allowlist == ()
-    assert cfg.relay_security.auto_allow_team is True
+    assert cfg.relay_security.auto_allow_team is False
+    assert cfg.relay_security.allow_all is False
     assert cfg.relay_security.token is None
+    assert cfg.registry_allow_insecure_token_transport is False
     assert cfg.trust.store_path == plugin_modules.hermes_home / "agency" / "trust.json"
     assert cfg.trust.tofu is True
     assert cfg.incoming.delegation_timeout == 120
@@ -459,6 +464,10 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.incoming.max_iterations == 25
     assert cfg.incoming.subprocess_profile is None
     assert cfg.incoming.reject_unmatched_skills is False
+    assert cfg.incoming.allow_subprocess is False
+    assert cfg.incoming.allow_subprocess_fallback is False
+    assert cfg.incoming.min_subprocess_trust == "full"
+    assert cfg.incoming.allow_hooks_for_remote is False
     assert cfg.incoming_mode == "delegation"
     assert cfg.delegation_timeout == 120
     assert cfg.incoming_tool_access == "safe"
@@ -497,8 +506,10 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                     "address": "/ip4/127.0.0.1/tcp/1234",
                     "allowlist": ["peer-a", "peer-c"],
                     "auto_allow_team": False,
+                    "allow_all": True,
                     "token": "secret-token",
                 },
+                "registry": {"allow_insecure_token_transport": True},
                 "auto_start": True,
                 "skills_from_profile": False,
                 "allow_remote_tasks": True,
@@ -513,6 +524,10 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                     "max_iterations": 3,
                     "subprocess_profile": "gpt-subprocess",
                     "reject_unmatched_skills": True,
+                    "allow_subprocess": True,
+                    "allow_subprocess_fallback": True,
+                    "min_subprocess_trust": "full",
+                    "allow_hooks_for_remote": True,
                 },
                 "trust": {
                     "store_path": str(tmp_path / "custom-trust.json"),
@@ -551,7 +566,9 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.trusted_peers == ("peer-a", "peer-b")
     assert cfg.relay_security.allowlist == ("peer-a", "peer-c")
     assert cfg.relay_security.auto_allow_team is False
+    assert cfg.relay_security.allow_all is True
     assert cfg.relay_security.token == "secret-token"
+    assert cfg.registry_allow_insecure_token_transport is True
     assert cfg.trust.store_path == tmp_path / "custom-trust.json"
     assert cfg.trust.tofu is False
     assert cfg.incoming_queue_limit == 7
@@ -563,6 +580,10 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.incoming.max_iterations == 3
     assert cfg.incoming.subprocess_profile == "gpt-subprocess"
     assert cfg.incoming.reject_unmatched_skills is True
+    assert cfg.incoming.allow_subprocess is True
+    assert cfg.incoming.allow_subprocess_fallback is True
+    assert cfg.incoming.min_subprocess_trust == "full"
+    assert cfg.incoming.allow_hooks_for_remote is True
     assert cfg.team.auto_discover is False
     assert cfg.team.auto_register is False
     assert cfg.team.inject_context is False
@@ -613,7 +634,204 @@ def test_trust_store_rejects_name_peer_id_mismatch_and_blocked_peer(plugin_modul
     assert blocked.action == "blocked"
 
 
-def test_effective_relay_allowlist_includes_team_peers_when_enabled(plugin_modules, monkeypatch):
+class _FakeIncomingPart:
+    def __init__(self, text: str):
+        self.text = text
+
+
+class _FakeIncomingMessage:
+    def __init__(self, text: str):
+        self.parts = [_FakeIncomingPart(text)]
+
+
+class _FakeIncomingTask:
+    target_skill_id = ""
+    metadata = {}
+    sender_card = None
+
+    def __init__(self, text: str, *, peer_id: str = "peer-good", task_id: str = "task-in"):
+        self.task_id = task_id
+        self.peer_id = peer_id
+        self.messages = [_FakeIncomingMessage(text)]
+        self.completed = None
+        self.failed = None
+        self.status_updates = []
+
+    async def complete(self, artifacts):
+        self.completed = artifacts
+
+    async def fail(self, error):
+        self.failed = error
+
+    async def update_status(self, status):
+        self.status_updates.append(status)
+
+
+def _registration_control(plugin_modules, peer_id: str = "peer-good", name: str = "Good") -> str:
+    return plugin_modules.registration.serialize_control_message(
+        {
+            "protocol": "agency.autonomous.v1",
+            "type": "registration",
+            "event": "registered",
+            "peer_id": peer_id,
+            "agent": {"name": name, "description": "Trusted sender", "skills": []},
+        }
+    )
+
+
+def _security_cfg(plugin_modules, tmp_path, *, allowlist=("peer-good",), tofu=True):
+    return plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=allowlist),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json", tofu=tofu),
+    )
+
+
+@pytest.mark.asyncio
+async def test_unknown_peer_cannot_register(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    registration = plugin_modules.registration
+    registration._state.registrations = {}
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    task = _FakeIncomingTask(
+        _registration_control(plugin_modules, peer_id="peer-unknown"), peer_id="peer-unknown"
+    )
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed
+    assert "allowlist" in task.failed
+    assert registration.live_registrations(include_stale=True) == []
+
+
+@pytest.mark.asyncio
+async def test_blocked_peer_cannot_register(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    registration = plugin_modules.registration
+    registration._state.registrations = {}
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-blocked",), tofu=True)
+    plugin_modules.trust.store_for_config(cfg).set_trust(
+        "peer-blocked", trust_level="blocked", name="Blocked"
+    )
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    task = _FakeIncomingTask(
+        _registration_control(plugin_modules, peer_id="peer-blocked", name="Blocked"),
+        peer_id="peer-blocked",
+    )
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed
+    assert "blocked" in task.failed
+    assert registration.live_registrations(include_stale=True) == []
+
+
+@pytest.mark.asyncio
+async def test_peer_not_in_allowlist_cannot_register(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    registration = plugin_modules.registration
+    registration._state.registrations = {}
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-allowed",), tofu=True)
+    plugin_modules.trust.store_for_config(cfg).set_trust(
+        "peer-denied", trust_level="full", name="Denied"
+    )
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    task = _FakeIncomingTask(
+        _registration_control(plugin_modules, peer_id="peer-denied", name="Denied"),
+        peer_id="peer-denied",
+    )
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed
+    assert "allowlist" in task.failed
+    assert registration.live_registrations(include_stale=True) == []
+
+
+@pytest.mark.asyncio
+async def test_tofu_mismatch_cannot_register(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    registration = plugin_modules.registration
+    registration._state.registrations = {}
+    cfg = _security_cfg(
+        plugin_modules, tmp_path, allowlist=("peer-original", "peer-rotated"), tofu=True
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust(
+        "peer-original", trust_level="full", name="Katana"
+    )
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    task = _FakeIncomingTask(
+        _registration_control(plugin_modules, peer_id="peer-rotated", name="Katana"),
+        peer_id="peer-rotated",
+    )
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed
+    assert "previously trusted" in task.failed
+    assert registration.live_registrations(include_stale=True) == []
+
+
+@pytest.mark.asyncio
+async def test_trusted_peer_can_register(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    registration = plugin_modules.registration
+    registration._state.registrations = {}
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
+    plugin_modules.trust.store_for_config(cfg).set_trust(
+        "peer-good", trust_level="full", name="Good"
+    )
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    task = _FakeIncomingTask(_registration_control(plugin_modules), peer_id="peer-good")
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed is None
+    assert task.completed is not None
+    assert registration.live_registrations(include_stale=True)[0]["peer_id"] == "peer-good"
+
+
+@pytest.mark.asyncio
+async def test_trusted_peer_can_send_normal_task(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
+    plugin_modules.trust.store_for_config(cfg).set_trust(
+        "peer-good", trust_level="limited", name="Good"
+    )
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue()
+    task = _FakeIncomingTask("hello", peer_id="peer-good")
+
+    await manager._handle_incoming_task(task)
+
+    queued_task, queued_task_id = manager._incoming_queue.get_nowait()
+    assert queued_task is task
+    assert queued_task_id == "task-in"
+    assert task.failed is None
+
+
+@pytest.mark.asyncio
+async def test_rejected_control_message_does_not_mutate_registration_state(
+    plugin_modules, monkeypatch, tmp_path
+):
+    nm = plugin_modules.node_manager
+    registration = plugin_modules.registration
+    registration._state.registrations = {}
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=(), tofu=True)
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    task = _FakeIncomingTask(_registration_control(plugin_modules), peer_id="peer-good")
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed
+    assert task.completed is None
+    assert registration.live_registrations(include_stale=True) == []
+
+
+def test_effective_relay_allowlist_includes_verified_team_peers_when_enabled(
+    plugin_modules, monkeypatch, tmp_path
+):
     cfg_mod = plugin_modules.config
     node_manager = plugin_modules.node_manager
     team_context = importlib.import_module("hermes_plugin.team_context")
@@ -623,22 +841,74 @@ def test_effective_relay_allowlist_includes_team_peers_when_enabled(plugin_modul
             peer_id="peer-configured", name="Already Configured"
         ),
     }
-    monkeypatch.setattr(
-        cfg_mod,
-        "load_config",
-        lambda: {
-            "agency": {
-                "relay": {
-                    "allowlist": ["peer-configured"],
-                    "auto_allow_team": True,
-                }
-            }
-        },
+    cfg = cfg_mod.AgencyConfig(
+        relay_security=cfg_mod.RelaySecurityConfig(
+            allowlist=("peer-configured",), auto_allow_team=True
+        ),
+        trust=cfg_mod.TrustConfig(store_path=tmp_path / "trust.json"),
     )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-team", trust_level="limited")
+    monkeypatch.setattr(cfg_mod, "load_config", lambda: {})
+    monkeypatch.setattr(node_manager, "get_config", lambda: cfg)
 
-    allowlist = node_manager.manager.effective_relay_allowlist()
+    allowlist = node_manager.manager.effective_relay_allowlist(cfg)
 
     assert allowlist == ["peer-configured", "peer-team"]
+
+
+def test_empty_allowlist_denies_by_default(plugin_modules, tmp_path):
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=(), allow_all=False),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+
+    assert plugin_modules.trust.peer_allowed_by_config(cfg, "peer-any") is False
+    assert (
+        plugin_modules.node_manager.NodeManager()._peer_allowed_by_effective_allowlist(
+            cfg, "peer-any"
+        )
+        is False
+    )
+
+
+def test_allow_all_true_allows_with_warning(plugin_modules, tmp_path, caplog):
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allow_all=True),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+
+    with caplog.at_level("WARNING"):
+        allowed = plugin_modules.trust.peer_allowed_by_config(cfg, "peer-any")
+
+    assert allowed is True
+    assert "agency.relay.allow_all=true" in caplog.text
+
+
+def test_team_peer_auto_add_requires_trust_verification(plugin_modules, tmp_path):
+    node_manager = plugin_modules.node_manager
+    team_context = importlib.import_module("hermes_plugin.team_context")
+    team_context.get_team_state().peers = {
+        "peer-unverified": team_context.PeerCapability(peer_id="peer-unverified", name="Team Peer")
+    }
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(auto_allow_team=True),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+
+    assert node_manager.NodeManager().effective_relay_allowlist(cfg) == []
+
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-unverified", trust_level="limited")
+    assert node_manager.NodeManager().effective_relay_allowlist(cfg) == ["peer-unverified"]
+
+
+def test_blocked_peer_overrides_allow_all(plugin_modules, tmp_path):
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allow_all=True),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-blocked", trust_level="blocked")
+
+    assert plugin_modules.trust.peer_allowed_by_config(cfg, "peer-blocked") is False
 
 
 def test_a2a_info_includes_relay_security_and_trust_status(plugin_modules, monkeypatch):
@@ -1011,7 +1281,44 @@ def test_process_incoming_task_extracts_delegate_summary(plugin_modules, monkeyp
     assert captured["max_iterations"] == 3
 
 
-def test_process_incoming_task_falls_back_to_subprocess_on_delegate_failure(
+def test_process_incoming_task_falls_back_to_subprocess_when_explicitly_allowed(
+    plugin_modules, monkeypatch, tmp_path
+):
+    tp = plugin_modules.task_processor
+    cfg = plugin_modules.config.AgencyConfig(
+        allow_remote_tasks=True,
+        incoming=plugin_modules.config.IncomingConfig(
+            subprocess_profile="gpt",
+            allow_subprocess=True,
+            allow_subprocess_fallback=True,
+        ),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-1", trust_level="full")
+    record = types.SimpleNamespace(
+        task_id="task-1",
+        sender_peer_id="peer-1",
+        target_skill_id="",
+        message_text="hello",
+        context_packet=None,
+        metadata={},
+    )
+
+    def fake_delegate(**_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(tp, "_call_delegate_task", fake_delegate)
+    monkeypatch.setattr(
+        tp, "process_via_subprocess", lambda profile, message, timeout: "subprocess response"
+    )
+
+    assert (
+        tp.process_incoming_task(record, cfg, lambda _record: "subprocess response")
+        == "subprocess response"
+    )
+
+
+def test_process_incoming_task_does_not_fallback_to_subprocess_by_default(
     plugin_modules, monkeypatch
 ):
     tp = plugin_modules.task_processor
@@ -1031,25 +1338,92 @@ def test_process_incoming_task_falls_back_to_subprocess_on_delegate_failure(
     def fake_delegate(**_kwargs):
         raise RuntimeError("boom")
 
+    def should_not_subprocess(*_args, **_kwargs):
+        raise AssertionError("subprocess fallback should be disabled by default")
+
     monkeypatch.setattr(tp, "_call_delegate_task", fake_delegate)
-    monkeypatch.setattr(
-        tp, "process_via_subprocess", lambda profile, message, timeout: "subprocess response"
-    )
+    monkeypatch.setattr(tp, "process_via_subprocess", should_not_subprocess)
 
     assert (
         tp.process_incoming_task(record, cfg, lambda _record: "template fallback")
-        == "subprocess response"
+        == "template fallback"
     )
 
 
-def test_process_incoming_task_uses_template_fallback_when_subprocess_fails(
+def test_process_incoming_task_subprocess_mode_fails_closed_unless_allowed(
     plugin_modules, monkeypatch
 ):
     tp = plugin_modules.task_processor
     cfg = plugin_modules.config.AgencyConfig(
         allow_remote_tasks=True,
-        incoming=plugin_modules.config.IncomingConfig(subprocess_profile="gpt"),
+        incoming=plugin_modules.config.IncomingConfig(mode="subprocess", subprocess_profile="gpt"),
     )
+    record = types.SimpleNamespace(
+        task_id="task-1",
+        sender_peer_id="peer-1",
+        target_skill_id="",
+        message_text="hello",
+        context_packet=None,
+        metadata={},
+    )
+
+    def should_not_subprocess(*_args, **_kwargs):
+        raise AssertionError("subprocess should require agency.incoming.allow_subprocess=true")
+
+    monkeypatch.setattr(tp, "process_via_subprocess", should_not_subprocess)
+
+    assert (
+        tp.process_incoming_task(record, cfg, lambda _record: "template fallback")
+        == "template fallback"
+    )
+
+
+def test_limited_trust_peer_cannot_subprocess_even_when_mode_set(
+    plugin_modules, monkeypatch, tmp_path
+):
+    tp = plugin_modules.task_processor
+    cfg = plugin_modules.config.AgencyConfig(
+        allow_remote_tasks=True,
+        incoming=plugin_modules.config.IncomingConfig(
+            mode="subprocess", subprocess_profile="gpt", allow_subprocess=True
+        ),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-1", trust_level="limited")
+    record = types.SimpleNamespace(
+        task_id="task-1",
+        sender_peer_id="peer-1",
+        target_skill_id="",
+        message_text="hello",
+        context_packet=None,
+        metadata={},
+    )
+
+    def should_not_subprocess(*_args, **_kwargs):
+        raise AssertionError("limited-trust peers must not run subprocess")
+
+    monkeypatch.setattr(tp, "process_via_subprocess", should_not_subprocess)
+
+    assert (
+        tp.process_incoming_task(record, cfg, lambda _record: "template fallback")
+        == "template fallback"
+    )
+
+
+def test_process_incoming_task_uses_template_fallback_when_subprocess_fails(
+    plugin_modules, monkeypatch, tmp_path
+):
+    tp = plugin_modules.task_processor
+    cfg = plugin_modules.config.AgencyConfig(
+        allow_remote_tasks=True,
+        incoming=plugin_modules.config.IncomingConfig(
+            subprocess_profile="gpt",
+            allow_subprocess=True,
+            allow_subprocess_fallback=True,
+        ),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-1", trust_level="full")
     record = types.SimpleNamespace(
         task_id="task-1",
         sender_peer_id="peer-1",
@@ -1073,12 +1447,18 @@ def test_process_incoming_task_uses_template_fallback_when_subprocess_fails(
     )
 
 
-def test_process_incoming_task_subprocess_mode_skips_delegation(plugin_modules, monkeypatch):
+def test_process_incoming_task_subprocess_mode_skips_delegation(
+    plugin_modules, monkeypatch, tmp_path
+):
     tp = plugin_modules.task_processor
     cfg = plugin_modules.config.AgencyConfig(
         allow_remote_tasks=True,
-        incoming=plugin_modules.config.IncomingConfig(mode="subprocess", subprocess_profile="gpt"),
+        incoming=plugin_modules.config.IncomingConfig(
+            mode="subprocess", subprocess_profile="gpt", allow_subprocess=True
+        ),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
     )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-1", trust_level="full")
     record = types.SimpleNamespace(
         task_id="task-1",
         sender_peer_id="peer-1",
@@ -1121,6 +1501,58 @@ def test_process_via_subprocess_returns_error_string_on_crash(plugin_modules, mo
     response = tp.process_via_subprocess("gpt", "hello", 1)
 
     assert response.startswith("ERROR:")
+
+
+@pytest.mark.asyncio
+async def test_subprocess_env_omits_yolo_and_hooks_by_default(plugin_modules, monkeypatch):
+    tp = plugin_modules.task_processor
+    captured = {}
+
+    class Proc:
+        returncode = 0
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured["env"] = kwargs.get("env")
+        return Proc()
+
+    async def fake_collect(proc, *, progress_callback=None):
+        return "done", ""
+
+    monkeypatch.setattr(tp, "_resolve_hermes_command", lambda: "hermes")
+    monkeypatch.setattr(tp.asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+    monkeypatch.setattr(tp, "_collect_subprocess_output", fake_collect)
+
+    response = await tp._process_via_subprocess_async("gpt", "hello", 1)
+
+    assert response == "done"
+    assert captured["env"].get("HERMES_YOLO_MODE") is None
+    assert captured["env"].get("HERMES_ACCEPT_HOOKS") != "1"
+
+
+@pytest.mark.asyncio
+async def test_subprocess_env_allows_hooks_only_when_explicit(plugin_modules, monkeypatch):
+    tp = plugin_modules.task_processor
+    captured = {}
+
+    class Proc:
+        returncode = 0
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured["env"] = kwargs.get("env")
+        return Proc()
+
+    async def fake_collect(proc, *, progress_callback=None):
+        return "done", ""
+
+    monkeypatch.setattr(tp, "_resolve_hermes_command", lambda: "hermes")
+    monkeypatch.setattr(tp.asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+    monkeypatch.setattr(tp, "_collect_subprocess_output", fake_collect)
+
+    response = await tp._process_via_subprocess_async("gpt", "hello", 1, allow_hooks=True)
+
+    assert response == "done"
+    assert captured["env"].get("HERMES_YOLO_MODE") is None
+    assert captured["env"].get("HERMES_ACCEPT_HOOKS") == "1"
 
 
 def test_resolve_daemon_bin_prefers_config_then_protected_copy(
@@ -1749,9 +2181,15 @@ def test_artifact_text_extracts_text_from_parts(plugin_modules):
 
 @pytest.mark.asyncio
 async def test_handle_incoming_task_treats_duplicate_working_transition_as_idempotent(
-    plugin_modules,
+    plugin_modules, monkeypatch, tmp_path
 ):
     nm_mod = plugin_modules.node_manager
+    cfg = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=("peer-a",)),
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-a", trust_level="limited")
+    monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
     manager = nm_mod.NodeManager()
     manager._incoming_queue = __import__("asyncio").Queue()
 
@@ -2036,6 +2474,160 @@ async def test_register_skills_with_registry_posts_card_to_each_registry(
     assert manager.state.last_registration_time is not None
     assert manager.state.consecutive_failures == 0
     assert manager.info()["registration"]["registry_refresh"]["registration_healthy"] is True
+
+
+@pytest.mark.asyncio
+async def test_registry_token_is_not_sent_over_insecure_grpc_by_default(
+    plugin_modules, monkeypatch, caplog
+):
+    nm = plugin_modules.node_manager
+    metadata_seen = []
+
+    @dataclass
+    class Skill:
+        id: str
+        description: str = ""
+
+    @dataclass
+    class Card:
+        name: str = "Hermes Test"
+        description: str = "Test profile"
+        skills: list[Skill] | None = None
+
+    class Request:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class SkillInfo:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class Stub:
+        def __init__(self, channel):
+            self.channel = channel
+
+        async def RegisterSkills(self, request, timeout=None, metadata=None):
+            metadata_seen.append(metadata)
+            return object()
+
+    class Channel:
+        def __init__(self, addr):
+            self.addr = addr
+
+        async def close(self):
+            pass
+
+    fake_grpc = types.SimpleNamespace(
+        aio=types.SimpleNamespace(insecure_channel=lambda addr: Channel(addr))
+    )
+    fake_pb2 = types.SimpleNamespace(RegisterSkillsRequest=Request, SkillInfo=SkillInfo)
+    fake_grpc_pb2 = types.SimpleNamespace(RegistryServiceStub=Stub)
+    monkeypatch.setitem(sys.modules, "grpc", fake_grpc)
+    monkeypatch.setitem(
+        sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2", fake_pb2
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "agentanycast._generated.agentanycast.v1.registry_service_pb2_grpc",
+        fake_grpc_pb2,
+    )
+    monkeypatch.setenv("AGENTANYCAST_REGISTRY_ADDRS", "one:50052")
+
+    manager = nm.NodeManager()
+    manager.state.started = True
+    manager.state.peer_id = "peer-1"
+    manager.state.config = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(token="secret-token")
+    )
+
+    with caplog.at_level("WARNING"):
+        result = await manager._register_skills_with_registries(
+            Card(skills=[Skill("chat", "Chat")])
+        )
+
+    assert result["ok"] is True
+    assert metadata_seen == [None]
+    assert "not sending registry token over insecure gRPC" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_registry_token_can_be_sent_over_insecure_grpc_when_allowed(
+    plugin_modules, monkeypatch, caplog
+):
+    nm = plugin_modules.node_manager
+    metadata_seen = []
+
+    @dataclass
+    class Skill:
+        id: str
+        description: str = ""
+
+    @dataclass
+    class Card:
+        name: str = "Hermes Test"
+        description: str = "Test profile"
+        skills: list[Skill] | None = None
+
+    class Request:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class SkillInfo:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class Stub:
+        def __init__(self, channel):
+            self.channel = channel
+
+        async def RegisterSkills(self, request, timeout=None, metadata=None):
+            metadata_seen.append(metadata)
+            return object()
+
+    class Channel:
+        def __init__(self, addr):
+            self.addr = addr
+
+        async def close(self):
+            pass
+
+    fake_grpc = types.SimpleNamespace(
+        aio=types.SimpleNamespace(insecure_channel=lambda addr: Channel(addr))
+    )
+    fake_pb2 = types.SimpleNamespace(RegisterSkillsRequest=Request, SkillInfo=SkillInfo)
+    fake_grpc_pb2 = types.SimpleNamespace(RegistryServiceStub=Stub)
+    monkeypatch.setitem(sys.modules, "grpc", fake_grpc)
+    monkeypatch.setitem(
+        sys.modules, "agentanycast._generated.agentanycast.v1.registry_service_pb2", fake_pb2
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "agentanycast._generated.agentanycast.v1.registry_service_pb2_grpc",
+        fake_grpc_pb2,
+    )
+    monkeypatch.setenv("AGENTANYCAST_REGISTRY_ADDRS", "one:50052")
+
+    manager = nm.NodeManager()
+    manager.state.started = True
+    manager.state.peer_id = "peer-1"
+    manager.state.config = plugin_modules.config.AgencyConfig(
+        relay_security=plugin_modules.config.RelaySecurityConfig(token="secret-token"),
+        registry_allow_insecure_token_transport=True,
+    )
+
+    with caplog.at_level("WARNING"):
+        result = await manager._register_skills_with_registries(
+            Card(skills=[Skill("chat", "Chat")])
+        )
+
+    assert result["ok"] is True
+    assert metadata_seen == [
+        (
+            ("authorization", "Bearer secret-token"),
+            ("x-agency-relay-token", "secret-token"),
+        )
+    ]
+    assert "sending registry token over insecure gRPC" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -2418,6 +3010,15 @@ def _install_kanban_spies(nm, monkeypatch, *, task_id="kb-1"):
 async def _send_with_fake_node(manager, node, **kwargs):
     manager.state.started = True
     manager._node = node
+    nm_mod = importlib.import_module("hermes_plugin.node_manager")
+    cfg_mod = importlib.import_module("hermes_plugin.config")
+    setattr(
+        nm_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-x",))
+        ),
+    )
     return await manager._send_task_impl("hello", peer_id="peer-x", **kwargs)
 
 
@@ -2434,7 +3035,8 @@ async def test_send_task_with_context_id_includes_conversation_history(plugin_mo
         nm,
         "get_config",
         lambda: cfg_mod.AgencyConfig(
-            incoming=cfg_mod.IncomingConfig(conversation_ttl=3600, conversation_max_turns=5)
+            relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-x",)),
+            incoming=cfg_mod.IncomingConfig(conversation_ttl=3600, conversation_max_turns=5),
         ),
     )
     monkeypatch.setattr(

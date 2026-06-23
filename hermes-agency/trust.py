@@ -247,13 +247,31 @@ def verify_peer_tofu(
 
 
 def peer_allowed_by_config(cfg: AgencyConfig, peer_id: str) -> bool:
-    """Return True if the local configured relay allowlist permits peer_id.
+    """Return True if local relay security policy permits peer_id.
 
-    Empty allowlist means allow-all for backward compatibility.
+    Empty allowlist now means deny. Operators who need legacy/dev allow-all must
+    explicitly set ``agency.relay.allow_all=true``; blocked peers still override
+    allow-all.
     """
 
-    allowlist = set(cfg.relay_security.allowlist)
-    return not allowlist or str(peer_id or "").strip() in allowlist
+    clean_peer_id = str(peer_id or "").strip()
+    if not clean_peer_id:
+        return False
+    record = store_for_config(cfg).list_peers().get(clean_peer_id) or {}
+    if str(record.get("trust_level") or "").strip().lower() == "blocked":
+        return False
+    allowlist = {str(item or "").strip() for item in cfg.relay_security.allowlist}
+    allowlist.discard("")
+    if clean_peer_id in allowlist:
+        return True
+    if cfg.relay_security.allow_all:
+        logger.warning(
+            "agency.relay.allow_all=true permits peer %s outside the relay allowlist; "
+            "use only on trusted local/dev networks",
+            clean_peer_id,
+        )
+        return True
+    return False
 
 
 def trust_summary(cfg: AgencyConfig) -> dict[str, Any]:

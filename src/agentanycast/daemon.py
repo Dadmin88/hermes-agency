@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import atexit
+import hashlib
 import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -82,6 +84,7 @@ class DaemonManager:
         transport: str | None = None,
         namespace: str | None = None,
         status_callback: Callable[[str], None] | None = None,
+        verify_checksum: bool = True,
     ) -> None:
         # Resolve base directory — allows multiple instances with isolated state.
         self._base = Path(home) if home else _DEFAULT_BASE
@@ -100,6 +103,7 @@ class DaemonManager:
         self._process: subprocess.Popen[bytes] | None = None
         self._managed = False  # True if we started the daemon
         self._status_callback = status_callback
+        self._verify_checksum = verify_checksum
 
     def _emit(self, msg: str) -> None:
         """Send a status message to the callback (if set)."""
@@ -143,11 +147,66 @@ class DaemonManager:
             "  4. Or build from source: https://github.com/agentanycast/agentanycast-node#building"
         )
 
+    @staticmethod
+    def _checksum_url(binary_url: str) -> str:
+        """Return the release-side SHA-256 checksum URL for a daemon binary."""
+
+        return f"{binary_url}.sha256"
+
+    @staticmethod
+    def _parse_checksum_text(text: str) -> str:
+        """Extract a SHA-256 hex digest from a checksum file body."""
+
+        match = re.search(r"\b[a-fA-F0-9]{64}\b", text)
+        if not match:
+            raise DaemonNotFoundError("Daemon checksum file did not contain a SHA-256 hash")
+        return match.group(0).lower()
+
+    async def _fetch_expected_checksum(self, client: httpx.AsyncClient, checksum_url: str) -> str:
+        """Fetch and parse the expected SHA-256 checksum for a daemon release asset."""
+
+        logger.info("Downloading daemon checksum from %s", checksum_url)
+        try:
+            resp = await client.get(checksum_url)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise DaemonNotFoundError(
+                    f"Daemon checksum file not found at {checksum_url} (HTTP 404). "
+                    "Release assets must include a .sha256 file. To temporarily use "
+                    "legacy releases during rollout, construct DaemonManager with "
+                    "verify_checksum=False."
+                ) from e
+            raise DaemonNotFoundError(
+                f"Failed to download daemon checksum from {checksum_url}: "
+                f"HTTP {e.response.status_code}"
+            ) from e
+        return self._parse_checksum_text(resp.text)
+
+    def _verify_binary_checksum(self, path: Path, expected_sha256: str) -> None:
+        """Verify a downloaded daemon binary against its expected SHA-256 digest."""
+
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        expected = expected_sha256.strip().lower()
+        if actual == expected:
+            logger.info("Verified daemon binary SHA-256 checksum for %s", path)
+            return
+
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Failed to delete daemon binary after checksum mismatch: %s", path)
+        raise DaemonNotFoundError(
+            "Daemon binary checksum mismatch; deleted the downloaded binary. "
+            f"Expected {expected}, got {actual}."
+        )
+
     async def download_binary(self) -> Path:
         """Download the daemon binary for the current platform."""
         os_name, arch = _detect_platform()
         suffix = ".exe" if os_name == "windows" else ""
         url = _RELEASE_URL.format(version=self._daemon_version, os=os_name, arch=arch)
+        checksum_url = self._checksum_url(url)
 
         dest = self._bin_dir / f"agentanycastd{suffix}"
         self._bin_dir.mkdir(parents=True, exist_ok=True)
@@ -173,6 +232,15 @@ class DaemonManager:
                                     last_pct = milestone
                                     if milestone < 100:
                                         self._emit(f"Downloading daemon... {milestone}%")
+                if self._verify_checksum:
+                    expected_sha256 = await self._fetch_expected_checksum(client, checksum_url)
+                    self._verify_binary_checksum(dest, expected_sha256)
+                else:
+                    logger.warning(
+                        "Skipping daemon binary checksum verification for %s because "
+                        "verify_checksum=False; only use this for trusted legacy releases.",
+                        dest,
+                    )
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise DaemonNotFoundError(

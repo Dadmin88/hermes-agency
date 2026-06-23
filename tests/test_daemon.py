@@ -1,5 +1,6 @@
 """Tests for DaemonManager — pure logic only, no subprocess or network."""
 
+import hashlib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -208,3 +209,39 @@ class TestStorePath:
     def test_store_path_under_base(self, tmp_path):
         dm = DaemonManager(home=tmp_path / "node1")
         assert dm._store_path == str(tmp_path / "node1" / "data")
+
+
+# ── Download Integrity ───────────────────────────────────────
+
+
+class TestDownloadChecksumVerification:
+    def test_verify_binary_checksum_accepts_matching_sha256(self, tmp_path):
+        binary = tmp_path / "agentanycastd"
+        payload = b"trusted daemon binary"
+        binary.write_bytes(payload)
+        expected = hashlib.sha256(payload).hexdigest()
+
+        dm = DaemonManager(home=tmp_path)
+        dm._verify_binary_checksum(binary, expected)
+
+        assert binary.exists()
+
+    def test_verify_binary_checksum_deletes_mismatch_and_raises(self, tmp_path):
+        binary = tmp_path / "agentanycastd"
+        binary.write_bytes(b"tampered daemon binary")
+
+        dm = DaemonManager(home=tmp_path)
+        with pytest.raises(DaemonNotFoundError, match="checksum mismatch"):
+            dm._verify_binary_checksum(binary, "0" * 64)
+
+        assert not binary.exists()
+
+    def test_checksum_verification_enabled_by_default(self, tmp_path):
+        dm = DaemonManager(home=tmp_path)
+
+        assert dm._verify_checksum is True
+
+    def test_checksum_verification_can_be_disabled_for_rollout(self, tmp_path):
+        dm = DaemonManager(home=tmp_path, verify_checksum=False)
+
+        assert dm._verify_checksum is False
