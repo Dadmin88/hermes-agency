@@ -3,33 +3,52 @@
 Hermes Agency Pool CLI
 hermes agency pool <command>
 """
-import sys
+
+import click
 import requests
 from manager import PoolManager
 
 pm = PoolManager()
 BASE = f"http://localhost:{pm.config['pool']['port']}"
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: hermes agency pool [status|list|wake|sleep|find]")
-        return
+@click.group()
+def pool():
+    """Hermes Agency Pool Manager"""
+    pass
 
-    cmd = sys.argv[1]
-    if cmd == "status":
-        print(pm.get_status())
-    elif cmd == "list":
-        print(list(pm.registry["agents"].keys()))
-    elif cmd == "wake" and len(sys.argv) > 2:
-        print(pm.wake_agent(sys.argv[2]))
-    elif cmd == "sleep" and len(sys.argv) > 2:
-        print(pm.sleep_agent(sys.argv[2]))
-    elif cmd == "find" and len(sys.argv) > 2:
-        skill = sys.argv[2]
-        matches = [n for n, a in pm.registry["agents"].items() if skill.lower() in str(a.get("skills", [])).lower()]
-        print(matches)
-    else:
-        print("Unknown command")
+@pool.command()
+def status():
+    """Show pool status"""
+    r = requests.get(f"{BASE}/pool/status")
+    click.echo(r.json())
 
-if __name__ == "__main__":
-    main()
+@pool.command()
+def list():
+    """List all agents"""
+    r = requests.get(f"{BASE}/pool/agents")
+    click.echo(r.json())
+
+@pool.command()
+@click.argument('agent')
+def wake(agent):
+    """Wake an agent"""
+    r = requests.post(f"{BASE}/pool/agents/{agent}/wake")
+    click.echo(r.json())
+
+@pool.command()
+@click.argument('agent')
+def sleep(agent):
+    """Sleep an agent"""
+    r = requests.post(f"{BASE}/pool/agents/{agent}/sleep")
+    click.echo(r.json())
+
+@pool.command()
+@click.argument('skill')
+def find(skill):
+    """Find agents by skill"""
+    agents = pm.registry.get('agents', [])
+    matches = [a for a in agents if skill.lower() in [s.lower() for s in a.get('skills', [])]]
+    click.echo({'matches': matches})
+
+if __name__ == '__main__':
+    pool()

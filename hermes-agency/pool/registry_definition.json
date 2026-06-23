@@ -1,144 +1,1072 @@
 {
-  "version": "1.0",
-  "description": "Hermes Agency agent registry - provider agnostic definitions for agency-* profiles only",
-  "agents": {
-    "agency-accessibility-reviewer": {
+  "agents": [
+    {
       "name": "agency-accessibility-reviewer",
-      "description": "Reviews interfaces and code for accessibility compliance (WCAG, ARIA, screen readers)",
-      "skills": ["accessibility", "a11y", "wcag", "aria", "screen-reader-testing", "inclusive-design"],
+      "description": "Accessibility Reviewer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
       "category": "quality"
     },
-    "agency-ai-engineer": {
+    {
       "name": "agency-ai-engineer",
-      "description": "Builds and integrates AI/ML models, LLMs, and intelligent systems",
-      "skills": ["ai", "llm", "machine-learning", "model-integration", "prompt-engineering", "rag"],
+      "description": "Ai Engineer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
       "category": "engineering"
     },
-    "agency-analytics-specialist": {
+    {
       "name": "agency-analytics-specialist",
-      "description": "Analyzes data, builds dashboards, tracks metrics and KPIs",
-      "skills": ["analytics", "dashboards", "kpi-tracking", "data-visualization", "sql", "bi-tools"],
-      "category": "research"
+      "description": "Analytics Specialist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "engineering"
     },
-    "agency-art-director": {
+    {
       "name": "agency-art-director",
-      "description": "Leads creative vision, art direction, and visual storytelling",
-      "skills": ["art-direction", "visual-design", "brand-vision", "creative-leadership", "illustration-direction"],
+      "description": "Art Director agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "design"
     },
-    "agency-asset-artist": {
+    {
       "name": "agency-asset-artist",
-      "description": "Creates 2D/3D assets, icons, illustrations, and game assets",
-      "skills": ["asset-creation", "2d-art", "3d-modeling", "icon-design", "illustration"],
+      "description": "Asset Artist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "design"
     },
-    "agency-audio-designer": {
+    {
       "name": "agency-audio-designer",
-      "description": "Designs sound, music, voiceovers, and audio experiences",
-      "skills": ["audio-design", "sound-effects", "music-production", "voiceover", "audio-editing"],
+      "description": "Audio Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "design"
     },
-    "agency-automation-engineer": {
+    {
       "name": "agency-automation-engineer",
-      "description": "Builds automation scripts, workflows, and CI/CD pipelines",
-      "skills": ["automation", "scripting", "ci-cd", "workflow-automation", "devops"],
+      "description": "Automation Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
       "category": "engineering"
     },
-    "agency-backend-engineer": {
+    {
       "name": "agency-backend-engineer",
-      "description": "Builds APIs, services, databases, and server-side logic",
-      "skills": ["backend", "api-development", "database-design", "microservices", "python", "node"],
+      "description": "Backend Engineer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
       "category": "engineering"
     },
-    "agency-brand-designer": {
+    {
       "name": "agency-brand-designer",
-      "description": "Develops brand identity, guidelines, logos, and visual systems",
-      "skills": ["branding", "logo-design", "brand-guidelines", "visual-identity", "typography"],
+      "description": "Brand Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "design"
     },
-    "agency-business-analyst": {
+    {
       "name": "agency-business-analyst",
-      "description": "Gathers requirements, analyzes business needs, and documents processes",
-      "skills": ["business-analysis", "requirements-gathering", "process-modeling", "stakeholder-management"],
+      "description": "Business Analyst agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "analysis",
+        "market"
+      ],
       "category": "research"
     },
-    "agency-chief-of-staff": {
+    {
       "name": "agency-chief-of-staff",
-      "description": "Supports leadership, manages operations, and drives strategic initiatives",
-      "skills": ["operations", "strategy", "executive-support", "project-coordination", "change-management"],
+      "description": "Chief Of Staff agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "orchestration",
+        "project"
+      ],
       "category": "management"
     },
-    "agency-code-reviewer": {
+    {
       "name": "agency-code-reviewer",
-      "description": "Reviews code for quality, security, performance, and best practices",
-      "skills": ["code-review", "static-analysis", "best-practices", "refactoring", "security-review"],
+      "description": "Code Reviewer agent",
+      "skills": [
+        "testing",
+        "review",
+        "security",
+        "compliance",
+        "git",
+        "release"
+      ],
       "category": "quality"
     },
-    "agency-community-manager": {
+    {
       "name": "agency-community-manager",
-      "description": "Builds and engages communities, manages forums and social presence",
-      "skills": ["community-management", "social-engagement", "forum-moderation", "event-hosting"],
-      "category": "marketing"
+      "description": "Community Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "management"
     },
-    "agency-competitive-analyst": {
+    {
       "name": "agency-competitive-analyst",
-      "description": "Researches competitors, market trends, and strategic positioning",
-      "skills": ["competitive-analysis", "market-research", "swot", "trend-analysis"],
+      "description": "Competitive Analyst agent",
+      "skills": [
+        "writing",
+        "copy",
+        "editing",
+        "documentation",
+        "analysis",
+        "market"
+      ],
       "category": "research"
     },
-    "agency-compliance-reviewer": {
+    {
       "name": "agency-compliance-reviewer",
-      "description": "Ensures regulatory compliance, audits processes and documentation",
-      "skills": ["compliance", "gdpr", "audit", "risk-assessment", "policy-review"],
+      "description": "Compliance Reviewer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
       "category": "quality"
     },
-    "agency-content-writer": {
+    {
       "name": "agency-content-writer",
-      "description": "Writes blog posts, articles, marketing copy, and long-form content",
-      "skills": ["content-writing", "blogging", "seo-writing", "long-form-content"],
+      "description": "Content Writer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "content"
     },
-    "agency-copywriter": {
+    {
       "name": "agency-copywriter",
-      "description": "Crafts persuasive copy for ads, websites, emails, and campaigns",
-      "skills": ["copywriting", "persuasive-writing", "ad-copy", "email-campaigns", "headlines"],
+      "description": "Copywriter agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "content"
     },
-    "agency-creative-director": {
+    {
       "name": "agency-creative-director",
-      "description": "Leads creative teams and oversees all creative output",
-      "skills": ["creative-direction", "team-leadership", "campaign-oversight", "concept-development"],
+      "description": "Creative Director agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
       "category": "design"
     },
-    "agency-customer-success": {
+    {
       "name": "agency-customer-success",
-      "description": "Manages customer relationships, onboarding, and retention",
-      "skills": ["customer-success", "onboarding", "retention", "support", "account-management"],
+      "description": "Customer Success agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
       "category": "business"
     },
-    "agency-data-engineer": {
+    {
       "name": "agency-data-engineer",
-      "description": "Builds data pipelines, ETL processes, and data infrastructure",
-      "skills": ["data-engineering", "etl", "pipelines", "big-data", "spark", "airflow"],
+      "description": "Data Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
       "category": "engineering"
     },
-    "agency-devops-engineer": {
+    {
+      "name": "agency-database-engineer",
+      "description": "Database Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-design-reviewer",
+      "description": "Design Reviewer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-design-systems-designer",
+      "description": "Design Systems Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
       "name": "agency-devops-engineer",
-      "description": "Manages infrastructure, deployments, monitoring, and reliability",
-      "skills": ["devops", "infrastructure-as-code", "kubernetes", "ci-cd", "monitoring", "terraform"],
-      "category": "engineering"
+      "description": "Devops Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "operations"
     },
-    "agency-frontend-engineer": {
-      "name": "agency-frontend-engineer",
-      "description": "Builds user-facing interfaces with HTML, CSS, JavaScript, and modern frameworks",
-      "skills": ["html", "css", "javascript", "react", "responsive-design", "accessibility"],
-      "category": "engineering"
+    {
+      "name": "agency-dialogue-writer",
+      "description": "Dialogue Writer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "content"
     },
-    "agency-orchestrator": {
-      "name": "agency-orchestrator",
-      "description": "Coordinates tasks, routes work to specialists, and manages the agent pool",
-      "skills": ["task-routing", "decomposition", "coordination", "workflow-management", "delegation"],
+    {
+      "name": "agency-docs-writer",
+      "description": "Docs Writer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "content"
+    },
+    {
+      "name": "agency-editor-in-chief",
+      "description": "Editor In Chief agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
       "category": "management"
+    },
+    {
+      "name": "agency-email-marketer",
+      "description": "Email Marketer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "research"
+    },
+    {
+      "name": "agency-environment-artist",
+      "description": "Environment Artist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-finance-ops",
+      "description": "Finance Ops agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "business"
+    },
+    {
+      "name": "agency-frontend-engineer",
+      "description": "Frontend Engineer agent",
+      "skills": [
+        "html",
+        "css",
+        "javascript",
+        "react",
+        "python",
+        "api"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-fullstack-engineer",
+      "description": "Fullstack Engineer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-game-designer",
+      "description": "Game Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-git-steward",
+      "description": "Git Steward agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "operations"
+    },
+    {
+      "name": "agency-godot-engineer",
+      "description": "Godot Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-growth-marketer",
+      "description": "Growth Marketer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "research"
+    },
+    {
+      "name": "agency-infrastructure-engineer",
+      "description": "Infrastructure Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-integration-engineer",
+      "description": "Integration Engineer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-knowledge-manager",
+      "description": "Knowledge Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-launch-manager",
+      "description": "Launch Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-legal-ops",
+      "description": "Legal Ops agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "business"
+    },
+    {
+      "name": "agency-level-designer",
+      "description": "Level Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-lore-writer",
+      "description": "Lore Writer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "content"
+    },
+    {
+      "name": "agency-market-researcher",
+      "description": "Market Researcher agent",
+      "skills": [
+        "analysis",
+        "market",
+        "user-research"
+      ],
+      "category": "research"
+    },
+    {
+      "name": "agency-marketing-strategist",
+      "description": "Marketing Strategist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "research"
+    },
+    {
+      "name": "agency-monetization-strategist",
+      "description": "Monetization Strategist agent",
+      "skills": [
+        "analysis",
+        "market",
+        "user-research",
+        "orchestration",
+        "project",
+        "product"
+      ],
+      "category": "business"
+    },
+    {
+      "name": "agency-motion-designer",
+      "description": "Motion Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-onboarding-specialist",
+      "description": "Onboarding Specialist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "operations"
+    },
+    {
+      "name": "agency-operations-manager",
+      "description": "Operations Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "orchestration",
+        "project"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-orchestrator",
+      "description": "Orchestrator agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-partnerships-manager",
+      "description": "Partnerships Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-performance-engineer",
+      "description": "Performance Engineer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-platform-engineer",
+      "description": "Platform Engineer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-procurement-specialist",
+      "description": "Procurement Specialist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "marketing"
+    },
+    {
+      "name": "agency-product-designer",
+      "description": "Product Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-product-manager",
+      "description": "Product Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-product-strategist",
+      "description": "Product Strategist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "analysis",
+        "market"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-project-manager",
+      "description": "Project Manager agent",
+      "skills": [
+        "orchestration",
+        "project",
+        "product"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-public-relations",
+      "description": "Public Relations agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-qa-lead",
+      "description": "Qa Lead agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "quality"
+    },
+    {
+      "name": "agency-qa-tester",
+      "description": "Qa Tester agent",
+      "skills": [
+        "testing",
+        "review",
+        "security",
+        "compliance",
+        "git",
+        "release"
+      ],
+      "category": "quality"
+    },
+    {
+      "name": "agency-red-team",
+      "description": "Red Team agent",
+      "skills": [
+        "devops",
+        "infrastructure",
+        "automation",
+        "testing",
+        "review",
+        "security"
+      ],
+      "category": "quality"
+    },
+    {
+      "name": "agency-release-manager",
+      "description": "Release Manager agent",
+      "skills": [
+        "devops",
+        "infrastructure",
+        "automation",
+        "testing",
+        "review",
+        "security"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-release-notes-writer",
+      "description": "Release Notes Writer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "content"
+    },
+    {
+      "name": "agency-requirements-analyst",
+      "description": "Requirements Analyst agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-scriptwriter",
+      "description": "Scriptwriter agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "content"
+    },
+    {
+      "name": "agency-scrum-master",
+      "description": "Scrum Master agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-security-engineer",
+      "description": "Security Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "quality"
+    },
+    {
+      "name": "agency-security-reviewer",
+      "description": "Security Reviewer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "quality"
+    },
+    {
+      "name": "agency-seo-specialist",
+      "description": "Seo Specialist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "marketing"
+    },
+    {
+      "name": "agency-social-media-manager",
+      "description": "Social Media Manager agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-software-architect",
+      "description": "Software Architect agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-support-specialist",
+      "description": "Support Specialist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "operations"
+    },
+    {
+      "name": "agency-systems-architect",
+      "description": "Systems Architect agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-technical-artist",
+      "description": "Technical Artist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-technical-lead",
+      "description": "Technical Lead agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-technical-writer",
+      "description": "Technical Writer agent",
+      "skills": [
+        "python",
+        "api",
+        "database",
+        "server",
+        "ui",
+        "ux"
+      ],
+      "category": "content"
+    },
+    {
+      "name": "agency-tools-engineer",
+      "description": "Tools Engineer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "devops",
+        "infrastructure"
+      ],
+      "category": "engineering"
+    },
+    {
+      "name": "agency-traffic-manager",
+      "description": "Traffic Manager agent",
+      "skills": [
+        "orchestration",
+        "project",
+        "product"
+      ],
+      "category": "management"
+    },
+    {
+      "name": "agency-training-specialist",
+      "description": "Training Specialist agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "operations"
+    },
+    {
+      "name": "agency-ui-ux-designer",
+      "description": "Ui Ux Designer agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
+    },
+    {
+      "name": "agency-user-researcher",
+      "description": "User Researcher agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "testing",
+        "review"
+      ],
+      "category": "research"
+    },
+    {
+      "name": "agency-worldbuilder",
+      "description": "Worldbuilder agent",
+      "skills": [
+        "ui",
+        "ux",
+        "branding",
+        "illustration",
+        "writing",
+        "copy"
+      ],
+      "category": "design"
     }
-  }
+  ]
 }
