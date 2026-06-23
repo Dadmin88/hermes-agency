@@ -98,7 +98,13 @@ def wake_and_register(name):
 
     time.sleep(STARTUP_WAIT)
 
-    peer_id = peer_id_from_log(log)
+    # Retry reading peer_id — log may not be flushed yet
+    peer_id = None
+    for attempt in range(3):
+        peer_id = peer_id_from_log(log)
+        if peer_id:
+            break
+        time.sleep(2)
 
     # Kill daemon
     proc.kill()
