@@ -86,11 +86,41 @@ class TeamDiscoveryMixin:
         if not clean:
             return False
         trust_record = store_for_config(cfg).list_peers().get(clean) or {}
-        if str(trust_record.get("trust_level") or "").strip().lower() == "blocked":
+        trust_level = str(trust_record.get("trust_level") or "").strip().lower()
+        if trust_level == "blocked":
+            logger.debug(
+                "Hermes Agency send allowlist check denied blocked peer_id=%s trust_record=%s",
+                clean,
+                trust_record,
+            )
             return False
-        if peer_allowed_by_config(cfg, clean):
+        # Full-trust peers are allowed to receive direct outbound tasks even when
+        # they have not been persisted into the explicit config allowlist yet.
+        if trust_level == "full":
+            logger.debug(
+                "Hermes Agency send allowlist check allowed full-trust peer_id=%s trust_record=%s",
+                clean,
+                trust_record,
+            )
             return True
-        return clean in set(self.effective_relay_allowlist(cfg))
+        config_allowed = peer_allowed_by_config(cfg, clean)
+        if config_allowed:
+            logger.debug(
+                "Hermes Agency send allowlist check allowed configured peer_id=%s config_allowed=%s trust_record=%s",
+                clean,
+                config_allowed,
+                trust_record,
+            )
+            return True
+        effective_allowed = clean in set(self.effective_relay_allowlist(cfg))
+        logger.debug(
+            "Hermes Agency send allowlist check peer_id=%s config_allowed=%s effective_allowed=%s trust_record=%s",
+            clean,
+            config_allowed,
+            effective_allowed,
+            trust_record,
+        )
+        return effective_allowed
 
     def _verify_team_peers(self, cfg: AgencyConfig) -> None:
         for peer in get_team_state().peers.values():
