@@ -1,0 +1,42 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/Hermes_Agency
+            echo "Pulling latest from main..."
+            git fetch origin main
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/main)
+            if [ "$LOCAL" = "$REMOTE" ]; then
+              echo "Already up to date ($LOCAL)"
+              exit 0
+            fi
+            git pull --ff-only origin main
+            echo "Pulled $(git rev-parse --short HEAD)"
+            echo "Restarting Hermes gateway..."
+            systemctl --user restart hermes-gateway
+            sleep 3
+            if systemctl --user is-active hermes-gateway >/dev/null 2>&1; then
+              echo "Hermes gateway restarted successfully"
+            else
+              echo "WARNING: Hermes gateway failed to start"
+              systemctl --user status hermes-gateway --no-pager
+              exit 1
+            fi
+            echo "Checking agency status..."
+            PATH="$HOME/.local/bin:$PATH" hermes agency status 2>&1 | head -10
+            echo "Deploy complete"
