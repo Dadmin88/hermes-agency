@@ -4,12 +4,12 @@
       "name": "agency-accessibility-reviewer",
       "description": "Accessibility Reviewer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "accessibility",
+        "wcag",
+        "aria",
+        "keyboard-navigation",
+        "screen-readers",
+        "usability-audit"
       ],
       "category": "quality"
     },
@@ -17,12 +17,13 @@
       "name": "agency-ai-engineer",
       "description": "Ai Engineer agent",
       "skills": [
+        "machine-learning",
+        "llm-integration",
+        "prompt-engineering",
         "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "vector-search",
+        "model-evaluation",
+        "rag"
       ],
       "category": "engineering"
     },
@@ -30,12 +31,13 @@
       "name": "agency-analytics-specialist",
       "description": "Analytics Specialist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "analytics",
+        "metrics",
+        "sql",
+        "dashboards",
+        "event-tracking",
+        "funnel-analysis",
+        "data-visualization"
       ],
       "category": "engineering"
     },
@@ -43,12 +45,12 @@
       "name": "agency-art-director",
       "description": "Art Director agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "art-direction",
+        "visual-design",
+        "brand-identity",
+        "creative-strategy",
+        "moodboards",
+        "style-guides"
       ],
       "category": "design"
     },
@@ -56,12 +58,12 @@
       "name": "agency-asset-artist",
       "description": "Asset Artist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
+        "asset-creation",
         "illustration",
-        "writing",
-        "copy"
+        "iconography",
+        "texture-art",
+        "2d-art",
+        "game-assets"
       ],
       "category": "design"
     },
@@ -69,12 +71,12 @@
       "name": "agency-audio-designer",
       "description": "Audio Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "sound-design",
+        "music-editing",
+        "foley",
+        "audio-mixing",
+        "game-audio",
+        "voice-processing"
       ],
       "category": "design"
     },
@@ -82,12 +84,12 @@
       "name": "agency-automation-engineer",
       "description": "Automation Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "workflow-automation",
+        "python",
+        "scripting",
+        "ci-cd",
+        "api-integration",
+        "task-orchestration"
       ],
       "category": "engineering"
     },
@@ -99,8 +101,8 @@
         "api",
         "database",
         "server",
-        "ui",
-        "ux"
+        "authentication",
+        "microservices"
       ],
       "category": "engineering"
     },
@@ -108,12 +110,12 @@
       "name": "agency-brand-designer",
       "description": "Brand Designer agent",
       "skills": [
-        "ui",
-        "ux",
         "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "logo-design",
+        "visual-identity",
+        "typography",
+        "color-systems",
+        "brand-guidelines"
       ],
       "category": "design"
     },
@@ -121,12 +123,12 @@
       "name": "agency-business-analyst",
       "description": "Business Analyst agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "analysis",
-        "market"
+        "requirements-analysis",
+        "process-modeling",
+        "stakeholder-interviews",
+        "business-rules",
+        "metrics",
+        "documentation"
       ],
       "category": "research"
     },
@@ -134,12 +136,12 @@
       "name": "agency-chief-of-staff",
       "description": "Chief Of Staff agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "orchestration",
-        "project"
+        "executive-operations",
+        "prioritization",
+        "cross-functional-coordination",
+        "decision-support",
+        "meeting-ops",
+        "strategic-planning"
       ],
       "category": "management"
     },
@@ -147,12 +149,12 @@
       "name": "agency-code-reviewer",
       "description": "Code Reviewer agent",
       "skills": [
-        "testing",
-        "review",
-        "security",
-        "compliance",
-        "git",
-        "release"
+        "code-review",
+        "static-analysis",
+        "maintainability",
+        "security-review",
+        "test-coverage",
+        "git"
       ],
       "category": "quality"
     },
@@ -160,12 +162,12 @@
       "name": "agency-community-manager",
       "description": "Community Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "community-building",
+        "moderation",
+        "engagement-strategy",
+        "social-listening",
+        "discord",
+        "feedback-triage"
       ],
       "category": "management"
     },
@@ -173,12 +175,12 @@
       "name": "agency-competitive-analyst",
       "description": "Competitive Analyst agent",
       "skills": [
-        "writing",
-        "copy",
-        "editing",
-        "documentation",
-        "analysis",
-        "market"
+        "competitive-analysis",
+        "market-research",
+        "positioning",
+        "swot",
+        "pricing-analysis",
+        "feature-benchmarking"
       ],
       "category": "research"
     },
@@ -186,12 +188,12 @@
       "name": "agency-compliance-reviewer",
       "description": "Compliance Reviewer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "compliance",
+        "policy-review",
+        "risk-assessment",
+        "privacy",
+        "regulatory-analysis",
+        "audit-readiness"
       ],
       "category": "quality"
     },
@@ -199,12 +201,12 @@
       "name": "agency-content-writer",
       "description": "Content Writer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "content-writing",
+        "blog-writing",
+        "storytelling",
+        "seo-writing",
+        "editorial-planning",
+        "audience-research"
       ],
       "category": "content"
     },
@@ -212,12 +214,12 @@
       "name": "agency-copywriter",
       "description": "Copywriter agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "copywriting",
+        "brand-voice",
+        "marketing-copy",
+        "content-strategy",
+        "conversion-copy",
+        "headlines"
       ],
       "category": "content"
     },
@@ -225,12 +227,12 @@
       "name": "agency-creative-director",
       "description": "Creative Director agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "creative-direction",
+        "campaign-concepts",
+        "brand-storytelling",
+        "visual-strategy",
+        "team-critique",
+        "concept-development"
       ],
       "category": "design"
     },
@@ -238,12 +240,12 @@
       "name": "agency-customer-success",
       "description": "Customer Success agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "customer-success",
+        "onboarding",
+        "account-health",
+        "retention",
+        "customer-feedback",
+        "support-playbooks"
       ],
       "category": "business"
     },
@@ -251,12 +253,13 @@
       "name": "agency-data-engineer",
       "description": "Data Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "data-pipelines",
+        "etl",
+        "sql",
+        "python",
+        "data-warehousing",
+        "streaming",
+        "orchestration"
       ],
       "category": "engineering"
     },
@@ -264,12 +267,13 @@
       "name": "agency-database-engineer",
       "description": "Database Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "database-design",
+        "sql",
+        "postgres",
+        "query-optimization",
+        "migrations",
+        "indexing",
+        "backup-recovery"
       ],
       "category": "engineering"
     },
@@ -277,12 +281,12 @@
       "name": "agency-design-reviewer",
       "description": "Design Reviewer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "design-review",
+        "ux-heuristics",
+        "visual-consistency",
+        "accessibility",
+        "design-systems",
+        "usability"
       ],
       "category": "design"
     },
@@ -290,12 +294,12 @@
       "name": "agency-design-systems-designer",
       "description": "Design Systems Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "design-systems",
+        "component-libraries",
+        "tokens",
+        "figma",
+        "ui-patterns",
+        "documentation"
       ],
       "category": "design"
     },
@@ -303,12 +307,12 @@
       "name": "agency-devops-engineer",
       "description": "Devops Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "docker",
+        "kubernetes",
+        "ci-cd",
+        "terraform",
+        "linux",
+        "monitoring"
       ],
       "category": "operations"
     },
@@ -316,12 +320,12 @@
       "name": "agency-dialogue-writer",
       "description": "Dialogue Writer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "dialogue-writing",
+        "character-voice",
+        "branching-narrative",
+        "script-formatting",
+        "interactive-fiction",
+        "story-editing"
       ],
       "category": "content"
     },
@@ -329,12 +333,12 @@
       "name": "agency-docs-writer",
       "description": "Docs Writer agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "technical-documentation",
+        "api-docs",
+        "user-guides",
+        "developer-docs",
+        "markdown",
+        "information-architecture"
       ],
       "category": "content"
     },
@@ -342,12 +346,12 @@
       "name": "agency-editor-in-chief",
       "description": "Editor In Chief agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "editorial-strategy",
+        "content-governance",
+        "line-editing",
+        "publication-planning",
+        "style-guide",
+        "quality-control"
       ],
       "category": "management"
     },
@@ -355,12 +359,12 @@
       "name": "agency-email-marketer",
       "description": "Email Marketer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "email-marketing",
+        "segmentation",
+        "lifecycle-campaigns",
+        "deliverability",
+        "a-b-testing",
+        "marketing-automation"
       ],
       "category": "research"
     },
@@ -368,12 +372,12 @@
       "name": "agency-environment-artist",
       "description": "Environment Artist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "environment-art",
+        "level-dressing",
+        "3d-modeling",
+        "texturing",
+        "lighting",
+        "worldbuilding"
       ],
       "category": "design"
     },
@@ -381,12 +385,12 @@
       "name": "agency-finance-ops",
       "description": "Finance Ops agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "budgeting",
+        "forecasting",
+        "financial-modeling",
+        "vendor-payments",
+        "reporting",
+        "spend-management"
       ],
       "category": "business"
     },
@@ -398,8 +402,9 @@
         "css",
         "javascript",
         "react",
-        "python",
-        "api"
+        "vue",
+        "typescript",
+        "accessibility"
       ],
       "category": "engineering"
     },
@@ -407,12 +412,13 @@
       "name": "agency-fullstack-engineer",
       "description": "Fullstack Engineer agent",
       "skills": [
+        "typescript",
+        "react",
         "python",
         "api",
         "database",
-        "server",
-        "ui",
-        "ux"
+        "authentication",
+        "system-design"
       ],
       "category": "engineering"
     },
@@ -420,12 +426,12 @@
       "name": "agency-game-designer",
       "description": "Game Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "game-design",
+        "mechanics",
+        "balancing",
+        "player-progression",
+        "level-design",
+        "prototyping"
       ],
       "category": "design"
     },
@@ -433,12 +439,12 @@
       "name": "agency-git-steward",
       "description": "Git Steward agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "git",
+        "branching",
+        "merge-conflicts",
+        "release-branches",
+        "repo-hygiene",
+        "changelog-management"
       ],
       "category": "operations"
     },
@@ -446,12 +452,12 @@
       "name": "agency-godot-engineer",
       "description": "Godot Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "godot",
+        "gdscript",
+        "3d",
+        "game-dev",
+        "shaders",
+        "physics"
       ],
       "category": "engineering"
     },
@@ -459,12 +465,13 @@
       "name": "agency-growth-marketer",
       "description": "Growth Marketer agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "growth-marketing",
+        "experimentation",
+        "acquisition",
+        "activation",
+        "retention",
+        "analytics",
+        "landing-pages"
       ],
       "category": "research"
     },
@@ -472,12 +479,12 @@
       "name": "agency-infrastructure-engineer",
       "description": "Infrastructure Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "cloud-infrastructure",
+        "linux",
+        "terraform",
+        "networking",
+        "observability",
+        "scalability"
       ],
       "category": "engineering"
     },
@@ -485,12 +492,12 @@
       "name": "agency-integration-engineer",
       "description": "Integration Engineer agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "api-integration",
+        "webhooks",
+        "oauth",
+        "message-queues",
+        "data-sync",
+        "error-handling"
       ],
       "category": "engineering"
     },
@@ -498,12 +505,12 @@
       "name": "agency-knowledge-manager",
       "description": "Knowledge Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "knowledge-management",
+        "taxonomy",
+        "internal-docs",
+        "search",
+        "notion",
+        "information-architecture"
       ],
       "category": "management"
     },
@@ -511,12 +518,12 @@
       "name": "agency-launch-manager",
       "description": "Launch Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "launch-planning",
+        "go-to-market",
+        "release-coordination",
+        "checklists",
+        "stakeholder-comms",
+        "risk-tracking"
       ],
       "category": "management"
     },
@@ -524,12 +531,12 @@
       "name": "agency-legal-ops",
       "description": "Legal Ops agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "legal-operations",
+        "contract-review",
+        "policy-management",
+        "compliance",
+        "ip-review",
+        "vendor-risk"
       ],
       "category": "business"
     },
@@ -537,12 +544,12 @@
       "name": "agency-level-designer",
       "description": "Level Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "level-design",
+        "encounter-design",
+        "pacing",
+        "blockouts",
+        "playtesting",
+        "spatial-layout"
       ],
       "category": "design"
     },
@@ -550,12 +557,12 @@
       "name": "agency-lore-writer",
       "description": "Lore Writer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "lore-writing",
+        "worldbuilding",
+        "canon-management",
+        "narrative-continuity",
+        "character-bibles",
+        "mythology"
       ],
       "category": "content"
     },
@@ -563,9 +570,12 @@
       "name": "agency-market-researcher",
       "description": "Market Researcher agent",
       "skills": [
-        "analysis",
-        "market",
-        "user-research"
+        "market-research",
+        "surveys",
+        "customer-interviews",
+        "persona-development",
+        "trend-analysis",
+        "data-synthesis"
       ],
       "category": "research"
     },
@@ -573,12 +583,12 @@
       "name": "agency-marketing-strategist",
       "description": "Marketing Strategist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "marketing-strategy",
+        "positioning",
+        "campaign-planning",
+        "channel-strategy",
+        "messaging",
+        "go-to-market"
       ],
       "category": "research"
     },
@@ -586,12 +596,12 @@
       "name": "agency-monetization-strategist",
       "description": "Monetization Strategist agent",
       "skills": [
-        "analysis",
-        "market",
-        "user-research",
-        "orchestration",
-        "project",
-        "product"
+        "monetization",
+        "pricing",
+        "packaging",
+        "revenue-models",
+        "unit-economics",
+        "experimentation"
       ],
       "category": "business"
     },
@@ -599,12 +609,12 @@
       "name": "agency-motion-designer",
       "description": "Motion Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "motion-design",
+        "animation",
+        "storyboarding",
+        "after-effects",
+        "microinteractions",
+        "video-editing"
       ],
       "category": "design"
     },
@@ -612,12 +622,12 @@
       "name": "agency-onboarding-specialist",
       "description": "Onboarding Specialist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "onboarding",
+        "user-education",
+        "activation-flows",
+        "training-materials",
+        "customer-journeys",
+        "adoption"
       ],
       "category": "operations"
     },
@@ -625,12 +635,12 @@
       "name": "agency-operations-manager",
       "description": "Operations Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "orchestration",
-        "project"
+        "operations",
+        "process-improvement",
+        "sop",
+        "resource-planning",
+        "kpis",
+        "vendor-management"
       ],
       "category": "management"
     },
@@ -638,12 +648,12 @@
       "name": "agency-orchestrator",
       "description": "Orchestrator agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "orchestration",
+        "task-decomposition",
+        "delegation",
+        "project-management",
+        "agent-routing",
+        "workflow-design"
       ],
       "category": "management"
     },
@@ -651,12 +661,12 @@
       "name": "agency-partnerships-manager",
       "description": "Partnerships Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "partnerships",
+        "business-development",
+        "partner-outreach",
+        "negotiation",
+        "co-marketing",
+        "relationship-management"
       ],
       "category": "design"
     },
@@ -664,12 +674,13 @@
       "name": "agency-performance-engineer",
       "description": "Performance Engineer agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "performance",
+        "profiling",
+        "load-testing",
+        "optimization",
+        "caching",
+        "benchmarking",
+        "observability"
       ],
       "category": "engineering"
     },
@@ -677,12 +688,12 @@
       "name": "agency-platform-engineer",
       "description": "Platform Engineer agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "developer-platform",
+        "internal-tools",
+        "ci-cd",
+        "kubernetes",
+        "infrastructure-as-code",
+        "service-templates"
       ],
       "category": "engineering"
     },
@@ -690,12 +701,12 @@
       "name": "agency-procurement-specialist",
       "description": "Procurement Specialist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "procurement",
+        "vendor-selection",
+        "rfp",
+        "contract-negotiation",
+        "cost-analysis",
+        "supplier-management"
       ],
       "category": "marketing"
     },
@@ -703,12 +714,12 @@
       "name": "agency-product-designer",
       "description": "Product Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "product-design",
+        "ux-design",
+        "prototyping",
+        "user-flows",
+        "interaction-design",
+        "figma"
       ],
       "category": "design"
     },
@@ -716,12 +727,12 @@
       "name": "agency-product-manager",
       "description": "Product Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "product-management",
+        "roadmapping",
+        "requirements",
+        "prioritization",
+        "user-stories",
+        "stakeholder-management"
       ],
       "category": "management"
     },
@@ -729,12 +740,12 @@
       "name": "agency-product-strategist",
       "description": "Product Strategist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "analysis",
-        "market"
+        "product-strategy",
+        "market-positioning",
+        "vision",
+        "portfolio-planning",
+        "opportunity-sizing",
+        "competitive-analysis"
       ],
       "category": "management"
     },
@@ -742,9 +753,12 @@
       "name": "agency-project-manager",
       "description": "Project Manager agent",
       "skills": [
-        "orchestration",
-        "project",
-        "product"
+        "project-management",
+        "scheduling",
+        "risk-management",
+        "status-reporting",
+        "scope-management",
+        "delivery-planning"
       ],
       "category": "management"
     },
@@ -752,12 +766,12 @@
       "name": "agency-public-relations",
       "description": "Public Relations agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "public-relations",
+        "press-releases",
+        "media-relations",
+        "crisis-comms",
+        "communications-strategy",
+        "spokesperson-briefing"
       ],
       "category": "engineering"
     },
@@ -765,12 +779,12 @@
       "name": "agency-qa-lead",
       "description": "Qa Lead agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "qa-strategy",
+        "test-planning",
+        "automation-strategy",
+        "release-quality",
+        "bug-triage",
+        "quality-metrics"
       ],
       "category": "quality"
     },
@@ -779,11 +793,11 @@
       "description": "Qa Tester agent",
       "skills": [
         "testing",
-        "review",
-        "security",
-        "compliance",
-        "git",
-        "release"
+        "automation",
+        "selenium",
+        "playwright",
+        "bug-reporting",
+        "regression-testing"
       ],
       "category": "quality"
     },
@@ -791,12 +805,12 @@
       "name": "agency-red-team",
       "description": "Red Team agent",
       "skills": [
-        "devops",
-        "infrastructure",
-        "automation",
-        "testing",
-        "review",
-        "security"
+        "red-team",
+        "adversarial-testing",
+        "threat-modeling",
+        "exploit-analysis",
+        "social-engineering",
+        "security-reporting"
       ],
       "category": "quality"
     },
@@ -804,12 +818,12 @@
       "name": "agency-release-manager",
       "description": "Release Manager agent",
       "skills": [
-        "devops",
-        "infrastructure",
-        "automation",
-        "testing",
-        "review",
-        "security"
+        "release-management",
+        "ci-cd",
+        "versioning",
+        "deployment-planning",
+        "rollback-plans",
+        "release-notes"
       ],
       "category": "management"
     },
@@ -817,12 +831,12 @@
       "name": "agency-release-notes-writer",
       "description": "Release Notes Writer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "release-notes",
+        "change-summaries",
+        "user-facing-docs",
+        "technical-editing",
+        "changelog",
+        "product-communications"
       ],
       "category": "content"
     },
@@ -830,10 +844,12 @@
       "name": "agency-requirements-analyst",
       "description": "Requirements Analyst agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration"
+        "requirements",
+        "acceptance-criteria",
+        "user-stories",
+        "business-analysis",
+        "traceability",
+        "stakeholder-interviews"
       ],
       "category": "design"
     },
@@ -841,12 +857,12 @@
       "name": "agency-scriptwriter",
       "description": "Scriptwriter agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "scriptwriting",
+        "screenwriting",
+        "narrative-structure",
+        "dialogue",
+        "storyboarding",
+        "creative-writing"
       ],
       "category": "content"
     },
@@ -854,12 +870,12 @@
       "name": "agency-scrum-master",
       "description": "Scrum Master agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "scrum",
+        "agile-facilitation",
+        "sprint-planning",
+        "retrospectives",
+        "impediment-removal",
+        "team-coaching"
       ],
       "category": "management"
     },
@@ -867,12 +883,12 @@
       "name": "agency-security-engineer",
       "description": "Security Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "security",
+        "penetration-testing",
+        "vulnerability-assessment",
+        "compliance",
+        "threat-modeling",
+        "secure-coding"
       ],
       "category": "quality"
     },
@@ -880,12 +896,12 @@
       "name": "agency-security-reviewer",
       "description": "Security Reviewer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "security-review",
+        "code-audit",
+        "owasp",
+        "dependency-scanning",
+        "risk-assessment",
+        "remediation-guidance"
       ],
       "category": "quality"
     },
@@ -893,12 +909,12 @@
       "name": "agency-seo-specialist",
       "description": "Seo Specialist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "seo",
+        "keyword-research",
+        "on-page-seo",
+        "technical-seo",
+        "content-optimization",
+        "search-analytics"
       ],
       "category": "marketing"
     },
@@ -906,12 +922,12 @@
       "name": "agency-social-media-manager",
       "description": "Social Media Manager agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "social-media",
+        "content-calendar",
+        "community-engagement",
+        "platform-strategy",
+        "analytics",
+        "brand-voice"
       ],
       "category": "management"
     },
@@ -919,12 +935,12 @@
       "name": "agency-software-architect",
       "description": "Software Architect agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "software-architecture",
+        "system-design",
+        "api-design",
+        "design-patterns",
+        "scalability",
+        "technical-roadmaps"
       ],
       "category": "engineering"
     },
@@ -932,12 +948,12 @@
       "name": "agency-support-specialist",
       "description": "Support Specialist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "customer-support",
+        "ticket-triage",
+        "troubleshooting",
+        "knowledge-base",
+        "escalation",
+        "customer-communication"
       ],
       "category": "operations"
     },
@@ -945,12 +961,12 @@
       "name": "agency-systems-architect",
       "description": "Systems Architect agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "systems-architecture",
+        "distributed-systems",
+        "integration-patterns",
+        "reliability",
+        "capacity-planning",
+        "architecture-review"
       ],
       "category": "engineering"
     },
@@ -958,12 +974,12 @@
       "name": "agency-technical-artist",
       "description": "Technical Artist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "technical-art",
+        "shader-authoring",
+        "tooling",
+        "asset-pipelines",
+        "optimization",
+        "game-engines"
       ],
       "category": "design"
     },
@@ -971,12 +987,12 @@
       "name": "agency-technical-lead",
       "description": "Technical Lead agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "technical-leadership",
+        "code-review",
+        "architecture-guidance",
+        "mentoring",
+        "delivery-planning",
+        "engineering-standards"
       ],
       "category": "engineering"
     },
@@ -984,12 +1000,12 @@
       "name": "agency-technical-writer",
       "description": "Technical Writer agent",
       "skills": [
-        "python",
-        "api",
-        "database",
-        "server",
-        "ui",
-        "ux"
+        "technical-writing",
+        "developer-docs",
+        "api-reference",
+        "tutorials",
+        "documentation-architecture",
+        "editing"
       ],
       "category": "content"
     },
@@ -997,12 +1013,12 @@
       "name": "agency-tools-engineer",
       "description": "Tools Engineer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "devops",
-        "infrastructure"
+        "developer-tools",
+        "automation",
+        "scripting",
+        "cli-tools",
+        "build-systems",
+        "workflow-integration"
       ],
       "category": "engineering"
     },
@@ -1010,9 +1026,12 @@
       "name": "agency-traffic-manager",
       "description": "Traffic Manager agent",
       "skills": [
-        "orchestration",
-        "project",
-        "product"
+        "traffic-management",
+        "intake-triage",
+        "resource-allocation",
+        "production-schedules",
+        "delivery-tracking",
+        "workflow-coordination"
       ],
       "category": "management"
     },
@@ -1020,12 +1039,12 @@
       "name": "agency-training-specialist",
       "description": "Training Specialist agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "training",
+        "learning-design",
+        "curriculum",
+        "workshops",
+        "enablement",
+        "assessment"
       ],
       "category": "operations"
     },
@@ -1033,12 +1052,12 @@
       "name": "agency-ui-ux-designer",
       "description": "Ui Ux Designer agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "ui-design",
+        "ux-design",
+        "wireframes",
+        "prototyping",
+        "user-research",
+        "accessibility"
       ],
       "category": "design"
     },
@@ -1046,12 +1065,12 @@
       "name": "agency-user-researcher",
       "description": "User Researcher agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "testing",
-        "review"
+        "user-research",
+        "interviews",
+        "usability-testing",
+        "surveys",
+        "synthesis",
+        "personas"
       ],
       "category": "research"
     },
@@ -1059,12 +1078,12 @@
       "name": "agency-worldbuilder",
       "description": "Worldbuilder agent",
       "skills": [
-        "ui",
-        "ux",
-        "branding",
-        "illustration",
-        "writing",
-        "copy"
+        "worldbuilding",
+        "lore",
+        "setting-design",
+        "cultures",
+        "maps",
+        "narrative-systems"
       ],
       "category": "design"
     }
