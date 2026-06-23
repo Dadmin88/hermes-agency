@@ -639,8 +639,88 @@ A2A_ALIAS_TOOLS = (
     ),
 )
 
+def pool_roster(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.roster import load_roster
+    args = args or {}
+    roster = load_roster()
+    profiles = roster["profiles"]
+    query = args.get("query", "").lower()
+    if query:
+        profiles = [p for p in profiles if query in p["name"].lower()
+                     or any(query in s.lower() for s in p.get("skills", []))
+                     or query in p.get("description", "").lower()]
+    if args.get("online_only"):
+        profiles = [p for p in profiles if p["online"]]
+    lines = [f"Pool roster: {roster['online']}/{roster['total']} online"]
+    for p in profiles:
+        icon = "🟢" if p["online"] else "⚫"
+        skills = ", ".join(p.get("skills", [])[:5])
+        cnt = p.get("skill_count", 0)
+        if cnt > 5:
+            skills += f" +{cnt - 5}"
+        lines.append(f"  {icon} {p['name']} — {skills}")
+    return "\n".join(lines)
+
+
+def pool_wake(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_wake as _pool_wake
+    args = args or {}
+    name = args.get("name", "")
+    if not name:
+        return "Error: name is required"
+    return _pool_wake(name)
+
+
+def pool_sleep(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_sleep as _pool_sleep
+    args = args or {}
+    name = args.get("name", "")
+    if not name:
+        return "Error: name is required"
+    return _pool_sleep(name)
+
+
+def pool_send(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_send as _pool_send
+    args = args or {}
+    name = args.get("name", "")
+    message = args.get("message", "")
+    if not name or not message:
+        return "Error: name and message are required"
+    return _pool_send(name, message)
+
+
+def _pool_schema(name: str, description: str, parameters: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "function", "function": {"name": name, "description": description, "parameters": parameters}}
+
+
+POOL_TOOLS = (
+    ("agency_roster", _pool_schema(
+        "agency_roster",
+        "Show the agency roster — all agents, who's online, skills, peer_ids. Filter by query.",
+        {"type": "object", "properties": {"query": {"type": "string"}}, "required": []},
+    ), pool_roster, "📋"),
+    ("agency_wake", _pool_schema(
+        "agency_wake",
+        "Wake an agency agent — start its daemon and register it on the network.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    ), pool_wake, "⚡"),
+    ("agency_sleep", _pool_schema(
+        "agency_sleep",
+        "Sleep an agency agent — stop its daemon to free resources.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    ), pool_sleep, "💤"),
+    ("agency_pool_send", _pool_schema(
+        "agency_pool_send",
+        "Send work to an agency agent. Auto-wakes if offline. Returns peer_id for a2a_send.",
+        {"type": "object", "properties": {"name": {"type": "string"}, "message": {"type": "string"}}, "required": ["name", "message"]},
+    ), pool_send, "📬"),
+)
+
+
 TOOLS = (
     *AGENCY_TOOLS,
     *AUTONOMOUS_TOOLS,
     *A2A_ALIAS_TOOLS,
+    *POOL_TOOLS,
 )

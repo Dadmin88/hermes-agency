@@ -428,6 +428,18 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     staff_info.add_argument("name", help="Profile name (e.g. agency-orchestrator)")
     staff_info.set_defaults(func=cmd_agency, agency_command="staff")
 
+    roster_parser = subparsers.add_parser("roster", help="Show agency pool roster")
+    roster_parser.add_argument("query", nargs="?", default="", help="Filter by name/skill")
+    roster_parser.set_defaults(func=cmd_agency, agency_command="roster")
+
+    wake_parser = subparsers.add_parser("wake", help="Wake an agency agent")
+    wake_parser.add_argument("agent", help="Agent name (e.g. agency-frontend-engineer)")
+    wake_parser.set_defaults(func=cmd_agency, agency_command="wake")
+
+    sleep_parser = subparsers.add_parser("sleep", help="Sleep an agency agent")
+    sleep_parser.add_argument("agent", help="Agent name")
+    sleep_parser.set_defaults(func=cmd_agency, agency_command="sleep")
+
 
 def cmd_agency(args: Namespace) -> None:
     """Dispatch ``hermes agency`` verbs."""
@@ -468,5 +480,25 @@ def cmd_agency(args: Namespace) -> None:
             print(_staff_info_text(getattr(args, "name", "")))
         else:
             raise SystemExit(f"Unknown staff command: {staff_cmd}")
+    elif verb == "roster":
+        from .pool.roster import load_roster
+        roster = load_roster()
+        query = getattr(args, "query", "")
+        profiles = roster["profiles"]
+        if query:
+            q = query.lower()
+            profiles = [p for p in profiles if q in p["name"].lower()
+                         or any(q in s.lower() for s in p.get("skills", []))]
+        print(f"Pool roster: {roster['online']}/{roster['total']} online")
+        for p in profiles:
+            icon = "🟢" if p["online"] else "⚫"
+            skills = ", ".join(p.get("skills", [])[:5])
+            print(f"  {icon} {p['name']} — {skills}")
+    elif verb == "wake":
+        from .pool.tools import pool_wake
+        print(pool_wake(getattr(args, "agent", "")))
+    elif verb == "sleep":
+        from .pool.tools import pool_sleep
+        print(pool_sleep(getattr(args, "agent", "")))
     else:
         raise SystemExit(f"Unknown agency command: {verb}")
