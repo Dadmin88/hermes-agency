@@ -64,7 +64,7 @@ def clean_stale(name):
         ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
         capture_output=True, timeout=3
     )
-    time.sleep(0.3)
+    time.sleep(0.5)
     agency_dir = PROFILES / name / ".agency"
     for f in agency_dir.rglob("*.lock"):
         f.unlink(missing_ok=True)
@@ -170,6 +170,9 @@ def main():
             state["last_index"] = i + 1
             save_state(state)
             print(f"  [checkpoint: {len(succeeded)} ok, {len(failed)} failed]")
+
+        # Let OS reclaim file descriptors between profiles
+        time.sleep(3)
 
     state["succeeded"] = succeeded
     state["failed"] = failed
