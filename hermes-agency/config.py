@@ -64,6 +64,7 @@ Config schema and defaults::
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import time
@@ -369,6 +370,125 @@ def _cfg_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
     """Small wrapper so nested plugin keys stay readable."""
 
     return cfg_get(config, *path, default=default)
+
+
+def _value_missing(value: Any) -> bool:
+    """Return True when a profile value is absent for inheritance purposes."""
+
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+_RELAY_ADDRESS_KEYS = ("address", "addr", "multiaddr", "url")
+
+
+def _relay_address_from(raw_relay: Any) -> Any:
+    """Extract the effective relay address from supported config shapes."""
+
+    if isinstance(raw_relay, dict):
+        for key in _RELAY_ADDRESS_KEYS:
+            value = raw_relay.get(key)
+            if not _value_missing(value):
+                return value
+        return None
+    return raw_relay if not _value_missing(raw_relay) else None
+
+
+def _profile_root_home() -> Path | None:
+    """Return the default Hermes home when running inside a named profile."""
+
+    home = Path(get_hermes_home()).expanduser()
+    if home.parent.name != "profiles":
+        return None
+    return home.parent.parent
+
+
+def _load_profile_root_config() -> dict[str, Any]:
+    """Load the root Hermes config used as a fallback for agency-* profiles."""
+
+    root_home = _profile_root_home()
+    if root_home is None:
+        return {}
+    config_path = root_home / "config.yaml"
+    if not config_path.exists():
+        return {}
+    try:
+        import yaml
+
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        logger.debug("Failed to load Hermes root config for Agency inheritance", exc_info=True)
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _merge_relay_config(profile_relay: Any, root_relay: Any) -> Any:
+    """Merge relay config so profile-specific values override root defaults."""
+
+    if _value_missing(_relay_address_from(root_relay)):
+        return profile_relay
+
+    if isinstance(root_relay, dict):
+        merged = dict(root_relay)
+        if isinstance(profile_relay, dict):
+            for key, value in profile_relay.items():
+                if _value_missing(value) and key in merged:
+                    continue
+                merged[key] = value
+            return merged
+        if not _value_missing(profile_relay):
+            merged["address"] = profile_relay
+        return merged
+
+    if isinstance(profile_relay, dict):
+        merged = dict(profile_relay)
+        if _value_missing(_relay_address_from(profile_relay)):
+            merged["address"] = root_relay
+        return merged
+    return root_relay if _value_missing(profile_relay) else profile_relay
+
+
+def _merge_profile_root_agency_config(
+    config: dict[str, Any], root_config: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply root ``agency`` fallbacks that should be shared by all profiles.
+
+    Pool-managed ``agency-*`` profiles carry profile-local identity/runtime
+    settings, but the daemon binary and relay connection are installation-level
+    settings. Inherit only those shared fields so per-profile safety gates such
+    as ``allow_remote_tasks`` and ``auto_start`` remain isolated.
+    """
+
+    root_agency = root_config.get("agency") if isinstance(root_config, dict) else None
+    if not isinstance(root_agency, dict):
+        return config
+
+    merged_config = copy.deepcopy(config) if isinstance(config, dict) else {}
+    profile_agency = merged_config.get("agency")
+    if not isinstance(profile_agency, dict):
+        profile_agency = {}
+        merged_config["agency"] = profile_agency
+
+    root_daemon_bin = root_agency.get("daemon_bin")
+    if _value_missing(profile_agency.get("daemon_bin")) and not _value_missing(root_daemon_bin):
+        profile_agency["daemon_bin"] = root_daemon_bin
+
+    root_relay = root_agency.get("relay")
+    profile_relay = profile_agency.get("relay")
+    inherited_relay = _merge_relay_config(profile_relay, root_relay)
+    if inherited_relay is not profile_relay:
+        profile_agency["relay"] = inherited_relay
+
+    return merged_config
+
+
+def _load_config_with_profile_inheritance() -> dict[str, Any]:
+    """Load active config plus root fallbacks for shared Agency runtime settings."""
+
+    config = load_config()
+    root_config = _load_profile_root_config()
+    if root_config:
+        return _merge_profile_root_agency_config(config, root_config)
+    return config
 
 
 def _bool_cfg(config: dict[str, Any], *path: str, default: bool) -> bool:
@@ -1041,7 +1161,7 @@ def is_current_orchestrator(config: AgencyConfig | None = None) -> bool:
 def get_config() -> AgencyConfig:
     """Load ``agency.*`` settings from the active Hermes profile config."""
 
-    config = load_config()
+    config = _load_config_with_profile_inheritance()
     raw_home = _cfg_get(config, "agency", "home", default="") or ""
     home = Path(raw_home).expanduser() if raw_home else get_hermes_home() / ".agency"
     raw_daemon_bin = _cfg_get(config, "agency", "daemon_bin", default="") or ""
