@@ -9,6 +9,8 @@ subagent response.
 from __future__ import annotations
 
 import asyncio
+import importlib
+import importlib.util
 import json
 import logging
 import os
@@ -573,42 +575,153 @@ def _import_hermes_delegate_task():
     """
 
     try:
-        from tools.delegate_tool import delegate_task
-
-        return delegate_task
+        return importlib.import_module("tools.delegate_tool").delegate_task
     except Exception as first_exc:  # noqa: BLE001 - retry with sanitized sys.path
         plugin_dir = Path(__file__).resolve().parent
         original_path = list(sys.path)
-        previous_tools = sys.modules.get("tools")
-        removed_tools = False
+        removed_modules: dict[str, Any] = {}
+        hermes_roots = _hermes_source_root_candidates(plugin_dir)
         try:
-            sanitized: list[str] = []
-            for entry in original_path:
-                try:
-                    resolved = Path(entry or os.getcwd()).resolve()
-                except Exception:
-                    sanitized.append(entry)
-                    continue
-                if resolved == plugin_dir:
-                    continue
-                sanitized.append(entry)
-            sys.path = sanitized
-            if previous_tools is not None:
-                module_file = getattr(previous_tools, "__file__", "") or ""
-                if Path(module_file).resolve().parent == plugin_dir:
-                    sys.modules.pop("tools", None)
-                    removed_tools = True
-            from tools.delegate_tool import delegate_task
-
-            return delegate_task
+            sys.path = _delegate_import_sys_path(original_path, plugin_dir, hermes_roots)
+            removed_modules = _remove_plugin_tools_shadow(plugin_dir)
+            return importlib.import_module("tools.delegate_tool").delegate_task
         except Exception as second_exc:  # noqa: BLE001
             raise TaskProcessingError(
                 f"Could not import Hermes delegate_task: {second_exc}"
             ) from first_exc
         finally:
             sys.path = original_path
-            if removed_tools and previous_tools is not None:
-                sys.modules.setdefault("tools", previous_tools)
+            for name, module in removed_modules.items():
+                sys.modules.setdefault(name, module)
+
+
+def _delegate_import_sys_path(
+    original_path: list[str], plugin_dir: Path, hermes_roots: list[Path]
+) -> list[str]:
+    """Build a temporary import path that prefers Hermes core over plugin tools.py."""
+
+    sanitized: list[str] = []
+    seen: set[Path] = set()
+
+    def append_entry(entry: str) -> None:
+        try:
+            resolved = Path(entry or os.getcwd()).resolve()
+        except Exception:
+            sanitized.append(entry)
+            return
+        if resolved == plugin_dir or resolved in seen:
+            return
+        seen.add(resolved)
+        sanitized.append(entry)
+
+    for root in hermes_roots:
+        append_entry(str(root))
+    for entry in original_path:
+        append_entry(entry)
+    return sanitized
+
+
+def _remove_plugin_tools_shadow(plugin_dir: Path) -> dict[str, Any]:
+    """Drop a top-level ``tools`` module only when it is this plugin's tools.py."""
+
+    removed: dict[str, Any] = {}
+    module = sys.modules.get("tools")
+    if module is None:
+        return removed
+    module_file = getattr(module, "__file__", "") or ""
+    try:
+        is_plugin_tools = Path(module_file).resolve() == plugin_dir / "tools.py"
+    except Exception:
+        is_plugin_tools = False
+    if is_plugin_tools:
+        removed["tools"] = sys.modules.pop("tools")
+    return removed
+
+
+def _hermes_source_root_candidates(plugin_dir: Path) -> list[Path]:
+    """Find Hermes source roots that contain the core ``tools`` package."""
+
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(candidate: str | Path | None) -> None:
+        if candidate is None:
+            return
+        try:
+            root = Path(candidate).expanduser().resolve()
+        except Exception:
+            return
+        if root == plugin_dir or root in seen or not _has_core_delegate_tool(root):
+            return
+        seen.add(root)
+        candidates.append(root)
+
+    for module_name in (
+        "run_agent",
+        "hermes_constants",
+        "model_tools",
+        "toolsets",
+        "hermes_cli",
+        "hermes_cli.config",
+    ):
+        add(_source_root_from_loaded_module(module_name))
+        add(_source_root_from_module_spec(module_name))
+
+    for entry in sys.path:
+        add(entry or os.getcwd())
+
+    executable = Path(sys.executable).resolve()
+    for parent in executable.parents:
+        add(parent)
+
+    hermes_home = os.getenv("HERMES_HOME")
+    if hermes_home:
+        add(Path(hermes_home) / "hermes-agent")
+
+    default_home = Path.home() / ".hermes"
+    add(default_home / "hermes-agent")
+    profiles_dir = default_home / "profiles"
+    try:
+        profile_homes = [path for path in profiles_dir.iterdir() if path.is_dir()]
+    except OSError:
+        profile_homes = []
+    for profile_home in profile_homes:
+        add(profile_home / "hermes-agent")
+
+    return candidates
+
+
+def _source_root_from_loaded_module(module_name: str) -> Path | None:
+    module = sys.modules.get(module_name)
+    module_file = getattr(module, "__file__", None) if module is not None else None
+    if not module_file:
+        return None
+    return _source_root_from_module_file(module_file)
+
+
+def _source_root_from_module_spec(module_name: str) -> Path | None:
+    try:
+        spec = importlib.util.find_spec(module_name)
+    except (ImportError, AttributeError, ValueError):
+        return None
+    if spec is None or spec.origin is None:
+        return None
+    return _source_root_from_module_file(spec.origin)
+
+
+def _source_root_from_module_file(module_file: str | Path) -> Path | None:
+    path = Path(module_file).resolve()
+    if path.name == "__init__.py":
+        return path.parent.parent
+    if path.parent.name in {"hermes_cli", "agent", "gateway", "tools"}:
+        return path.parent.parent
+    return path.parent
+
+
+def _has_core_delegate_tool(root: Path) -> bool:
+    return (root / "tools" / "__init__.py").is_file() and (
+        root / "tools" / "delegate_tool.py"
+    ).is_file()
 
 
 def _build_parent_agent():
