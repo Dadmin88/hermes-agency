@@ -548,6 +548,119 @@ def test_pool_roster_uses_profile_config_model_over_static_registry(tmp_path, mo
     ]
 
 
+def test_pool_roster_keeps_profile_config_when_live_discovery_has_stale_card(tmp_path, monkeypatch):
+    module_name = "agency_pool_roster_live_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "roster.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    roster_mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, roster_mod)
+    spec.loader.exec_module(roster_mod)
+
+    registry_path = tmp_path / "registry_definition.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "agents": [
+                    {
+                        "name": "agency-frontend-engineer",
+                        "description": "Frontend registry description",
+                        "skills": ["react"],
+                        "model": "gpt-5.5",
+                        "provider": "openai",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    profiles_dir = tmp_path / "profiles"
+    profile_dir = profiles_dir / "agency-frontend-engineer"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "SOUL.md").write_text(
+        "# Frontend Engineer\n\nYou are the Frontend Engineer from SOUL.md.\n",
+        encoding="utf-8",
+    )
+    (profile_dir / "config.yaml").write_text(
+        "model:\n  default: glm-5.2\n  provider: opencode-go\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
+    monkeypatch.setattr(roster_mod, "PROFILES", profiles_dir)
+    monkeypatch.setattr(roster_mod, "LEGACY_ROSTER_PATH", tmp_path / "legacy_roster.json")
+    monkeypatch.setattr(roster_mod, "roster_state_path", lambda: tmp_path / "roster_state.json")
+
+    roster = roster_mod.build_roster(
+        live_peers={
+            "peer-1": {
+                "peer_id": "peer-1",
+                "name": "agency-frontend-engineer",
+                "description": "Frontend stale AgentCard description",
+                "skills": ["old-skill"],
+                "card": {
+                    "metadata": {"hermes": {"model": {"default": "gpt-5.5", "provider": "openai"}}}
+                },
+            }
+        },
+        include_plugin_setup=False,
+    )
+
+    agent = roster["profiles"][0]
+    assert agent["online"] is True
+    assert agent["peer_id"] == "peer-1"
+    assert agent["description"] == "You are the Frontend Engineer from SOUL.md."
+    assert agent["skills"] == ["react"]
+    assert agent["model"] == "glm-5.2"
+    assert agent["provider"] == "opencode-go"
+
+
+def test_pool_roster_uses_shared_root_state_when_running_inside_profile(tmp_path, monkeypatch):
+    for name in list(sys.modules):
+        if name == "hermes_plugin" or name.startswith("hermes_plugin."):
+            sys.modules.pop(name, None)
+
+    root_home = tmp_path / ".hermes"
+    profile_home = root_home / "profiles" / "agency-frontend-engineer"
+    profile_home.mkdir(parents=True)
+    explicit_home = tmp_path / "custom-agency-home"
+
+    package = types.ModuleType("hermes_plugin")
+    package.__path__ = [str(PLUGIN_DIR)]
+    pool_package = types.ModuleType("hermes_plugin.pool")
+    pool_package.__path__ = [str(PLUGIN_DIR / "pool")]
+    config_module = types.ModuleType("hermes_plugin.config")
+    setattr(
+        config_module,
+        "get_config",
+        lambda: types.SimpleNamespace(home=profile_home / ".agency"),
+    )
+    monkeypatch.setitem(sys.modules, "hermes_plugin", package)
+    monkeypatch.setitem(sys.modules, "hermes_plugin.pool", pool_package)
+    monkeypatch.setitem(sys.modules, "hermes_plugin.config", config_module)
+    monkeypatch.setenv("HERMES_HOME", str(profile_home))
+
+    module_name = "hermes_plugin.pool.roster"
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "roster.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    roster_mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, roster_mod)
+    spec.loader.exec_module(roster_mod)
+
+    assert roster_mod.roster_state_path() == root_home / ".agency" / "roster_state.json"
+
+    setattr(config_module, "get_config", lambda: types.SimpleNamespace(home=explicit_home))
+    assert roster_mod.roster_state_path() == explicit_home / "roster_state.json"
+
+
 def test_get_config_defaults(plugin_modules, monkeypatch):
     cfg_mod = plugin_modules.config
     monkeypatch.setattr(cfg_mod, "load_config", lambda: {})

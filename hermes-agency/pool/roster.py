@@ -49,22 +49,48 @@ def ensure_profile_plugins() -> dict[str, Any]:
     return plugin_setup.setup_all_profile_plugins(include_main=True)
 
 
-def _agency_home() -> Path:
-    """Return the active profile's Hermes Agency home directory."""
+def _default_shared_agency_home() -> Path:
+    """Return the installation-level agency home shared by all pool profiles."""
 
+    hermes_home = os.getenv("HERMES_HOME", "").strip()
+    if hermes_home:
+        active_home = Path(hermes_home).expanduser()
+    else:
+        active_home = Path.home() / ".hermes"
+    if active_home.parent.name == "profiles":
+        return active_home.parent.parent / ".agency"
+    return active_home / ".agency"
+
+
+def _agency_home() -> Path:
+    """Return the shared Hermes Agency pool-state directory.
+
+    Pool roster and offline queue state are installation-level data: every
+    ``agency-*`` profile needs to see the same roster when rendering team
+    context.  Profile-local daemon state still lives under each profile's
+    ``.agency`` directory via ``config.get_config().home``; this helper is only
+    for pool state files.  Older profile-local roster snapshots can be stale, so
+    ignore the implicit ``<profile>/.agency`` default and use the root
+    ``~/.hermes/.agency`` path instead.  Explicit non-default ``agency.home``
+    overrides are still respected.
+    """
+
+    shared_home = _default_shared_agency_home()
     try:
         from ..config import get_config
 
         cfg = get_config()
-        if cfg.home:
-            return Path(cfg.home).expanduser()
+        cfg_home = Path(cfg.home).expanduser() if cfg.home else None
+        hermes_home = os.getenv("HERMES_HOME", "").strip()
+        active_home = Path(hermes_home).expanduser() if hermes_home else Path.home() / ".hermes"
+        implicit_profile_home = (
+            active_home / ".agency" if active_home.parent.name == "profiles" else None
+        )
+        if cfg_home and cfg_home != implicit_profile_home:
+            return cfg_home
     except Exception:
         pass
-
-    hermes_home = os.getenv("HERMES_HOME", "").strip()
-    if hermes_home:
-        return Path(hermes_home).expanduser() / ".agency"
-    return Path.home() / ".hermes" / ".agency"
+    return shared_home
 
 
 def roster_state_path() -> Path:
@@ -482,8 +508,8 @@ def build_roster(
                 "skill_count": len(skills),
                 "capabilities": _derive_capabilities(skills),
                 "category": None,
-                "model": DEFAULT_MODEL,
-                "provider": DEFAULT_PROVIDER,
+                "model": peer.get("model") or DEFAULT_MODEL,
+                "provider": peer.get("provider") or DEFAULT_PROVIDER,
                 "peer_id": None,
                 "online": False,
                 "last_seen": None,
@@ -491,7 +517,25 @@ def build_roster(
                 "wake_attempt_count": 0,
                 "last_wake_error": None,
             }
-        agents_by_name[name] = _merge_agent(agents_by_name[name], peer)
+        else:
+            # Runtime discovery is only a volatile transport overlay for known
+            # pool agents.  Local registry/profile metadata is authoritative for
+            # descriptions, skills, and model/provider display: live AgentCards
+            # can be stale (or started under a previous provider) and should not
+            # rewrite prompt context for every future roster render.
+            peer = {
+                key: value
+                for key, value in peer.items()
+                if key
+                in {
+                    "peer_id",
+                    "last_seen",
+                    "last_wake_attempt_at",
+                    "wake_attempt_count",
+                    "last_wake_error",
+                }
+            }
+            agents_by_name[name] = _merge_agent(agents_by_name[name], peer)
         agents_by_name[name]["online"] = True
         agents_by_name[name]["last_seen"] = time.time()
         if peer.get("peer_id"):
