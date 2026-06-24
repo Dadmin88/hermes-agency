@@ -87,6 +87,7 @@ class DaemonManager:
         verify_checksum: bool = True,
     ) -> None:
         # Resolve base directory — allows multiple instances with isolated state.
+        self._uses_custom_home = home is not None
         self._base = Path(home) if home else _DEFAULT_BASE
         self._bin_dir = self._base / "bin"
         self._log_dir = self._base / "logs"
@@ -100,6 +101,7 @@ class DaemonManager:
         self._transport = transport
         self._namespace = namespace
         self._store_path = str(self._base / "data")
+        self._config_path = self._base / "daemon.toml" if self._uses_custom_home else None
         self._process: subprocess.Popen[bytes] | None = None
         self._managed = False  # True if we started the daemon
         self._status_callback = status_callback
@@ -121,6 +123,28 @@ class DaemonManager:
         if self._grpc_listen.startswith("unix://"):
             return Path(self._grpc_listen[7:])
         return self._base / "daemon.sock"
+
+    @staticmethod
+    def _toml_quote(value: str) -> str:
+        """Quote a string for the minimal daemon TOML config we generate."""
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    def _write_config_file(self) -> Path | None:
+        """Write a per-home daemon config file when running with isolated state.
+
+        The daemon binary's default config still points at ~/.agentanycast/data.
+        SDK callers that pass ``home=...`` need a real TOML config file because
+        daemon builds do not consistently honor AGENTANYCAST_STORE_PATH. Keep the
+        file minimal so CLI flags continue to own key, gRPC, relay, and log
+        settings.
+        """
+        if self._config_path is None:
+            return None
+
+        self._config_path.parent.mkdir(parents=True, exist_ok=True)
+        content = f"store_path = {self._toml_quote(self._store_path)}\n"
+        self._config_path.write_text(content, encoding="utf-8")
+        return self._config_path
 
     def _find_binary(self) -> Path:
         """Find the daemon binary, checking explicit path, PATH, and default location."""
@@ -337,12 +361,19 @@ class DaemonManager:
         log_file = self._log_dir / "daemon.log"
 
         # Build command
+        config_path = self._write_config_file()
         cmd = [
             str(binary),
-            f"--key={self._key_path}",
-            f"--grpc-listen={self._grpc_listen}",
-            f"--log-level={self._log_level}",
         ]
+        if config_path is not None:
+            cmd.append(f"--config={config_path}")
+        cmd.extend(
+            [
+                f"--key={self._key_path}",
+                f"--grpc-listen={self._grpc_listen}",
+                f"--log-level={self._log_level}",
+            ]
+        )
 
         if self._relay:
             cmd.append(f"--bootstrap-peers={self._relay}")
