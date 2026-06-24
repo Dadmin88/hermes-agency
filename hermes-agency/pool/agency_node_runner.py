@@ -20,6 +20,7 @@ PACKAGE_NAME = "hermes_agency"
 DEFAULT_STARTUP_TIMEOUT = 120.0
 DEFAULT_CHECK_INTERVAL = 5.0
 DEFAULT_RETRY_INTERVAL = 5.0
+DEFAULT_PROFILE_NAMES = {"", "default"}
 
 
 def _load_plugin_package() -> None:
@@ -62,6 +63,122 @@ def _state_payload(state: Any) -> dict[str, Any]:
 
 def _emit(prefix: str, payload: Any) -> None:
     print(f"{prefix} " + json.dumps(payload, default=str), flush=True)
+
+
+def _current_hermes_home() -> Path:
+    """Return the Hermes home visible to this runner before plugin imports."""
+
+    return Path(os.environ.get("HERMES_HOME") or "~/.hermes").expanduser()
+
+
+def _root_home_for(home: Path) -> Path:
+    """Return the root Hermes home for either root or named-profile homes."""
+
+    expanded = home.expanduser()
+    if expanded.parent.name == "profiles":
+        return expanded.parent.parent
+    return expanded
+
+
+def _minimal_yaml_mapping(text: str) -> dict[str, Any]:
+    """Parse the small nested mapping subset needed for root Agency config."""
+
+    root: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
+    for raw_line in text.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        key, sep, value = raw_line.strip().partition(":")
+        if not sep or not key:
+            continue
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+        parent = stack[-1][1]
+        raw_value = value.strip()
+        if not raw_value:
+            child: dict[str, Any] = {}
+            parent[key] = child
+            stack.append((indent, child))
+            continue
+        parsed: Any = raw_value.strip("\"'")
+        if parsed.lower() in {"null", "none"}:
+            parsed = None
+        elif parsed.lower() == "true":
+            parsed = True
+        elif parsed.lower() == "false":
+            parsed = False
+        parent[key] = parsed
+    return root
+
+
+def _load_yaml_config(path: Path) -> dict[str, Any]:
+    """Best-effort YAML config loader used before Hermes modules are imported."""
+
+    if not path.exists():
+        return {}
+    text = path.read_text(encoding="utf-8")
+    try:
+        import yaml
+
+        data = yaml.safe_load(text) or {}
+    except ModuleNotFoundError:
+        data = _minimal_yaml_mapping(text)
+    except Exception as exc:
+        _emit(
+            "HERMES_AGENCY_RUNNER_CONFIG_WARNING",
+            {"path": str(path), "error": f"{type(exc).__name__}: {exc}"},
+        )
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _configured_orchestrator_agent(root_config: dict[str, Any]) -> str:
+    agency = root_config.get("agency") if isinstance(root_config, dict) else None
+    if not isinstance(agency, dict):
+        return ""
+    orchestrator = agency.get("orchestrator")
+    if not isinstance(orchestrator, dict):
+        return ""
+    return str(orchestrator.get("agent") or "").strip()
+
+
+def _resolve_runner_profile() -> str:
+    """Resolve the profile whose config this runner should load.
+
+    Gateway/systemd invocations can start the long-lived runner with
+    ``HERMES_HOME`` pointing at the root/default Hermes home. In that case the
+    active Agency node should still be the configured orchestrator profile from
+    the root config (``agency.orchestrator.agent``), not the root/default node.
+
+    Pool-managed per-agent runners already pass a concrete ``HERMES_PROFILE``;
+    those must not be rewritten just because the root config names an
+    orchestrator.
+    """
+
+    requested_profile = os.environ.get("HERMES_PROFILE", "").strip()
+    current_home = _current_hermes_home()
+    root_home = _root_home_for(current_home)
+    root_config = _load_yaml_config(root_home / "config.yaml")
+    orchestrator_agent = _configured_orchestrator_agent(root_config)
+    if not orchestrator_agent:
+        return requested_profile
+
+    if requested_profile not in DEFAULT_PROFILE_NAMES and requested_profile != orchestrator_agent:
+        return requested_profile
+
+    profile_home = root_home / "profiles" / orchestrator_agent
+    os.environ["HERMES_PROFILE"] = orchestrator_agent
+    os.environ["HERMES_HOME"] = str(profile_home)
+    _emit(
+        "HERMES_AGENCY_RUNNER_PROFILE",
+        {
+            "profile": orchestrator_agent,
+            "home": str(profile_home),
+            "source": "agency.orchestrator.agent",
+        },
+    )
+    return orchestrator_agent
 
 
 def _sleep_while_running(seconds: float, should_run: Callable[[], bool]) -> None:
@@ -138,7 +255,7 @@ def _restart_node(
 
 
 def main() -> int:
-    profile = os.environ.get("HERMES_PROFILE", "").strip()
+    profile = _resolve_runner_profile()
     if not profile:
         print("HERMES_AGENCY_NODE_ERROR missing HERMES_PROFILE", flush=True)
         return 2
