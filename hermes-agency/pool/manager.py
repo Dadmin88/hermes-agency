@@ -526,12 +526,21 @@ class PoolManager:
             peer_id = None
             if cli_started:
                 time.sleep(5)
-                peer_id, peer_source = self._resolve_started_peer_id(
-                    name, initial_output=cli_output if cli_peer else "", timeout=5
-                )
-                if peer_id:
-                    print(f"[PoolManager] resolved {name} peer_id from {peer_source}: {peer_id}")
-            else:
+                sock = PROFILES_DIR / name / ".agency" / "daemon.sock"
+                if not sock.exists():
+                    print(
+                        f"[PoolManager] agency start for {name} exited without a live daemon socket; falling back to runner"
+                    )
+                    cli_started = False
+                else:
+                    peer_id, peer_source = self._resolve_started_peer_id(
+                        name, initial_output=cli_output if cli_peer else "", timeout=5
+                    )
+                    if peer_id:
+                        print(
+                            f"[PoolManager] resolved {name} peer_id from {peer_source}: {peer_id}"
+                        )
+            if not cli_started:
                 print(
                     f"[PoolManager] agency start CLI unavailable/failed for {name}; falling back to runner"
                 )

@@ -9,7 +9,10 @@ Tools:
 
 from __future__ import annotations
 
+import os
+import re
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -26,9 +29,58 @@ from .roster import (
 )
 
 PROFILES = Path.home() / ".hermes" / "profiles"
-RELAY = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWGE3zmqw2FJTyuNGAzSNCUxSNSeMvCtocULczXfX9Y8nK"
-HERMES_BIN = Path.home() / ".hermes" / ".agentanycast" / "bin" / "agentanycastd"
+NODE_RUNNER = Path(__file__).with_name("agency_node_runner.py")
+PLUGIN_PATH = Path(__file__).resolve().parents[1]
 STARTUP_WAIT = 12
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _runner_pid_file(profile_dir: Path) -> Path:
+    return profile_dir / ".agency" / "runner.pid"
+
+
+def _read_runner_pid(profile_dir: Path) -> int | None:
+    try:
+        raw = _runner_pid_file(profile_dir).read_text(encoding="utf-8").strip()
+        return int(raw) if raw else None
+    except Exception:
+        return None
+
+
+def _profile_env(name: str, profile_dir: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env.update(
+        {
+            "HERMES_PROFILE": name,
+            "HERMES_HOME": str(profile_dir),
+            "HERMES_AGENCY_PLUGIN_PATH": str(PLUGIN_PATH),
+            "PYTHONUNBUFFERED": "1",
+        }
+    )
+    return env
+
+
+def _stop_profile_daemon_processes(name: str) -> None:
+    subprocess.run(
+        ["pkill", "-9", "-f", f"profiles/{name}/.agency/.*agentanycastd"],
+        capture_output=True,
+        timeout=3,
+        check=False,
+    )
+
+
+def _extract_own_peer_id(text: str) -> str | None:
+    match = re.search(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z]+)', text, re.M)
+    return match.group(1) if match else None
 
 
 def pool_roster(query: str = "", show_offline: bool = True) -> str:
@@ -66,7 +118,7 @@ def pool_roster(query: str = "", show_offline: bool = True) -> str:
 
 
 def pool_wake(name: str) -> str:
-    """Wake an agency profile — start its daemon and register it."""
+    """Wake an agency profile with the long-lived node runner."""
     if not name.startswith("agency-"):
         name = f"agency-{name}"
 
@@ -82,80 +134,69 @@ def pool_wake(name: str) -> str:
             f"{setup['profiles_errors']} profile(s); run `hermes agency setup-plugins`."
         )
 
-    # Check if already running
-    sock = profile_dir / ".agency" / "daemon.sock"
-    if sock.exists():
-        # Refresh roster
+    agency_dir = profile_dir / ".agency"
+    agency_dir.mkdir(parents=True, exist_ok=True)
+    runner_pid = _read_runner_pid(profile_dir)
+    sock = agency_dir / "daemon.sock"
+    if runner_pid and _pid_alive(runner_pid) and sock.exists():
         save_roster(build_roster())
         agent = find_agent(name)
         peer_id = agent.get("peer_id") if agent else None
         update_agent_status(name, online=True, peer_id=peer_id)
         return f"{name} is already online"
 
-    # Ensure binary
-    bin_path = profile_dir / ".agency" / "bin" / "agentanycastd"
-    if not bin_path.exists() and HERMES_BIN.exists():
-        bin_path.parent.mkdir(parents=True, exist_ok=True)
-        import shutil
-
-        shutil.copy2(HERMES_BIN, bin_path)
-        bin_path.chmod(0o755)
-
-    if not bin_path.exists():
-        record_wake_attempt(name, success=False, error=f"no daemon binary for {name}")
-        return f"Error: no daemon binary for {name}"
-
-    # Clean stale locks
-    for f in (profile_dir / ".agency").rglob("*.lock"):
+    # Migrate older direct-daemon wakes to the long-lived runner. A bare daemon
+    # can retain a card, but it has no Python task handler once the CLI exits.
+    _stop_profile_daemon_processes(name)
+    sock.unlink(missing_ok=True)
+    _runner_pid_file(profile_dir).unlink(missing_ok=True)
+    for f in agency_dir.rglob("*.lock"):
         f.unlink(missing_ok=True)
-    if sock.exists():
-        sock.unlink()
 
-    key = profile_dir / ".agency" / "key"
-    log = profile_dir / ".agency" / "logs" / "daemon.log"
+    log = agency_dir / "logs" / "runner.log"
     log.parent.mkdir(parents=True, exist_ok=True)
-    log.write_text("")
+    log.write_text("", encoding="utf-8")
 
-    proc = subprocess.Popen(
-        [
-            str(bin_path),
-            f"--key={key}",
-            f"--grpc-listen=unix://{sock}",
-            "--log-level=info",
-            f"--bootstrap-peers={RELAY}",
-        ],
-        stdout=open(log, "a"),
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    with open(log, "a", encoding="utf-8") as log_fh:
+        proc = subprocess.Popen(
+            [sys.executable, str(NODE_RUNNER)],
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            cwd=str(profile_dir),
+            env=_profile_env(name, profile_dir),
+            text=True,
+        )
+    _runner_pid_file(profile_dir).write_text(str(proc.pid), encoding="utf-8")
 
-    # Wait for startup + registration
-    time.sleep(STARTUP_WAIT)
-
-    # Resolve peer_id
-    import re
-
+    deadline = time.time() + STARTUP_WAIT
     peer_id = None
-    for _ in range(3):
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            break
         try:
-            text = log.read_text()
-            m = re.search(r'"peer_id":"(12D3KooW[^"]+)"', text)
-            if m:
-                peer_id = m.group(1)
-                break
+            peer_id = _extract_own_peer_id(log.read_text(encoding="utf-8", errors="ignore"))
         except Exception:
-            pass
-        time.sleep(2)
+            peer_id = None
+        if peer_id and sock.exists():
+            break
+        time.sleep(0.5)
 
-    # Update roster
     save_roster(build_roster())
 
-    if peer_id:
+    if peer_id and proc.poll() is None:
         record_wake_attempt(name, success=True, peer_id=peer_id)
+        update_agent_status(name, online=True, peer_id=peer_id)
         return f"{name} online — peer_id: {peer_id[:24]}..."
-    else:
-        record_wake_attempt(name, success=True, peer_id=None)
-        return f"{name} daemon started (pid={proc.pid}) — peer_id not yet resolved"
+
+    output = ""
+    try:
+        output = log.read_text(encoding="utf-8", errors="ignore")[-1000:]
+    except Exception:
+        pass
+    error = f"runner failed to start for {name}; pid={proc.pid}; output={output or 'no output'}"
+    record_wake_attempt(name, success=False, error=error)
+    return f"Error: {error}"
 
 
 def pool_sleep(name: str) -> str:
@@ -167,11 +208,18 @@ def pool_sleep(name: str) -> str:
     if not profile_dir.exists():
         return f"Error: profile {name} not found"
 
-    # Kill daemon
+    # Stop long-lived runner if present, then kill any profile-owned daemon.
+    runner_pid = _read_runner_pid(profile_dir)
+    if runner_pid and _pid_alive(runner_pid):
+        subprocess.run(["kill", str(runner_pid)], capture_output=True, timeout=3, check=False)
+        time.sleep(0.5)
+    _runner_pid_file(profile_dir).unlink(missing_ok=True)
+    _stop_profile_daemon_processes(name)
     subprocess.run(
         ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
         capture_output=True,
         timeout=3,
+        check=False,
     )
     time.sleep(0.5)
 

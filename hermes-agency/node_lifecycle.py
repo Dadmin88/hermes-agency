@@ -277,7 +277,7 @@ class NodeLifecycleMixin:
     def auto_start_if_configured(self) -> None:
         cfg = self._nm().get_config()
         self.state.config = cfg
-        if cfg.enabled and cfg.auto_start:
+        if cfg.enabled and (cfg.auto_start or self._nm().is_current_orchestrator(cfg)):
             self.start_background()
 
     def _atexit_stop(self) -> None:

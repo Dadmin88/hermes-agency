@@ -1,6 +1,7 @@
 """Tests for DaemonManager — pure logic only, no subprocess or network."""
 
 import hashlib
+import importlib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +14,8 @@ from agentanycast.daemon import (
     _detect_platform,
 )
 from agentanycast.exceptions import DaemonConnectionError, DaemonNotFoundError, DaemonStartError
+
+daemon_module = importlib.import_module("agentanycast.daemon")
 
 # ── Platform Detection ───────────────────────────────────────
 
@@ -264,7 +267,8 @@ class TestExistingSocketStartup:
         dm._wait_ready = wait_ready
         popen_calls = []
         monkeypatch.setattr(
-            "agentanycast.daemon.subprocess.Popen",
+            daemon_module.subprocess,
+            "Popen",
             lambda *args, **kwargs: popen_calls.append((args, kwargs)) or FakeProcess(),
         )
 
@@ -276,6 +280,48 @@ class TestExistingSocketStartup:
         assert dm._managed is True
         assert "Removed stale daemon socket" in caplog.text
         assert any("Removed stale daemon socket" in message for message in emitted)
+
+    @pytest.mark.asyncio
+    async def test_start_passes_relay_as_bootstrap_peers(self, tmp_path, monkeypatch):
+        relay = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay"
+        dm = DaemonManager(home=tmp_path, relay=relay)
+        binary = tmp_path / "agentanycastd"
+        binary.write_text("#!/bin/sh\n")
+
+        class FakeProcess:
+            returncode = None
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                return None
+
+            def wait(self, timeout=None):
+                return 0
+
+            def kill(self):
+                return None
+
+        async def ensure_binary():
+            return binary
+
+        async def wait_ready(timeout):
+            return None
+
+        dm.ensure_binary = ensure_binary
+        dm._wait_ready = wait_ready
+        popen_calls = []
+        monkeypatch.setattr(
+            daemon_module.subprocess,
+            "Popen",
+            lambda *args, **kwargs: popen_calls.append((args, kwargs)) or FakeProcess(),
+        )
+
+        await dm.start()
+
+        cmd = popen_calls[0][0][0]
+        assert f"--bootstrap-peers={relay}" in cmd
 
     @pytest.mark.asyncio
     async def test_permission_error_removing_stale_socket_is_actionable(

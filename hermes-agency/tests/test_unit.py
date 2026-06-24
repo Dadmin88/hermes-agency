@@ -527,6 +527,72 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.outbound.url_allowlist == ()
 
 
+def test_get_config_inherits_shared_runtime_from_root_profile_config(
+    plugin_modules, monkeypatch, tmp_path
+):
+    cfg_mod = plugin_modules.config
+    root_home = tmp_path / ".hermes"
+    profile_home = root_home / "profiles" / "agency-orchestrator"
+    profile_home.mkdir(parents=True)
+    daemon_bin = tmp_path / "agentanycastd"
+    relay = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay"
+    (root_home / "config.yaml").write_text(
+        f"agency:\n  daemon_bin: {daemon_bin}\n  relay: {relay}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cfg_mod, "get_hermes_home", lambda: profile_home)
+    monkeypatch.setattr(
+        cfg_mod,
+        "load_config",
+        lambda: {"agency": {"enabled": True, "card_name": "agency-orchestrator"}},
+    )
+
+    cfg = cfg_mod.get_config()
+
+    assert cfg.daemon_bin == daemon_bin
+    assert cfg.relay == relay
+    assert cfg.card_name == "agency-orchestrator"
+    assert cfg.home == profile_home / ".agency"
+    assert cfg.allow_remote_tasks is False
+
+
+def test_profile_relay_map_overrides_root_relay_map_without_losing_address(plugin_modules):
+    cfg_mod = plugin_modules.config
+    profile_config = {
+        "agency": {
+            "relay": {
+                "allowlist": ["local-peer"],
+                "auto_allow_team": False,
+            }
+        }
+    }
+    root_config = {
+        "agency": {
+            "daemon_bin": "/root/bin/agentanycastd",
+            "relay": {
+                "address": "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay",
+                "allowlist": ["root-peer"],
+                "auto_allow_team": True,
+                "token": "root-token",
+            },
+        }
+    }
+
+    merged = cfg_mod._merge_profile_root_agency_config(profile_config, root_config)
+
+    assert profile_config["agency"]["relay"] == {
+        "allowlist": ["local-peer"],
+        "auto_allow_team": False,
+    }
+    assert merged["agency"]["daemon_bin"] == "/root/bin/agentanycastd"
+    assert merged["agency"]["relay"] == {
+        "address": "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay",
+        "allowlist": ["local-peer"],
+        "auto_allow_team": False,
+        "token": "root-token",
+    }
+
+
 def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatch, tmp_path):
     cfg_mod = plugin_modules.config
     home = tmp_path / "aac-home"
@@ -2089,6 +2155,28 @@ def test_register_auto_start_true_starts_even_when_auto_discover_false(plugin_mo
     assert start_calls == ["start"]
 
 
+def test_register_active_orchestrator_starts_without_auto_start(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    start_calls = []
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            orchestrator=cfg_mod.OrchestratorConfig(enabled=True),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: start_calls.append("start"))
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    assert start_calls == ["start"]
+
+
 def test_register_auto_start_and_auto_discover_starts_once(plugin_modules, monkeypatch):
     init_mod = _load_plugin_package_module(monkeypatch)
     cfg_mod = plugin_modules.config
@@ -2132,6 +2220,29 @@ def test_auto_start_if_configured_ignores_auto_discover_when_auto_start_false(
     manager.auto_start_if_configured()
 
     assert start_calls == []
+
+
+def test_auto_start_if_configured_starts_active_orchestrator_without_auto_start(
+    plugin_modules, monkeypatch
+):
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm_mod.NodeManager()
+    start_calls = []
+    monkeypatch.setattr(
+        nm_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            orchestrator=cfg_mod.OrchestratorConfig(enabled=True),
+        ),
+    )
+    monkeypatch.setattr(manager, "start_background", lambda: start_calls.append("start"))
+
+    manager.auto_start_if_configured()
+
+    assert start_calls == ["start"]
 
 
 def test_explicit_start_works_regardless_of_auto_start(plugin_modules, monkeypatch):
