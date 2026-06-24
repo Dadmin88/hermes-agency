@@ -22,6 +22,23 @@ def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True)
 
 
+def _tool_args(args: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
+    """Merge Hermes registry positional args with direct keyword tool calls.
+
+    The normal Hermes registry path calls plugin handlers as handler(args,
+    **context). Some tests and direct tool invocations call handlers with tool
+    parameters as keyword arguments. Supporting both keeps validation accurate
+    and prevents required fields such as agency_send.message from being dropped.
+    """
+
+    merged = dict(args) if isinstance(args, dict) else {}
+    for key, value in kwargs.items():
+        if key in {"task_id", "session_id", "user_task", "profile"}:
+            continue
+        merged[key] = value
+    return merged
+
+
 def check_agency_available() -> bool:
     """Return True when the Hermes Agency Python SDK is importable."""
 
@@ -68,10 +85,10 @@ def _compact_agents(agents: list[dict[str, Any]], requested_skill: str) -> list[
     return [_compact_agent(agent, requested_skill) for agent in agents if isinstance(agent, dict)]
 
 
-def a2a_info(args: dict[str, Any] | None = None, **_: Any) -> str:
+def a2a_info(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Return local Hermes Agency plugin/SDK status and generated AgentCard."""
 
-    args = args or {}
+    args = _tool_args(args, **kwargs)
     sdk_available = check_agency_available()
     if bool(args.get("compact")):
         node = manager.compact_info()
@@ -139,10 +156,10 @@ def a2a_list_peers(args: dict[str, Any] | None = None, **_: Any) -> str:
         )
 
 
-def a2a_discover(args: dict[str, Any] | None = None, **_: Any) -> str:
+def a2a_discover(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Discover peers offering a skill via Hermes Agency routing."""
 
-    args = args or {}
+    args = _tool_args(args, **kwargs)
     skill = str(args.get("skill") or "").strip()
     if not skill:
         return _json({"ok": False, "error": "skill is required", "node": _compact_node()})
@@ -170,7 +187,7 @@ def a2a_discover(args: dict[str, Any] | None = None, **_: Any) -> str:
 def a2a_send(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Send a task to an Hermes Agency peer or skill."""
 
-    args = args or {}
+    args = _tool_args(args, **kwargs)
     message = str(args.get("message") or "").strip()
     peer_id = str(args.get("peer_id") or "").strip() or None
     skill = str(args.get("skill") or "").strip() or None
@@ -220,10 +237,10 @@ def a2a_send(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         )
 
 
-def a2a_status(args: dict[str, Any] | None = None, **_: Any) -> str:
+def a2a_status(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Return the latest tracked status for an Hermes Agency task."""
 
-    args = args or {}
+    args = _tool_args(args, **kwargs)
     task_id = str(args.get("task_id") or "").strip()
     if not task_id:
         return _json({"ok": False, "error": "task_id is required", "node": _compact_node()})
@@ -250,10 +267,10 @@ def a2a_status(args: dict[str, Any] | None = None, **_: Any) -> str:
         )
 
 
-def a2a_inbox(args: dict[str, Any] | None = None, **_: Any) -> str:
+def a2a_inbox(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Return recent incoming Hermes Agency task queue/history records."""
 
-    args = args or {}
+    args = _tool_args(args, **kwargs)
     limit = int(args.get("limit") or 20)
     try:
         tasks = manager.incoming_tasks_sync(limit=limit)
@@ -301,9 +318,19 @@ def _schema_with_name(
     schema: dict[str, Any], name: str, description: str | None = None
 ) -> dict[str, Any]:
     clone = copy.deepcopy(schema)
-    clone["function"]["name"] = name
+    function = clone["function"]
+    function["name"] = name
     if description is not None:
-        clone["function"]["description"] = description
+        function["description"] = description
+
+    # Hermes plugin registration stores this schema in the central registry,
+    # whose get_definitions() method wraps it as {"type": "function", "function": schema}.
+    # Keep the historical OpenAI-shaped payload for local tests/introspection,
+    # but also mirror the actual function fields at top level so the registry
+    # exposes real parameters instead of a zero-argument nested function schema.
+    clone["name"] = function["name"]
+    clone["description"] = function.get("description", "")
+    clone["parameters"] = function.get("parameters", {"type": "object", "properties": {}})
     return clone
 
 
@@ -707,6 +734,9 @@ def pool_send(args: dict[str, Any] | None = None, **_: Any) -> str:
 def _pool_schema(name: str, description: str, parameters: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "function",
+        "name": name,
+        "description": description,
+        "parameters": parameters,
         "function": {"name": name, "description": description, "parameters": parameters},
     }
 

@@ -193,6 +193,45 @@ from agentanycast.compat.agntcy import AGNTCYDirectory
 | `home` | Data directory. Use different values for multiple nodes. | `~/.agentanycast` |
 | `status_callback` | Optional callback for progress messages (download, startup) | `None` |
 
+## Auto-Update
+
+Hermes Agency ships with an auto-update system that keeps your installation current with every push to `main`. Any Hermes gateway on the machine is automatically restarted after an update.
+
+**One-command install** (systemd timer, polls every 5 minutes):
+
+```bash
+./scripts/setup-auto-update.sh
+```
+
+This sets up a systemd user timer that:
+- Polls `origin/main` every 5 minutes (configurable via `POLL_SECONDS=600`)
+- Pulls new commits (with auto-stash if you have local changes)
+- Discovers and restarts **all** running Hermes gateways on the machine
+- Works for any profile name (`katana-gateway`, `hermes-gateway`, etc.)
+
+**Manual run:**
+
+```bash
+./scripts/auto-update.sh               # pull + restart gateways
+DRY_RUN=1 ./scripts/auto-update.sh     # check only, no changes
+```
+
+**Logs:** `~/.hermes/agency-update/update.log`
+
+**Uninstall:**
+
+```bash
+./scripts/setup-auto-update.sh --remove
+```
+
+For headless servers without systemd --user, the setup script falls back to cron automatically.
+
+### Instant VPS Deploy (GitHub Actions)
+
+For instant deploys to a VPS on every push, add a `deploy-vps.yml` workflow with your SSH secrets. The workflow uses the same `auto-update.sh` script — no duplicated logic.
+
+Required secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`.
+
 ## Development
 
 Prerequisite:

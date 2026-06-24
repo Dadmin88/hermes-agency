@@ -17,36 +17,17 @@ jobs:
           script: |
             set -e
             cd ~/Hermes_Agency
-            echo "Pulling latest from main..."
+            # Pull latest so the auto-update script is current
             git fetch origin main
             LOCAL=$(git rev-parse HEAD)
             REMOTE=$(git rev-parse origin/main)
             if [ "$LOCAL" = "$REMOTE" ]; then
               echo "Already up to date ($LOCAL)"
-              exit 0
-            fi
-            # Stash local changes to allow pull
-            STASHED=false
-            if ! git diff --quiet || ! git diff --cached --quiet; then
-              git stash push -m "auto-stash before deploy" && STASHED=true
-              echo "Stashed local changes"
-            fi
-            git pull --ff-only origin main
-            echo "Pulled $(git rev-parse --short HEAD)"
-            # Restore stashed changes if any
-            if [ "$STASHED" = true ]; then
-              git stash pop || echo "WARNING: stash pop had conflicts, stash preserved"
-            fi
-            echo "Restarting Hermes gateway..."
-            systemctl --user restart hermes-gateway
-            sleep 3
-            if systemctl --user is-active hermes-gateway >/dev/null 2>&1; then
-              echo "Hermes gateway restarted successfully"
             else
-              echo "WARNING: Hermes gateway failed to start"
-              systemctl --user status hermes-gateway --no-pager
-              exit 1
+              git pull --ff-only origin main
+              echo "Pulled $(git rev-parse --short HEAD)"
             fi
-            echo "Checking agency status..."
+            # Now run the shared auto-update script for gateway restarts
+            bash scripts/auto-update.sh
+            echo "--- Status ---"
             PATH="$HOME/.local/bin:$PATH" hermes agency status 2>&1 | head -10
-            echo "Deploy complete"
