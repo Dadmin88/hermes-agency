@@ -122,6 +122,82 @@ def _derive_capabilities(skills: list[str]) -> list[dict[str, str]]:
     return [{"id": skill, "description": f"Can handle {skill} tasks"} for skill in skills]
 
 
+def _read_yaml_file(path: Path) -> dict[str, Any]:
+    """Best-effort YAML reader for profile config overlays.
+
+    Roster generation runs in CLI, gateway, and direct-script contexts. Prefer
+    PyYAML when available, but keep a tiny one-level fallback so model/provider
+    metadata still works in stripped-down environments.
+    """
+
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return {}
+
+    try:
+        import yaml  # type: ignore
+
+        data = yaml.safe_load(text) or {}
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        data: dict[str, Any] = {}
+        current_parent: str | None = None
+        for raw_line in text.splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#") or ":" not in stripped:
+                continue
+            indent = len(raw_line) - len(raw_line.lstrip(" "))
+            key, _, value = stripped.partition(":")
+            key = key.strip()
+            parsed = value.strip().strip("\"'")
+            if indent == 0 and not parsed:
+                data[key] = {}
+                current_parent = key
+            elif indent > 0 and current_parent and isinstance(data.get(current_parent), dict):
+                data[current_parent][key] = parsed
+            elif indent == 0:
+                data[key] = parsed
+                current_parent = None
+        return data
+
+
+def _read_profile_model(profile_dir: Path) -> dict[str, str]:
+    """Read public model/provider display fields from a profile config.yaml."""
+
+    config = _read_yaml_file(profile_dir / "config.yaml")
+    model_cfg = config.get("model") if isinstance(config, dict) else {}
+    if not isinstance(model_cfg, dict):
+        return {}
+
+    model = str(model_cfg.get("default") or model_cfg.get("model") or "").strip()
+    provider = str(model_cfg.get("provider") or "").strip()
+    meta: dict[str, str] = {}
+    if model:
+        meta["model"] = model
+    if provider:
+        meta["provider"] = provider
+    return meta
+
+
+def _read_card_model(card: dict[str, Any]) -> dict[str, str]:
+    """Extract model/provider metadata from a serialized AgentCard when present."""
+
+    metadata = card.get("metadata") if isinstance(card, dict) else {}
+    hermes_meta = metadata.get("hermes") if isinstance(metadata, dict) else {}
+    model_meta = hermes_meta.get("model") if isinstance(hermes_meta, dict) else {}
+    if not isinstance(model_meta, dict):
+        return {}
+    model = str(model_meta.get("default") or model_meta.get("model") or "").strip()
+    provider = str(model_meta.get("provider") or "").strip()
+    result: dict[str, str] = {}
+    if model:
+        result["model"] = model
+    if provider:
+        result["provider"] = provider
+    return result
+
+
 def _registry_agents() -> list[dict[str, Any]]:
     data = _load_json(REGISTRY_DEFINITION_PATH)
     agents = data.get("agents") or []
@@ -191,13 +267,15 @@ def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
             except Exception:
                 pass
 
-    return {
+    meta = {
         "name": name,
         "description": description,
         "skills": skills[:20],
         "skill_count": len(skills),
         "capabilities": _derive_capabilities(skills[:20]),
     }
+    meta.update(_read_profile_model(profile_dir))
+    return meta
 
 
 def _is_daemon_running(name: str) -> bool:
@@ -273,6 +351,7 @@ def _normalise_live_peer(item: Any) -> dict[str, Any] | None:
         skills = _normalise_skills(
             item.get("card_skills") or item.get("skills") or card.get("skills") or []
         )
+        model_meta = _read_card_model(card)
     else:
         peer_id = str(getattr(item, "peer_id", "") or getattr(item, "id", "") or "").strip()
         name = str(getattr(item, "card_name", "") or getattr(item, "name", "") or "").strip()
@@ -282,9 +361,12 @@ def _normalise_live_peer(item: Any) -> dict[str, Any] | None:
         skills = _normalise_skills(
             getattr(item, "card_skills", None) or getattr(item, "skills", None) or []
         )
+        model_meta = {}
     if not peer_id and not name:
         return None
-    return {"peer_id": peer_id or None, "name": name, "description": description, "skills": skills}
+    peer = {"peer_id": peer_id or None, "name": name, "description": description, "skills": skills}
+    peer.update(model_meta)
+    return peer
 
 
 def _merge_agent(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
@@ -356,8 +438,8 @@ def build_roster(
                     "skill_count": len(skills),
                     "capabilities": _derive_capabilities(skills),
                     "category": None,
-                    "model": DEFAULT_MODEL,
-                    "provider": DEFAULT_PROVIDER,
+                    "model": meta.get("model") or DEFAULT_MODEL,
+                    "provider": meta.get("provider") or DEFAULT_PROVIDER,
                     "peer_id": None,
                     "online": False,
                     "last_seen": None,

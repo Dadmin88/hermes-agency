@@ -483,6 +483,71 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         assert sensitive not in serialized
 
 
+def test_pool_roster_uses_profile_config_model_over_static_registry(tmp_path, monkeypatch):
+    module_name = "agency_pool_roster_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "roster.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    roster_mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, roster_mod)
+    spec.loader.exec_module(roster_mod)
+
+    registry_path = tmp_path / "registry_definition.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "agents": [
+                    {
+                        "name": "agency-frontend-engineer",
+                        "description": "Frontend specialist",
+                        "skills": ["react"],
+                        "model": "gpt-5.5",
+                        "provider": "openai",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    profiles_dir = tmp_path / "profiles"
+    profile_dir = profiles_dir / "agency-frontend-engineer"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "config.yaml").write_text(
+        "model:\n  default: glm-5.2\n  provider: opencode-go\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
+    monkeypatch.setattr(roster_mod, "PROFILES", profiles_dir)
+    monkeypatch.setattr(roster_mod, "LEGACY_ROSTER_PATH", tmp_path / "legacy_roster.json")
+    monkeypatch.setattr(roster_mod, "roster_state_path", lambda: tmp_path / "roster_state.json")
+
+    roster = roster_mod.build_roster(include_plugin_setup=False)
+
+    assert roster["profiles"] == [
+        {
+            "name": "agency-frontend-engineer",
+            "description": "Frontend specialist",
+            "skills": ["react"],
+            "skill_count": 1,
+            "capabilities": [{"id": "react", "description": "Can handle react tasks"}],
+            "category": None,
+            "model": "glm-5.2",
+            "provider": "opencode-go",
+            "peer_id": None,
+            "online": False,
+            "last_seen": None,
+            "last_wake_attempt_at": None,
+            "wake_attempt_count": 0,
+            "last_wake_error": None,
+        }
+    ]
+
+
 def test_get_config_defaults(plugin_modules, monkeypatch):
     cfg_mod = plugin_modules.config
     monkeypatch.setattr(cfg_mod, "load_config", lambda: {})
