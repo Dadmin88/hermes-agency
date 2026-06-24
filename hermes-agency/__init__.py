@@ -14,6 +14,7 @@ from __future__ import annotations
 if __package__:
     from .cli import handle_agency_slash, setup_agency_parser
     from .config import get_config, is_current_orchestrator
+    from .kanban_workspace import install_workspace_preservation_patch
     from .node_manager import manager
     from .orchestrator import ORCHESTRATOR_TOOLS, check_orchestrator_enabled
     from .tools import TOOLS, TOOLSET, check_agency_available
@@ -67,6 +68,7 @@ if __package__:
 
         cfg = get_config()
         if cfg.enabled:
+            install_workspace_preservation_patch()
             for name, schema, handler, emoji in TOOLS:
                 ctx.register_tool(
                     name=name,

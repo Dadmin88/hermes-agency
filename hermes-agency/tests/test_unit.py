@@ -23,6 +23,21 @@ def _nested_cfg_get(config, *path, default=None):
     return value
 
 
+def _load_runner_module(monkeypatch):
+    module_name = "agency_node_runner_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "agency_node_runner.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.fixture()
 def plugin_modules(tmp_path, monkeypatch):
     """Load the plugin as a synthetic package and stub Hermes-only imports."""
@@ -87,6 +102,7 @@ def plugin_modules(tmp_path, monkeypatch):
         "config",
         "trust",
         "incoming_security",
+        "kanban_workspace",
         "registration",
         "bidding",
         "card_builder",
@@ -510,6 +526,7 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.team.auto_register is True
     assert cfg.team.inject_context is True
     assert cfg.team.kanban_integration is True
+    assert cfg.kanban.preserve_workspaces is True
     assert cfg.team.self_serve is True
     assert cfg.team.announce_progress is False
     assert cfg.team.bidding is False
@@ -525,6 +542,81 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.workflows == {}
     assert cfg.outbound.url_validation == "warn"
     assert cfg.outbound.url_allowlist == ()
+
+
+def test_get_config_can_disable_kanban_workspace_preservation(plugin_modules, monkeypatch):
+    cfg_mod = plugin_modules.config
+    monkeypatch.setattr(
+        cfg_mod,
+        "load_config",
+        lambda: {"agency": {"kanban": {"preserve_workspaces": False}}},
+    )
+
+    cfg = cfg_mod.get_config()
+
+    assert cfg.kanban.preserve_workspaces is False
+    assert cfg.as_dict()["kanban"]["preserve_workspaces"] is False
+
+
+def test_kanban_workspace_patch_preserves_scratch_workspace_by_default(
+    plugin_modules, monkeypatch, tmp_path
+):
+    kw = plugin_modules.kanban_workspace
+    cfg_mod = plugin_modules.config
+    task_id = "t_artifact"
+    workspace = tmp_path / "workspaces" / task_id
+    workspace.mkdir(parents=True)
+    artifact = workspace / "artifact.html"
+    artifact.write_text("<h1>preserved</h1>", encoding="utf-8")
+    cleanup_calls = []
+
+    class FakeConn:
+        def execute(self, sql, params=()):
+            assert "workspace_kind" in sql
+            assert params == (task_id,)
+            return self
+
+        def fetchone(self):
+            return {"workspace_kind": "scratch", "workspace_path": str(workspace)}
+
+    fake_kb = types.SimpleNamespace(
+        _cleanup_workspace=lambda conn, tid: cleanup_calls.append((conn, tid)),
+        _cleanup_worker_tmux=lambda conn, tid: cleanup_calls.append(("tmux", tid)),
+    )
+
+    monkeypatch.setattr(
+        kw,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(kanban=cfg_mod.KanbanConfig(preserve_workspaces=True)),
+    )
+
+    kw.install_workspace_preservation_patch(fake_kb)
+    fake_kb._cleanup_workspace(FakeConn(), task_id)
+
+    assert artifact.read_text(encoding="utf-8") == "<h1>preserved</h1>"
+    assert cleanup_calls == [("tmux", task_id)]
+    assert fake_kb._hermes_agency_preserve_patch_installed is True
+
+
+def test_kanban_workspace_patch_delegates_when_preservation_disabled(
+    plugin_modules, monkeypatch, tmp_path
+):
+    kw = plugin_modules.kanban_workspace
+    cfg_mod = plugin_modules.config
+    cleanup_calls = []
+    fake_kb = types.SimpleNamespace(
+        _cleanup_workspace=lambda conn, tid: cleanup_calls.append((conn, tid)),
+    )
+    monkeypatch.setattr(
+        kw,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(kanban=cfg_mod.KanbanConfig(preserve_workspaces=False)),
+    )
+
+    kw.install_workspace_preservation_patch(fake_kb)
+    fake_kb._cleanup_workspace("conn", "t_delete")
+
+    assert cleanup_calls == [("conn", "t_delete")]
 
 
 def test_get_config_inherits_shared_runtime_from_root_profile_config(
@@ -2243,6 +2335,85 @@ def test_auto_start_if_configured_starts_active_orchestrator_without_auto_start(
     manager.auto_start_if_configured()
 
     assert start_calls == ["start"]
+
+
+def test_runner_health_requires_started_and_serve_task(monkeypatch):
+    runner = _load_runner_module(monkeypatch)
+
+    class FakeManager:
+        def compact_info(self):
+            return {"ok": True, "node_started": True, "serve_task_running": False}
+
+    healthy, reason = runner._manager_health(FakeManager())
+
+    assert healthy is False
+    assert "serve_task_running" in reason
+
+
+def test_runner_start_until_running_retries_without_exiting(monkeypatch):
+    runner = _load_runner_module(monkeypatch)
+    monkeypatch.setattr(runner.time, "sleep", lambda seconds: None)
+    attempts = []
+
+    class FakeState:
+        def __init__(self, started, peer_id=None, error=None):
+            self.started = started
+            self.peer_id = peer_id
+            self.error = error
+
+        def as_dict(self):
+            return {"started": self.started, "peer_id": self.peer_id, "error": self.error}
+
+    class FakeManager:
+        def start_sync(self, timeout=120):
+            attempts.append(timeout)
+            if len(attempts) == 1:
+                return FakeState(False, error="daemon unavailable")
+            return FakeState(True, peer_id="12D3KooWTest")
+
+    assert (
+        runner._start_until_running(
+            FakeManager(),
+            should_run=lambda: True,
+            startup_timeout=120,
+            retry_seconds=0,
+        )
+        is True
+    )
+    assert attempts == [120, 120]
+
+
+def test_runner_restart_stops_then_starts_until_running(monkeypatch):
+    runner = _load_runner_module(monkeypatch)
+    monkeypatch.setattr(runner.time, "sleep", lambda seconds: None)
+    calls = []
+
+    class FakeState:
+        started = True
+        peer_id = "12D3KooWRestarted"
+        error = None
+
+        def as_dict(self):
+            return {"started": self.started, "peer_id": self.peer_id, "error": self.error}
+
+    class FakeManager:
+        def stop_sync(self, timeout=60):
+            calls.append(("stop", timeout))
+
+        def start_sync(self, timeout=120):
+            calls.append(("start", timeout))
+            return FakeState()
+
+    assert (
+        runner._restart_node(
+            FakeManager(),
+            should_run=lambda: True,
+            startup_timeout=120,
+            retry_seconds=0,
+        )
+        is True
+    )
+    assert calls == [("stop", 60), ("start", 120)]
 
 
 def test_explicit_start_works_regardless_of_auto_start(plugin_modules, monkeypatch):

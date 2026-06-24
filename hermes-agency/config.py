@@ -55,6 +55,8 @@ Config schema and defaults::
         max_context_peers: 100    # max peers included in injected prompt context
         max_context_skills: 8     # max skills shown per peer in injected context
         context_max_chars: 20000  # hard character budget for injected context block
+      kanban:
+        preserve_workspaces: true # keep scratch task artifact dirs after completion
       orchestrator:
         enabled: false
         agent: null
@@ -166,6 +168,16 @@ class OrchestratorConfig:
 
 
 @dataclass(frozen=True)
+class KanbanConfig:
+    """Resolved Kanban integration configuration."""
+
+    preserve_workspaces: bool = True
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"preserve_workspaces": self.preserve_workspaces}
+
+
+@dataclass(frozen=True)
 class IncomingConfig:
     """Resolved incoming-task LLM processing configuration."""
 
@@ -245,6 +257,7 @@ class AgencyConfig:
     outbound: OutboundConfig = field(default_factory=OutboundConfig)
     trust: TrustConfig = field(default_factory=TrustConfig)
     team: TeamConfig = field(default_factory=TeamConfig)
+    kanban: KanbanConfig = field(default_factory=KanbanConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     routing: dict[str, str] = field(default_factory=dict)
     autonomy: dict[str, Any] = field(default_factory=dict)
@@ -287,6 +300,7 @@ class AgencyConfig:
             "incoming_conversation_ttl": self.incoming_conversation_ttl,
             "incoming_conversation_max_turns": self.incoming_conversation_max_turns,
             "team": self.team.as_dict(),
+            "kanban": self.kanban.as_dict(),
             "orchestrator": self.orchestrator.as_dict(),
             "routing": dict(self.routing),
             "autonomy": dict(self.autonomy),
@@ -642,6 +656,18 @@ def _orchestrator_config(config: dict[str, Any]) -> OrchestratorConfig:
             "auto_decompose",
             default=True,
         ),
+    )
+
+
+def _kanban_config(config: dict[str, Any]) -> KanbanConfig:
+    return KanbanConfig(
+        preserve_workspaces=_bool_cfg(
+            config,
+            "agency",
+            "kanban",
+            "preserve_workspaces",
+            default=True,
+        )
     )
 
 
@@ -1216,6 +1242,7 @@ def get_config() -> AgencyConfig:
         outbound=_outbound_config(config),
         trust=_trust_config(config),
         team=_team_config(config),
+        kanban=_kanban_config(config),
         orchestrator=_orchestrator_config(config),
         routing=_routing_config(config),
         autonomy=_dict_config(config, "autonomy"),
