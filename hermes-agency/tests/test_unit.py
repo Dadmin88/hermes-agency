@@ -2299,6 +2299,7 @@ def test_register_active_orchestrator_starts_without_auto_start(plugin_modules, 
     init_mod = _load_plugin_package_module(monkeypatch)
     cfg_mod = plugin_modules.config
     start_calls = []
+    cleanup_calls = []
     monkeypatch.setattr(
         init_mod,
         "get_config",
@@ -2310,11 +2311,85 @@ def test_register_active_orchestrator_starts_without_auto_start(plugin_modules, 
     )
     monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
     monkeypatch.setattr(init_mod.manager, "start_background", lambda: start_calls.append("start"))
+    monkeypatch.setattr(
+        init_mod,
+        "_stop_stale_pool_runner_for_in_process_node",
+        lambda cfg: cleanup_calls.append(cfg),
+    )
 
     ctx = _FakePluginContext()
     init_mod.register(ctx)
 
+    assert cleanup_calls
     assert start_calls == ["start"]
+
+
+def test_pool_runner_pid_scan_matches_profile_env(plugin_modules, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    proc_root = tmp_path / "proc"
+    profile_dir = tmp_path / "profiles" / "agency-orchestrator"
+    profile_dir.mkdir(parents=True)
+
+    runner_proc = proc_root / "1234"
+    runner_proc.mkdir(parents=True)
+    (runner_proc / "cmdline").write_bytes(
+        b"python\0/tmp/plugins/hermes-agency/pool/agency_node_runner.py\0"
+    )
+    (runner_proc / "environ").write_bytes(
+        f"HERMES_PROFILE=agency-orchestrator\0HERMES_HOME={profile_dir}\0".encode()
+    )
+
+    shell_proc = proc_root / "5678"
+    shell_proc.mkdir()
+    (shell_proc / "cmdline").write_bytes(
+        b"bash\0-c\0echo agency_node_runner.py but not as argv path\0"
+    )
+    (shell_proc / "environ").write_bytes(b"HERMES_PROFILE=agency-orchestrator\0")
+
+    assert pool_tools._profile_runner_pids(
+        "agency-orchestrator", profile_dir, proc_root=proc_root
+    ) == [1234]
+
+
+def test_pool_runner_pid_scan_falls_back_to_profile_plugin_path(plugin_modules, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    proc_root = tmp_path / "proc"
+    profile_dir = tmp_path / "profiles" / "agency-orchestrator"
+    profile_dir.mkdir(parents=True)
+    runner_proc = proc_root / "4321"
+    runner_proc.mkdir(parents=True)
+    (runner_proc / "cmdline").write_bytes(
+        b"python\0/home/dadmin/.hermes/profiles/agency-orchestrator/plugins/"
+        b"hermes-agency/pool/agency_node_runner.py\0"
+    )
+    (runner_proc / "environ").write_bytes(b"")
+
+    assert pool_tools._profile_runner_pids(
+        "agency-orchestrator", profile_dir, proc_root=proc_root
+    ) == [4321]
+
+
+def test_pool_sleep_stops_stale_runner_not_in_pidfile(plugin_modules, monkeypatch, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    profile_dir = tmp_path / "profiles" / "agency-orchestrator"
+    agency_dir = profile_dir / ".agency"
+    agency_dir.mkdir(parents=True)
+    (agency_dir / "runner.pid").write_text("1111", encoding="utf-8")
+    monkeypatch.setattr(pool_tools, "PROFILES", tmp_path / "profiles")
+    monkeypatch.setattr(pool_tools, "_profile_runner_pids", lambda name, path: [2222])
+    monkeypatch.setattr(pool_tools, "_terminate_pids", lambda pids: stopped.extend(pids))
+    monkeypatch.setattr(pool_tools, "_stop_profile_daemon_processes", lambda name: None)
+    monkeypatch.setattr(pool_tools, "update_agent_status", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pool_tools, "save_roster", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pool_tools, "build_roster", lambda: {})
+    monkeypatch.setattr(pool_tools.subprocess, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pool_tools.time, "sleep", lambda seconds: None)
+    stopped = []
+
+    assert pool_tools.pool_sleep("agency-orchestrator") == "agency-orchestrator offline"
+
+    assert stopped == [1111, 2222]
+    assert not (agency_dir / "runner.pid").exists()
 
 
 def test_register_auto_start_and_auto_discover_starts_once(plugin_modules, monkeypatch):

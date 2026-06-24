@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -36,6 +37,14 @@ STARTUP_WAIT = 12
 
 def _pid_alive(pid: int) -> bool:
     try:
+        state = (Path("/proc") / str(pid) / "status").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        state = ""
+    for line in state.splitlines():
+        fields = line.split()
+        if fields[:1] == ["State:"] and len(fields) > 1 and fields[1] == "Z":
+            return False
+    try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
@@ -54,6 +63,121 @@ def _read_runner_pid(profile_dir: Path) -> int | None:
         return int(raw) if raw else None
     except Exception:
         return None
+
+
+def _read_proc_nul_file(path: Path) -> list[str]:
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return []
+    return [item.decode(errors="ignore") for item in raw.split(b"\0") if item]
+
+
+def _proc_environ(pid: int, proc_root: Path = Path("/proc")) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for item in _read_proc_nul_file(proc_root / str(pid) / "environ"):
+        key, sep, value = item.partition("=")
+        if sep:
+            env[key] = value
+    return env
+
+
+def _proc_cmdline(pid: int, proc_root: Path = Path("/proc")) -> list[str]:
+    return _read_proc_nul_file(proc_root / str(pid) / "cmdline")
+
+
+def _same_path(left: str | Path | None, right: Path) -> bool:
+    if not left:
+        return False
+    try:
+        return Path(left).expanduser().resolve() == right.expanduser().resolve()
+    except OSError:
+        return Path(left).expanduser() == right.expanduser()
+
+
+def _pid_matches_profile_runner(
+    pid: int,
+    name: str,
+    profile_dir: Path,
+    *,
+    proc_root: Path = Path("/proc"),
+) -> bool:
+    if pid == os.getpid():
+        return False
+    argv = _proc_cmdline(pid, proc_root=proc_root)
+    if not any(Path(arg).name == "agency_node_runner.py" for arg in argv):
+        return False
+
+    env = _proc_environ(pid, proc_root=proc_root)
+    if env.get("HERMES_PROFILE") == name:
+        return True
+    if _same_path(env.get("HERMES_HOME"), profile_dir):
+        return True
+
+    # Fallback for processes whose environ cannot be read: pool-managed runner
+    # command lines include the profile-scoped plugin symlink path.
+    profile_fragment = f"profiles/{name}/plugins/hermes-agency/pool/agency_node_runner.py"
+    return any(profile_fragment in arg for arg in argv)
+
+
+def _profile_runner_pids(
+    name: str, profile_dir: Path, *, proc_root: Path = Path("/proc")
+) -> list[int]:
+    pids: list[int] = []
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return pids
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        if _pid_matches_profile_runner(pid, name, profile_dir, proc_root=proc_root):
+            pids.append(pid)
+    return sorted(set(pids))
+
+
+def _terminate_pids(pids: list[int], *, grace_seconds: float = 1.5) -> None:
+    for pid in sorted(set(pids)):
+        if _pid_alive(pid):
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+    deadline = time.time() + grace_seconds
+    while time.time() < deadline and any(_pid_alive(pid) for pid in pids):
+        time.sleep(0.05)
+    for pid in sorted(set(pids)):
+        if _pid_alive(pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def stop_profile_runner_processes(name: str, profile_dir: Path | None = None) -> list[int]:
+    """Stop all long-lived pool runners for a profile, including stale pidfiles.
+
+    Gateway restarts run the active orchestrator node in-process. If an older
+    pool-managed ``agency_node_runner.py`` survives with a stale pidfile, it can
+    keep receiving A2A tasks with code that no longer matches the files on disk.
+    Scan ``/proc`` by profile env/cmdline so cleanup does not depend on the
+    pidfile being current.
+    """
+
+    if not name.startswith("agency-"):
+        name = f"agency-{name}"
+    resolved_profile_dir = profile_dir or (PROFILES / name)
+    pids: list[int] = []
+    runner_pid = _read_runner_pid(resolved_profile_dir)
+    if runner_pid is not None:
+        pids.append(runner_pid)
+    pids.extend(_profile_runner_pids(name, resolved_profile_dir))
+    pids = sorted({pid for pid in pids if pid != os.getpid()})
+    if pids:
+        _terminate_pids(pids)
+    _runner_pid_file(resolved_profile_dir).unlink(missing_ok=True)
+    return pids
 
 
 def _profile_env(name: str, profile_dir: Path) -> dict[str, str]:
@@ -147,9 +271,9 @@ def pool_wake(name: str) -> str:
 
     # Migrate older direct-daemon wakes to the long-lived runner. A bare daemon
     # can retain a card, but it has no Python task handler once the CLI exits.
+    stop_profile_runner_processes(name, profile_dir)
     _stop_profile_daemon_processes(name)
     sock.unlink(missing_ok=True)
-    _runner_pid_file(profile_dir).unlink(missing_ok=True)
     for f in agency_dir.rglob("*.lock"):
         f.unlink(missing_ok=True)
 
@@ -208,12 +332,9 @@ def pool_sleep(name: str) -> str:
     if not profile_dir.exists():
         return f"Error: profile {name} not found"
 
-    # Stop long-lived runner if present, then kill any profile-owned daemon.
-    runner_pid = _read_runner_pid(profile_dir)
-    if runner_pid and _pid_alive(runner_pid):
-        subprocess.run(["kill", str(runner_pid)], capture_output=True, timeout=3, check=False)
-        time.sleep(0.5)
-    _runner_pid_file(profile_dir).unlink(missing_ok=True)
+    # Stop long-lived runners, including stale processes no longer tracked by
+    # runner.pid, then kill any profile-owned daemon.
+    stop_profile_runner_processes(name, profile_dir)
     _stop_profile_daemon_processes(name)
     subprocess.run(
         ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],

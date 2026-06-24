@@ -13,15 +13,36 @@ from __future__ import annotations
 # make top-level collection a harmless no-op.
 if __package__:
     from .cli import handle_agency_slash, setup_agency_parser
-    from .config import get_config, is_current_orchestrator
+    from .config import current_profile_name, get_config, is_current_orchestrator
     from .kanban_workspace import install_workspace_preservation_patch
     from .node_manager import manager
     from .orchestrator import ORCHESTRATOR_TOOLS, check_orchestrator_enabled
     from .tools import TOOLS, TOOLSET, check_agency_available
 
+    def _stop_stale_pool_runner_for_in_process_node(cfg) -> None:
+        """Prevent stale pool runners from racing the gateway-owned node.
+
+        Gateway/desktop plugin startup hosts the active node in-process. A
+        previous pool-managed ``agency_node_runner.py`` can survive restarts and
+        keep handling A2A tasks with old bytecode, so stop matching runners
+        before starting the in-process node.
+        """
+
+        if not (cfg.enabled and (cfg.auto_start or is_current_orchestrator(cfg))):
+            return
+        try:
+            from .pool.tools import stop_profile_runner_processes
+
+            profile_name = current_profile_name()
+            profile_dir = cfg.home.parent if cfg.home else None
+            stop_profile_runner_processes(profile_name, profile_dir=profile_dir)
+        except Exception:
+            return
+
     def _auto_start_hook(**_: object) -> None:
         """Start the node when auto-start or active orchestrator role requires it."""
 
+        _stop_stale_pool_runner_for_in_process_node(get_config())
         manager.auto_start_if_configured()
 
     def _team_context_hook(**_: object) -> dict[str, str] | None:
@@ -107,6 +128,7 @@ if __package__:
             and check_agency_available()
             and (cfg.auto_start or is_current_orchestrator(cfg))
         ):
+            _stop_stale_pool_runner_for_in_process_node(cfg)
             manager.start_background()
 else:
 
