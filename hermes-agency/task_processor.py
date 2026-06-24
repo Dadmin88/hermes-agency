@@ -609,7 +609,7 @@ def _delegate_import_sys_path(
         except Exception:
             sanitized.append(entry)
             return
-        if resolved == plugin_dir or resolved in seen:
+        if _is_path_under_plugin(resolved, plugin_dir) or resolved in seen:
             return
         seen.add(resolved)
         sanitized.append(entry)
@@ -622,20 +622,33 @@ def _delegate_import_sys_path(
 
 
 def _remove_plugin_tools_shadow(plugin_dir: Path) -> dict[str, Any]:
-    """Drop a top-level ``tools`` module only when it is this plugin's tools.py."""
+    """Drop top-level ``tools`` modules loaded from this plugin tree.
+
+    Pool runners execute ``pool/agency_node_runner.py`` directly, which puts
+    ``hermes-agency/pool`` on ``sys.path``. In that runtime, a top-level
+    ``tools`` import can resolve to ``pool/tools.py`` instead of the plugin's
+    root ``tools.py``. Both files are plugin implementation modules, not the
+    Hermes core ``tools`` package, so remove either shadow before retrying the
+    core delegate import.
+    """
 
     removed: dict[str, Any] = {}
-    module = sys.modules.get("tools")
-    if module is None:
-        return removed
-    module_file = getattr(module, "__file__", "") or ""
-    try:
-        is_plugin_tools = Path(module_file).resolve() == plugin_dir / "tools.py"
-    except Exception:
-        is_plugin_tools = False
-    if is_plugin_tools:
-        removed["tools"] = sys.modules.pop("tools")
+    for name, module in list(sys.modules.items()):
+        if name != "tools" and not name.startswith("tools."):
+            continue
+        module_file = getattr(module, "__file__", "") or ""
+        if module_file and _is_path_under_plugin(Path(module_file), plugin_dir):
+            removed[name] = sys.modules.pop(name)
     return removed
+
+
+def _is_path_under_plugin(path: Path, plugin_dir: Path) -> bool:
+    try:
+        resolved = path.resolve()
+        plugin_root = plugin_dir.resolve()
+    except Exception:
+        return False
+    return resolved == plugin_root or plugin_root in resolved.parents
 
 
 def _hermes_source_root_candidates(plugin_dir: Path) -> list[Path]:

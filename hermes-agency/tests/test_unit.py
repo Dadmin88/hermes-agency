@@ -1818,6 +1818,54 @@ def test_process_via_subprocess_returns_error_string_on_crash(plugin_modules, mo
     assert response.startswith("ERROR:")
 
 
+def test_delegate_import_sys_path_excludes_plugin_subdirectories(plugin_modules, tmp_path):
+    tp = plugin_modules.task_processor
+    core_root = tmp_path / "hermes-agent"
+    original = [str(PLUGIN_DIR / "pool"), str(PLUGIN_DIR), str(core_root)]
+
+    sanitized = tp._delegate_import_sys_path(original, PLUGIN_DIR, [core_root])
+
+    assert str(PLUGIN_DIR) not in sanitized
+    assert str(PLUGIN_DIR / "pool") not in sanitized
+    assert sanitized[0] == str(core_root)
+
+
+def test_remove_plugin_tools_shadow_removes_pool_tools_module(plugin_modules, monkeypatch):
+    tp = plugin_modules.task_processor
+    pool_tools = types.ModuleType("tools")
+    pool_tools.__file__ = str(PLUGIN_DIR / "pool" / "tools.py")
+    monkeypatch.setitem(sys.modules, "tools", pool_tools)
+
+    removed = tp._remove_plugin_tools_shadow(PLUGIN_DIR)
+
+    assert removed == {"tools": pool_tools}
+    assert sys.modules.get("tools") is None
+
+
+def test_import_hermes_delegate_task_ignores_pool_tools_shadow(
+    plugin_modules, monkeypatch, tmp_path
+):
+    tp = plugin_modules.task_processor
+    core_root = tmp_path / "hermes-agent"
+    tools_dir = core_root / "tools"
+    tools_dir.mkdir(parents=True)
+    (tools_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tools_dir / "delegate_tool.py").write_text(
+        "def delegate_task(**kwargs):\n    return 'delegated'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(tp, "_hermes_source_root_candidates", lambda _plugin_dir: [core_root])
+    monkeypatch.setattr(sys, "path", [str(PLUGIN_DIR / "pool"), str(PLUGIN_DIR)])
+    for name in list(sys.modules):
+        if name == "tools" or name.startswith("tools."):
+            monkeypatch.delitem(sys.modules, name, raising=False)
+
+    delegate_task = tp._import_hermes_delegate_task()
+
+    assert delegate_task() == "delegated"
+    assert Path(sys.modules["tools"].__file__).resolve() == tools_dir / "__init__.py"
+
+
 @pytest.mark.asyncio
 async def test_subprocess_env_omits_yolo_and_hooks_by_default(plugin_modules, monkeypatch):
     tp = plugin_modules.task_processor
