@@ -3,13 +3,190 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import os
+import re
 import time
+from collections.abc import Callable
 from typing import Any
+
+_BOARD_FRAGMENT_RE = re.compile(r"[^a-z0-9_-]+")
 
 
 class KanbanSyncMixin:
     """A2A send/status flows that reconcile SDK handles with Kanban state."""
+
+    @staticmethod
+    def _agency_board_fragment(value: Any, *, max_len: int = 48) -> str:
+        text = str(value or "").strip().lower()
+        text = _BOARD_FRAGMENT_RE.sub("-", text).strip("-_")
+        text = re.sub(r"[-_]{2,}", "-", text)
+        return text[:max_len].strip("-_")
+
+    def _agency_board_slug(self, *, task_id: str | None = None, title: str | None = None) -> str:
+        basis = str(task_id or title or "task").strip() or "task"
+        fragment = self._agency_board_fragment(basis)
+        digest = hashlib.sha1(basis.encode("utf-8", "ignore")).hexdigest()[:8]
+        if not fragment:
+            fragment = digest
+        slug = f"agency-{fragment}"
+        if len(slug) > 64:
+            slug = f"{slug[:55].rstrip('-_')}-{digest}"
+        return slug
+
+    @staticmethod
+    def _agency_board_from_metadata(
+        metadata: dict[str, Any] | None, context_packet: dict[str, Any] | None = None
+    ) -> str | None:
+        for source in (metadata or {}, (context_packet or {}).get("metadata") or {}):
+            if not isinstance(source, dict):
+                continue
+            for key in ("agency_board", "kanban_board", "board"):
+                value = source.get(key)
+                if value:
+                    return str(value)
+        return None
+
+    def _ensure_agency_board(
+        self,
+        *,
+        task_id: str | None = None,
+        title: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        context_packet: dict[str, Any] | None = None,
+        direction: str = "agency",
+    ) -> str | None:
+        """Create/mark a per-agency-task Kanban board, failing open if unavailable."""
+
+        cfg = self._nm().get_config()
+        if not (cfg.enabled and cfg.team.kanban_integration):
+            return None
+        requested = self._agency_board_from_metadata(metadata, context_packet)
+        slug = (
+            self._agency_board_fragment(requested, max_len=64)
+            if requested
+            else self._agency_board_slug(task_id=task_id, title=title)
+        )
+        display_title = " ".join(str(title or task_id or "Agency task").split()).strip()
+        if len(display_title) > 96:
+            display_title = display_title[:95].rstrip() + "…"
+        try:
+            from hermes_cli import kanban_db as kb  # type: ignore
+
+            meta = kb.create_board(
+                slug,
+                name=f"Agency: {display_title or slug}",
+                description=(
+                    "Hermes Agency task board. Status stays pending_review after task "
+                    "completion until a human signs off."
+                ),
+            )
+            self._write_agency_board_metadata(
+                kb,
+                str(meta.get("slug") or slug),
+                agency_status="active",
+                direction=direction,
+                source_task_id=task_id,
+                source_title=display_title,
+                human_signoff_required=True,
+            )
+            return str(meta.get("slug") or slug)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _write_agency_board_metadata(kb: Any, slug: str, **fields: Any) -> dict[str, Any]:
+        meta = kb.read_board_metadata(slug)
+        meta.pop("db_path", None)
+        meta.update({key: value for key, value in fields.items() if value is not None})
+        meta.setdefault("created_at", int(time.time()))
+        meta["updated_at"] = int(time.time())
+        path = kb.board_metadata_path(slug)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        meta["db_path"] = str(kb.kanban_db_path(slug))
+        return meta
+
+    def _call_on_agency_board(
+        self, board_slug: str | None, fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        if not board_slug:
+            return fn(*args, **kwargs)
+        try:
+            from hermes_cli import kanban_db as kb  # type: ignore
+        except Exception:
+            return fn(*args, **kwargs)
+        with kb.scoped_current_board(board_slug):
+            return fn(*args, **kwargs)
+
+    def _mark_agency_board_pending_review(
+        self, board_slug: str | None, *, task_id: str | None = None, result: str | None = None
+    ) -> None:
+        if not board_slug:
+            return
+        try:
+            from hermes_cli import kanban_db as kb  # type: ignore
+
+            self._write_agency_board_metadata(
+                kb,
+                board_slug,
+                agency_status="pending_review",
+                pending_review_at=int(time.time()),
+                completed_task_id=task_id,
+                latest_result=str(result or "")[:4000] if result else None,
+                human_signoff_required=True,
+            )
+        except Exception:
+            return
+
+    def sign_off_board_sync(
+        self, board_slug: str, *, signed_off_by: str | None = None
+    ) -> dict[str, Any]:
+        """Mark an Agency board as human-signed-off without deleting it."""
+
+        from hermes_cli import kanban_db as kb  # type: ignore
+
+        clean_slug = self._agency_board_fragment(board_slug, max_len=64)
+        if not clean_slug or not kb.board_exists(clean_slug):
+            return {"ok": False, "error": f"board does not exist: {board_slug}"}
+        meta = self._write_agency_board_metadata(
+            kb,
+            clean_slug,
+            agency_status="signed_off",
+            signed_off_at=int(time.time()),
+            signed_off_by=signed_off_by or self._nm().current_profile_name(),
+            human_signoff_required=False,
+        )
+        return {"ok": True, "board": meta}
+
+    def cleanup_signed_off_boards_sync(
+        self, *, older_than_days: int | None = None
+    ) -> dict[str, Any]:
+        """Archive signed-off Agency boards older than the configured age."""
+
+        from hermes_cli import kanban_db as kb  # type: ignore
+
+        cfg = self._nm().get_config()
+        days = int(
+            older_than_days if older_than_days is not None else cfg.kanban.board_cleanup_days
+        )
+        cutoff = int(time.time()) - max(0, days) * 86400
+        archived: list[dict[str, Any]] = []
+        skipped: list[dict[str, Any]] = []
+        for board in kb.list_boards(include_archived=False):
+            slug = str(board.get("slug") or "")
+            if slug == getattr(kb, "DEFAULT_BOARD", "default"):
+                continue
+            if board.get("agency_status") != "signed_off":
+                skipped.append({"slug": slug, "reason": "not signed_off"})
+                continue
+            signed_off_at = int(board.get("signed_off_at") or 0)
+            if signed_off_at > cutoff:
+                skipped.append({"slug": slug, "reason": "signed_off too recently"})
+                continue
+            archived.append(kb.remove_board(slug, archive=True))
+        return {"ok": True, "older_than_days": days, "archived": archived, "skipped": skipped}
 
     async def _send_task_impl(
         self,
@@ -39,14 +216,16 @@ class KanbanSyncMixin:
 
         if isinstance(conversation_context, dict):
             packet_context = dict(conversation_context)
-            if metadata:
-                packet_context.setdefault("metadata", metadata)
+            packet_metadata = dict(packet_context.get("metadata") or {})
+            packet_metadata.update(dict(metadata or {}))
+            packet_context["metadata"] = packet_metadata
         else:
             packet_context = {
                 "summary": str(conversation_context or "").strip(),
-                "metadata": metadata or {},
+                "metadata": dict(metadata or {}),
             }
         clean_context_id = str(context_id or packet_context.get("context_id") or "").strip()
+        clean_metadata = {str(k): str(v) for k, v in (packet_context.get("metadata") or {}).items()}
         if clean_context_id:
             packet_context["context_id"] = clean_context_id
             packet_context.setdefault(
@@ -58,41 +237,55 @@ class KanbanSyncMixin:
                     ttl=cfg.incoming_conversation_ttl,
                 ),
             )
-            metadata = dict(metadata or {})
-            metadata.setdefault("context_id", clean_context_id)
-        packet_context.setdefault("metadata", metadata or {})
+            clean_metadata.setdefault("context_id", clean_context_id)
         if clean_context_id:
-            packet_context["metadata"].setdefault("context_id", clean_context_id)
-            packet_context["metadata"].setdefault("message", message)
-        packet_or_message = self._nm().build_context_packet(message, packet_context)
-        message_text = self._nm().packet_to_message_text(packet_or_message)
-        target_label = peer_id or skill or "unknown target"
-        clean_metadata = {str(k): str(v) for k, v in (metadata or {}).items()} or None
-        kanban_task_id = (clean_metadata or {}).get("kanban_task_id") or (clean_metadata or {}).get(
+            clean_metadata.setdefault("message", message)
+
+        kanban_task_id = clean_metadata.get("kanban_task_id") or clean_metadata.get(
             "agency_kanban_task_id"
         )
-        self._nm().announce_delegate(message, target_label, kanban_task_id=kanban_task_id)
-        payload = {"role": "user", "parts": [{"text": message_text}]}
-        if isinstance(packet_or_message, dict):
-            clean_metadata = dict(clean_metadata or {})
-            clean_metadata.setdefault("agency_context_packet", "v1")
+        agency_board = self._ensure_agency_board(
+            task_id=kanban_task_id or clean_context_id or None,
+            title=message,
+            metadata=clean_metadata,
+            context_packet=packet_context,
+            direction="outgoing",
+        )
+        if agency_board:
+            clean_metadata.setdefault("agency_board", agency_board)
+            packet_context["agency_board"] = agency_board
+
+        target_label = peer_id or skill or "unknown target"
         kanban_metadata = {
-            **(dict(clean_metadata or {})),
+            **clean_metadata,
             "target_peer_id": peer_id,
             "target_skill": skill,
             "sender": self._nm().current_profile_name(),
         }
-        kanban_result = self._nm().kanban_track_delegation(
+        kanban_result = self._call_on_agency_board(
+            agency_board,
+            self._nm().kanban_track_delegation,
             message=message,
             assigned_to=peer_id or None,
             skills=[skill] if skill else [],
             a2a_task_id=None,
             kanban_task_id=kanban_task_id,
             metadata=kanban_metadata,
-            description=message_text,
+            description=message,
         )
         if kanban_result.get("available") and kanban_result.get("task_id"):
             kanban_task_id = str(kanban_result["task_id"])
+            clean_metadata.setdefault("kanban_task_id", kanban_task_id)
+            clean_metadata.setdefault("agency_kanban_task_id", kanban_task_id)
+            kanban_metadata["kanban_task_id"] = kanban_task_id
+            kanban_metadata["agency_kanban_task_id"] = kanban_task_id
+        packet_context["metadata"] = clean_metadata
+        packet_or_message = self._nm().build_context_packet(message, packet_context)
+        message_text = self._nm().packet_to_message_text(packet_or_message)
+        self._nm().announce_delegate(message, target_label, kanban_task_id=kanban_task_id)
+        payload = {"role": "user", "parts": [{"text": message_text}]}
+        if isinstance(packet_or_message, dict):
+            clean_metadata.setdefault("agency_context_packet", "v1")
         try:
             handle = await self._node.send_task(
                 message=payload,
@@ -103,14 +296,25 @@ class KanbanSyncMixin:
         except Exception as exc:
             send_error = f"{type(exc).__name__}: {exc}"
             if kanban_task_id:
-                self._nm().kanban_update_task(kanban_task_id, status="blocked", error=send_error)
-                self._nm().kanban_add_comment(
-                    kanban_task_id, f"A2A task send failed before remote acceptance: {send_error}"
+                self._call_on_agency_board(
+                    agency_board,
+                    self._nm().kanban_update_task,
+                    kanban_task_id,
+                    status="blocked",
+                    error=send_error,
+                )
+                self._call_on_agency_board(
+                    agency_board,
+                    self._nm().kanban_add_comment,
+                    kanban_task_id,
+                    f"A2A task send failed before remote acceptance: {send_error}",
                 )
             self._nm().announce_error(message, send_error, kanban_task_id=kanban_task_id)
             raise
         self._task_handles[handle.task_id] = handle
-        kanban_result = self._nm().kanban_track_delegation(
+        kanban_result = self._call_on_agency_board(
+            agency_board,
+            self._nm().kanban_track_delegation,
             message=message,
             assigned_to=peer_id or None,
             skills=[skill] if skill else [],
@@ -132,8 +336,11 @@ class KanbanSyncMixin:
                 # callers can still poll a2a_status for the latest state.
                 wait_error = f"{type(exc).__name__}: {exc}"
                 if kanban_task_id:
-                    self._nm().kanban_add_comment(
-                        kanban_task_id, f"A2A wait returned before completion: {wait_error}"
+                    self._call_on_agency_board(
+                        agency_board,
+                        self._nm().kanban_add_comment,
+                        kanban_task_id,
+                        f"A2A wait returned before completion: {wait_error}",
                     )
                 self._nm().announce_error(message, wait_error, kanban_task_id=kanban_task_id)
 
@@ -159,14 +366,16 @@ class KanbanSyncMixin:
                 metadata=clean_metadata,
             )
             self._task_handles[handle.task_id] = handle
-            kanban_result = self._nm().kanban_track_delegation(
+            kanban_result = self._call_on_agency_board(
+                agency_board,
+                self._nm().kanban_track_delegation,
                 message=message,
                 assigned_to=peer_id or None,
                 skills=[skill] if skill else [],
                 a2a_task_id=handle.task_id,
                 kanban_task_id=kanban_task_id,
                 metadata={
-                    **(dict(clean_metadata or {})),
+                    **clean_metadata,
                     "target_peer_id": peer_id,
                     "target_skill": skill,
                     "sender": self._nm().current_profile_name(),
@@ -180,29 +389,55 @@ class KanbanSyncMixin:
             except Exception as exc:
                 wait_error = f"{type(exc).__name__}: {exc}"
                 if kanban_task_id:
-                    self._nm().kanban_add_comment(
-                        kanban_task_id, f"A2A retry wait returned before completion: {wait_error}"
+                    self._call_on_agency_board(
+                        agency_board,
+                        self._nm().kanban_add_comment,
+                        kanban_task_id,
+                        f"A2A retry wait returned before completion: {wait_error}",
                     )
                 self._nm().announce_error(message, wait_error, kanban_task_id=kanban_task_id)
             data = self._serialize_handle(handle)
         if not wait_error and wait_seconds and wait_seconds > 0:
             result_text = data.get("artifact_text") or data.get("status") or "completed"
             if kanban_task_id:
-                self._nm().kanban_update_task(
-                    kanban_task_id, status="done", result=str(result_text)
+                self._call_on_agency_board(
+                    agency_board,
+                    self._nm().kanban_update_task,
+                    kanban_task_id,
+                    status="done",
+                    result=str(result_text),
+                )
+                self._mark_agency_board_pending_review(
+                    agency_board, task_id=kanban_task_id, result=str(result_text)
                 )
             self._nm().announce_complete(message, result_text, kanban_task_id=kanban_task_id)
         elif wait_error:
             if kanban_task_id:
-                self._nm().kanban_update_task(kanban_task_id, status="blocked", result=wait_error)
+                self._call_on_agency_board(
+                    agency_board,
+                    self._nm().kanban_update_task,
+                    kanban_task_id,
+                    status="blocked",
+                    result=wait_error,
+                )
         elif kanban_task_id:
-            self._nm().kanban_update_task(kanban_task_id, status="running")
-            self._nm().kanban_add_comment(
-                kanban_task_id, "A2A task sent, not waiting for completion"
+            self._call_on_agency_board(
+                agency_board,
+                self._nm().kanban_update_task,
+                kanban_task_id,
+                status="running",
+            )
+            self._call_on_agency_board(
+                agency_board,
+                self._nm().kanban_add_comment,
+                kanban_task_id,
+                "A2A task sent, not waiting for completion",
             )
         if isinstance(packet_or_message, dict):
             data["context_packet"] = packet_or_message
         data["kanban"] = kanban_result
+        if agency_board:
+            data["agency_board"] = agency_board
         data["announcements"] = self._nm().recent_announcements(limit=5)
         if wait_error:
             data["wait_error"] = wait_error
@@ -224,6 +459,9 @@ class KanbanSyncMixin:
                 }
             return None
         data = self._serialize_handle(handle)
+        agency_board = self._agency_board_from_metadata(data.get("metadata") or {})
+        if agency_board and not (kanban.get("available") and kanban.get("ok")):
+            kanban = self._call_on_agency_board(agency_board, self._nm().kanban_get_task, task_id)
         if kanban.get("available"):
             data["kanban"] = kanban
         if kanban.get("available") and kanban.get("ok"):
@@ -242,13 +480,22 @@ class KanbanSyncMixin:
                 # the safe reconciliation point: if the SDK handle now contains
                 # the completion artifact, close the Kanban task with that result
                 # and re-read it so a2a_status reflects board truth.
-                updated = self._nm().kanban_update_task(
+                updated = self._call_on_agency_board(
+                    agency_board,
+                    self._nm().kanban_update_task,
                     str(kanban_task_id),
                     status="done",
                     result=str(data.get("artifact_text") or "completed"),
                 )
+                self._mark_agency_board_pending_review(
+                    agency_board,
+                    task_id=str(kanban_task_id),
+                    result=str(data.get("artifact_text") or "completed"),
+                )
                 if updated.get("available") and updated.get("ok"):
-                    kanban = self._nm().kanban_get_task(str(kanban_task_id))
+                    kanban = self._call_on_agency_board(
+                        agency_board, self._nm().kanban_get_task, str(kanban_task_id)
+                    )
                     data["kanban"] = kanban
                     task = kanban.get("task", {}) if kanban.get("ok") else task
                     kanban_status = task.get("plugin_status") or task.get("status")

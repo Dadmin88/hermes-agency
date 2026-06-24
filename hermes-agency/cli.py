@@ -343,6 +343,38 @@ def _discover_text(skill: str) -> str:
         )
 
 
+def _sign_off_board_text(board: str, signed_off_by: str = "") -> str:
+    board = (board or "").strip()
+    if not board:
+        return "Usage: hermes agency sign-off-board <board> [--by <name>]"
+    try:
+        result = manager.sign_off_board_sync(board, signed_off_by=signed_off_by or None)
+    except Exception as exc:  # pragma: no cover - depends on host Kanban install
+        return f"Hermes Agency board sign-off failed: {type(exc).__name__}: {exc}"
+    if not result.get("ok"):
+        return "Hermes Agency board sign-off failed: " + str(result.get("error") or result)
+    board_data = result.get("board") or {}
+    return (
+        f"Board {board_data.get('slug') or board!r} signed off by "
+        f"{board_data.get('signed_off_by') or signed_off_by or 'human'}."
+    )
+
+
+def _cleanup_boards_text(days: int | None = None) -> str:
+    try:
+        result = manager.cleanup_signed_off_boards_sync(older_than_days=days)
+    except Exception as exc:  # pragma: no cover - depends on host Kanban install
+        return f"Hermes Agency board cleanup failed: {type(exc).__name__}: {exc}"
+    archived = result.get("archived") or []
+    lines = [
+        f"Hermes Agency board cleanup complete (older_than_days={result.get('older_than_days')}).",
+        f"  archived: {len(archived)}",
+    ]
+    for item in archived:
+        lines.append(f"    - {item.get('slug')} -> {item.get('new_path')}")
+    return "\n".join(lines)
+
+
 def handle_agency_slash(raw_args: str = "") -> str:
     """Handle the in-session ``/agency`` slash command."""
 
@@ -367,6 +399,25 @@ def handle_agency_slash(raw_args: str = "") -> str:
         return _json(manager.info().get("registration") or {})
     if verb == "doctor":
         return render_doctor_report(run_doctor(), json_output="--json" in parts[1:])
+    if verb == "sign-off-board":
+        signed_off_by = ""
+        if "--by" in parts:
+            idx = parts.index("--by")
+            signed_off_by = " ".join(parts[idx + 1 :])
+            board = " ".join(parts[1:idx])
+        else:
+            board = " ".join(parts[1:])
+        return _sign_off_board_text(board, signed_off_by=signed_off_by)
+    if verb == "cleanup-boards":
+        days = None
+        if "--days" in parts:
+            idx = parts.index("--days")
+            if len(parts) > idx + 1:
+                try:
+                    days = int(parts[idx + 1])
+                except ValueError:
+                    return "Usage: /agency cleanup-boards [--days N]"
+        return _cleanup_boards_text(days)
     if verb == "setup-plugins":
         return _setup_plugins_text()
     if verb == "staff":
@@ -383,7 +434,7 @@ def handle_agency_slash(raw_args: str = "") -> str:
             name = parts[2] if len(parts) > 2 else ""
             return _staff_info_text(name)
         return "Usage: /agency staff [list [category]|install [--dry-run] [--force] [names...]|info <name>]"
-    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|setup-plugins|promote <agent>|demote <agent>|registry|staff]"
+    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|setup-plugins|promote <agent>|demote <agent>|registry|sign-off-board <board>|cleanup-boards [--days N]|staff]"
 
 
 def setup_agency_parser(parser: ArgumentParser) -> None:
@@ -441,6 +492,23 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     )
     demote_parser.add_argument("agent", help="Hermes profile name to demote")
     demote_parser.set_defaults(func=cmd_agency)
+
+    signoff_parser = subparsers.add_parser(
+        "sign-off-board",
+        help="Mark an Agency task board as human-signed-off",
+    )
+    signoff_parser.add_argument("board", help="Agency Kanban board slug")
+    signoff_parser.add_argument("--by", default="", help="Human/reviewer name")
+    signoff_parser.set_defaults(func=cmd_agency)
+
+    cleanup_boards_parser = subparsers.add_parser(
+        "cleanup-boards",
+        help="Archive signed-off Agency boards older than the cleanup window",
+    )
+    cleanup_boards_parser.add_argument(
+        "--days", type=int, default=None, help="Override agency.kanban.board_cleanup_days"
+    )
+    cleanup_boards_parser.set_defaults(func=cmd_agency)
 
     staff_parser = subparsers.add_parser(
         "staff",
@@ -502,6 +570,10 @@ def cmd_agency(args: Namespace) -> None:
         print(_promote_text(getattr(args, "agent", "")))
     elif verb == "demote":
         print(_demote_text(getattr(args, "agent", "")))
+    elif verb == "sign-off-board":
+        print(_sign_off_board_text(getattr(args, "board", ""), getattr(args, "by", "")))
+    elif verb == "cleanup-boards":
+        print(_cleanup_boards_text(getattr(args, "days", None)))
     elif verb == "staff":
         staff_cmd = getattr(args, "staff_command", "list") or "list"
         if staff_cmd == "list":

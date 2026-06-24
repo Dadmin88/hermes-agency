@@ -77,6 +77,34 @@ class NodeLifecycleMixin:
         self.state.card_name = data.get("name")
         self.state.skill_count = len(data.get("skills") or [])
 
+    def _is_incoming_handler_registered(self, node: Any) -> bool:
+        target = self._handle_incoming_task
+        target_self = getattr(target, "__self__", None)
+        target_func = getattr(target, "__func__", None)
+        for handler in getattr(node, "_task_handlers", []) or []:
+            if handler is target:
+                return True
+            if (
+                getattr(handler, "__self__", None) is target_self
+                and getattr(handler, "__func__", None) is target_func
+            ):
+                return True
+        return False
+
+    def _register_incoming_handler(self, node: Any) -> None:
+        """Ensure the active SDK node dispatches daemon incoming tasks to the queue."""
+
+        if not self._is_incoming_handler_registered(node):
+            node.on_task(self._handle_incoming_task)
+        self.state.last_status = "incoming task handler registered"
+
+    def _ensure_incoming_runtime(self, cfg: Any) -> None:
+        if self._incoming_queue is None:
+            self._incoming_queue = asyncio.Queue(maxsize=cfg.incoming_max_queue_size)
+        self.state.incoming_queue_max_size = cfg.incoming_max_queue_size
+        if self._incoming_worker_task is None or self._incoming_worker_task.done():
+            self._incoming_worker_task = asyncio.create_task(self._incoming_worker())
+
     async def _ensure_started_impl(self) -> None:
         if self._node is None or not self.state.started:
             await self._start_impl()
@@ -85,6 +113,12 @@ class NodeLifecycleMixin:
 
     async def _start_impl(self) -> Any:
         if self._node is not None and self.state.started:
+            self._register_incoming_handler(self._node)
+            self._ensure_incoming_runtime(self._nm().get_config())
+            if self._serve_task is None or self._serve_task.done():
+                self._serve_task = asyncio.create_task(self._node.serve_forever())
+                self._serve_task.add_done_callback(self._serve_done)
+                self.state.serve_task_running = True
             return self.state
 
         cfg = self._nm().get_config()
@@ -115,8 +149,8 @@ class NodeLifecycleMixin:
                 daemon_bin=daemon_bin,
                 status_callback=self._status_callback,
             )
-            node.on_task(self._handle_incoming_task)
             await node.start()
+            self._register_incoming_handler(node)
 
             self._node = node
             self.state.started = True
@@ -127,10 +161,8 @@ class NodeLifecycleMixin:
             self.state.stopped_at = None
             self.state.error = None
 
-            self._incoming_queue = asyncio.Queue(maxsize=cfg.incoming_max_queue_size)
-            self.state.incoming_queue_max_size = cfg.incoming_max_queue_size
+            self._ensure_incoming_runtime(cfg)
             self._requeue_persisted_incoming_tasks()
-            self._incoming_worker_task = asyncio.create_task(self._incoming_worker())
             self._serve_task = asyncio.create_task(node.serve_forever())
             self._serve_task.add_done_callback(self._serve_done)
             self.state.serve_task_running = True

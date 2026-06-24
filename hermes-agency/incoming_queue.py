@@ -432,14 +432,6 @@ class IncomingQueueMixin:
         metadata = self._metadata_to_dict(getattr(task, "metadata", None))
         sender_card = self._sender_card_to_dict(task)
         security = self._nm().verify_incoming_sender(task, cfg, purpose="task")
-        if not security.allowed:
-            reason = security.reason
-            try:
-                await task.fail(reason)
-            except Exception:
-                pass
-            logger.warning("Hermes Agency rejected incoming task: %s", reason)
-            return
         sender_peer_id = security.sender_peer_id
         context_id = ""
         if context_packet:
@@ -486,6 +478,19 @@ class IncomingQueueMixin:
                 if context_text:
                     context_packet["conversation_history"] = list(filtered_history)
         kanban_task_id = self._kanban_task_id_from_metadata(metadata, context_packet)
+        agency_board = self._ensure_agency_board(
+            task_id=kanban_task_id or getattr(task, "task_id", "") or None,
+            title=self._nm().packet_goal_or_text(message_text),
+            metadata=metadata,
+            context_packet=context_packet,
+            direction="incoming",
+        )
+        if agency_board:
+            metadata.setdefault("agency_board", agency_board)
+            if context_packet is not None:
+                nested_metadata = context_packet.setdefault("metadata", {})
+                if isinstance(nested_metadata, dict):
+                    nested_metadata.setdefault("agency_board", agency_board)
         record = IncomingTaskRecord(
             task_id=task.task_id,
             sender_peer_id=sender_peer_id,
@@ -499,13 +504,16 @@ class IncomingQueueMixin:
         )
         self._remember_incoming_record(record)
         if not kanban_task_id:
-            incoming_kanban = self._nm().kanban_track_delegation(
+            incoming_kanban = self._call_on_agency_board(
+                agency_board,
+                self._nm().kanban_track_delegation,
                 message=record.message_text,
                 assigned_to=self._nm().current_profile_name(),
                 skills=[record.target_skill_id] if record.target_skill_id else [],
                 a2a_task_id=record.task_id,
                 metadata={
                     "direction": "incoming",
+                    "agency_board": agency_board or "",
                     "sender_peer_id": record.sender_peer_id,
                     "receiver": self._nm().current_profile_name(),
                     "target_skill_id": record.target_skill_id,
@@ -518,8 +526,15 @@ class IncomingQueueMixin:
                 kanban_task_id = str(incoming_kanban["task_id"])
                 record.kanban_task_id = kanban_task_id
         if kanban_task_id:
-            self._nm().kanban_update_task(kanban_task_id, status="running")
-            self._nm().kanban_add_comment(
+            self._call_on_agency_board(
+                agency_board,
+                self._nm().kanban_update_task,
+                kanban_task_id,
+                status="running",
+            )
+            self._call_on_agency_board(
+                agency_board,
+                self._nm().kanban_add_comment,
                 kanban_task_id,
                 f"A2A task {record.task_id} received by {self._nm().current_profile_name()} and queued for work.",
             )
@@ -545,8 +560,12 @@ class IncomingQueueMixin:
             record.updated_at = time.time()
             record.completed_at = time.time()
             if record.kanban_task_id:
-                self._nm().kanban_update_task(
-                    record.kanban_task_id, status="blocked", error=record.error
+                self._call_on_agency_board(
+                    record.metadata.get("agency_board"),
+                    self._nm().kanban_update_task,
+                    record.kanban_task_id,
+                    status="blocked",
+                    error=record.error,
                 )
             self._refresh_incoming_state()
             self._persist_incoming_records()
@@ -582,8 +601,12 @@ class IncomingQueueMixin:
             record.updated_at = time.time()
             record.completed_at = time.time()
             if record.kanban_task_id:
-                self._nm().kanban_update_task(
-                    record.kanban_task_id, status="blocked", error=record.error
+                self._call_on_agency_board(
+                    record.metadata.get("agency_board"),
+                    self._nm().kanban_update_task,
+                    record.kanban_task_id,
+                    status="blocked",
+                    error=record.error,
                 )
             self._refresh_incoming_state()
             self._persist_incoming_records()
@@ -708,7 +731,12 @@ class IncomingQueueMixin:
                 record.status = "processing"
                 record.updated_at = time.time()
                 if record.kanban_task_id:
-                    self._nm().kanban_update_task(record.kanban_task_id, status="running")
+                    self._call_on_agency_board(
+                        record.metadata.get("agency_board"),
+                        self._nm().kanban_update_task,
+                        record.kanban_task_id,
+                        status="running",
+                    )
                 self._nm().announce_start(record.message_text)
                 self._refresh_incoming_state()
                 self._persist_incoming_records()
@@ -772,8 +800,17 @@ class IncomingQueueMixin:
                 self._persist_incoming_records()
                 self._remember_conversation_turn(record, response)
                 if record.kanban_task_id:
-                    self._nm().kanban_update_task(
-                        record.kanban_task_id, status="done", result=response
+                    self._call_on_agency_board(
+                        record.metadata.get("agency_board"),
+                        self._nm().kanban_update_task,
+                        record.kanban_task_id,
+                        status="done",
+                        result=response,
+                    )
+                    self._mark_agency_board_pending_review(
+                        record.metadata.get("agency_board"),
+                        task_id=record.kanban_task_id,
+                        result=response,
                     )
                 self._nm().announce_complete(
                     record.message_text, response, kanban_task_id=record.kanban_task_id
@@ -787,8 +824,12 @@ class IncomingQueueMixin:
                     record.updated_at = time.time()
                     record.completed_at = time.time()
                     if record.kanban_task_id:
-                        self._nm().kanban_update_task(
-                            record.kanban_task_id, status="blocked", error=record.error
+                        self._call_on_agency_board(
+                            record.metadata.get("agency_board"),
+                            self._nm().kanban_update_task,
+                            record.kanban_task_id,
+                            status="blocked",
+                            error=record.error,
                         )
                     self._persist_incoming_records()
                     self._nm().announce_error(

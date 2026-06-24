@@ -57,6 +57,7 @@ Config schema and defaults::
         context_max_chars: 20000  # hard character budget for injected context block
       kanban:
         preserve_workspaces: true # keep scratch task artifact dirs after completion
+        board_cleanup_days: 7     # archive signed-off Agency boards older than this
       orchestrator:
         enabled: false
         agent: null
@@ -172,9 +173,13 @@ class KanbanConfig:
     """Resolved Kanban integration configuration."""
 
     preserve_workspaces: bool = True
+    board_cleanup_days: int = 7
 
     def as_dict(self) -> dict[str, Any]:
-        return {"preserve_workspaces": self.preserve_workspaces}
+        return {
+            "preserve_workspaces": self.preserve_workspaces,
+            "board_cleanup_days": self.board_cleanup_days,
+        }
 
 
 @dataclass(frozen=True)
@@ -667,7 +672,15 @@ def _kanban_config(config: dict[str, Any]) -> KanbanConfig:
             "kanban",
             "preserve_workspaces",
             default=True,
-        )
+        ),
+        board_cleanup_days=_int_cfg(
+            config,
+            "agency",
+            "kanban",
+            "board_cleanup_days",
+            default=7,
+            floor=0,
+        ),
     )
 
 
