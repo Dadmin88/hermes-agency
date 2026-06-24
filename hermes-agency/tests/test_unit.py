@@ -3362,7 +3362,11 @@ async def test_refresh_capability_map_fetches_agent_card_for_listed_peer(plugin_
     assert peer.card_name == "gpt"
     assert [skill["id"] for skill in peer.card_skills] == ["code-review", "debug"]
 
-    context = team_context.build_team_context(plugin_modules.config.AgencyConfig())
+    context = team_context.build_team_context(
+        plugin_modules.config.AgencyConfig(
+            team=plugin_modules.config.TeamConfig(context_filter="all")
+        )
+    )
     assert "- gpt — skills: code-review (Review code), debug (Debug issues)" in context
     assert "  peer_id: peer-gpt" in context
     assert "Unnamed agent" not in context
@@ -3382,7 +3386,11 @@ def test_build_team_context_uses_registration_when_card_unavailable(plugin_modul
         )
     }
 
-    context = team_context.build_team_context(plugin_modules.config.AgencyConfig())
+    context = team_context.build_team_context(
+        plugin_modules.config.AgencyConfig(
+            team=plugin_modules.config.TeamConfig(context_filter="all")
+        )
+    )
 
     assert "- katana — skills: deployment (Deploy safely)" in context
     assert "  Description: Orchestrator profile" in context
@@ -3430,7 +3438,11 @@ def test_build_team_context_falls_back_to_truncated_peer_id(plugin_modules):
     team_context._state.peers = {peer_id: team_context.PeerCapability(peer_id=peer_id)}
     registration._state.registrations = {}
 
-    context = team_context.build_team_context(plugin_modules.config.AgencyConfig())
+    context = team_context.build_team_context(
+        plugin_modules.config.AgencyConfig(
+            team=plugin_modules.config.TeamConfig(context_filter="all")
+        )
+    )
 
     assert f"- {peer_id[:20]}... (skills unknown)" in context
     assert "Top skills: unknown from peer discovery" in context
@@ -3453,7 +3465,9 @@ def test_build_team_context_respects_peer_and_skill_limits(plugin_modules):
             ],
         )
     cfg = plugin_modules.config.AgencyConfig(
-        team=plugin_modules.config.TeamConfig(max_context_peers=2, max_context_skills=2)
+        team=plugin_modules.config.TeamConfig(
+            context_filter="all", max_context_peers=2, max_context_skills=2
+        )
     )
 
     context = team_context.build_team_context(cfg)
