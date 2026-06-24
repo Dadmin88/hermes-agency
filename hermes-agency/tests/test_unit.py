@@ -509,7 +509,7 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.incoming.delegation_timeout == 120
     assert cfg.incoming.max_queue_size == 100
     assert cfg.incoming.handler_timeout_seconds == 300
-    assert cfg.incoming.tool_access == "safe"
+    assert cfg.incoming.tool_access == "full"
     assert cfg.incoming.max_iterations == 25
     assert cfg.incoming.subprocess_profile is None
     assert cfg.incoming.reject_unmatched_skills is False
@@ -519,7 +519,7 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.incoming.allow_hooks_for_remote is False
     assert cfg.incoming_mode == "delegation"
     assert cfg.delegation_timeout == 120
-    assert cfg.incoming_tool_access == "safe"
+    assert cfg.incoming.tool_access == "full"
     assert cfg.incoming_max_iterations == 25
     assert cfg.incoming_subprocess_profile is None
     assert cfg.team.auto_discover is True
@@ -1274,7 +1274,7 @@ def test_incoming_config_invalid_values_fall_back_to_safe_defaults(plugin_module
     assert cfg.incoming.delegation_timeout == 120
     assert cfg.incoming.max_queue_size == 100
     assert cfg.incoming.handler_timeout_seconds == 300
-    assert cfg.incoming.tool_access == "safe"
+    assert cfg.incoming.tool_access == "full"
     assert cfg.incoming.max_iterations == 1
     assert cfg.incoming.subprocess_profile is None
     assert cfg.incoming.reject_unmatched_skills is False
