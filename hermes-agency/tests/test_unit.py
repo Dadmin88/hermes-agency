@@ -2369,6 +2369,27 @@ def test_runner_resolves_orchestrator_profile_from_root_config(monkeypatch, tmp_
     assert os.environ["HERMES_HOME"] == str(profile_home)
 
 
+def test_runner_resolves_orchestrator_from_active_profile_config(monkeypatch, tmp_path):
+    runner = _load_runner_module(monkeypatch)
+    root_home = tmp_path / ".hermes"
+    profile_home = root_home / "profiles" / "agency-orchestrator"
+    profile_home.mkdir(parents=True)
+    (root_home / "active_profile").write_text("agency-orchestrator\n", encoding="utf-8")
+    (profile_home / "config.yaml").write_text(
+        "agency:\n"
+        "  orchestrator:\n"
+        "    enabled: true\n"
+        "    agent: agency-orchestrator\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HERMES_HOME", str(root_home))
+    monkeypatch.setenv("HERMES_PROFILE", "default")
+
+    assert runner._resolve_runner_profile() == "agency-orchestrator"
+    assert os.environ["HERMES_PROFILE"] == "agency-orchestrator"
+    assert os.environ["HERMES_HOME"] == str(profile_home)
+
+
 def test_runner_does_not_rewrite_pool_managed_non_orchestrator_profile(monkeypatch, tmp_path):
     runner = _load_runner_module(monkeypatch)
     root_home = tmp_path / ".hermes"

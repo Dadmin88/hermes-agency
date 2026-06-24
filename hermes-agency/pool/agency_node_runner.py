@@ -65,6 +65,7 @@ def _emit(prefix: str, payload: Any) -> None:
     print(f"{prefix} " + json.dumps(payload, default=str), flush=True)
 
 
+
 def _current_hermes_home() -> Path:
     """Return the Hermes home visible to this runner before plugin imports."""
 
@@ -133,14 +134,54 @@ def _load_yaml_config(path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _configured_orchestrator_agent(root_config: dict[str, Any]) -> str:
-    agency = root_config.get("agency") if isinstance(root_config, dict) else None
-    if not isinstance(agency, dict):
+def _cfg_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
+    value: Any = config
+    for key in path:
+        if not isinstance(value, dict) or key not in value:
+            return default
+        value = value[key]
+    return value
+
+
+def _configured_orchestrator_agent(config: dict[str, Any]) -> str:
+    agent = str(_cfg_get(config, "agency", "orchestrator", "agent", default="") or "").strip()
+    return agent
+
+
+def _find_orchestrator_agent(root_home: Path, current_home: Path) -> str:
+    """Find the configured orchestrator profile without importing plugin modules."""
+
+    candidates = [root_home / "config.yaml"]
+    if current_home != root_home:
+        candidates.append(current_home / "config.yaml")
+    try:
+        active_profile = (root_home / "active_profile").read_text(encoding="utf-8").strip()
+    except OSError:
+        active_profile = ""
+    if active_profile and active_profile not in DEFAULT_PROFILE_NAMES:
+        candidates.append(root_home / "profiles" / active_profile / "config.yaml")
+
+    seen: set[Path] = set()
+    for config_path in candidates:
+        if config_path in seen:
+            continue
+        seen.add(config_path)
+        agent = _configured_orchestrator_agent(_load_yaml_config(config_path))
+        if agent:
+            return agent
+
+    profiles_dir = root_home / "profiles"
+    try:
+        profile_dirs = sorted(path for path in profiles_dir.iterdir() if path.is_dir())
+    except OSError:
         return ""
-    orchestrator = agency.get("orchestrator")
-    if not isinstance(orchestrator, dict):
-        return ""
-    return str(orchestrator.get("agent") or "").strip()
+    for profile_dir in profile_dirs:
+        config = _load_yaml_config(profile_dir / "config.yaml")
+        enabled = bool(_cfg_get(config, "agency", "orchestrator", "enabled", default=False))
+        agent = _configured_orchestrator_agent(config)
+        if enabled and agent:
+            return agent
+    return ""
 
 
 def _resolve_runner_profile() -> str:
@@ -149,7 +190,7 @@ def _resolve_runner_profile() -> str:
     Gateway/systemd invocations can start the long-lived runner with
     ``HERMES_HOME`` pointing at the root/default Hermes home. In that case the
     active Agency node should still be the configured orchestrator profile from
-    the root config (``agency.orchestrator.agent``), not the root/default node.
+    ``agency.orchestrator.agent``, not the root/default node.
 
     Pool-managed per-agent runners already pass a concrete ``HERMES_PROFILE``;
     those must not be rewritten just because the root config names an
@@ -159,8 +200,7 @@ def _resolve_runner_profile() -> str:
     requested_profile = os.environ.get("HERMES_PROFILE", "").strip()
     current_home = _current_hermes_home()
     root_home = _root_home_for(current_home)
-    root_config = _load_yaml_config(root_home / "config.yaml")
-    orchestrator_agent = _configured_orchestrator_agent(root_config)
+    orchestrator_agent = _find_orchestrator_agent(root_home, current_home)
     if not orchestrator_agent:
         return requested_profile
 
@@ -179,7 +219,6 @@ def _resolve_runner_profile() -> str:
         },
     )
     return orchestrator_agent
-
 
 def _sleep_while_running(seconds: float, should_run: Callable[[], bool]) -> None:
     deadline = time.time() + max(0.0, seconds)
