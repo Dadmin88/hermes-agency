@@ -2356,9 +2356,7 @@ def test_runner_resolves_orchestrator_profile_from_root_config(monkeypatch, tmp_
     profile_home = root_home / "profiles" / "agency-orchestrator"
     profile_home.mkdir(parents=True)
     (root_home / "config.yaml").write_text(
-        "agency:\n"
-        "  orchestrator:\n"
-        "    agent: agency-orchestrator\n",
+        "agency:\n  orchestrator:\n    agent: agency-orchestrator\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("HERMES_HOME", str(root_home))
@@ -2376,10 +2374,7 @@ def test_runner_resolves_orchestrator_from_active_profile_config(monkeypatch, tm
     profile_home.mkdir(parents=True)
     (root_home / "active_profile").write_text("agency-orchestrator\n", encoding="utf-8")
     (profile_home / "config.yaml").write_text(
-        "agency:\n"
-        "  orchestrator:\n"
-        "    enabled: true\n"
-        "    agent: agency-orchestrator\n",
+        "agency:\n  orchestrator:\n    enabled: true\n    agent: agency-orchestrator\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("HERMES_HOME", str(root_home))
@@ -2396,9 +2391,7 @@ def test_runner_does_not_rewrite_pool_managed_non_orchestrator_profile(monkeypat
     profile_home = root_home / "profiles" / "agency-backend-engineer"
     profile_home.mkdir(parents=True)
     (root_home / "config.yaml").write_text(
-        "agency:\n"
-        "  orchestrator:\n"
-        "    agent: agency-orchestrator\n",
+        "agency:\n  orchestrator:\n    agent: agency-orchestrator\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("HERMES_HOME", str(profile_home))

@@ -65,7 +65,6 @@ def _emit(prefix: str, payload: Any) -> None:
     print(f"{prefix} " + json.dumps(payload, default=str), flush=True)
 
 
-
 def _current_hermes_home() -> Path:
     """Return the Hermes home visible to this runner before plugin imports."""
 
@@ -219,6 +218,7 @@ def _resolve_runner_profile() -> str:
         },
     )
     return orchestrator_agent
+
 
 def _sleep_while_running(seconds: float, should_run: Callable[[], bool]) -> None:
     deadline = time.time() + max(0.0, seconds)
