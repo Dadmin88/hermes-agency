@@ -667,8 +667,73 @@ def _format_last_seen(timestamp: Any) -> str:
     return f"{int(hours // 24)}d ago"
 
 
+def _render_profile_overlay(agent: dict[str, Any]) -> dict[str, Any]:
+    """Apply profile metadata at the final render seam.
+
+    ``build_roster()`` normally applies this overlay before returning.  Keep a
+    final, read-only guard here as well because team context is prompt-critical:
+    if a cached/persisted/stale roster entry reaches the renderer, the prompt
+    should still prefer the local profile's SOUL.md and config.yaml over the
+    generic registry/default display fields.
+    """
+
+    name = str(agent.get("name") or "").strip()
+    if not name.startswith("agency-"):
+        return agent
+    try:
+        from .pool.roster import _profiles_dir, _read_profile_meta
+
+        profile_dir = _profiles_dir() / name
+        if not profile_dir.is_dir():
+            return agent
+        meta = _read_profile_meta(profile_dir)
+    except Exception:
+        return agent
+
+    merged = dict(agent)
+    for key in ("description", "model", "provider"):
+        value = meta.get(key)
+        if value not in (None, ""):
+            merged[key] = value
+    if meta.get("skills") and not merged.get("skills"):
+        merged["skills"] = list(meta["skills"])
+        merged["skill_count"] = len(merged["skills"])
+        merged["capabilities"] = list(meta.get("capabilities") or [])
+    return merged
+
+
 def _render_roster_agent(agent: dict[str, Any], max_skills: int) -> list[str]:
     """Render a persistent roster entry with online/offline status."""
+
+    debug_render = os.getenv("HERMES_AGENCY_DEBUG_TEAM_CONTEXT") and agent.get("name") in {
+        "agency-accessibility-reviewer",
+        "agency-frontend-engineer",
+    }
+    if debug_render:
+        logger.warning(
+            "AGENCY_TEAM_CONTEXT_DEBUG _render_roster_agent input team_context=%s agent_id=%s model=%s provider=%s desc=%s dict_id=%s keys=%s",
+            __file__,
+            agent.get("name"),
+            agent.get("model"),
+            agent.get("provider"),
+            str(agent.get("description") or "")[:80],
+            id(agent),
+            sorted(agent.keys()),
+        )
+
+    agent = _render_profile_overlay(agent)
+
+    if debug_render:
+        logger.warning(
+            "AGENCY_TEAM_CONTEXT_DEBUG _render_roster_agent render team_context=%s agent_id=%s model=%s provider=%s desc=%s dict_id=%s keys=%s",
+            __file__,
+            agent.get("name"),
+            agent.get("model"),
+            agent.get("provider"),
+            str(agent.get("description") or "")[:80],
+            id(agent),
+            sorted(agent.keys()),
+        )
 
     skills = [str(skill) for skill in agent.get("skills") or [] if str(skill).strip()]
     status = "ONLINE" if agent.get("online") else "OFFLINE"

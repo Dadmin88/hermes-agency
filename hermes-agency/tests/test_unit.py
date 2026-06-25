@@ -3516,6 +3516,43 @@ async def test_refresh_capability_map_fetches_agent_card_for_listed_peer(plugin_
     assert "Unnamed agent" not in context
 
 
+def test_render_roster_agent_reapplies_profile_overlay_at_render_seam(
+    plugin_modules, tmp_path, monkeypatch
+):
+    team_context = importlib.import_module("hermes_plugin.team_context")
+    roster = importlib.import_module("hermes_plugin.pool.roster")
+    profiles_dir = tmp_path / "profiles"
+    profile_dir = profiles_dir / "agency-accessibility-reviewer"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "SOUL.md").write_text(
+        "# Accessibility Reviewer\n\nYou are the Accessibility Reviewer from SOUL.md.\n",
+        encoding="utf-8",
+    )
+    (profile_dir / "config.yaml").write_text(
+        "model:\n  default: glm-5.2\n  provider: opencode-go\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(roster, "_profiles_dir", lambda: profiles_dir)
+
+    lines = team_context._render_roster_agent(
+        {
+            "name": "agency-accessibility-reviewer",
+            "description": "Accessibility Reviewer agent",
+            "skills": ["accessibility", "wcag"],
+            "model": "gpt-5.5",
+            "provider": "openai-codex",
+            "online": False,
+        },
+        max_skills=8,
+    )
+
+    rendered = "\n".join(lines)
+    assert "Description: You are the Accessibility Reviewer from SOUL.md." in rendered
+    assert "model/provider: glm-5.2 / opencode-go" in rendered
+    assert "Accessibility Reviewer agent" not in rendered
+    assert "model/provider: gpt-5.5 / openai-codex" not in rendered
+
+
 def test_build_team_context_uses_registration_when_card_unavailable(plugin_modules):
     team_context = importlib.import_module("hermes_plugin.team_context")
     registration = importlib.import_module("hermes_plugin.registration")
