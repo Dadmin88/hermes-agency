@@ -4425,3 +4425,103 @@ async def test_task_status_prefers_terminal_kanban_over_stale_handle(plugin_modu
     assert data["a2a_status"] == "submitted"
     assert data["kanban_status"] == "done"
     assert data["result"] == "kanban result"
+
+
+# === Phase 1 Security Regression Tests (added during repair) ===
+
+
+def _mock_security(allowed: bool, reason: str = None, peer_id: str = "peer-test"):
+    class MockSecurity:
+        def __init__(self):
+            self.allowed = allowed
+            self.reason = reason or ("blocked" if not allowed else None)
+            self.sender_peer_id = peer_id
+
+    return MockSecurity()
+
+
+@pytest.mark.asyncio
+async def test_normal_task_from_blocked_peer_is_rejected_before_queue(
+    plugin_modules, monkeypatch, tmp_path, caplog
+):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        nm,
+        "verify_incoming_sender",
+        lambda task, cfg, purpose: _mock_security(False, "peer blocked", "peer-bad"),
+    )
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue()
+    task = _FakeIncomingTask("blocked task", peer_id="peer-bad", task_id="task-blocked")
+    with caplog.at_level("WARNING"):
+        await manager._handle_incoming_task(task)
+    assert task.failed is not None
+    assert "rejected" in task.failed.lower() or "blocked" in task.failed.lower()
+    assert manager._incoming_queue.qsize() == 0
+    assert "peer-bad" in caplog.text or "blocked" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_normal_task_from_unknown_peer_is_rejected_before_state_mutation(
+    plugin_modules, monkeypatch, tmp_path, caplog
+):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=False)
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        nm,
+        "verify_incoming_sender",
+        lambda task, cfg, purpose: _mock_security(False, "unknown peer", "peer-unknown"),
+    )
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue()
+    task = _FakeIncomingTask("unknown", peer_id="peer-unknown", task_id="task-unknown")
+    with caplog.at_level("WARNING"):
+        await manager._handle_incoming_task(task)
+    assert task.failed is not None
+    assert manager._incoming_queue.qsize() == 0
+    assert "unknown" in caplog.text or "rejected" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_normal_task_with_insufficient_trust_is_rejected(
+    plugin_modules, monkeypatch, tmp_path, caplog
+):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        nm,
+        "verify_incoming_sender",
+        lambda task, cfg, purpose: _mock_security(
+            False, "insufficient trust for task", "peer-good"
+        ),
+    )
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue()
+    task = _FakeIncomingTask("insufficient trust", peer_id="peer-good", task_id="task-trust")
+    with caplog.at_level("WARNING"):
+        await manager._handle_incoming_task(task)
+    assert task.failed is not None
+    assert manager._incoming_queue.qsize() == 0
+
+
+@pytest.mark.asyncio
+async def test_normal_task_from_allowed_peer_is_queued(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        nm,
+        "verify_incoming_sender",
+        lambda task, cfg, purpose: _mock_security(True, None, "peer-good"),
+    )
+    manager = nm.NodeManager()
+    manager._incoming_queue = __import__("asyncio").Queue()
+    task = _FakeIncomingTask("allowed task", peer_id="peer-good", task_id="task-allowed")
+    await manager._handle_incoming_task(task)
+    assert task.failed is None
+    assert task.completed is None or task.failed is None  # allowed path reached

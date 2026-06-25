@@ -432,6 +432,18 @@ class IncomingQueueMixin:
         metadata = self._metadata_to_dict(getattr(task, "metadata", None))
         sender_card = self._sender_card_to_dict(task)
         security = self._nm().verify_incoming_sender(task, cfg, purpose="task")
+        if not security.allowed:
+            reason = security.reason or "incoming task rejected by Hermes Agency security policy"
+            logger.warning(
+                "Hermes Agency rejected incoming task from %s: %s",
+                security.sender_peer_id or "unknown peer",
+                reason,
+            )
+            try:
+                await task.fail(reason)
+            except Exception:
+                logger.exception("Failed to mark rejected incoming task as failed")
+            return
         sender_peer_id = security.sender_peer_id
         context_id = ""
         if context_packet:

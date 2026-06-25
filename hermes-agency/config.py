@@ -127,7 +127,7 @@ class TeamConfig:
     learning: bool = False
     tenant: str = "default"
     context_refresh_minutes: int = 5
-    context_filter: str = "all"
+    context_filter: str = "agency-only"
     max_context_peers: int = 100
     max_context_skills: int = 8
     context_max_chars: int = 20000
