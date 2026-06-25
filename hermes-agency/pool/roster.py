@@ -14,13 +14,39 @@ import time
 from pathlib import Path
 from typing import Any
 
-PROFILES = Path.home() / ".hermes" / "profiles"
 REGISTRY_DEFINITION_PATH = Path(__file__).with_name("registry_definition.json")
-LEGACY_ROSTER_PATH = Path.home() / ".hermes" / "pool" / "roster.json"
 ROSTER_STATE_FILENAME = "roster_state.json"
 OFFLINE_QUEUE_FILENAME = "offline_task_queue.json"
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_PROVIDER = "openai-codex"
+# Test/diagnostic override hooks. Normal runtime uses HERMES_HOME-aware helpers
+# below so profile-scoped gateway sessions still see the shared root roster.
+PROFILES: Path | None = None
+LEGACY_ROSTER_PATH: Path | None = None
+
+
+def _root_hermes_home() -> Path:
+    """Return the installation-level Hermes home for shared profile data."""
+
+    hermes_home = os.getenv("HERMES_HOME", "").strip()
+    active_home = Path(hermes_home).expanduser() if hermes_home else Path.home() / ".hermes"
+    if active_home.parent.name == "profiles":
+        return active_home.parent.parent
+    return active_home
+
+
+def _profiles_dir() -> Path:
+    """Return the shared profiles directory, independent of the active profile."""
+
+    if PROFILES is not None:
+        return PROFILES
+    return _root_hermes_home() / "profiles"
+
+
+def _legacy_roster_path() -> Path:
+    if LEGACY_ROSTER_PATH is not None:
+        return LEGACY_ROSTER_PATH
+    return _root_hermes_home() / "pool" / "roster.json"
 
 
 def _plugin_setup_module():
@@ -52,14 +78,7 @@ def ensure_profile_plugins() -> dict[str, Any]:
 def _default_shared_agency_home() -> Path:
     """Return the installation-level agency home shared by all pool profiles."""
 
-    hermes_home = os.getenv("HERMES_HOME", "").strip()
-    if hermes_home:
-        active_home = Path(hermes_home).expanduser()
-    else:
-        active_home = Path.home() / ".hermes"
-    if active_home.parent.name == "profiles":
-        return active_home.parent.parent / ".agency"
-    return active_home / ".agency"
+    return _root_hermes_home() / ".agency"
 
 
 def _agency_home() -> Path:
@@ -307,8 +326,9 @@ def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
 def _is_daemon_running(name: str) -> bool:
     """Best-effort check that a profile's daemon process/socket is alive."""
 
+    profiles = _profiles_dir()
     for dirname in (".agency", ".agentanycast"):
-        sock = PROFILES / name / dirname / "daemon.sock"
+        sock = profiles / name / dirname / "daemon.sock"
         if sock.exists():
             return True
     return False
@@ -319,9 +339,10 @@ def _read_peer_id(name: str) -> str | None:
 
     import re
 
+    profiles = _profiles_dir()
     patterns = [
-        PROFILES / name / ".agency" / "logs" / "daemon.log",
-        PROFILES / name / ".agentanycast" / "logs" / "daemon.log",
+        profiles / name / ".agency" / "logs" / "daemon.log",
+        profiles / name / ".agentanycast" / "logs" / "daemon.log",
     ]
     for log in patterns:
         if not log.exists():
@@ -342,8 +363,9 @@ def _read_peer_id(name: str) -> str | None:
 
 def _persisted_state_by_name() -> dict[str, dict[str, Any]]:
     data = _load_json(roster_state_path())
-    if not data and LEGACY_ROSTER_PATH.exists():
-        data = _load_json(LEGACY_ROSTER_PATH)
+    legacy_roster_path = _legacy_roster_path()
+    if not data and legacy_roster_path.exists():
+        data = _load_json(legacy_roster_path)
     profiles = data.get("profiles") or []
     if not isinstance(profiles, list):
         return {}
@@ -450,8 +472,9 @@ def build_roster(
         merged["online"] = False
         agents_by_name[agent["name"]] = merged
 
-    if PROFILES.is_dir():
-        for profile_dir in sorted(PROFILES.iterdir()):
+    profiles_dir = _profiles_dir()
+    if profiles_dir.is_dir():
+        for profile_dir in sorted(profiles_dir.iterdir()):
             if not profile_dir.is_dir() or not profile_dir.name.startswith("agency-"):
                 continue
             meta = _read_profile_meta(profile_dir)

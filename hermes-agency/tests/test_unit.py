@@ -627,6 +627,14 @@ def test_pool_roster_uses_shared_root_state_when_running_inside_profile(tmp_path
     root_home = tmp_path / ".hermes"
     profile_home = root_home / "profiles" / "agency-frontend-engineer"
     profile_home.mkdir(parents=True)
+    (profile_home / "SOUL.md").write_text(
+        "# Frontend Engineer\n\nYou are the profile overlay description.\n",
+        encoding="utf-8",
+    )
+    (profile_home / "config.yaml").write_text(
+        "model:\n  default: glm-5.2\n  provider: opencode-go\n",
+        encoding="utf-8",
+    )
     explicit_home = tmp_path / "custom-agency-home"
 
     package = types.ModuleType("hermes_plugin")
@@ -656,6 +664,29 @@ def test_pool_roster_uses_shared_root_state_when_running_inside_profile(tmp_path
     spec.loader.exec_module(roster_mod)
 
     assert roster_mod.roster_state_path() == root_home / ".agency" / "roster_state.json"
+
+    registry_path = tmp_path / "registry_definition.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "agents": [
+                    {
+                        "name": "agency-frontend-engineer",
+                        "description": "Frontend registry description",
+                        "skills": ["react"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
+
+    roster = roster_mod.build_roster(include_plugin_setup=False)
+    agent = roster["profiles"][0]
+    assert agent["description"] == "You are the profile overlay description."
+    assert agent["model"] == "glm-5.2"
+    assert agent["provider"] == "opencode-go"
 
     setattr(config_module, "get_config", lambda: types.SimpleNamespace(home=explicit_home))
     assert roster_mod.roster_state_path() == explicit_home / "roster_state.json"

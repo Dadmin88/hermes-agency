@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +18,8 @@ from typing import Any
 from .config import AgencyConfig, get_config
 from .registration import live_registrations
 
+logger = logging.getLogger(__name__)
+
 
 def _load_pool_roster() -> dict[str, Any]:
     """Best-effort load of the persistent agency-* roster."""
@@ -23,8 +27,44 @@ def _load_pool_roster() -> dict[str, Any]:
     try:
         from .pool.roster import build_roster, save_roster
 
-        return save_roster(build_roster(include_plugin_setup=False))
-    except Exception:
+        roster = save_roster(build_roster(include_plugin_setup=False))
+        if os.getenv("HERMES_AGENCY_DEBUG_TEAM_CONTEXT"):
+            sample = next(
+                (
+                    agent
+                    for agent in roster.get("profiles", [])
+                    if agent.get("name")
+                    in {"agency-frontend-engineer", "agency-accessibility-reviewer"}
+                ),
+                {},
+            )
+            logger.warning(
+                "AGENCY_TEAM_CONTEXT_DEBUG _load_pool_roster team_context=%s roster_module=%s cwd=%s home=%s hermes_home=%s state_path=%s total=%s online=%s sample=%s model=%s provider=%s desc=%s",
+                __file__,
+                getattr(
+                    __import__(build_roster.__module__, fromlist=["__file__"]),
+                    "__file__",
+                    "unknown",
+                ),
+                os.getcwd(),
+                os.path.expanduser("~"),
+                os.getenv("HERMES_HOME"),
+                roster.get("state_path"),
+                roster.get("total"),
+                roster.get("online"),
+                sample.get("name"),
+                sample.get("model"),
+                sample.get("provider"),
+                str(sample.get("description") or "")[:80],
+            )
+        return roster
+    except Exception as exc:
+        logger.warning(
+            "AGENCY_TEAM_CONTEXT_DEBUG _load_pool_roster failed team_context=%s error=%s: %s",
+            __file__,
+            type(exc).__name__,
+            exc,
+        )
         return {"profiles": [], "total": 0, "online": 0}
 
 
