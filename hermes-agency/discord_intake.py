@@ -172,7 +172,20 @@ def poll_discord_tasks(
     prefix = discord_task_prefix()
     state = _load_state()
     processed_ids = set(str(item) for item in state.get("processed_message_ids") or [])
-    messages = list(reversed(fetch_recent_messages(limit=limit)))
+    try:
+        messages = list(reversed(fetch_recent_messages(limit=limit)))
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "dry_run": dry_run,
+            "prefix": prefix,
+            "queued_count": 0,
+            "skipped_count": 0,
+            "queued": [],
+            "state_path": str(state_path()),
+        }
+
     queued: list[dict[str, Any]] = []
     skipped = 0
     for message in messages:
