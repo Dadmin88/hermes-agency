@@ -2359,9 +2359,7 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
     monkeypatch.setattr(
         doctor,
         "_model_sets_check",
-        lambda: doctor._check(
-            "agency_model_sets", "Agency model sets", "pass", "model sets ok"
-        ),
+        lambda: doctor._check("agency_model_sets", "Agency model sets", "pass", "model sets ok"),
     )
     monkeypatch.setattr(
         doctor, "_editable_install_state", lambda: ("pass", "editable install detected")
