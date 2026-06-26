@@ -383,11 +383,20 @@ def visible_team_peer_count(config: AgencyConfig | None = None) -> int:
 
 
 def _display_description(peer: PeerCapability, registration: dict[str, Any] | None = None) -> str:
-    return (
-        peer.card_description
-        or peer.description
-        or (str(registration.get("description") or "").strip() if registration else "")
-    )
+    reg_desc = str(registration.get("description") or "").strip() if registration else ""
+    # Enrich short/generic registration descriptions with the rich one from the json
+    if reg_desc and (" agent" in reg_desc.lower() or len(reg_desc) < 30):
+        try:
+            from .pool.roster import _registry_agents
+
+            for a in _registry_agents():
+                if a.get("name") == (peer.name or ""):
+                    rich = a.get("description", "")
+                    if rich and len(rich) > len(reg_desc):
+                        return rich
+        except Exception:
+            pass
+    return peer.card_description or peer.description or reg_desc
 
 
 def _display_skills(
