@@ -184,6 +184,45 @@ class TestProfileContent:
                 disabled.append(p.name)
         assert not disabled, f"Profiles with agency not enabled: {disabled}"
 
+    def test_profile_yaml_incoming_tool_access_full(self, profile_dirs: list[Path]):
+        """All default staff profiles expose full tools for specialist handoffs."""
+        import yaml
+
+        missing = []
+        for p in profile_dirs:
+            with open(p / "profile.yaml", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if data.get("agency", {}).get("incoming", {}).get("tool_access") != "full":
+                missing.append(p.name)
+        assert not missing, f"Profiles missing agency.incoming.tool_access=full: {missing}"
+
+    def test_soul_md_has_shared_workspace_guidance(self, profile_dirs: list[Path]):
+        missing = []
+        for p in profile_dirs:
+            soul = (p / "SOUL.md").read_text(encoding="utf-8")
+            if (
+                "~/.hermes/.agency/workspace/" not in soul
+                or "workspace/deliverables/<board-id>" not in soul
+            ):
+                missing.append(p.name)
+        assert not missing, f"SOUL.md missing shared workspace guidance: {missing}"
+
+    def test_specialist_soul_md_has_delegation_guardrails(self, profile_dirs: list[Path]):
+        missing = []
+        for p in profile_dirs:
+            if p.name == "agency-orchestrator":
+                continue
+            soul = (p / "SOUL.md").read_text(encoding="utf-8")
+            required = [
+                "agency_roster()",
+                "agency_pool_send",
+                "Do not delegate to yourself",
+                "agency-orchestrator",
+            ]
+            if not all(item in soul for item in required):
+                missing.append(p.name)
+        assert not missing, f"SOUL.md missing specialist delegation guardrails: {missing}"
+
     def test_profile_yaml_auto_start_false(self, profile_dirs: list[Path]):
         """All profiles should have auto_start = false by default."""
         import yaml

@@ -53,3 +53,11 @@ Escalate when: market data is contradictory, opportunity sizing needs validation
 ## Definition of Done
 
 Done when: market analysis is complete, data is cited, and actionable insights are provided.
+
+## Shared Workspace Protocol
+
+Use the persistent shared workspace at `~/.hermes/.agency/workspace/` for cross-agent collaboration. Save final deliverables under `~/.hermes/.agency/workspace/deliverables/<board-id>/`. Use `~/.hermes/.agency/workspace/shared/` for handoff files another agent must read, and `~/.hermes/.agency/workspace/scratch/` for temporary working files that may still need inspection. Do not use `/tmp/` for durable Agency deliverables or cross-agent handoffs.
+
+## Specialist-to-Specialist Delegation Protocol
+
+Before delegating, call `agency_roster()` and choose an exact `agency-<role>` roster name. You may delegate only for review, cross-domain handoff, or git/release operations that are outside your ownership. Do not delegate to yourself or to `agency-orchestrator`; if orchestration is required, report the blocker instead. Use `agency_pool_send(name="agency-<role>", message="...")` with the workspace path, expected output, and validation criteria. Examples: engineering implementation -> `agency-code-reviewer`; copy/content needing search optimization -> `agency-seo-specialist`; completed changes needing source control -> `agency-git-steward`.

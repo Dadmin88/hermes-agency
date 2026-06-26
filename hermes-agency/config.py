@@ -26,6 +26,12 @@ Config schema and defaults::
         send_progress: false      # true = send intermediate A2A progress artifacts
         conversation_ttl: 3600    # seconds to preserve A2A conversation continuity
         conversation_max_turns: 20 # max previous turns to include
+        idle_timeout_seconds: 300 # seconds a pool runner stays alive after last task
+      workspace:
+        root: null                # shared workspace root (default: <root-hermes-home>/.agency/workspace)
+      proactive:
+        enabled: false            # enable trigger-driven routing
+        triggers: []              # file-watch, kanban-tag, blocker escalation definitions
       trusted_peers: []           # peer_id allowlist (future)
       incoming_queue_limit: 100   # max incoming task records to keep
       card_name: null             # optional display name for this node's AgentCard
@@ -153,6 +159,33 @@ class TeamConfig:
 
 
 @dataclass(frozen=True)
+class WorkspaceConfig:
+    """Resolved shared Agency workspace paths."""
+
+    root: Path
+
+    @property
+    def deliverables(self) -> Path:
+        return self.root / "deliverables"
+
+    @property
+    def scratch(self) -> Path:
+        return self.root / "scratch"
+
+    @property
+    def shared(self) -> Path:
+        return self.root / "shared"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "root": str(self.root),
+            "deliverables": str(self.deliverables),
+            "scratch": str(self.scratch),
+            "shared": str(self.shared),
+        }
+
+
+@dataclass(frozen=True)
 class OrchestratorConfig:
     """Resolved orchestrator-layer configuration."""
 
@@ -203,6 +236,7 @@ class IncomingConfig:
     send_progress: bool = False
     conversation_ttl: int = 3600
     conversation_max_turns: int = 20
+    idle_timeout_seconds: float = 300
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -225,6 +259,7 @@ class IncomingConfig:
             "send_progress": self.send_progress,
             "conversation_ttl": self.conversation_ttl,
             "conversation_max_turns": self.conversation_max_turns,
+            "idle_timeout_seconds": self.idle_timeout_seconds,
         }
 
 
@@ -263,8 +298,12 @@ class AgencyConfig:
     trust: TrustConfig = field(default_factory=TrustConfig)
     team: TeamConfig = field(default_factory=TeamConfig)
     kanban: KanbanConfig = field(default_factory=KanbanConfig)
+    workspace: WorkspaceConfig = field(
+        default_factory=lambda: WorkspaceConfig(_default_workspace_root())
+    )
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     routing: dict[str, str] = field(default_factory=dict)
+    proactive: dict[str, Any] = field(default_factory=dict)
     autonomy: dict[str, Any] = field(default_factory=dict)
     workflows: dict[str, Any] = field(default_factory=dict)
 
@@ -306,8 +345,10 @@ class AgencyConfig:
             "incoming_conversation_max_turns": self.incoming_conversation_max_turns,
             "team": self.team.as_dict(),
             "kanban": self.kanban.as_dict(),
+            "workspace": self.workspace.as_dict(),
             "orchestrator": self.orchestrator.as_dict(),
             "routing": dict(self.routing),
+            "proactive": dict(self.proactive),
             "autonomy": dict(self.autonomy),
             "workflows": dict(self.workflows),
         }
@@ -384,6 +425,14 @@ class AgencyConfig:
     def incoming_conversation_max_turns(self) -> int:
         return self.incoming.conversation_max_turns
 
+    @property
+    def incoming_idle_timeout_seconds(self) -> float:
+        return self.incoming.idle_timeout_seconds
+
+    @property
+    def workspace_root(self) -> Path:
+        return self.workspace.root
+
 
 def _cfg_get(config: dict[str, Any], *path: str, default: Any = None) -> Any:
     """Small wrapper so nested plugin keys stay readable."""
@@ -419,6 +468,24 @@ def _profile_root_home() -> Path | None:
     if home.parent.name != "profiles":
         return None
     return home.parent.parent
+
+
+def _default_workspace_root() -> Path:
+    root_home = _profile_root_home() or Path(get_hermes_home()).expanduser()
+    return root_home / ".agency" / "workspace"
+
+
+def ensure_workspace(config: AgencyConfig | None = None) -> WorkspaceConfig:
+    """Create and return the shared Agency workspace directories."""
+
+    workspace = (config or get_config()).workspace
+    for path in (workspace.root, workspace.deliverables, workspace.scratch, workspace.shared):
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            path.chmod(0o775)
+        except OSError:
+            logger.debug("Unable to chmod Agency workspace path %s", path, exc_info=True)
+    return workspace
 
 
 def _load_profile_root_config() -> dict[str, Any]:
@@ -641,6 +708,11 @@ def _team_config(config: dict[str, Any]) -> TeamConfig:
             floor=240,
         ),
     )
+
+
+def _workspace_config(config: dict[str, Any]) -> WorkspaceConfig:
+    raw_root = str(_cfg_get(config, "agency", "workspace", "root", default="") or "").strip()
+    return WorkspaceConfig(Path(raw_root).expanduser() if raw_root else _default_workspace_root())
 
 
 def _orchestrator_config(config: dict[str, Any]) -> OrchestratorConfig:
@@ -1130,6 +1202,14 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             default=20,
             floor=1,
         ),
+        idle_timeout_seconds=_float_cfg(
+            config,
+            "agency",
+            "incoming",
+            "idle_timeout_seconds",
+            default=300,
+            floor=0,
+        ),
     )
 
 
@@ -1256,8 +1336,10 @@ def get_config() -> AgencyConfig:
         trust=_trust_config(config),
         team=_team_config(config),
         kanban=_kanban_config(config),
+        workspace=_workspace_config(config),
         orchestrator=_orchestrator_config(config),
         routing=_routing_config(config),
+        proactive=_dict_config(config, "proactive"),
         autonomy=_dict_config(config, "autonomy"),
         workflows=_dict_config(config, "workflows"),
     )

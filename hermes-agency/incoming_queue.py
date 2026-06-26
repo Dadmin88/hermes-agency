@@ -390,6 +390,9 @@ class IncomingQueueMixin:
             self._incoming_queue.put_nowait((RecoveredIncomingTask(record, self._node), task_id))
             queued_ids.add(task_id)
 
+    def _mark_incoming_activity(self) -> None:
+        self.state.last_incoming_activity_at = time.time()
+
     def _refresh_incoming_state(self) -> None:
         if self._incoming_queue is not None:
             queue_size = self._incoming_queue.qsize()
@@ -503,6 +506,7 @@ class IncomingQueueMixin:
                 nested_metadata = context_packet.setdefault("metadata", {})
                 if isinstance(nested_metadata, dict):
                     nested_metadata.setdefault("agency_board", agency_board)
+        self._mark_incoming_activity()
         record = IncomingTaskRecord(
             task_id=task.task_id,
             sender_peer_id=sender_peer_id,
@@ -855,6 +859,7 @@ class IncomingQueueMixin:
                     pass
             finally:
                 self._incoming_queued_task_ids().discard(task_id)
+                self._mark_incoming_activity()
                 self._incoming_queue.task_done()
                 self._queue_waiting_recovered_tasks()
                 self._refresh_incoming_state()

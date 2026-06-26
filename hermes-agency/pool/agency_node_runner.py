@@ -226,6 +226,31 @@ def _sleep_while_running(seconds: float, should_run: Callable[[], bool]) -> None
         time.sleep(min(0.5, max(0.0, deadline - time.time())))
 
 
+def _runner_idle_timeout_seconds(manager: Any) -> float:
+    try:
+        cfg = manager.get_config()
+        return max(0.0, float(getattr(cfg, "incoming_idle_timeout_seconds", 300)))
+    except Exception:
+        return 300.0
+
+
+def _manager_idle_for_seconds(manager: Any) -> float:
+    state = getattr(manager, "state", None)
+    last_activity = getattr(state, "last_incoming_activity_at", None) or getattr(
+        state, "started_at", None
+    )
+    if not last_activity:
+        last_activity = time.time()
+    return max(0.0, time.time() - float(last_activity))
+
+
+def _manager_has_active_incoming_work(manager: Any) -> bool:
+    state = getattr(manager, "state", None)
+    return bool(
+        getattr(state, "incoming_queue_size", 0) or getattr(state, "incoming_processing_count", 0)
+    )
+
+
 def _manager_health(manager: Any) -> tuple[bool, str]:
     """Return whether the owned node looks healthy enough to keep serving tasks."""
 
@@ -332,6 +357,21 @@ def main() -> int:
             break
         healthy, reason = _manager_health(manager)
         if healthy:
+            idle_timeout = _runner_idle_timeout_seconds(manager)
+            if (
+                idle_timeout > 0
+                and not _manager_has_active_incoming_work(manager)
+                and _manager_idle_for_seconds(manager) >= idle_timeout
+            ):
+                _emit(
+                    "HERMES_AGENCY_IDLE_TIMEOUT",
+                    {
+                        "profile": profile,
+                        "idle_seconds": round(_manager_idle_for_seconds(manager), 3),
+                        "timeout_seconds": idle_timeout,
+                    },
+                )
+                break
             continue
         _emit("HERMES_AGENCY_NODE_UNHEALTHY", {"reason": reason})
         if not _restart_node(

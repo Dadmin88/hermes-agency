@@ -8,6 +8,8 @@ agency:
   auto_start: false
   allow_remote_tasks: false
   skills_from_profile: true
+  incoming:
+    tool_access: full
 
 ownership:
   owns:

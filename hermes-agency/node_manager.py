@@ -196,6 +196,7 @@ class NodeState:
     incoming_processing_count: int = 0
     incoming_completed_count: int = 0
     incoming_failed_count: int = 0
+    last_incoming_activity_at: float | None = None
     team_context: str = ""
     team_peer_count: int = 0
     team_last_refresh: float | None = None
@@ -233,6 +234,7 @@ class NodeState:
             "incoming_processing_count": self.incoming_processing_count,
             "incoming_completed_count": self.incoming_completed_count,
             "incoming_failed_count": self.incoming_failed_count,
+            "last_incoming_activity_at": self.last_incoming_activity_at,
             "team_context": self.team_context,
             "team_peer_count": self.team_peer_count,
             "team_last_refresh": self.team_last_refresh,

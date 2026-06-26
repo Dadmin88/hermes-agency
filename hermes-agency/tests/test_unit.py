@@ -109,6 +109,9 @@ def plugin_modules(tmp_path, monkeypatch):
         "context_packet",
         "conversation",
         "task_processor",
+        "announcements",
+        "kanban_bridge",
+        "proactive",
         "node_manager",
         "tools",
         "doctor",
@@ -718,6 +721,7 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.incoming.delegation_timeout == 120
     assert cfg.incoming.max_queue_size == 100
     assert cfg.incoming.handler_timeout_seconds == 300
+    assert cfg.incoming.idle_timeout_seconds == 300
     assert cfg.incoming.tool_access == "full"
     assert cfg.incoming.max_iterations == 25
     assert cfg.incoming.subprocess_profile is None
@@ -743,10 +747,15 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.team.learning is False
     assert cfg.team.tenant == "default"
     assert cfg.team.context_refresh_minutes == 5
+    assert cfg.workspace.root == plugin_modules.hermes_home / ".agency" / "workspace"
+    assert cfg.workspace.deliverables == cfg.workspace.root / "deliverables"
+    assert cfg.workspace.scratch == cfg.workspace.root / "scratch"
+    assert cfg.workspace.shared == cfg.workspace.root / "shared"
     assert cfg.orchestrator.enabled is False
     assert cfg.orchestrator.agent is None
     assert cfg.orchestrator.auto_decompose is True
     assert cfg.routing == {}
+    assert cfg.proactive == {}
     assert cfg.autonomy == {}
     assert cfg.workflows == {}
     assert cfg.outbound.url_validation == "warn"
@@ -765,6 +774,19 @@ def test_get_config_can_disable_kanban_workspace_preservation(plugin_modules, mo
 
     assert cfg.kanban.preserve_workspaces is False
     assert cfg.as_dict()["kanban"]["preserve_workspaces"] is False
+
+
+def test_ensure_workspace_creates_shared_directories(plugin_modules, tmp_path):
+    cfg_mod = plugin_modules.config
+    workspace_root = tmp_path / "agency-workspace"
+    cfg = cfg_mod.AgencyConfig(workspace=cfg_mod.WorkspaceConfig(workspace_root))
+
+    workspace = cfg_mod.ensure_workspace(cfg)
+
+    assert workspace.root == workspace_root
+    assert workspace.deliverables.is_dir()
+    assert workspace.scratch.is_dir()
+    assert workspace.shared.is_dir()
 
 
 def test_kanban_workspace_patch_preserves_scratch_workspace_by_default(
@@ -924,6 +946,7 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                     "delegation_timeout": 9,
                     "max_queue_size": 2,
                     "handler_timeout_seconds": 11,
+                    "idle_timeout_seconds": 12,
                     "tool_access": "none",
                     "max_iterations": 3,
                     "subprocess_profile": "gpt-subprocess",
@@ -954,6 +977,11 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                     "enabled": True,
                     "agent": "katana",
                     "auto_decompose": False,
+                },
+                "workspace": {"root": str(tmp_path / "workspace")},
+                "proactive": {
+                    "enabled": True,
+                    "triggers": [{"type": "file-watch"}],
                 },
                 "routing": {"deploy": "hermes", "code": "katana"},
                 "outbound": {
@@ -986,6 +1014,7 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.incoming.delegation_timeout == 9
     assert cfg.incoming.max_queue_size == 2
     assert cfg.incoming.handler_timeout_seconds == 11
+    assert cfg.incoming.idle_timeout_seconds == 12
     assert cfg.incoming.tool_access == "none"
     assert cfg.incoming.max_iterations == 3
     assert cfg.incoming.subprocess_profile == "gpt-subprocess"
@@ -1008,6 +1037,8 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.orchestrator.enabled is True
     assert cfg.orchestrator.agent == "katana"
     assert cfg.orchestrator.auto_decompose is False
+    assert cfg.workspace.root == tmp_path / "workspace"
+    assert cfg.proactive == {"enabled": True, "triggers": [{"type": "file-watch"}]}
     assert cfg.routing == {"deploy": "hermes", "code": "katana"}
     assert cfg.outbound.url_validation == "strict"
     assert cfg.outbound.url_allowlist == ("https://agents.example.com", "https://*.trusted.test")
@@ -2943,6 +2974,7 @@ def test_node_state_as_dict_expected_keys(plugin_modules):
         "incoming_processing_count": 6,
         "incoming_completed_count": 7,
         "incoming_failed_count": 8,
+        "last_incoming_activity_at": None,
         "team_context": "team block",
         "team_peer_count": 2,
         "team_last_refresh": 4.0,
@@ -4525,3 +4557,70 @@ async def test_normal_task_from_allowed_peer_is_queued(plugin_modules, monkeypat
     await manager._handle_incoming_task(task)
     assert task.failed is None
     assert task.completed is None or task.failed is None  # allowed path reached
+
+
+def test_runner_idle_timeout_helpers(monkeypatch):
+    runner = _load_runner_module(monkeypatch)
+
+    cfg = types.SimpleNamespace(incoming_idle_timeout_seconds=10)
+    state = types.SimpleNamespace(
+        last_incoming_activity_at=100.0,
+        started_at=50.0,
+        incoming_queue_size=0,
+        incoming_processing_count=0,
+    )
+    manager = types.SimpleNamespace(get_config=lambda: cfg, state=state)
+    monkeypatch.setattr(runner.time, "time", lambda: 115.0)
+
+    assert runner._runner_idle_timeout_seconds(manager) == 10
+    assert runner._manager_idle_for_seconds(manager) == 15
+    assert runner._manager_has_active_incoming_work(manager) is False
+
+    state.incoming_processing_count = 1
+    assert runner._manager_has_active_incoming_work(manager) is True
+
+
+def test_proactive_routes_new_python_file_to_code_reviewer(plugin_modules, monkeypatch, tmp_path):
+    proactive = plugin_modules.proactive
+    cfg_mod = plugin_modules.config
+    workspace_root = tmp_path / "workspace"
+    cfg = cfg_mod.AgencyConfig(
+        proactive={"enabled": True},
+        workspace=cfg_mod.WorkspaceConfig(workspace_root),
+    )
+    created = []
+
+    monkeypatch.setattr(proactive, "get_config", lambda: cfg)
+    monkeypatch.setattr(cfg_mod, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        proactive,
+        "kanban_create_task",
+        lambda **kwargs: created.append(kwargs) or {"ok": True, "task_id": "k1"},
+    )
+
+    result = proactive.route_file_created(workspace_root / "deliverables" / "board-1" / "app.py")
+
+    assert result["ok"] is True
+    assert created[0]["assigned_to"] == "agency-code-reviewer"
+    assert created[0]["metadata"]["trigger"] == "file-watch"
+    assert created[0]["metadata"]["board_id"] == "board-1"
+
+
+def test_proactive_routes_review_needed_markdown_to_editor(plugin_modules, monkeypatch):
+    proactive = plugin_modules.proactive
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(proactive={"enabled": True})
+    created = []
+
+    monkeypatch.setattr(proactive, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        proactive,
+        "kanban_create_task",
+        lambda **kwargs: created.append(kwargs) or {"ok": True, "task_id": "k2"},
+    )
+
+    result = proactive.route_review_needed_task("task-1", "Docs", path="README.md")
+
+    assert result["ok"] is True
+    assert created[0]["assigned_to"] == "agency-editor-in-chief"
+    assert created[0]["metadata"]["trigger"] == "kanban-tag"
