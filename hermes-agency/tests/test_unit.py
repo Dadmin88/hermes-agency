@@ -341,6 +341,54 @@ def test_read_profile_skills_extracts_and_deduplicates_skills(plugin_modules, tm
     ]
 
 
+def test_read_registry_skills_exposes_agency_roster_routing_skills(plugin_modules, tmp_path):
+    profile = tmp_path / "agency-orchestrator"
+    profile.mkdir()
+
+    registry_skills = plugin_modules.card_builder.read_registry_skills(profile)
+
+    skill_ids = {item["id"] for item in registry_skills}
+    assert "orchestration" in skill_ids
+    assert "task-decomposition" in skill_ids
+
+
+def test_build_card_merges_profile_and_registry_skills_for_agency_profiles(
+    plugin_modules, tmp_path, monkeypatch
+):
+    @dataclass
+    class Skill:
+        id: str
+        description: str
+
+    @dataclass
+    class AgentCard:
+        name: str
+        description: str
+        version: str
+        skills: list[Skill]
+
+    fake_sdk = types.ModuleType("agentanycast")
+    fake_sdk.Skill = Skill
+    fake_sdk.AgentCard = AgentCard
+    monkeypatch.setitem(sys.modules, "agentanycast", fake_sdk)
+
+    profile = tmp_path / "agency-orchestrator"
+    (profile / "skills" / "custom").mkdir(parents=True)
+    (profile / "SOUL.md").write_text("# Heading\n\nA descriptive profile.\n", encoding="utf-8")
+    (profile / "config.yaml").write_text("agency:\n  skills_from_profile: true\n", encoding="utf-8")
+    (profile / "skills" / "custom" / "SKILL.md").write_text(
+        "---\nname: Custom Skill\ndescription: Profile skill.\n---\n",
+        encoding="utf-8",
+    )
+
+    card = plugin_modules.card_builder.build_card(profile)
+    skill_ids = {skill.id for skill in card.skills}
+
+    assert "custom-skill" in skill_ids
+    assert "orchestration" in skill_ids
+    assert "agent-routing" in skill_ids
+
+
 def test_build_card_uses_mocked_agency_and_profile_files(plugin_modules, tmp_path, monkeypatch):
     @dataclass
     class Skill:
@@ -2288,6 +2336,7 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
     trust_store.write_text(
         '{"version":1,"peers":{"peer-1":{"trust_level":"full"}}}', encoding="utf-8"
     )
+    trust_store.chmod(0o600)
     cfg = cfg_mod.AgencyConfig(
         enabled=True,
         auto_start=True,
@@ -2306,6 +2355,14 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
     monkeypatch.setattr(doctor.manager, "compact_info", lambda: {"ok": True, "started": True})
     monkeypatch.setattr(doctor, "_registry_addresses", lambda: ["registry.example.invalid:50052"])
     monkeypatch.setattr(doctor, "_kanban_available", lambda: True)
+    monkeypatch.setattr(doctor, "_mcp_http_enabled_details", lambda: None)
+    monkeypatch.setattr(
+        doctor,
+        "_model_sets_check",
+        lambda: doctor._check(
+            "agency_model_sets", "Agency model sets", "pass", "model sets ok"
+        ),
+    )
     monkeypatch.setattr(
         doctor, "_editable_install_state", lambda: ("pass", "editable install detected")
     )

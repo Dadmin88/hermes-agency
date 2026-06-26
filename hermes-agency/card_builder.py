@@ -14,6 +14,7 @@ attaches a dynamic ``metadata`` attribute for local/plugin consumers. Use
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from hermes_constants import get_hermes_home
 
 DEFAULT_DESCRIPTION = "Hermes profile exposed over Hermes Agency."
 CARD_VERSION = "1.0.0"
+REGISTRY_DEFINITION_PATH = Path(__file__).with_name("pool") / "registry_definition.json"
 
 _PUBLIC_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _SENSITIVE_TEXT_PATTERNS = [
@@ -270,6 +272,52 @@ def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str
     return sorted(skills, key=lambda item: item["id"])
 
 
+def read_registry_skills(profile_home: str | Path | None = None) -> list[dict[str, str]]:
+    """Read static agency-roster skills for an ``agency-*`` profile.
+
+    Agency profiles use small curated department skill sets on disk, but their
+    routing identities live in ``pool/registry_definition.json``. AgentCards
+    must expose those roster skills too, otherwise SDK discovery cannot route
+    natural agency skills such as ``orchestration`` or ``react`` even though the
+    team context/roster correctly lists them.
+    """
+
+    profile_dir = resolve_profile_home(profile_home)
+    profile_name = profile_dir.name
+    if not profile_name.startswith("agency-"):
+        return []
+    try:
+        data = json.loads(REGISTRY_DEFINITION_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    agents = data.get("agents") if isinstance(data, dict) else []
+    if not isinstance(agents, list):
+        return []
+    for item in agents:
+        if not isinstance(item, dict) or item.get("name") != profile_name:
+            continue
+        skills: list[dict[str, str]] = []
+        for raw_skill in item.get("skills") or []:
+            skill_id = _normalise_skill_id(str(raw_skill))
+            if skill_id:
+                skills.append({"id": skill_id, "description": f"Can handle {skill_id} tasks."})
+        return skills
+    return []
+
+
+def _merge_skill_dicts(*groups: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Merge skill descriptor lists by id while preserving first description."""
+
+    merged: dict[str, dict[str, str]] = {}
+    for group in groups:
+        for item in group:
+            skill_id = str(item.get("id") or "").strip()
+            description = str(item.get("description") or "").strip()
+            if skill_id and skill_id not in merged:
+                merged[skill_id] = {"id": skill_id, "description": description}
+    return sorted(merged.values(), key=lambda item: item["id"])
+
+
 def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, Any]:
     """Read non-secret Hermes model/toolset metadata from profile config."""
 
@@ -329,7 +377,8 @@ def build_card(profile_home: str | Path | None = None) -> Any:
     metadata = read_profile_metadata(profile_dir)
     card_name = metadata.get("hermes", {}).get("card_name") or profile_dir.name
     include_skills = metadata.get("hermes", {}).get("skills_from_profile", True)
-    skill_dicts = read_profile_skills(profile_dir) if include_skills else []
+    profile_skill_dicts = read_profile_skills(profile_dir) if include_skills else []
+    skill_dicts = _merge_skill_dicts(profile_skill_dicts, read_registry_skills(profile_dir))
     # Always expose the generic Hermes chat capability so agents can discover
     # Hermes profiles even when their installed skill sets do not overlap.
     if not any(item.get("id") == "hermes-chat" for item in skill_dicts):
