@@ -36,6 +36,11 @@ DEPARTMENT_AGENTS: Final[dict[str, tuple[str, ...]]] = {
         "asset-artist",
         "environment-artist",
         "accessibility-reviewer",
+        "audio-designer",
+        "creative-director",
+        "game-designer",
+        "level-designer",
+        "user-researcher",
     ),
     "Content": (
         "copywriter",
