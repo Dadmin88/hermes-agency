@@ -67,6 +67,19 @@ Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.h
 
 See `docs/agency-model-sets.md` for the implementation details and rollout procedure.
 
+## GPT Bridge
+
+The GPT Bridge is a pull-based escalation inbox for routing blocked or high-leverage agency work to a live ChatGPT session.
+
+```bash
+hermes agency gpt-bridge status
+hermes agency gpt-bridge inbox
+hermes agency gpt-bridge claim <task-id>
+hermes agency gpt-bridge complete <task-id> "Result text"
+```
+
+Agents can queue work with `orch_escalate_to_gpt`. See `docs/gpt-bridge.md` for the full flow.
+
 ## Configuration
 
 Add to the active profile's `config.yaml`:

@@ -569,6 +569,123 @@ def _models_restore_text(backup_id: str, *, force: bool = False, json_output: bo
     return "\n".join(lines)
 
 
+def _gpt_bridge_format_task(task: dict[str, Any]) -> str:
+    task_id = str(task.get("task_id") or "-")
+    status = str(task.get("status") or "unknown")
+    urgency = str(task.get("urgency") or "normal")
+    source = str(task.get("source_profile") or "-")
+    description = str(task.get("task_description") or "").strip()
+    if len(description) > 120:
+        description = description[:119].rstrip() + "…"
+    return f"  {task_id:<28} {status:<10} {urgency:<8} {source:<28} {description}"
+
+
+def _gpt_bridge_inbox_text(
+    *, status: str = "", limit: int = 25, include_terminal: bool = True, json_output: bool = False
+) -> str:
+    from .gpt_bridge import list_tasks
+
+    payload = list_tasks(status=status or None, include_terminal=include_terminal, limit=limit)
+    if json_output:
+        return _json(payload)
+    tasks = payload.get("tasks") or []
+    lines = [f"GPT bridge inbox ({len(tasks)} task(s))", f"  dir: {payload.get('dir')}"]
+    if not tasks:
+        lines.append("  No matching tasks.")
+        return "\n".join(lines)
+    lines.append(
+        "  task_id                      status     urgency  source                       description"
+    )
+    for task in tasks:
+        lines.append(_gpt_bridge_format_task(task))
+    return "\n".join(lines)
+
+
+def _gpt_bridge_show_text(task_id: str, *, json_output: bool = False) -> str:
+    from .gpt_bridge import get_task
+
+    payload = get_task(task_id)
+    if json_output:
+        return _json(payload)
+    if not payload.get("ok"):
+        return f"Error: {payload.get('error')}"
+    task = payload.get("task") or {}
+    lines = [
+        f"Task: {task.get('task_id')}",
+        f"Status: {task.get('status')}",
+        f"Urgency: {task.get('urgency')}",
+        f"Source: {task.get('source_profile')}",
+        f"Created: {task.get('created_at')}",
+        "",
+        "Description:",
+        str(task.get("task_description") or ""),
+    ]
+    if task.get("reason"):
+        lines.extend(["", "Reason:", str(task.get("reason"))])
+    if task.get("expected_output"):
+        lines.extend(["", "Expected output:", str(task.get("expected_output"))])
+    if task.get("result"):
+        lines.extend(["", "Result:", str(task.get("result"))])
+    if task.get("error"):
+        lines.extend(["", "Error:", str(task.get("error"))])
+    return "\n".join(lines)
+
+
+def _gpt_bridge_claim_text(
+    task_id: str, *, claimed_by: str = "ChatGPT", json_output: bool = False
+) -> str:
+    from .gpt_bridge import claim_task
+
+    payload = claim_task(task_id, claimed_by=claimed_by)
+    if json_output:
+        return _json(payload)
+    if not payload.get("ok"):
+        return f"Error: {payload.get('error')}"
+    task = payload.get("task") or {}
+    return f"Claimed {task.get('task_id')} as {task.get('claimed_by')}."
+
+
+def _gpt_bridge_complete_text(
+    task_id: str, result: str, *, completed_by: str = "ChatGPT", json_output: bool = False
+) -> str:
+    from .gpt_bridge import complete_task
+
+    payload = complete_task(task_id, result, completed_by=completed_by)
+    if json_output:
+        return _json(payload)
+    if not payload.get("ok"):
+        return f"Error: {payload.get('error')}"
+    task = payload.get("task") or {}
+    return f"Completed {task.get('task_id')}."
+
+
+def _gpt_bridge_fail_text(
+    task_id: str, error: str, *, failed_by: str = "ChatGPT", json_output: bool = False
+) -> str:
+    from .gpt_bridge import fail_task
+
+    payload = fail_task(task_id, error, failed_by=failed_by)
+    if json_output:
+        return _json(payload)
+    if not payload.get("ok"):
+        return f"Error: {payload.get('error')}"
+    task = payload.get("task") or {}
+    return f"Failed {task.get('task_id')}: {task.get('error')}"
+
+
+def _gpt_bridge_status_text(*, json_output: bool = False) -> str:
+    from .gpt_bridge import summary
+
+    payload = summary()
+    if json_output:
+        return _json(payload)
+    counts = payload.get("counts") or {}
+    parts = ", ".join(f"{key}={value}" for key, value in sorted(counts.items())) or "none"
+    return (
+        f"GPT bridge status: total={payload.get('total', 0)}; {parts}\n  dir: {payload.get('dir')}"
+    )
+
+
 def handle_agency_slash(raw_args: str = "") -> str:
     """Handle the in-session ``/agency`` slash command."""
 
@@ -652,6 +769,48 @@ def handle_agency_slash(raw_args: str = "") -> str:
                 backup_id, force="--force" in parts, json_output=json_output
             )
         return "Usage: /agency models [list|show|validate|resolve|plan|use|apply|restore]"
+    if verb == "gpt-bridge":
+        sub = parts[1].lower() if len(parts) > 1 else "inbox"
+        json_output = "--json" in parts
+        if sub in {"inbox", "list"}:
+            status = ""
+            limit = 25
+            if "--status" in parts:
+                idx = parts.index("--status")
+                if len(parts) > idx + 1:
+                    status = parts[idx + 1]
+            if "--limit" in parts:
+                idx = parts.index("--limit")
+                if len(parts) > idx + 1:
+                    try:
+                        limit = int(parts[idx + 1])
+                    except ValueError:
+                        return "Usage: /agency gpt-bridge inbox [--status status] [--limit N]"
+            return _gpt_bridge_inbox_text(
+                status=status,
+                limit=limit,
+                include_terminal="--active" not in parts,
+                json_output=json_output,
+            )
+        if sub == "show":
+            return _gpt_bridge_show_text(
+                parts[2] if len(parts) > 2 else "", json_output=json_output
+            )
+        if sub == "claim":
+            return _gpt_bridge_claim_text(
+                parts[2] if len(parts) > 2 else "", json_output=json_output
+            )
+        if sub == "complete":
+            task_id = parts[2] if len(parts) > 2 else ""
+            result = " ".join(p for p in parts[3:] if p != "--json")
+            return _gpt_bridge_complete_text(task_id, result, json_output=json_output)
+        if sub == "fail":
+            task_id = parts[2] if len(parts) > 2 else ""
+            error = " ".join(p for p in parts[3:] if p != "--json")
+            return _gpt_bridge_fail_text(task_id, error, json_output=json_output)
+        if sub == "status":
+            return _gpt_bridge_status_text(json_output=json_output)
+        return "Usage: /agency gpt-bridge [inbox|show|claim|complete|fail|status]"
     if verb == "sign-off-board":
         signed_off_by = ""
         if "--by" in parts:
@@ -851,6 +1010,50 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     models_restore.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     models_restore.set_defaults(func=cmd_agency, agency_command="models")
 
+    gpt_bridge_parser = subparsers.add_parser(
+        "gpt-bridge", help="Manage the pull-based ChatGPT bridge inbox"
+    )
+    gpt_bridge_sub = gpt_bridge_parser.add_subparsers(dest="gpt_bridge_command")
+
+    gpt_inbox = gpt_bridge_sub.add_parser("inbox", help="List GPT bridge inbox tasks")
+    gpt_inbox.add_argument("--status", default="", help="Filter by task status")
+    gpt_inbox.add_argument("--limit", type=int, default=25, help="Maximum tasks to show")
+    gpt_inbox.add_argument(
+        "--active", action="store_true", help="Hide completed/failed/cancelled tasks"
+    )
+    gpt_inbox.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    gpt_inbox.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
+
+    gpt_show = gpt_bridge_sub.add_parser("show", help="Show one GPT bridge task")
+    gpt_show.add_argument("task_id", help="GPT bridge task ID")
+    gpt_show.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    gpt_show.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
+
+    gpt_claim = gpt_bridge_sub.add_parser("claim", help="Claim one GPT bridge task")
+    gpt_claim.add_argument("task_id", help="GPT bridge task ID")
+    gpt_claim.add_argument("--by", default="ChatGPT", help="Claimant label")
+    gpt_claim.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    gpt_claim.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
+
+    gpt_complete = gpt_bridge_sub.add_parser("complete", help="Complete one GPT bridge task")
+    gpt_complete.add_argument("task_id", help="GPT bridge task ID")
+    gpt_complete.add_argument("result", nargs="*", help="Completion result text")
+    gpt_complete.add_argument("--result-file", default="", help="Read completion result from file")
+    gpt_complete.add_argument("--by", default="ChatGPT", help="Completer label")
+    gpt_complete.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    gpt_complete.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
+
+    gpt_fail = gpt_bridge_sub.add_parser("fail", help="Mark one GPT bridge task failed")
+    gpt_fail.add_argument("task_id", help="GPT bridge task ID")
+    gpt_fail.add_argument("error", nargs="*", help="Failure reason")
+    gpt_fail.add_argument("--by", default="ChatGPT", help="Failure reporter label")
+    gpt_fail.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    gpt_fail.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
+
+    gpt_status = gpt_bridge_sub.add_parser("status", help="Summarize GPT bridge inbox status")
+    gpt_status.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    gpt_status.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
+
     roster_parser = subparsers.add_parser("roster", help="Show agency pool roster")
     roster_parser.add_argument("query", nargs="?", default="", help="Filter by name/skill")
     roster_parser.set_defaults(func=cmd_agency, agency_command="roster")
@@ -963,6 +1166,60 @@ def cmd_agency(args: Namespace) -> None:
             )
         else:
             raise SystemExit(f"Unknown models command: {models_cmd}")
+    elif verb == "gpt-bridge":
+        bridge_cmd = getattr(args, "gpt_bridge_command", "inbox") or "inbox"
+        if bridge_cmd == "inbox":
+            print(
+                _gpt_bridge_inbox_text(
+                    status=getattr(args, "status", ""),
+                    limit=getattr(args, "limit", 25),
+                    include_terminal=not getattr(args, "active", False),
+                    json_output=getattr(args, "json", False),
+                )
+            )
+        elif bridge_cmd == "show":
+            print(
+                _gpt_bridge_show_text(
+                    getattr(args, "task_id", ""), json_output=getattr(args, "json", False)
+                )
+            )
+        elif bridge_cmd == "claim":
+            print(
+                _gpt_bridge_claim_text(
+                    getattr(args, "task_id", ""),
+                    claimed_by=getattr(args, "by", "ChatGPT"),
+                    json_output=getattr(args, "json", False),
+                )
+            )
+        elif bridge_cmd == "complete":
+            result_text = " ".join(getattr(args, "result", []) or [])
+            if getattr(args, "result_file", ""):
+                from pathlib import Path
+
+                result_text = (
+                    Path(getattr(args, "result_file")).expanduser().read_text(encoding="utf-8")
+                )
+            print(
+                _gpt_bridge_complete_text(
+                    getattr(args, "task_id", ""),
+                    result_text,
+                    completed_by=getattr(args, "by", "ChatGPT"),
+                    json_output=getattr(args, "json", False),
+                )
+            )
+        elif bridge_cmd == "fail":
+            print(
+                _gpt_bridge_fail_text(
+                    getattr(args, "task_id", ""),
+                    " ".join(getattr(args, "error", []) or []),
+                    failed_by=getattr(args, "by", "ChatGPT"),
+                    json_output=getattr(args, "json", False),
+                )
+            )
+        elif bridge_cmd == "status":
+            print(_gpt_bridge_status_text(json_output=getattr(args, "json", False)))
+        else:
+            raise SystemExit(f"Unknown gpt-bridge command: {bridge_cmd}")
     elif verb == "staff":
         staff_cmd = getattr(args, "staff_command", "list") or "list"
         if staff_cmd == "list":

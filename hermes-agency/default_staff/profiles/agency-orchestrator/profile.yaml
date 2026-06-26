@@ -42,6 +42,7 @@ recommended_tools:
     - "orch_status"
     - "orch_list_tasks"
     - "orch_escalate"
+    - "orch_escalate_to_gpt"
     - "a2a_send"
     - "a2a_discover"
     - "a2a_list_peers"

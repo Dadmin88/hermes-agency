@@ -1,0 +1,45 @@
+name: "agency-gpt-bridge"
+display_name: "GPT Bridge"
+category: "support"
+summary: "Pull-based bridge profile that queues blocked or high-leverage work for a live ChatGPT session to claim and complete."
+model_family: senior_review
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+
+ownership:
+  owns:
+    - "GPT bridge inbox"
+    - "ChatGPT escalation packets"
+    - "pull-based senior assistance handoff"
+  does_not_own:
+    - "unattended API execution"
+    - "routine implementation"
+    - "Discord bot administration"
+
+routing:
+  delegates_to:
+    - "agency-orchestrator"
+    - "agency-security-reviewer"
+    - "agency-software-architect"
+  receives_from:
+    - "agency-orchestrator"
+    - "agency-chief-of-staff"
+    - "agency-project-manager"
+    - "agency-traffic-manager"
+
+recommended_tools:
+  - "orch_escalate_to_gpt"
+  - "orch_status"
+  - "orch_list_tasks"
+
+tags:
+  - "gpt-bridge"
+  - "chatgpt"
+  - "escalation"
+  - "support"

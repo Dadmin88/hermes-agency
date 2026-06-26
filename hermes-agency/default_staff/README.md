@@ -1,6 +1,6 @@
 # Default Staff Profiles
 
-Hermes Agency ships with a built-in roster of **83 AI agency staff profiles** covering leadership, product, engineering, design, content, marketing, QA, and support roles.
+Hermes Agency ships with a built-in roster of **84 AI agency staff profiles** covering leadership, product, engineering, design, content, marketing, QA, and support roles.
 
 ## What Are Default Staff Profiles?
 
@@ -29,7 +29,7 @@ hermes-agency/default_staff/
       SOUL.md
       ROUTING.md
       profile.yaml
-    ... (83 profiles total)
+    ... (84 profiles total)
 ```
 
 ## Profile Categories
@@ -43,7 +43,7 @@ hermes-agency/default_staff/
 | Content | 9 | Editor-in-Chief, Copywriter, Technical Writer, Lore Writer, Dialogue Writer, Scriptwriter, and more |
 | Marketing | 10 | Strategist, Growth, Launch, Social Media, Community, Partnerships, SEO, Email, Analytics, PR |
 | QA | 10 | QA Lead/Tester, Code/Design/Security/Accessibility/Compliance Reviewers, Red Team, Release Manager, Git Steward |
-| Support | 8 | Support Specialist, Customer Success, Onboarding, Training, Knowledge Manager, Finance, Procurement, Legal |
+| Support | 9 | Support Specialist, Customer Success, Onboarding, Training, Knowledge Manager, Finance, Procurement, Legal, GPT Bridge |
 
 ## How Hermes Agency Discovers Them
 
