@@ -132,6 +132,13 @@ def _peer_label(peer: Any) -> str:
     return str(peer)
 
 
+def _status_extended_text(*, json_output: bool = False) -> str:
+    from .extended_status import extended_status, render_extended_status
+
+    payload = extended_status()
+    return _json(payload) if json_output else render_extended_status(payload)
+
+
 def _status_text() -> str:
     info = manager.info()
     try:
@@ -686,6 +693,15 @@ def _gpt_bridge_status_text(*, json_output: bool = False) -> str:
     )
 
 
+def _discord_poll_text(
+    *, limit: int = 25, dry_run: bool = False, ack: bool = True, json_output: bool = False
+) -> str:
+    from .discord_intake import poll_discord_tasks, render_poll_result
+
+    payload = poll_discord_tasks(limit=limit, dry_run=dry_run, ack=ack)
+    return _json(payload) if json_output else render_poll_result(payload)
+
+
 def handle_agency_slash(raw_args: str = "") -> str:
     """Handle the in-session ``/agency`` slash command."""
 
@@ -695,7 +711,11 @@ def handle_agency_slash(raw_args: str = "") -> str:
 
     verb = parts[0].lower()
     if verb == "status":
-        return _status_text()
+        return (
+            _status_extended_text(json_output="--json" in parts)
+            if "--extended" in parts
+            else _status_text()
+        )
     if verb == "start":
         return _start_text()
     if verb == "stop":
@@ -769,6 +789,25 @@ def handle_agency_slash(raw_args: str = "") -> str:
                 backup_id, force="--force" in parts, json_output=json_output
             )
         return "Usage: /agency models [list|show|validate|resolve|plan|use|apply|restore]"
+    if verb == "discord":
+        sub = parts[1].lower() if len(parts) > 1 else "poll"
+        json_output = "--json" in parts
+        if sub in {"poll", "intake"}:
+            limit = 25
+            if "--limit" in parts:
+                idx = parts.index("--limit")
+                if len(parts) > idx + 1:
+                    try:
+                        limit = int(parts[idx + 1])
+                    except ValueError:
+                        return "Usage: /agency discord poll [--limit N] [--dry-run] [--no-ack] [--json]"
+            return _discord_poll_text(
+                limit=limit,
+                dry_run="--dry-run" in parts,
+                ack="--no-ack" not in parts,
+                json_output=json_output,
+            )
+        return "Usage: /agency discord poll [--limit N] [--dry-run] [--no-ack] [--json]"
     if verb == "gpt-bridge":
         sub = parts[1].lower() if len(parts) > 1 else "inbox"
         json_output = "--json" in parts
@@ -856,6 +895,14 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     subparsers = parser.add_subparsers(dest="agency_command")
 
     status_parser = subparsers.add_parser("status", help="Show Hermes Agency node status")
+    status_parser.add_argument(
+        "--extended",
+        action="store_true",
+        help="Show department, throughput, roster, and bridge health",
+    )
+    status_parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON with --extended"
+    )
     status_parser.set_defaults(func=cmd_agency)
 
     start_parser = subparsers.add_parser("start", help="Start the Hermes Agency node")
@@ -1010,6 +1057,23 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     models_restore.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     models_restore.set_defaults(func=cmd_agency, agency_command="models")
 
+    discord_parser = subparsers.add_parser(
+        "discord", help="Poll Discord channel messages into agency tasks"
+    )
+    discord_sub = discord_parser.add_subparsers(dest="discord_command")
+    discord_poll = discord_sub.add_parser("poll", help="Poll Discord for !agency task messages")
+    discord_poll.add_argument(
+        "--limit", type=int, default=25, help="Maximum recent Discord messages to inspect"
+    )
+    discord_poll.add_argument(
+        "--dry-run", action="store_true", help="Preview matching messages without queueing tasks"
+    )
+    discord_poll.add_argument(
+        "--no-ack", action="store_true", help="Do not post queued acknowledgements back to Discord"
+    )
+    discord_poll.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    discord_poll.set_defaults(func=cmd_agency, agency_command="discord")
+
     gpt_bridge_parser = subparsers.add_parser(
         "gpt-bridge", help="Manage the pull-based ChatGPT bridge inbox"
     )
@@ -1072,7 +1136,11 @@ def cmd_agency(args: Namespace) -> None:
 
     verb = getattr(args, "agency_command", "status") or "status"
     if verb == "status":
-        print(_status_text())
+        print(
+            _status_extended_text(json_output=getattr(args, "json", False))
+            if getattr(args, "extended", False)
+            else _status_text()
+        )
     elif verb == "start":
         print(_start_text())
     elif verb == "stop":
@@ -1166,6 +1234,19 @@ def cmd_agency(args: Namespace) -> None:
             )
         else:
             raise SystemExit(f"Unknown models command: {models_cmd}")
+    elif verb == "discord":
+        discord_cmd = getattr(args, "discord_command", "poll") or "poll"
+        if discord_cmd == "poll":
+            print(
+                _discord_poll_text(
+                    limit=getattr(args, "limit", 25),
+                    dry_run=getattr(args, "dry_run", False),
+                    ack=not getattr(args, "no_ack", False),
+                    json_output=getattr(args, "json", False),
+                )
+            )
+        else:
+            raise SystemExit(f"Unknown discord command: {discord_cmd}")
     elif verb == "gpt-bridge":
         bridge_cmd = getattr(args, "gpt_bridge_command", "inbox") or "inbox"
         if bridge_cmd == "inbox":

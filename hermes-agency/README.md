@@ -80,6 +80,22 @@ hermes agency gpt-bridge complete <task-id> "Result text"
 
 Agents can queue work with `orch_escalate_to_gpt`. See `docs/gpt-bridge.md` for the full flow.
 
+## Monitoring and Discord Intake
+
+Extended visibility is available with:
+
+```bash
+hermes agency status --extended
+```
+
+Discord channel intake is available with:
+
+```bash
+hermes agency discord poll
+```
+
+Discord messages beginning with `!agency` are queued for `agency-orchestrator`. See `docs/agency-discord-intake.md` for setup and operations.
+
 ## Configuration
 
 Add to the active profile's `config.yaml`:
