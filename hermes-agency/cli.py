@@ -1390,6 +1390,8 @@ def cmd_agency(args: Namespace) -> None:
                 open_browser=not no_open,
                 allow_lan=allow_lan,
             )
+        except FileNotFoundError as exc:
+            raise SystemExit(f"ERROR: {exc}") from exc
         except OSError as exc:
             if "address already in use" in str(exc).lower() or exc.errno == 98:
                 raise SystemExit(

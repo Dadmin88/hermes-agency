@@ -43,7 +43,11 @@ def validate_origin(origin: str | None, allowed_hosts: Sequence[str]) -> bool:
         # Also accept bare hostname matching against the origin's host part.
         if "://" in origin_lower:
             origin_host = origin_lower.split("://", 1)[1]
-            if origin_host == host_lower or origin_host.split(":")[0] == host_lower:
+            origin_hostname = origin_host.split(":")[0]
+            # Strip scheme from allowed host for comparison
+            allowed_host = host_lower.split("://", 1)[1] if "://" in host_lower else host_lower
+            allowed_hostname = allowed_host.split(":")[0]
+            if origin_host == allowed_host or origin_hostname == allowed_hostname:
                 return True
     return False
 

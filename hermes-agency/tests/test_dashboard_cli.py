@@ -104,11 +104,16 @@ def plugin_modules(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def agency_parser(plugin_modules):
-    """Build an argparse parser with all agency subcommands registered."""
-    parser = ArgumentParser()
-    sub = parser.add_subparsers(dest="agency_command")
-    plugin_modules.cli.setup_agency_parser(sub)
-    return parser
+    """Build an argparse parser with all agency subcommands registered.
+
+    ``setup_agency_parser`` receives the ``hermes agency`` sub-parser (an
+    ``ArgumentParser`` instance) and registers sub-subcommands on it.
+    """
+    top = ArgumentParser()
+    sub = top.add_subparsers(dest="top_command")
+    agency_cmd = sub.add_parser("agency")
+    plugin_modules.cli.setup_agency_parser(agency_cmd)
+    return top
 
 
 # ---------------------------------------------------------------------------
@@ -120,11 +125,11 @@ class TestDashboardCommandExists:
     """The 'dashboard' subcommand must be registered."""
 
     def test_dashboard_subparser_registered(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard"])
+        args = agency_parser.parse_args(["agency", "dashboard"])
         assert getattr(args, "agency_command", None) == "dashboard"
 
     def test_dashboard_func_is_cmd_agency(self, agency_parser, plugin_modules):
-        args = agency_parser.parse_args(["dashboard"])
+        args = agency_parser.parse_args(["agency", "dashboard"])
         assert args.func is plugin_modules.cli.cmd_agency
 
 
@@ -132,15 +137,17 @@ class TestDashboardDefaultHostPort:
     """Default host and port values."""
 
     def test_default_host(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard"])
+        args = agency_parser.parse_args(["agency", "dashboard"])
         assert args.host == "127.0.0.1"
 
     def test_default_port(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard"])
+        args = agency_parser.parse_args(["agency", "dashboard"])
         assert args.port == 8765
 
     def test_custom_host_port(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard", "--host", "localhost", "--port", "9999"])
+        args = agency_parser.parse_args(
+            ["agency", "dashboard", "--host", "localhost", "--port", "9999"]
+        )
         assert args.host == "localhost"
         assert args.port == 9999
 
@@ -149,11 +156,11 @@ class TestDashboardNoOpen:
     """The --no-open flag suppresses browser launch."""
 
     def test_no_open_flag(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard", "--no-open"])
+        args = agency_parser.parse_args(["agency", "dashboard", "--no-open"])
         assert args.no_open is True
 
     def test_no_open_default_false(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard"])
+        args = agency_parser.parse_args(["agency", "dashboard"])
         assert args.no_open is False
 
 
@@ -161,11 +168,11 @@ class TestDashboardAllowLan:
     """The --allow-lan flag is parsed."""
 
     def test_allow_lan_flag(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard", "--allow-lan"])
+        args = agency_parser.parse_args(["agency", "dashboard", "--allow-lan"])
         assert args.allow_lan is True
 
     def test_allow_lan_default_false(self, agency_parser):
-        args = agency_parser.parse_args(["dashboard"])
+        args = agency_parser.parse_args(["agency", "dashboard"])
         assert args.allow_lan is False
 
 
@@ -219,15 +226,14 @@ class TestDashboardMissingAssetsMessage:
 
     def test_missing_assets_produces_actionable_error(self, plugin_modules, tmp_path, monkeypatch):
         """Simulate the dashboard_server raising FileNotFoundError for missing dist/."""
+
         def fake_start_server(**kwargs):
             raise FileNotFoundError(
                 "Dashboard frontend build not found. "
                 "Run `make dashboard-build` to generate the frontend assets."
             )
 
-        monkeypatch.setattr(
-            plugin_modules.dashboard_server, "start_server", fake_start_server
-        )
+        monkeypatch.setattr(plugin_modules.dashboard_server, "start_server", fake_start_server)
 
         args = Namespace(
             agency_command="dashboard",
