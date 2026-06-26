@@ -500,7 +500,12 @@ def _model_sets_check() -> DoctorCheck:
         from .model_sets import active_model_set_name, load_model_set, validate_model_set
         from .profile_config_writer import plan_model_set
     except Exception as exc:
-        return _check("agency_model_sets", "Agency model sets", WARN, f"Model-set imports failed: {type(exc).__name__}: {exc}")
+        return _check(
+            "agency_model_sets",
+            "Agency model sets",
+            WARN,
+            f"Model-set imports failed: {type(exc).__name__}: {exc}",
+        )
     try:
         from hermes_cli.config import load_config
 
@@ -508,11 +513,18 @@ def _model_sets_check() -> DoctorCheck:
     except Exception:
         raw_config = {}
     try:
-        model_set = load_model_set(active_model_set_name(config=raw_config if isinstance(raw_config, dict) else {}))
+        model_set = load_model_set(
+            active_model_set_name(config=raw_config if isinstance(raw_config, dict) else {})
+        )
         validation = validate_model_set(model_set)
         plan = plan_model_set(model_set)
     except Exception as exc:
-        return _check("agency_model_sets", "Agency model sets", WARN, f"Model-set diagnostics failed: {type(exc).__name__}: {exc}")
+        return _check(
+            "agency_model_sets",
+            "Agency model sets",
+            WARN,
+            f"Model-set diagnostics failed: {type(exc).__name__}: {exc}",
+        )
     drift = [item.as_dict() for item in plan if item.status == "drift"]
     status = PASS if validation.ok and not drift else WARN
     if not validation.ok:

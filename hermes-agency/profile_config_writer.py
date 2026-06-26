@@ -63,7 +63,9 @@ def installed_agency_profiles(base: Path | None = None) -> list[str]:
     root = base or hermes_profiles_dir()
     if not root.is_dir():
         return []
-    return sorted(path.name for path in root.iterdir() if path.is_dir() and path.name.startswith("agency-"))
+    return sorted(
+        path.name for path in root.iterdir() if path.is_dir() and path.name.startswith("agency-")
+    )
 
 
 def _load_config(path: Path) -> dict[str, Any]:
@@ -95,7 +97,9 @@ def render_target_model(resolved: ResolvedProfileModel) -> dict[str, str]:
     return {"provider": resolved.provider, "default": resolved.model}
 
 
-def profile_plan(profile: str, model_set: ModelSet, *, base: Path | None = None) -> ProfileWriteResult:
+def profile_plan(
+    profile: str, model_set: ModelSet, *, base: Path | None = None
+) -> ProfileWriteResult:
     root = base or hermes_profiles_dir()
     config_path = root / profile / "config.yaml"
     resolved = resolve_profile_model(profile, model_set)
@@ -109,9 +113,15 @@ def profile_plan(profile: str, model_set: ModelSet, *, base: Path | None = None)
         current = data.get("model") if isinstance(data.get("model"), dict) else {}
         current_provider = current.get("provider") if isinstance(current, dict) else None
         current_model = current.get("default") if isinstance(current, dict) else None
-        current_label = f"{current_provider}/{current_model}" if current_provider or current_model else None
+        current_label = (
+            f"{current_provider}/{current_model}" if current_provider or current_model else None
+        )
         status = "unchanged" if current == target_model else "drift"
-        message = "Already matches target model" if status == "unchanged" else "Model block differs from target"
+        message = (
+            "Already matches target model"
+            if status == "unchanged"
+            else "Model block differs from target"
+        )
     return ProfileWriteResult(
         profile=profile,
         config_path=str(config_path),
@@ -123,7 +133,9 @@ def profile_plan(profile: str, model_set: ModelSet, *, base: Path | None = None)
     )
 
 
-def plan_model_set(model_set: ModelSet, *, profiles: list[str] | None = None, base: Path | None = None) -> list[ProfileWriteResult]:
+def plan_model_set(
+    model_set: ModelSet, *, profiles: list[str] | None = None, base: Path | None = None
+) -> list[ProfileWriteResult]:
     selected = profiles or installed_agency_profiles(base)
     return [profile_plan(profile, model_set, base=base) for profile in selected]
 
@@ -149,7 +161,9 @@ def apply_model_set(
             "results": [],
             "message": "No installed agency-* profiles found. Run `hermes agency staff install` first.",
         }
-    backup_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") if backup and not dry_run else None
+    backup_id = (
+        datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") if backup and not dry_run else None
+    )
     results: list[ProfileWriteResult] = []
     for profile in selected:
         planned = profile_plan(profile, model_set, base=root)
@@ -173,7 +187,9 @@ def apply_model_set(
                 "model_set": model_set.name,
                 "created_at": backup_id,
             }
-            (backup_path.parent / "metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+            (backup_path.parent / "metadata.json").write_text(
+                json.dumps(meta, indent=2), encoding="utf-8"
+            )
         resolved = resolve_profile_model(profile, model_set)
         data["model"] = render_target_model(resolved)
         agency = data.setdefault("agency", {})
@@ -213,7 +229,13 @@ def apply_model_set(
     }
 
 
-def restore_backup(backup_id: str, *, profiles: list[str] | None = None, base: Path | None = None, force: bool = False) -> dict[str, Any]:
+def restore_backup(
+    backup_id: str,
+    *,
+    profiles: list[str] | None = None,
+    base: Path | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
     root = base or hermes_profiles_dir()
     selected = profiles or installed_agency_profiles(root)
     restored: list[dict[str, Any]] = []
@@ -228,11 +250,15 @@ def restore_backup(backup_id: str, *, profiles: list[str] | None = None, base: P
             try:
                 meta = json.loads(meta_path.read_text(encoding="utf-8"))
                 if meta.get("config_path") != str(config_path):
-                    errors.append(f"{profile}: backup metadata path mismatch; use --force to override")
+                    errors.append(
+                        f"{profile}: backup metadata path mismatch; use --force to override"
+                    )
                     continue
             except Exception as exc:
                 errors.append(f"{profile}: could not read backup metadata: {exc}")
                 continue
         shutil.copy2(backup_path, config_path)
-        restored.append({"profile": profile, "config_path": str(config_path), "backup_path": str(backup_path)})
+        restored.append(
+            {"profile": profile, "config_path": str(config_path), "backup_path": str(backup_path)}
+        )
     return {"ok": not errors, "restored": restored, "errors": errors, "backup_id": backup_id}

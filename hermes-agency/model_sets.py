@@ -125,7 +125,9 @@ def packaged_model_sets_dir() -> Path:
 
 
 def user_model_sets_dir() -> Path:
-    return Path(os.environ.get("HERMES_AGENCY_MODEL_SETS_DIR", "~/.hermes/agency/model_sets")).expanduser()
+    return Path(
+        os.environ.get("HERMES_AGENCY_MODEL_SETS_DIR", "~/.hermes/agency/model_sets")
+    ).expanduser()
 
 
 def catalog_path() -> Path:
@@ -152,7 +154,9 @@ def _construct_mapping(loader: Any, node: Any, deep: bool = False) -> dict[str, 
 
 
 if yaml is not None:  # pragma: no branch
-    _UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+    _UniqueKeyLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping
+    )
 
 
 def _load_yaml_file(path: Path) -> dict[str, Any]:
@@ -206,7 +210,9 @@ def load_model_set(name: str) -> ModelSet:
     files = discover_model_set_files()
     path = files.get(requested)
     if path is None:
-        raise ValueError(f"Unknown model set '{requested}'. Available: {', '.join(sorted(files)) or 'none'}")
+        raise ValueError(
+            f"Unknown model set '{requested}'. Available: {', '.join(sorted(files)) or 'none'}"
+        )
     raw = _load_yaml_file(path)
     version = raw.get("version")
     families_raw = raw.get("families") or {}
@@ -242,7 +248,9 @@ def load_model_set(name: str) -> ModelSet:
     )
 
 
-def validate_model_set(model_set: ModelSet, catalog: ModelCatalog | None = None, *, strict: bool = False) -> ModelSetValidationResult:
+def validate_model_set(
+    model_set: ModelSet, catalog: ModelCatalog | None = None, *, strict: bool = False
+) -> ModelSetValidationResult:
     result = ModelSetValidationResult()
     catalog = catalog or load_catalog()
     raw = _load_yaml_file(model_set.source_path)
@@ -281,7 +289,8 @@ def validate_model_set(model_set: ModelSet, catalog: ModelCatalog | None = None,
             continue
         model_meta = models.get(family.model) or {}
         if isinstance(model_meta, dict) and (
-            model_meta.get("input_cost_per_1m") is None or model_meta.get("output_cost_per_1m") is None
+            model_meta.get("input_cost_per_1m") is None
+            or model_meta.get("output_cost_per_1m") is None
         ):
             result.warn(f"Pricing is unknown for {family.provider}/{family.model}")
 
@@ -295,7 +304,9 @@ def validate_model_set(model_set: ModelSet, catalog: ModelCatalog | None = None,
     return result
 
 
-def active_model_set_name(cli_value: str | None = None, config: dict[str, Any] | None = None) -> str:
+def active_model_set_name(
+    cli_value: str | None = None, config: dict[str, Any] | None = None
+) -> str:
     if cli_value:
         return cli_value
     env_value = os.environ.get("HERMES_AGENCY_MODEL_SET")
@@ -324,7 +335,9 @@ def _family_from_manifest(profile: str) -> tuple[str | None, str, list[str]]:
     warnings: list[str] = []
     info = _manifest_profile(profile)
     if not info:
-        warnings.append(f"{profile} is not in the packaged default staff manifest; using preset default")
+        warnings.append(
+            f"{profile} is not in the packaged default staff manifest; using preset default"
+        )
         return None, "preset_default", warnings
     model_family = info.get("model_family")
     if model_family:
@@ -347,7 +360,9 @@ def resolve_profile_model(profile: str, model_set: ModelSet) -> ResolvedProfileM
     family = model_set.families.get(family_name)
     if family is None:
         fallback = str(model_set.defaults.get("family") or "")
-        warnings.append(f"Family {family_name!r} missing; fell back to defaults.family {fallback!r}")
+        warnings.append(
+            f"Family {family_name!r} missing; fell back to defaults.family {fallback!r}"
+        )
         family_name = fallback
         family = model_set.families.get(family_name)
     if family is None:
@@ -370,18 +385,26 @@ def default_staff_names() -> list[str]:
         from .default_staff import list_default_staff
     except Exception:
         return []
-    return sorted(str(item.get("name")) for item in list_default_staff() if str(item.get("name", "")).startswith("agency-"))
+    return sorted(
+        str(item.get("name"))
+        for item in list_default_staff()
+        if str(item.get("name", "")).startswith("agency-")
+    )
 
 
 def resolve_roster(model_set: ModelSet) -> list[ResolvedProfileModel]:
     return [resolve_profile_model(profile, model_set) for profile in default_staff_names()]
 
 
-def resolve_escalation_model(model_set: ModelSet, risk_tags: list[str] | None = None, profile: str = "agency-orchestrator") -> ResolvedProfileModel:
+def resolve_escalation_model(
+    model_set: ModelSet, risk_tags: list[str] | None = None, profile: str = "agency-orchestrator"
+) -> ResolvedProfileModel:
     risk_tags = [str(tag).lower() for tag in (risk_tags or [])]
     triggers = {str(tag).lower() for tag in model_set.escalation.get("triggers", [])}
     if risk_tags and triggers.intersection(risk_tags):
-        family_name = str(model_set.escalation.get("default_family") or model_set.defaults.get("family") or "")
+        family_name = str(
+            model_set.escalation.get("default_family") or model_set.defaults.get("family") or ""
+        )
         family = model_set.families.get(family_name)
         if family is None:
             raise ValueError(f"Escalation family {family_name!r} is not defined")

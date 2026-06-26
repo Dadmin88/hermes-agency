@@ -49,7 +49,9 @@ def test_profile_config_writer_dry_run_preserves_files(monkeypatch, tmp_path):
     profile_dir = hermes_home / "profiles" / "agency-backend-engineer"
     profile_dir.mkdir(parents=True)
     config_path = profile_dir / "config.yaml"
-    original = "plugins:\n  enabled:\n    - agency\nmodel:\n  provider: openai-codex\n  default: gpt-5.5\n"
+    original = (
+        "plugins:\n  enabled:\n    - agency\nmodel:\n  provider: openai-codex\n  default: gpt-5.5\n"
+    )
     config_path.write_text(original, encoding="utf-8")
 
     hermes_constants = types.ModuleType("hermes_constants")
