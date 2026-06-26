@@ -8,40 +8,40 @@ defaults:
 families:
   general_worker:
     provider: openai-codex
-    model: gpt-5-mini
-    reason: "Cost-aware OpenAI default for routine support, operations, and low-risk work."
+    model: gpt-5.4-mini
+    reason: "Cost-aware OpenAI Codex default for routine support, operations, and low-risk work."
   lightweight_worker:
     provider: openai-codex
-    model: gpt-5-nano
-    reason: "Very cheap OpenAI option for tiny routing, triage, and status tasks."
+    model: gpt-5.3-codex-spark
+    reason: "Lightest available OpenAI Codex option for tiny routing, triage, and status tasks."
   coding_worker:
     provider: openai-codex
-    model: gpt-5.1-codex
-    reason: "Codex-specialized implementation, debugging, and tool-use work."
+    model: gpt-5.4
+    reason: "Strong OpenAI Codex model for implementation, debugging, and tool-use work."
   coding_light:
     provider: openai-codex
-    model: gpt-5.1-codex-mini
+    model: gpt-5.3-codex-spark
     reason: "Cheaper Codex model for narrow implementation and maintenance tasks."
   creative_worker:
     provider: openai-codex
-    model: gpt-5.1-chat
-    reason: "OpenAI chat model for copy, narrative, product messaging, and human-facing communication."
+    model: gpt-5.4-mini
+    reason: "Cost-aware OpenAI Codex model for copy, narrative, product messaging, and human-facing communication."
   analysis_worker:
     provider: openai-codex
-    model: o3
-    reason: "Stronger reasoning for product, requirements, research, and analysis roles."
+    model: gpt-5.4
+    reason: "Stronger OpenAI Codex model for product, requirements, research, and analysis roles."
   review_worker:
     provider: openai-codex
-    model: o4-mini
-    reason: "Efficient reasoning model for QA, review, and validation tasks."
+    model: gpt-5.4
+    reason: "Strong OpenAI Codex model for QA, review, and validation tasks."
   orchestration:
     provider: openai-codex
     model: gpt-5.5
-    reason: "High-context coordination, task decomposition, recovery, and cross-team synthesis."
+    reason: "Highest available OpenAI Codex quality for coordination, task decomposition, recovery, and cross-team synthesis."
   senior_review:
     provider: openai-codex
     model: gpt-5.5
-    reason: "Senior escalation for architecture, security, compliance, legal, and release-sensitive work."
+    reason: "Highest available OpenAI Codex quality for architecture, security, compliance, legal, and release-sensitive work."
 
 profiles:
   agency-orchestrator: orchestration

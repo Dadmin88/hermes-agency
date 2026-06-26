@@ -80,10 +80,7 @@ def test_openai_codex_only_uses_only_openai_codex(monkeypatch, tmp_path):
 
     assert validation.ok, validation.as_dict()
     assert {family.provider for family in model_set.families.values()} == {"openai-codex"}
-    assert (
-        model_sets.resolve_profile_model("agency-backend-engineer", model_set).model
-        == "gpt-5.1-codex"
-    )
+    assert model_sets.resolve_profile_model("agency-backend-engineer", model_set).model == "gpt-5.4"
     assert model_sets.resolve_profile_model("agency-orchestrator", model_set).model == "gpt-5.5"
 
 

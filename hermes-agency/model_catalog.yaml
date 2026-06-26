@@ -32,87 +32,42 @@ providers:
   openai-codex:
     label: "OpenAI Codex"
     models:
-      gpt-5-mini:
-        label: "GPT-5 Mini"
-        context_window: null
-        input_cost_per_1m: 0.25
-        output_cost_per_1m: 2.0
-        billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      gpt-5-nano:
-        label: "GPT-5 Nano"
-        context_window: null
-        input_cost_per_1m: 0.05
-        output_cost_per_1m: 0.4
-        billing_mode: direct_or_plan_metered
-        capabilities: [text, code, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      gpt-5.1:
-        label: "GPT-5.1"
-        context_window: null
-        input_cost_per_1m: 1.25
-        output_cost_per_1m: 10.0
-        billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      gpt-5.1-chat:
-        label: "GPT-5.1 Chat"
-        context_window: null
-        input_cost_per_1m: 1.25
-        output_cost_per_1m: 10.0
-        billing_mode: direct_or_plan_metered
-        capabilities: [text, writing, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      gpt-5.1-codex:
-        label: "GPT-5.1 Codex"
-        context_window: null
-        input_cost_per_1m: 1.25
-        output_cost_per_1m: 10.0
-        billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      gpt-5.1-codex-mini:
-        label: "GPT-5.1 Codex Mini"
-        context_window: null
-        input_cost_per_1m: 0.25
-        output_cost_per_1m: 2.0
-        billing_mode: direct_or_plan_metered
-        capabilities: [text, code, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
       gpt-5.5:
         label: "GPT-5.5"
         context_window: null
-        input_cost_per_1m: 5.0
-        output_cost_per_1m: 30.0
+        input_cost_per_1m: null
+        output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
         capabilities: [text, code, reasoning, tools]
         last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      o3:
-        label: "o3"
+        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+      gpt-5.4:
+        label: "GPT-5.4"
         context_window: null
-        input_cost_per_1m: 2.0
-        output_cost_per_1m: 8.0
+        input_cost_per_1m: null
+        output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, reasoning, analysis, tools]
+        capabilities: [text, code, reasoning, tools]
         last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
-      o4-mini:
-        label: "o4 Mini"
+        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+      gpt-5.4-mini:
+        label: "GPT-5.4 Mini"
         context_window: null
-        input_cost_per_1m: 1.1
-        output_cost_per_1m: 4.4
+        input_cost_per_1m: null
+        output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, reasoning, analysis, tools]
+        capabilities: [text, code, reasoning, tools]
         last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+      gpt-5.3-codex-spark:
+        label: "GPT-5.3 Codex Spark"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
   nous:
     label: "Nous Portal"
     models:
