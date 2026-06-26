@@ -298,6 +298,10 @@ def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
         except Exception:
             pass
 
+    # Never generate the "X agent" placeholder — leave empty so live peer data wins
+    if not description or description.endswith(" agent"):
+        description = ""
+
     skills: list[str] = []
     skills_dir = profile_dir / "skills"
     if skills_dir.exists():
