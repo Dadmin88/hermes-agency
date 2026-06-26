@@ -1,0 +1,112 @@
+version: 1
+name: openai-codex-only
+description: "Use only the OpenAI Codex provider across Hermes Agency, with role-specific model choices."
+
+defaults:
+  family: general_worker
+
+families:
+  general_worker:
+    provider: openai-codex
+    model: gpt-5-mini
+    reason: "Cost-aware OpenAI default for routine support, operations, and low-risk work."
+  lightweight_worker:
+    provider: openai-codex
+    model: gpt-5-nano
+    reason: "Very cheap OpenAI option for tiny routing, triage, and status tasks."
+  coding_worker:
+    provider: openai-codex
+    model: gpt-5.1-codex
+    reason: "Codex-specialized implementation, debugging, and tool-use work."
+  coding_light:
+    provider: openai-codex
+    model: gpt-5.1-codex-mini
+    reason: "Cheaper Codex model for narrow implementation and maintenance tasks."
+  creative_worker:
+    provider: openai-codex
+    model: gpt-5.1-chat
+    reason: "OpenAI chat model for copy, narrative, product messaging, and human-facing communication."
+  analysis_worker:
+    provider: openai-codex
+    model: o3
+    reason: "Stronger reasoning for product, requirements, research, and analysis roles."
+  review_worker:
+    provider: openai-codex
+    model: o4-mini
+    reason: "Efficient reasoning model for QA, review, and validation tasks."
+  orchestration:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "High-context coordination, task decomposition, recovery, and cross-team synthesis."
+  senior_review:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Senior escalation for architecture, security, compliance, legal, and release-sensitive work."
+
+profiles:
+  agency-orchestrator: orchestration
+  agency-chief-of-staff: orchestration
+  agency-technical-lead: orchestration
+  agency-traffic-manager: orchestration
+  agency-scrum-master: orchestration
+  agency-software-architect: senior_review
+  agency-systems-architect: senior_review
+  agency-security-reviewer: senior_review
+  agency-security-engineer: senior_review
+  agency-compliance-reviewer: senior_review
+  agency-legal-ops: senior_review
+  agency-release-manager: senior_review
+  agency-code-reviewer: review_worker
+  agency-qa-lead: review_worker
+  agency-qa-tester: review_worker
+  agency-design-reviewer: review_worker
+  agency-accessibility-reviewer: review_worker
+  agency-git-steward: review_worker
+  agency-backend-engineer: coding_worker
+  agency-frontend-engineer: coding_worker
+  agency-fullstack-engineer: coding_worker
+  agency-godot-engineer: coding_worker
+  agency-tools-engineer: coding_worker
+  agency-automation-engineer: coding_worker
+  agency-devops-engineer: coding_worker
+  agency-infrastructure-engineer: coding_worker
+  agency-platform-engineer: coding_worker
+  agency-integration-engineer: coding_worker
+  agency-data-engineer: coding_worker
+  agency-database-engineer: coding_worker
+  agency-performance-engineer: coding_worker
+  agency-copywriter: creative_worker
+  agency-content-writer: creative_worker
+  agency-docs-writer: creative_worker
+  agency-technical-writer: creative_worker
+  agency-dialogue-writer: creative_worker
+  agency-lore-writer: creative_worker
+  agency-scriptwriter: creative_worker
+  agency-worldbuilder: creative_worker
+  agency-editor-in-chief: creative_worker
+  agency-product-manager: analysis_worker
+  agency-product-strategist: analysis_worker
+  agency-business-analyst: analysis_worker
+  agency-requirements-analyst: analysis_worker
+  agency-market-researcher: analysis_worker
+  agency-user-researcher: analysis_worker
+  agency-analytics-specialist: analysis_worker
+  agency-competitive-analyst: analysis_worker
+  agency-gpt-bridge: lightweight_worker
+
+escalation:
+  default_family: senior_review
+  triggers: [security, legal, release, destructive_change, architecture, ambiguous_requirements]
+
+budget:
+  max_input_cost_per_1m: null
+  max_output_cost_per_1m: null
+  warn_if_unknown_pricing: false
+
+metadata:
+  source: packaged
+  provider_policy: openai-codex-only
+  last_reviewed: "2026-06-26"
+  notes:
+    - "All families intentionally use provider=openai-codex."
+    - "GPT-5.5 is reserved for orchestration and senior review; routine roles use cheaper OpenAI models."

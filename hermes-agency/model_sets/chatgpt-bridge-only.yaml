@@ -1,0 +1,100 @@
+version: 1
+name: chatgpt-bridge-only
+description: "Use Nous Portal MiMo as a lightweight coordinator while routing substantive agency work to the pull-based ChatGPT bridge."
+
+defaults:
+  family: bridge_coordinator
+
+families:
+  bridge_coordinator:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Cheap, capable coordinator for packaging tasks and handing substantive work to ChatGPT bridge."
+  general_worker:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model only; route the actual work to agency-gpt-bridge."
+  coding_worker:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model for code-task packaging; do not perform implementation locally under this preset."
+  creative_worker:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model for creative-task packaging; route content generation to ChatGPT bridge."
+  analysis_worker:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model for analysis-task packaging; route analysis to ChatGPT bridge."
+  review_worker:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model for review-task packaging; route review to ChatGPT bridge."
+  orchestration:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model for routing, queueing, and communicating with the GPT bridge."
+  senior_review:
+    provider: nous
+    model: xiaomi/mimo-v2.5-pro
+    reason: "Coordinator model only; all senior review should be queued to ChatGPT bridge."
+
+profiles:
+  agency-orchestrator: orchestration
+  agency-chief-of-staff: orchestration
+  agency-technical-lead: orchestration
+  agency-traffic-manager: orchestration
+  agency-scrum-master: orchestration
+  agency-software-architect: senior_review
+  agency-systems-architect: senior_review
+  agency-security-reviewer: senior_review
+  agency-security-engineer: senior_review
+  agency-compliance-reviewer: senior_review
+  agency-legal-ops: senior_review
+  agency-release-manager: senior_review
+  agency-code-reviewer: review_worker
+  agency-qa-lead: review_worker
+  agency-qa-tester: review_worker
+  agency-design-reviewer: review_worker
+  agency-accessibility-reviewer: review_worker
+  agency-backend-engineer: coding_worker
+  agency-frontend-engineer: coding_worker
+  agency-fullstack-engineer: coding_worker
+  agency-godot-engineer: coding_worker
+  agency-tools-engineer: coding_worker
+  agency-automation-engineer: coding_worker
+  agency-devops-engineer: coding_worker
+  agency-copywriter: creative_worker
+  agency-worldbuilder: creative_worker
+  agency-product-manager: analysis_worker
+  agency-product-strategist: analysis_worker
+  agency-business-analyst: analysis_worker
+  agency-requirements-analyst: analysis_worker
+  agency-gpt-bridge: bridge_coordinator
+
+escalation:
+  default_family: senior_review
+  triggers: [all_work, security, legal, release, destructive_change, architecture, ambiguous_requirements]
+
+budget:
+  max_input_cost_per_1m: 0.44
+  max_output_cost_per_1m: 0.87
+  warn_if_unknown_pricing: false
+
+metadata:
+  source: packaged
+  provider_policy: nous-portal-only
+  bridge_first: true
+  last_reviewed: "2026-06-26"
+  gpt_bridge:
+    enabled: true
+    mode: route_all_work_to_chatgpt_bridge
+    target_profile: agency-gpt-bridge
+    tool: orch_escalate_to_gpt
+    route_all_work: true
+    reason: "This preset uses MiMo only to understand, package, and queue tasks for the pull-based ChatGPT bridge."
+    expected_output: "Create a clear GPT bridge task with task description, reason, expected output, urgency, source task IDs, file paths, logs, and acceptance criteria."
+  notes:
+    - "Every family uses provider=nous and model=xiaomi/mimo-v2.5-pro."
+    - "This preset is bridge-first: agents should queue substantive work to agency-gpt-bridge rather than completing it locally."
+    - "Designed to consume expiring Nous Portal credit while preserving ChatGPT as the senior worker."

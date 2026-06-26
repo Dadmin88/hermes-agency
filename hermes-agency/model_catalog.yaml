@@ -32,15 +32,126 @@ providers:
   openai-codex:
     label: "OpenAI Codex"
     models:
-      gpt-5.5:
-        label: "GPT-5.5"
+      gpt-5-mini:
+        label: "GPT-5 Mini"
         context_window: null
-        input_cost_per_1m: null
-        output_cost_per_1m: null
+        input_cost_per_1m: 0.25
+        output_cost_per_1m: 2.0
         billing_mode: direct_or_plan_metered
         capabilities: [text, code, reasoning, tools]
         last_verified: "2026-06-26"
-        source_url: "https://platform.openai.com/docs/"
+        source_url: "user-supplied Nous Portal model list"
+      gpt-5-nano:
+        label: "GPT-5 Nano"
+        context_window: null
+        input_cost_per_1m: 0.05
+        output_cost_per_1m: 0.4
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      gpt-5.1:
+        label: "GPT-5.1"
+        context_window: null
+        input_cost_per_1m: 1.25
+        output_cost_per_1m: 10.0
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      gpt-5.1-chat:
+        label: "GPT-5.1 Chat"
+        context_window: null
+        input_cost_per_1m: 1.25
+        output_cost_per_1m: 10.0
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, writing, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      gpt-5.1-codex:
+        label: "GPT-5.1 Codex"
+        context_window: null
+        input_cost_per_1m: 1.25
+        output_cost_per_1m: 10.0
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      gpt-5.1-codex-mini:
+        label: "GPT-5.1 Codex Mini"
+        context_window: null
+        input_cost_per_1m: 0.25
+        output_cost_per_1m: 2.0
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      gpt-5.5:
+        label: "GPT-5.5"
+        context_window: null
+        input_cost_per_1m: 5.0
+        output_cost_per_1m: 30.0
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      o3:
+        label: "o3"
+        context_window: null
+        input_cost_per_1m: 2.0
+        output_cost_per_1m: 8.0
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, reasoning, analysis, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      o4-mini:
+        label: "o4 Mini"
+        context_window: null
+        input_cost_per_1m: 1.1
+        output_cost_per_1m: 4.4
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, reasoning, analysis, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+  nous:
+    label: "Nous Portal"
+    models:
+      xiaomi/mimo-v2.5:
+        label: "Xiaomi MiMo-V2.5 via Nous Portal"
+        context_window: null
+        input_cost_per_1m: 0.11
+        output_cost_per_1m: 0.28
+        billing_mode: prepaid_portal_credit
+        capabilities: [text, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      xiaomi/mimo-v2.5-pro:
+        label: "Xiaomi MiMo-V2.5-Pro via Nous Portal"
+        context_window: null
+        input_cost_per_1m: 0.44
+        output_cost_per_1m: 0.87
+        billing_mode: prepaid_portal_credit
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      deepseek/deepseek-v4-flash:
+        label: "DeepSeek V4 Flash via Nous Portal"
+        context_window: null
+        input_cost_per_1m: 0.09
+        output_cost_per_1m: 0.18
+        billing_mode: prepaid_portal_credit
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      qwen/qwen3-coder-plus:
+        label: "Qwen3 Coder Plus via Nous Portal"
+        context_window: null
+        input_cost_per_1m: 0.65
+        output_cost_per_1m: 3.25
+        billing_mode: prepaid_portal_credit
+        capabilities: [text, code, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
   xai:
     label: "xAI"
     models:
@@ -55,7 +166,25 @@ providers:
         source_url: "https://docs.x.ai/"
   xiaomi:
     label: "Xiaomi"
-    models: {}
+    models:
+      mimo-v2.5:
+        label: "MiMo-V2.5"
+        context_window: null
+        input_cost_per_1m: 0.11
+        output_cost_per_1m: 0.28
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
+      mimo-v2.5-pro:
+        label: "MiMo-V2.5-Pro"
+        context_window: null
+        input_cost_per_1m: 0.44
+        output_cost_per_1m: 0.87
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "user-supplied Nous Portal model list"
   local:
     label: "Local runtime"
     models:
