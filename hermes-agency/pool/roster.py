@@ -324,13 +324,54 @@ def _read_profile_meta(profile_dir: Path) -> dict[str, Any]:
 
 
 def _is_daemon_running(name: str) -> bool:
-    """Best-effort check that a profile's daemon process/socket is alive."""
+    """Best-effort check that a profile's daemon process/socket is alive.
+
+    A leftover ``daemon.sock`` is not proof of liveness after a crash or hard
+    stop.  Prefer the long-lived runner pid when present, then fall back to a
+    process-table check for a profile-owned agentanycast daemon.
+    """
 
     profiles = _profiles_dir()
-    for dirname in (".agency", ".agentanycast"):
-        sock = profiles / name / dirname / "daemon.sock"
-        if sock.exists():
-            return True
+    profile_dir = profiles / name
+    try:
+        pid_file = profile_dir / ".agency" / "runner.pid"
+        if pid_file.exists():
+            raw = pid_file.read_text(encoding="utf-8").strip()
+            if raw:
+                pid = int(raw)
+                try:
+                    state = (Path("/proc") / str(pid) / "status").read_text(
+                        encoding="utf-8", errors="ignore"
+                    )
+                    is_zombie = any(
+                        line.split()[:2] == ["State:", "Z"] for line in state.splitlines()
+                    )
+                except OSError:
+                    is_zombie = False
+                try:
+                    os.kill(pid, 0)
+                    if not is_zombie:
+                        return True
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        proc_root = Path("/proc")
+        needle = f"profiles/{name}/.agency/daemon.sock"
+        for entry in proc_root.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                raw = (entry / "cmdline").read_bytes()
+                cmdline = "\0".join(item.decode(errors="ignore") for item in raw.split(b"\0"))
+            except Exception:
+                continue
+            if "agentanycastd" in cmdline and needle in cmdline:
+                return True
+    except Exception:
+        pass
     return False
 
 
@@ -349,13 +390,18 @@ def _read_peer_id(name: str) -> str | None:
             continue
         try:
             text = log.read_text(encoding="utf-8", errors="ignore")[-50000:]
+            matches: list[str] = []
             for pattern in (
                 r'"peer_id"\s*:\s*"(12D3KooW[^"]+)"',
                 r"^PEER_ID=(12D3KooW\S+)",
             ):
-                m = re.search(pattern, text, re.MULTILINE)
-                if m:
-                    return m.group(1)
+                matches.extend(re.findall(pattern, text, re.MULTILINE))
+            if matches:
+                # Daemon logs are append-only across restarts.  Use the latest
+                # observed peer id, not the first historical one, or roster
+                # overlays can assign stale peer ids to profiles after keys are
+                # regenerated or runners are restarted.
+                return matches[-1]
         except Exception:
             pass
     return None
