@@ -1,0 +1,54 @@
+version: 1
+name: premium-with-budget-caps
+description: "Example premium preset with budget metadata for future policy checks."
+
+defaults:
+  family: general_worker
+
+families:
+  general_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Premium default quality."
+  coding_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Premium coding."
+  creative_worker:
+    provider: xai
+    model: grok-4.3
+    reason: "Creative work."
+  analysis_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Premium planning."
+  review_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Premium review."
+  orchestration:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Premium orchestration."
+  senior_review:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Premium escalation."
+
+profiles:
+  agency-orchestrator: orchestration
+  agency-worldbuilder: creative_worker
+  agency-copywriter: creative_worker
+
+escalation:
+  default_family: senior_review
+  triggers: [security, release, architecture]
+
+budget:
+  max_input_cost_per_1m: null
+  max_output_cost_per_1m: null
+  warn_if_unknown_pricing: true
+
+metadata:
+  source: example
+  last_reviewed: "2026-06-26"

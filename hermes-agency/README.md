@@ -19,6 +19,7 @@ Each Hermes profile gets its own Hermes Agency node with a persistent identity, 
 - **Kanban tracking** — outbound and inbound Hermes Agency tasks reconcile with Hermes Kanban when available.
 - **Autonomous collaboration helpers** — self-registration, bidding, workflows, proactive tasks, autonomy checks, and routing-correction logging.
 - **CLI and slash command** — `hermes agency ...` and `/agency ...` for status/start/stop/discovery.
+- **Model sets** — switch the whole agency between `balanced`, `economic`, `premium`, `go-plan`, or custom profile/model strategies without hand-editing every staff profile.
 
 ## Requirements
 
@@ -47,6 +48,24 @@ cp -r hermes-agency ~/.hermes/profiles/<profile>/plugins/hermes-agency
 ### Option C: Bundled plugin (future upstream shape)
 
 If this is ever upstreamed to `NousResearch/hermes-agent`, the plugin should remain optional and live under a bundled plugin directory such as `plugins/hermes-agency/`. The daemon/relay binaries should **not** be vendored into Hermes.
+
+## Model Sets
+
+Model sets let you choose a provider/model strategy once and apply it across installed `agency-*` staff profiles safely.
+
+```bash
+hermes agency models list
+hermes agency models show economic
+hermes agency models validate economic --strict
+hermes agency models resolve agency-backend-engineer --set economic
+hermes agency models plan economic
+hermes agency models apply economic --dry-run
+hermes agency models apply economic --yes --backup
+```
+
+Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.hermes/agency/model_sets/` and override packaged presets by name. Presets must never contain API keys, tokens, passwords, or provider credentials.
+
+See `docs/agency-model-sets.md` for the implementation details and rollout procedure.
 
 ## Configuration
 

@@ -1,0 +1,70 @@
+providers:
+  opencode-go:
+    label: "OpenCode Go"
+    models:
+      deepseek-v4-flash:
+        label: "DeepSeek V4 Flash via OpenCode Go"
+        context_window: 1000000
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "https://opencode.ai/docs/go/"
+      deepseek-v4-pro:
+        label: "DeepSeek V4 Pro via OpenCode Go"
+        context_window: 1000000
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "https://opencode.ai/docs/go/"
+      qwen3-coder-plus:
+        label: "Qwen3 Coder Plus via OpenCode Go"
+        context_window: 1000000
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "https://opencode.ai/docs/go/"
+  openai-codex:
+    label: "OpenAI Codex"
+    models:
+      gpt-5.5:
+        label: "GPT-5.5"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-06-26"
+        source_url: "https://platform.openai.com/docs/"
+  xai:
+    label: "xAI"
+    models:
+      grok-4.3:
+        label: "Grok 4.3"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, creative, reasoning]
+        last_verified: "2026-06-26"
+        source_url: "https://docs.x.ai/"
+  xiaomi:
+    label: "Xiaomi"
+    models: {}
+  local:
+    label: "Local runtime"
+    models:
+      disabled-placeholder:
+        label: "Disabled placeholder"
+        context_window: null
+        input_cost_per_1m: 0
+        output_cost_per_1m: 0
+        billing_mode: local
+        capabilities: []
+        last_verified: "2026-06-26"
+        source_url: ""

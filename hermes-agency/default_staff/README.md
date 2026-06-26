@@ -117,6 +117,19 @@ The `agency-` prefix serves several purposes:
 - **Safe bulk operations** — Enables install/update/disable all agency profiles at once
 - **Contract compliance** — Signals that these profiles follow the STAFF_CONTRACT.md rules
 
+## Model Families
+
+Default staff profiles can optionally declare `model_family` in `profile.yaml`. Model-set presets still win when they explicitly map a profile.
+
+Resolution order is:
+
+1. Explicit mapping in the selected model-set preset.
+2. `profile.yaml` `model_family`, when present.
+3. Manifest category mapped to a family.
+4. Preset `defaults.family`.
+
+This lets Hermes Agency switch model strategy across the full roster without hand-editing 83 installed profile configs. Individual `config.yaml` files can still be manually customized, but `hermes agency models plan <set>` will report drift from the selected preset.
+
 ## Configuration
 
 Each installed profile uses these defaults (in `profile.yaml`):

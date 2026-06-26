@@ -1,0 +1,56 @@
+version: 1
+name: go-plan
+description: "Route all Agency families through OpenCode Go plan models."
+
+defaults:
+  family: general_worker
+
+families:
+  general_worker:
+    provider: opencode-go
+    model: deepseek-v4-flash
+    reason: "Lowest-cost Go-plan routine worker."
+  coding_worker:
+    provider: opencode-go
+    model: qwen3-coder-plus
+    reason: "Go-plan coding worker."
+  creative_worker:
+    provider: opencode-go
+    model: deepseek-v4-pro
+    reason: "Go-plan general creative fallback."
+  analysis_worker:
+    provider: opencode-go
+    model: deepseek-v4-pro
+    reason: "Go-plan analysis worker."
+  review_worker:
+    provider: opencode-go
+    model: deepseek-v4-pro
+    reason: "Go-plan review worker."
+  orchestration:
+    provider: opencode-go
+    model: deepseek-v4-pro
+    reason: "Go-plan orchestrator."
+  senior_review:
+    provider: opencode-go
+    model: qwen3-coder-plus
+    reason: "Highest Go-plan review family."
+
+profiles:
+  agency-orchestrator: orchestration
+  agency-backend-engineer: coding_worker
+  agency-frontend-engineer: coding_worker
+  agency-fullstack-engineer: coding_worker
+  agency-godot-engineer: coding_worker
+
+escalation:
+  default_family: senior_review
+  triggers: [security, legal, release, destructive_change, architecture]
+
+budget:
+  max_input_cost_per_1m: null
+  max_output_cost_per_1m: null
+  warn_if_unknown_pricing: true
+
+metadata:
+  source: packaged
+  last_reviewed: "2026-06-26"

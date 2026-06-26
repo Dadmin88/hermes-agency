@@ -375,6 +375,171 @@ def _cleanup_boards_text(days: int | None = None) -> str:
     return "\n".join(lines)
 
 
+def _models_list_text(*, json_output: bool = False) -> str:
+    from .model_sets import active_model_set_name, discover_model_set_files, user_model_sets_dir
+
+    config, _path = _load_user_config()
+    active = active_model_set_name(config=config)
+    user_dir = user_model_sets_dir()
+    items = []
+    for name, path in sorted(discover_model_set_files().items()):
+        source = "user" if user_dir in path.parents else "packaged"
+        items.append({"name": name, "source": source, "path": str(path), "active": name == active})
+    if json_output:
+        return _json({"active": active, "model_sets": items})
+    lines = [f"Hermes Agency model sets (active: {active})"]
+    for item in items:
+        marker = "*" if item["active"] else " "
+        lines.append(f"  {marker} {item['name']:<12} {item['source']:<9} {item['path']}")
+    return "\n".join(lines)
+
+
+def _models_show_text(name: str, *, json_output: bool = False, strict: bool = False) -> str:
+    from .model_sets import load_model_set, model_set_summary
+
+    model_set = load_model_set(name)
+    summary = model_set_summary(model_set, strict=strict)
+    if json_output:
+        return _json(summary)
+    validation = summary["validation"]
+    lines = [
+        f"Model set: {summary['name']}",
+        f"Description: {summary['description']}",
+        f"Source: {summary['source_path']}",
+        f"Valid: {validation['ok']}",
+        "",
+        "Families:",
+    ]
+    for family, data in summary["families"].items():
+        lines.append(f"  {family:<16} {data['provider']}/{data['model']} — {data.get('reason') or ''}")
+    if summary["profiles"]:
+        lines.extend(["", "Explicit profile mappings:"])
+        for profile, family in sorted(summary["profiles"].items()):
+            lines.append(f"  {profile:<36} {family}")
+    if validation["warnings"]:
+        lines.extend(["", "Warnings:"] + [f"  - {item}" for item in validation["warnings"]])
+    if validation["errors"]:
+        lines.extend(["", "Errors:"] + [f"  - {item}" for item in validation["errors"]])
+    return "\n".join(lines)
+
+
+def _models_validate_text(name: str, *, json_output: bool = False, strict: bool = False) -> tuple[str, int]:
+    from .model_sets import load_model_set, resolve_roster, validate_model_set
+
+    model_set = load_model_set(name)
+    result = validate_model_set(model_set, strict=strict)
+    roster = []
+    if result.ok:
+        try:
+            roster = [item.__dict__ for item in resolve_roster(model_set)]
+        except Exception as exc:
+            result.error(f"Default staff roster resolution failed: {type(exc).__name__}: {exc}")
+    payload = {"model_set": model_set.name, "validation": result.as_dict(), "profiles_checked": len(roster)}
+    if json_output:
+        return _json(payload), 0 if result.ok else 2
+    lines = [f"Model set {model_set.name}: {'ok' if result.ok else 'failed'}", f"Profiles checked: {len(roster)}"]
+    if result.warnings:
+        lines.extend(["Warnings:"] + [f"  - {item}" for item in result.warnings])
+    if result.errors:
+        lines.extend(["Errors:"] + [f"  - {item}" for item in result.errors])
+    return "\n".join(lines), 0 if result.ok else 2
+
+
+def _models_resolve_text(profile: str, set_name: str = "", *, json_output: bool = False) -> str:
+    from .model_sets import active_model_set_name, load_model_set, resolve_profile_model
+
+    config, _path = _load_user_config()
+    model_set = load_model_set(active_model_set_name(set_name or None, config=config))
+    resolved = resolve_profile_model(profile, model_set)
+    payload = resolved.__dict__
+    if json_output:
+        return _json(payload)
+    lines = [
+        f"{resolved.profile} -> {resolved.provider}/{resolved.model}",
+        f"  model_set: {resolved.source_preset}",
+        f"  family: {resolved.family}",
+        f"  source: {resolved.resolution_source}",
+    ]
+    if resolved.reason:
+        lines.append(f"  reason: {resolved.reason}")
+    if resolved.warnings:
+        lines.extend(["  warnings:"] + [f"    - {item}" for item in resolved.warnings])
+    return "\n".join(lines)
+
+
+def _models_plan_text(name: str, *, json_output: bool = False) -> str:
+    from .model_sets import active_model_set_name, load_model_set
+    from .profile_config_writer import plan_model_set
+
+    config, _path = _load_user_config()
+    model_set = load_model_set(active_model_set_name(name or None, config=config))
+    results = plan_model_set(model_set)
+    payload = {"model_set": model_set.name, "profiles_checked": len(results), "results": [r.as_dict() for r in results]}
+    if json_output:
+        return _json(payload)
+    if not results:
+        return "No installed agency-* profiles found. Run `hermes agency staff install` first."
+    lines = [f"Model-set dry-run plan: {model_set.name}"]
+    for result in results:
+        lines.append(f"  {result.profile:<36} {result.status:<10} {result.current or '-':<30} -> {result.target}")
+    return "\n".join(lines)
+
+
+def _models_use_text(name: str, *, apply: bool = False, yes: bool = False, backup: bool = True, dry_run: bool = False) -> str:
+    from .model_sets import load_model_set
+
+    name = load_model_set(name).name
+    config, _path = _load_user_config()
+    agency = config.setdefault("agency", {})
+    if not isinstance(agency, dict):
+        agency = {}
+        config["agency"] = agency
+    models = agency.setdefault("models", {})
+    if not isinstance(models, dict):
+        models = {}
+        agency["models"] = models
+    models["active_set"] = name
+    path = _save_user_config(config)
+    lines = [f"Set agency.models.active_set={name!r} in {path}."]
+    if apply:
+        lines.append(_models_apply_text(name, dry_run=dry_run, yes=yes, backup=backup))
+    else:
+        lines.append(f"Next: hermes agency models plan {name}")
+    return "\n".join(lines)
+
+
+def _models_apply_text(name: str, *, dry_run: bool = True, yes: bool = False, backup: bool = True, profiles: list[str] | None = None, json_output: bool = False) -> str:
+    from .model_sets import load_model_set
+    from .profile_config_writer import apply_model_set
+
+    model_set = load_model_set(name)
+    payload = apply_model_set(model_set, profiles=profiles, dry_run=dry_run, yes=yes, backup=backup)
+    if json_output:
+        return _json(payload)
+    lines = [f"Model-set apply {'dry-run' if dry_run else 'complete'}: {model_set.name}"]
+    if payload.get("message"):
+        lines.append(str(payload["message"]))
+    if payload.get("backup_id"):
+        lines.append(f"Backup ID: {payload['backup_id']}")
+    for item in payload.get("results", []):
+        lines.append(f"  {item['profile']:<36} {item['status']:<10} {item.get('current') or '-':<30} -> {item.get('target')}")
+    return "\n".join(lines)
+
+
+def _models_restore_text(backup_id: str, *, force: bool = False, json_output: bool = False) -> str:
+    from .profile_config_writer import restore_backup
+
+    payload = restore_backup(backup_id, force=force)
+    if json_output:
+        return _json(payload)
+    lines = [f"Restore backup {backup_id}: {'ok' if payload.get('ok') else 'failed'}"]
+    for item in payload.get("restored", []):
+        lines.append(f"  restored {item['profile']} from {item['backup_path']}")
+    for error in payload.get("errors", []):
+        lines.append(f"  ! {error}")
+    return "\n".join(lines)
+
+
 def handle_agency_slash(raw_args: str = "") -> str:
     """Handle the in-session ``/agency`` slash command."""
 
@@ -399,6 +564,44 @@ def handle_agency_slash(raw_args: str = "") -> str:
         return _json(manager.info().get("registration") or {})
     if verb == "doctor":
         return render_doctor_report(run_doctor(), json_output="--json" in parts[1:])
+    if verb == "models":
+        sub = parts[1].lower() if len(parts) > 1 else "list"
+        json_output = "--json" in parts
+        strict = "--strict" in parts
+        if sub == "list":
+            return _models_list_text(json_output=json_output)
+        if sub == "show":
+            return _models_show_text(parts[2] if len(parts) > 2 else "", json_output=json_output, strict=strict)
+        if sub == "validate":
+            text, _code = _models_validate_text(parts[2] if len(parts) > 2 else "", json_output=json_output, strict=strict)
+            return text
+        if sub == "resolve":
+            set_name = ""
+            if "--set" in parts:
+                idx = parts.index("--set")
+                if len(parts) > idx + 1:
+                    set_name = parts[idx + 1]
+            return _models_resolve_text(parts[2] if len(parts) > 2 else "", set_name=set_name, json_output=json_output)
+        if sub == "plan":
+            return _models_plan_text(parts[2] if len(parts) > 2 else "", json_output=json_output)
+        if sub == "use":
+            return _models_use_text(parts[2] if len(parts) > 2 else "", apply="--apply" in parts, yes="--yes" in parts, dry_run="--dry-run" in parts, backup="--no-backup" not in parts)
+        if sub == "apply":
+            names = [p for p in parts[3:] if not p.startswith("--")]
+            profiles = None
+            if "--profiles" in parts:
+                idx = parts.index("--profiles")
+                if len(parts) > idx + 1:
+                    profiles = [p.strip() for p in parts[idx + 1].split(",") if p.strip()]
+            return _models_apply_text(parts[2] if len(parts) > 2 else "", dry_run="--dry-run" in parts or "--yes" not in parts, yes="--yes" in parts, backup="--no-backup" not in parts, profiles=profiles or names or None, json_output=json_output)
+        if sub == "restore":
+            backup_id = ""
+            if "--backup-id" in parts:
+                idx = parts.index("--backup-id")
+                if len(parts) > idx + 1:
+                    backup_id = parts[idx + 1]
+            return _models_restore_text(backup_id, force="--force" in parts, json_output=json_output)
+        return "Usage: /agency models [list|show|validate|resolve|plan|use|apply|restore]"
     if verb == "sign-off-board":
         signed_off_by = ""
         if "--by" in parts:
@@ -532,6 +735,60 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     staff_info.add_argument("name", help="Profile name (e.g. agency-orchestrator)")
     staff_info.set_defaults(func=cmd_agency, agency_command="staff")
 
+    models_parser = subparsers.add_parser("models", help="Manage Hermes Agency model sets")
+    models_sub = models_parser.add_subparsers(dest="models_command")
+
+    models_list = models_sub.add_parser("list", help="List available model sets")
+    models_list.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_list.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_show = models_sub.add_parser("show", help="Show a model set")
+    models_show.add_argument("name", help="Model set name")
+    models_show.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_show.add_argument("--strict", action="store_true", help="Treat unknown models as errors")
+    models_show.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_validate = models_sub.add_parser("validate", help="Validate a model set")
+    models_validate.add_argument("name", help="Model set name")
+    models_validate.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_validate.add_argument("--strict", action="store_true", help="Treat unknown models as errors")
+    models_validate.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_resolve = models_sub.add_parser("resolve", help="Resolve one profile's target model")
+    models_resolve.add_argument("profile", help="Profile name, e.g. agency-backend-engineer")
+    models_resolve.add_argument("--set", default="", help="Model set name")
+    models_resolve.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_resolve.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_plan = models_sub.add_parser("plan", help="Dry-run all installed agency profile model changes")
+    models_plan.add_argument("name", help="Model set name")
+    models_plan.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_plan.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_use = models_sub.add_parser("use", help="Set agency.models.active_set in active config")
+    models_use.add_argument("name", help="Model set name")
+    models_use.add_argument("--apply", action="store_true", help="Also apply to installed agency profiles")
+    models_use.add_argument("--dry-run", action="store_true", help="Preview apply without writing")
+    models_use.add_argument("--yes", action="store_true", help="Confirm non-dry-run apply")
+    models_use.add_argument("--no-backup", action="store_true", help="Skip config backups during apply")
+    models_use.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_apply = models_sub.add_parser("apply", help="Apply a model set to installed agency profile configs")
+    models_apply.add_argument("name", help="Model set name")
+    models_apply.add_argument("--dry-run", action="store_true", help="Preview without writing")
+    models_apply.add_argument("--yes", action="store_true", help="Confirm non-dry-run bulk apply")
+    models_apply.add_argument("--backup", action="store_true", help="Create backups before writing")
+    models_apply.add_argument("--no-backup", action="store_true", help="Do not create backups")
+    models_apply.add_argument("--profiles", default="", help="Comma-separated profile list")
+    models_apply.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_apply.set_defaults(func=cmd_agency, agency_command="models")
+
+    models_restore = models_sub.add_parser("restore", help="Restore model config backups")
+    models_restore.add_argument("--backup-id", required=True, help="Backup ID returned by apply")
+    models_restore.add_argument("--force", action="store_true", help="Ignore backup metadata path mismatch")
+    models_restore.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    models_restore.set_defaults(func=cmd_agency, agency_command="models")
+
     roster_parser = subparsers.add_parser("roster", help="Show agency pool roster")
     roster_parser.add_argument("query", nargs="?", default="", help="Filter by name/skill")
     roster_parser.set_defaults(func=cmd_agency, agency_command="roster")
@@ -574,6 +831,33 @@ def cmd_agency(args: Namespace) -> None:
         print(_sign_off_board_text(getattr(args, "board", ""), getattr(args, "by", "")))
     elif verb == "cleanup-boards":
         print(_cleanup_boards_text(getattr(args, "days", None)))
+    elif verb == "models":
+        models_cmd = getattr(args, "models_command", "list") or "list"
+        if models_cmd == "list":
+            print(_models_list_text(json_output=getattr(args, "json", False)))
+        elif models_cmd == "show":
+            print(_models_show_text(getattr(args, "name", ""), json_output=getattr(args, "json", False), strict=getattr(args, "strict", False)))
+        elif models_cmd == "validate":
+            text, code = _models_validate_text(getattr(args, "name", ""), json_output=getattr(args, "json", False), strict=getattr(args, "strict", False))
+            print(text)
+            if code:
+                raise SystemExit(code)
+        elif models_cmd == "resolve":
+            print(_models_resolve_text(getattr(args, "profile", ""), set_name=getattr(args, "set", ""), json_output=getattr(args, "json", False)))
+        elif models_cmd == "plan":
+            print(_models_plan_text(getattr(args, "name", ""), json_output=getattr(args, "json", False)))
+        elif models_cmd == "use":
+            print(_models_use_text(getattr(args, "name", ""), apply=getattr(args, "apply", False), yes=getattr(args, "yes", False), dry_run=getattr(args, "dry_run", False), backup=not getattr(args, "no_backup", False)))
+        elif models_cmd == "apply":
+            profiles_arg = getattr(args, "profiles", "") or ""
+            profiles = [p.strip() for p in profiles_arg.split(",") if p.strip()] or None
+            dry_run = getattr(args, "dry_run", False) or not getattr(args, "yes", False)
+            backup = not getattr(args, "no_backup", False)
+            print(_models_apply_text(getattr(args, "name", ""), dry_run=dry_run, yes=getattr(args, "yes", False), backup=backup, profiles=profiles, json_output=getattr(args, "json", False)))
+        elif models_cmd == "restore":
+            print(_models_restore_text(getattr(args, "backup_id", ""), force=getattr(args, "force", False), json_output=getattr(args, "json", False)))
+        else:
+            raise SystemExit(f"Unknown models command: {models_cmd}")
     elif verb == "staff":
         staff_cmd = getattr(args, "staff_command", "list") or "list"
         if staff_cmd == "list":
