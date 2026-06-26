@@ -241,12 +241,15 @@ def poll_discord_tasks(
 def render_poll_result(payload: dict[str, Any]) -> str:
     lines = [
         "Discord intake poll",
+        f"  ok: {payload.get('ok')}",
         f"  prefix: {payload.get('prefix')}",
         f"  queued: {payload.get('queued_count', 0)}",
         f"  skipped: {payload.get('skipped_count', 0)}",
         f"  dry_run: {payload.get('dry_run')}",
         f"  state: {payload.get('state_path')}",
     ]
+    if payload.get("error"):
+        lines.append(f"  error: {payload.get('error')}")
     for item in payload.get("queued") or []:
         task_id = None
         kanban = item.get("kanban") if isinstance(item.get("kanban"), dict) else {}
