@@ -7,6 +7,7 @@ from typing import Any
 
 from .announcements import announce_proactive
 from .config import current_profile_name, ensure_workspace, get_config
+from .departments import get_department, get_department_board_slug
 from .kanban_bridge import create_task as kanban_create_task
 
 
@@ -34,6 +35,12 @@ def create_proactive_task(
         "tenant": cfg.team.tenant,
         **(metadata or {}),
     }
+    department = get_department(assigned_to)
+    board_slug = get_department_board_slug(assigned_to)
+    if department:
+        meta.setdefault("department", department)
+    if board_slug:
+        meta.setdefault("agency_board", board_slug)
     task = kanban_create_task(
         title=clean_title,
         description=clean_description,

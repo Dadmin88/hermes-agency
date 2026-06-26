@@ -55,7 +55,7 @@ Done when: workflows are documented, SOPs are current, tooling is optimized.
 
 ## Shared Workspace Protocol
 
-Use the persistent shared workspace at `~/.hermes/.agency/workspace/` for cross-agent collaboration. Save final deliverables under `~/.hermes/.agency/workspace/deliverables/<board-id>/`. Use `~/.hermes/.agency/workspace/shared/` for handoff files another agent must read, and `~/.hermes/.agency/workspace/scratch/` for temporary working files that may still need inspection. Do not use `/tmp/` for durable Agency deliverables or cross-agent handoffs.
+Use the persistent shared workspace at `~/.hermes/.agency/workspace/` for cross-agent collaboration. Save final deliverables under `~/.hermes/.agency/workspace/deliverables/<board-id>/`. Use `~/.hermes/.agency/workspace/shared/` for handoff files another agent must read, and `~/.hermes/.agency/workspace/scratch/` for temporary working files that may still need inspection. Do not use `/tmp/` for durable Agency deliverables or cross-agent handoffs. Department Kanban tasks now live on reusable department boards (`agency-engineering`, `agency-design`, `agency-content`, `agency-marketing`, `agency-product`, `agency-qa`, `agency-operations`, `agency-leadership`); use the board assigned by the dispatcher/orchestrator rather than creating per-task boards.
 
 ## Specialist-to-Specialist Delegation Protocol
 

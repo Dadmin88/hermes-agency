@@ -108,6 +108,7 @@ def plugin_modules(tmp_path, monkeypatch):
         "card_builder",
         "context_packet",
         "conversation",
+        "departments",
         "task_processor",
         "announcements",
         "kanban_bridge",
@@ -4300,6 +4301,74 @@ class _FakeA2ANode:
             raise self.send_error
         self.sent.append(kwargs)
         return self.handle
+
+
+def test_ensure_agency_board_uses_department_board_for_target_agent(plugin_modules, monkeypatch):
+    nm = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm.NodeManager()
+    boards = {}
+    metadata_writes = []
+
+    class FakeKb:
+        @staticmethod
+        def board_exists(slug):
+            return slug in boards
+
+        @staticmethod
+        def create_board(slug, name, description):
+            boards[slug] = {"slug": slug, "name": name, "description": description}
+            return boards[slug]
+
+        @staticmethod
+        def read_board_metadata(slug):
+            return {}
+
+        @staticmethod
+        def board_metadata_path(slug):
+            return plugin_modules.hermes_home / f"{slug}.json"
+
+        @staticmethod
+        def kanban_db_path(slug):
+            return plugin_modules.hermes_home / f"{slug}.db"
+
+    monkeypatch.setattr(
+        nm,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(team=cfg_mod.TeamConfig(kanban_integration=True)),
+    )
+    monkeypatch.setattr(
+        manager,
+        "_write_agency_board_metadata",
+        lambda kb, slug, **fields: (
+            metadata_writes.append({"slug": slug, **fields}) or {"slug": slug, **fields}
+        ),
+    )
+    hermes_cli = sys.modules["hermes_cli"]
+    setattr(hermes_cli, "kanban_db", FakeKb)
+    monkeypatch.setitem(sys.modules, "hermes_cli.kanban_db", FakeKb)
+
+    slug = manager._ensure_agency_board(
+        task_id="task-1",
+        title="Write copy",
+        agent_name="agency-copywriter",
+        direction="outgoing",
+    )
+
+    assert slug == "agency-content"
+    assert boards["agency-content"]["name"] == "Agency Content"
+    assert metadata_writes[-1]["department"] == "Content"
+    assert metadata_writes[-1]["target_agent"] == "agency-copywriter"
+
+    again = manager._ensure_agency_board(
+        task_id="task-2",
+        title="More copy",
+        agent_name="copywriter",
+        direction="outgoing",
+    )
+
+    assert again == "agency-content"
+    assert set(boards) == set(plugin_modules.departments.DEPARTMENT_BOARD_SLUGS.values())
 
 
 def _install_kanban_spies(nm, monkeypatch, *, task_id="kb-1"):

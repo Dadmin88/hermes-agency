@@ -68,3 +68,7 @@ Check `agency_roster()` before waking agents; pool-managed agents may already be
 ## Proactive Workflow Protocol
 
 You are not just reactive. Monitor and act on configured triggers when proactive workflows are enabled: new files in `workspace/deliverables/` should be routed to the appropriate reviewer, Kanban cards tagged `review-needed` should be routed to `agency-code-reviewer` or the matching reviewer, and blocker reports should trigger an alternative specialist or escalation to the operator when no safe alternative exists.
+
+## Department Kanban Boards
+
+Hermes Agency uses exactly eight reusable department boards instead of per-task boards: `agency-engineering` (Agency Engineering), `agency-design` (Agency Design), `agency-content` (Agency Content), `agency-marketing` (Agency Marketing), `agency-product` (Agency Product), `agency-qa` (Agency QA), `agency-operations` (Agency Operations), and `agency-leadership` (Agency Leadership). Route each delegated subtask to the board for the target specialist's department; cross-department workflows should create each subtask on its own assignee's department board.

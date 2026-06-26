@@ -23,6 +23,7 @@ from .announcements import (
 from .bidding import choose_best_bid
 from .config import AgencyConfig, current_profile_name, get_config, is_current_orchestrator
 from .context_packet import build_context_packet
+from .departments import get_department, get_department_board_slug
 from .kanban_bridge import (
     create_task as kanban_create_task,
 )
@@ -297,6 +298,17 @@ def _suggest_assignment(goal: str) -> str:
     return ""
 
 
+def _department_metadata(agent_name: str | None) -> dict[str, str]:
+    department = get_department(agent_name)
+    board = get_department_board_slug(agent_name)
+    meta: dict[str, str] = {}
+    if department:
+        meta["department"] = department
+    if board:
+        meta["agency_board"] = board
+    return meta
+
+
 def _skills_for_assignment(assigned_to: str, resolved: dict[str, Any] | None = None) -> list[str]:
     """Return Kanban skill names for an assignment/target when known."""
 
@@ -469,6 +481,8 @@ def orch_decompose(args: dict[str, Any] | None = None, **_: Any) -> str:
         metadata={
             "agency_kind": "orchestrator_parent",
             "orchestrator_task_id": local_task["task_id"],
+            "target_agent": current_profile_name(),
+            **_department_metadata(current_profile_name()),
             "decomposition_prompt": model_prompt,
         },
     )
@@ -498,6 +512,8 @@ def orch_decompose(args: dict[str, Any] | None = None, **_: Any) -> str:
                     "orchestrator_task_id": local_task["task_id"],
                     "parent_kanban_task_id": parent_id,
                     "subtask_id": subtask.get("id"),
+                    "target_agent": _clean(subtask.get("assigned_to")),
+                    **_department_metadata(_clean(subtask.get("assigned_to"))),
                     "validation": subtask.get("validation"),
                 },
             )
@@ -735,6 +751,7 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
             "agency_kind": "orch_route",
             "orchestrator_task_id": task["task_id"],
             "target_agent": target_agent,
+            **_department_metadata(target_agent),
             "resolved_target": resolved,
             "validation": validation,
             "sender": current_profile_name(),
@@ -795,6 +812,7 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
             "orchestrator_task_id": task["task_id"],
             "kanban_task_id": kanban_task_id or "",
             "target_agent": target_agent,
+            **_department_metadata(target_agent),
             "routed_by": current_profile_name(),
         }
         if (

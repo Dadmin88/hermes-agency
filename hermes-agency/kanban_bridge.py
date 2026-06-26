@@ -27,6 +27,12 @@ from dataclasses import asdict, is_dataclass
 from typing import Any, cast
 
 from .config import current_profile_name, get_config
+from .departments import (
+    DEPARTMENT_BOARD_NAMES,
+    DEPARTMENT_BOARD_SLUGS,
+    get_department,
+    get_department_board_slug,
+)
 
 log = logging.getLogger(__name__)
 
@@ -115,6 +121,37 @@ def _safe_call(fn: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return _unavailable(str(exc))
     except Exception as exc:
         return _unavailable(f"{type(exc).__name__}: {exc}")
+
+
+def _agent_for_department_board(assigned_to: str | None, metadata: dict[str, Any]) -> str | None:
+    for value in (
+        assigned_to,
+        metadata.get("target_agent"),
+        metadata.get("target_profile"),
+        metadata.get("profile_name"),
+        metadata.get("receiver"),
+        metadata.get("reviewer"),
+        current_profile_name() if metadata.get("agency_kind") == "orchestrator_parent" else None,
+    ):
+        if value and get_department_board_slug(str(value)):
+            return str(value)
+    return None
+
+
+def _ensure_department_board(kb: Any, agent_name: str) -> tuple[str, str | None]:
+    department = get_department(agent_name)
+    slug = get_department_board_slug(agent_name)
+    if not slug:
+        raise KanbanUnavailable(f"no department board mapping for {agent_name}")
+    for board_department, board_slug in DEPARTMENT_BOARD_SLUGS.items():
+        if hasattr(kb, "board_exists") and kb.board_exists(board_slug):
+            continue
+        kb.create_board(
+            board_slug,
+            name=DEPARTMENT_BOARD_NAMES.get(board_department, f"Agency {board_department}"),
+            description="Hermes Agency department board for routed specialist work.",
+        )
+    return slug, department
 
 
 def _task_to_dict(kb: Any, conn: Any, task: Any, *, include_thread: bool = False) -> dict[str, Any]:
@@ -273,6 +310,20 @@ def create_task(
     assignee.  Dependencies are stored as normal Kanban parent links.
     """
 
+    clean_metadata = dict(metadata or {})
+    agent_name = _agent_for_department_board(assigned_to, clean_metadata)
+    if agent_name:
+        return _safe_call(
+            _create_task_on_department_board_impl,
+            agent_name,
+            title,
+            description,
+            assigned_to,
+            list(skills or []),
+            list(dependencies or []),
+            clean_metadata,
+            int(priority or 0),
+        )
     return _safe_call(
         _create_task_impl,
         title,
@@ -280,9 +331,37 @@ def create_task(
         assigned_to,
         list(skills or []),
         list(dependencies or []),
-        dict(metadata or {}),
+        clean_metadata,
         int(priority or 0),
     )
+
+
+def _create_task_on_department_board_impl(
+    agent_name: str,
+    title: str,
+    description: str,
+    assigned_to: str | None,
+    skills: list[str],
+    dependencies: list[str],
+    metadata: dict[str, Any],
+    priority: int,
+) -> dict[str, Any]:
+    kb = _import_kb()
+    slug, department = _ensure_department_board(kb, agent_name)
+    metadata.setdefault("agency_board", slug)
+    metadata.setdefault("department", department or "")
+    metadata.setdefault("target_agent", agent_name)
+    if dependencies:
+        metadata.setdefault("cross_board_dependencies", list(dependencies))
+    try:
+        scoped = kb.scoped_current_board
+    except AttributeError as exc:
+        raise KanbanUnavailable("hermes_cli.kanban_db lacks scoped_current_board") from exc
+    with scoped(slug):
+        result = _create_task_impl(title, description, assigned_to, skills, [], metadata, priority)
+    result["board"] = slug
+    result["department"] = department
+    return result
 
 
 def _create_task_impl(

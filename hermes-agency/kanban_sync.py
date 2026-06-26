@@ -11,6 +11,13 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from .departments import (
+    DEPARTMENT_BOARD_NAMES,
+    DEPARTMENT_BOARD_SLUGS,
+    get_department,
+    get_department_board_slug,
+)
+
 _BOARD_FRAGMENT_RE = re.compile(r"[^a-z0-9_-]+")
 
 
@@ -48,40 +55,92 @@ class KanbanSyncMixin:
                     return str(value)
         return None
 
+    @staticmethod
+    def _agent_from_metadata(
+        metadata: dict[str, Any] | None, context_packet: dict[str, Any] | None = None
+    ) -> str | None:
+        for source in (metadata or {}, (context_packet or {}).get("metadata") or {}):
+            if not isinstance(source, dict):
+                continue
+            for key in (
+                "target_agent",
+                "target_profile",
+                "profile_name",
+                "receiver",
+                "assigned_to",
+                "reviewer",
+            ):
+                value = source.get(key)
+                if value:
+                    return str(value)
+        return None
+
+    @staticmethod
+    def _department_board_slug(agent_name: str | None) -> str | None:
+        """Return the department Kanban board slug for ``agent_name`` when known."""
+
+        return get_department_board_slug(agent_name)
+
+    @staticmethod
+    def _ensure_all_department_boards(kb: Any) -> None:
+        """Create the canonical department boards on first Kanban use."""
+
+        for department, slug in DEPARTMENT_BOARD_SLUGS.items():
+            if hasattr(kb, "board_exists") and kb.board_exists(slug):
+                continue
+            kb.create_board(
+                slug,
+                name=DEPARTMENT_BOARD_NAMES.get(department, f"Agency {department}"),
+                description=(
+                    "Hermes Agency department board. Status stays pending_review after task "
+                    "completion until a human signs off."
+                ),
+            )
+
     def _ensure_agency_board(
         self,
         *,
         task_id: str | None = None,
         title: str | None = None,
+        agent_name: str | None = None,
         metadata: dict[str, Any] | None = None,
         context_packet: dict[str, Any] | None = None,
         direction: str = "agency",
     ) -> str | None:
-        """Create/mark a per-agency-task Kanban board, failing open if unavailable."""
+        """Create/mark an agency department Kanban board, failing open if unavailable."""
 
         cfg = self._nm().get_config()
         if not (cfg.enabled and cfg.team.kanban_integration):
             return None
-        requested = self._agency_board_from_metadata(metadata, context_packet)
-        slug = (
-            self._agency_board_fragment(requested, max_len=64)
-            if requested
-            else self._agency_board_slug(task_id=task_id, title=title)
+        resolved_agent = agent_name or self._agent_from_metadata(metadata, context_packet)
+        department = get_department(resolved_agent) or "Leadership"
+        department_slug = (
+            self._department_board_slug(resolved_agent) or DEPARTMENT_BOARD_SLUGS["Leadership"]
         )
+        slug = department_slug
         display_title = " ".join(str(title or task_id or "Agency task").split()).strip()
         if len(display_title) > 96:
             display_title = display_title[:95].rstrip() + "…"
+        board_name = (
+            DEPARTMENT_BOARD_NAMES.get(department or "") or f"Agency: {display_title or slug}"
+        )
         try:
             from hermes_cli import kanban_db as kb  # type: ignore
 
-            meta = kb.create_board(
-                slug,
-                name=f"Agency: {display_title or slug}",
-                description=(
-                    "Hermes Agency task board. Status stays pending_review after task "
-                    "completion until a human signs off."
-                ),
-            )
+            if department_slug:
+                self._ensure_all_department_boards(kb)
+                meta = {"slug": slug, "name": board_name}
+            elif hasattr(kb, "board_exists") and kb.board_exists(slug):
+                meta = {"slug": slug, "name": board_name}
+            else:
+                meta = kb.create_board(
+                    slug,
+                    name=board_name,
+                    description=(
+                        "Hermes Agency department board. Status stays pending_review after task "
+                        "completion until a human signs off."
+                    ),
+                )
             self._write_agency_board_metadata(
                 kb,
                 str(meta.get("slug") or slug),
@@ -89,6 +148,8 @@ class KanbanSyncMixin:
                 direction=direction,
                 source_task_id=task_id,
                 source_title=display_title,
+                target_agent=resolved_agent,
+                department=department,
                 human_signoff_required=True,
             )
             return str(meta.get("slug") or slug)
@@ -178,6 +239,9 @@ class KanbanSyncMixin:
             slug = str(board.get("slug") or "")
             if slug == getattr(kb, "DEFAULT_BOARD", "default"):
                 continue
+            if slug in set(DEPARTMENT_BOARD_SLUGS.values()):
+                skipped.append({"slug": slug, "reason": "department board"})
+                continue
             if board.get("agency_status") != "signed_off":
                 skipped.append({"slug": slug, "reason": "not signed_off"})
                 continue
@@ -247,6 +311,13 @@ class KanbanSyncMixin:
         agency_board = self._ensure_agency_board(
             task_id=kanban_task_id or clean_context_id or None,
             title=message,
+            agent_name=(
+                clean_metadata.get("target_agent")
+                or clean_metadata.get("target_profile")
+                or clean_metadata.get("assigned_to")
+                or peer_id
+                or skill
+            ),
             metadata=clean_metadata,
             context_packet=packet_context,
             direction="outgoing",

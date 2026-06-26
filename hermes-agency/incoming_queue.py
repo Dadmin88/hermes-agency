@@ -496,6 +496,7 @@ class IncomingQueueMixin:
         agency_board = self._ensure_agency_board(
             task_id=kanban_task_id or getattr(task, "task_id", "") or None,
             title=self._nm().packet_goal_or_text(message_text),
+            agent_name=self._nm().current_profile_name(),
             metadata=metadata,
             context_packet=context_packet,
             direction="incoming",
