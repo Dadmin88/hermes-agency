@@ -14,7 +14,10 @@ from pathlib import Path
 from typing import Any, cast
 
 PLUGIN_PATH = Path(
-    os.environ.get("HERMES_AGENCY_PLUGIN_PATH", "/home/dadmin/.hermes/plugins/hermes-agency")
+    os.environ.get(
+        "HERMES_AGENCY_PLUGIN_PATH",
+        str(Path.home() / ".hermes" / "plugins" / "hermes-agency"),
+    )
 )
 PACKAGE_NAME = "hermes_agency"
 DEFAULT_STARTUP_TIMEOUT = 120.0

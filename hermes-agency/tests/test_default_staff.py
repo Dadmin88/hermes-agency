@@ -273,7 +273,7 @@ class TestDiscovery:
 class TestConsistency:
     def test_no_existing_profile_names_referenced(self, manifest: dict):
         """Ensure no manifest entry references a non-agency profile name as a target."""
-        existing_profiles = {"katana", "gpt", "grok", "designer", "git", "default"}
+        existing_profiles = {"local-agent", "gpt", "grok", "designer", "git", "default"}
         violations = []
         for p in manifest["profiles"]:
             delegates = p.get("delegates_to", [])

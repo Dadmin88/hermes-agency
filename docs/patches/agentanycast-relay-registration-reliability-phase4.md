@@ -13,9 +13,9 @@ Implemented two watchdog layers:
 
 Files installed on VPS:
 
-- `/home/dadmin/bin/agency-health-watchdog.py`
-- `/home/dadmin/.config/systemd/user/agency-health-watchdog.service`
-- `/home/dadmin/.config/systemd/user/agency-health-watchdog.timer`
+- `~/bin/agency-health-watchdog.py`
+- `~/.config/systemd/user/agency-health-watchdog.service`
+- `~/.config/systemd/user/agency-health-watchdog.timer`
 
 Timer schedule:
 
@@ -29,7 +29,7 @@ The watchdog checks:
 - exactly one `agencyd` process exists on the VPS
 - exactly one `a2a-node.py` wrapper process exists on the VPS
 - compact health file exists and is fresh:
-  - `/home/dadmin/.hermes/.agency/health.json`
+  - `~/.hermes/.agency/health.json`
 - registration health is true
 - stale registration failures trigger node restart
 
@@ -58,16 +58,16 @@ NEXT ... agency-health-watchdog.timer agency-health-watchdog.service
 
 Patched VPS wrapper:
 
-- `/home/dadmin/agency-node.py`
+- `~/agency-node.py`
 
 Backup created before patching:
 
-- `/home/dadmin/agency-node.py.bak-phase4-healthfile-*`
+- `~/agency-node.py.bak-phase4-healthfile-*`
 
 The wrapper now writes compact node health atomically to:
 
 ```text
-/home/dadmin/.hermes/.agency/health.json
+~/.hermes/.agency/health.json
 ```
 
 This lets the external VPS-local watchdog inspect the running wrapper's live state instead of importing a separate `NodeManager` instance.
@@ -91,15 +91,15 @@ The outside-in watchdog uses an isolated SDK home:
 ~/.cache/agency-outside-in-watchdog
 ```
 
-This avoids colliding with profile-owned daemon sockets for Katana or gpt.
+This avoids colliding with profile-owned daemon sockets for local workstation or gpt.
 
 The outside-in watchdog verifies:
 
 - starts an isolated temporary Hermes Agency SDK node
 - discovers agents for skill `airtable`
-- confirms Hermes VPS peer is discoverable:
+- confirms remote agency host peer is discoverable:
   - `12D3KooWKuxTvp5xsLvkU3KEbJWSdLE4GLE9LAEZV61S5wDXHhAo`
-- sends a real direct task to Hermes VPS
+- sends a real direct task to remote agency host
 - waits for completion
 - requires non-empty artifact text
 - stops its temporary node and removes stale socket afterward
@@ -119,7 +119,7 @@ NEXT Mon 2026-06-22 02:32:09 EDT ... agency-outside-in-watchdog.timer agency-out
 
 Process cleanup verification after outside-in run:
 
-- Only the pre-existing Katana and gpt `agencyd` processes remained.
+- Only the pre-existing local workstation and gpt `agencyd` processes remained.
 - The outside-in watchdog did not leave a third daemon running.
 
 ## Commands used for verification
@@ -149,7 +149,7 @@ Complete.
 
 Notes:
 
-- Katana/gpt profile daemons were not restarted.
-- The local systemd timer runs an isolated SDK node for outside-in checks and cleans it up; it does not use the Katana or gpt daemon sockets.
+- local workstation/gpt profile daemons were not restarted.
+- The local systemd timer runs an isolated SDK node for outside-in checks and cleans it up; it does not use the local workstation or gpt daemon sockets.
 - The VPS timer is active and will repair local relay/node failures that are visible from service/process/health-file state.
-- The outside-in timer is active and proves the higher-level condition: another machine can discover Hermes VPS and receive a completed task response.
+- The outside-in timer is active and proves the higher-level condition: another machine can discover remote agency host and receive a completed task response.

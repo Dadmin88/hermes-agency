@@ -66,10 +66,10 @@ make integration-agency-full
 
 Phase 7 live validation already proved:
 
-- `a2a_discover` found Katana and Hermes VPS through the registry
-- gpt → Katana completed with artifact text
-- gpt → Hermes VPS completed with artifact text
-- isolated temp sender → gpt completed with artifact text
+- `a2a_discover` found local workstation and remote agency host through the registry
+- remote agent → local workstation completed with artifact text
+- remote agent → remote agency host completed with artifact text
+- isolated temp sender → remote agent completed with artifact text
 - Kanban tasks reconciled to `done`
 - VPS node and relay systemd services stayed active with `NRestarts=0`
 - gateway logs had no Discord `No home channel` warnings during validation

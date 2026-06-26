@@ -48,7 +48,7 @@ REPO_ROOT = PLUGIN_DIR.parent
 SDK_SRC_DIR = REPO_ROOT / "src"
 HERMES_APP_DIR = Path.home() / ".hermes" / "hermes-agent"
 GPT_PROFILE_HOME = Path.home() / ".hermes" / "profiles" / "gpt"
-KATANA_PROFILE_HOME = Path.home() / ".hermes" / "profiles" / "katana"
+KATANA_PROFILE_HOME = Path.home() / ".hermes" / "profiles" / "local-agent"
 
 # Let local checkout imports win over installed SDK/plugin copies, but keep the
 # Hermes application importable so Kanban integration uses the real DB bridge.
@@ -169,7 +169,7 @@ team_mod = importlib.import_module("agency_hermes_plugin_e2e_full.team_context")
 
 
 def make_card(profile_name: str) -> AgentCard:
-    display = "Katana" if profile_name == "katana" else "hermes-gpt"
+    display = "local workstation" if profile_name == "local-agent" else "remote-agent"
     return AgentCard(
         name=display,
         description=f"Phase 7 Hermes Agency e2e validation node for {display}",
@@ -199,7 +199,7 @@ class ProfileRuntime:
             allow_remote_tasks=True,
             trusted_peers=(),
             incoming_queue_limit=100,
-            card_name="Katana" if self.name == "katana" else "hermes-gpt",
+            card_name="local workstation" if self.name == "local-agent" else "remote-agent",
             home=self.daemon_home,
             team=TeamConfig(
                 auto_discover=True,
@@ -394,88 +394,103 @@ def validate_plugin_load() -> None:
 def validate_lan() -> None:
     tmp = Path(tempfile.mkdtemp(prefix="agency-phase7-lan-"))
     gpt = new_runtime("gpt", GPT_PROFILE_HOME, tmp / "gpt" / ".agency")
-    katana = new_runtime("katana", KATANA_PROFILE_HOME, tmp / "katana" / ".agency")
+    local_agent = new_runtime("local-agent", KATANA_PROFILE_HOME, tmp / "local-agent" / ".agency")
     try:
         start_runtime(gpt)
-        start_runtime(katana)
+        start_runtime(local_agent)
         record(
             "7.1 start both LAN nodes",
             True,
-            f"gpt={gpt.manager.state.peer_id}; katana={katana.manager.state.peer_id}",
+            f"gpt={gpt.manager.state.peer_id}; local-agent={local_agent.manager.state.peer_id}",
         )
 
-        wait_for_peers(katana, gpt)
+        wait_for_peers(local_agent, gpt)
         record("7.1 a2a_list_peers sees both LAN nodes", True)
 
         refresh_team(gpt)
-        refresh_team(katana)
+        refresh_team(local_agent)
         gpt_ctx = team_context(gpt)
-        katana_ctx = team_context(katana)
+        local_agent_ctx = team_context(local_agent)
         ARTIFACTS["gpt_team_context"] = gpt_ctx
-        ARTIFACTS["katana_team_context"] = katana_ctx
+        ARTIFACTS["local-agent_team_context"] = local_agent_ctx
         require(
-            "Katana" in gpt_ctx and "skills:" in gpt_ctx,
-            f"GPT team context missing Katana/skills: {gpt_ctx}",
+            "local workstation" in gpt_ctx and "skills:" in gpt_ctx,
+            f"GPT team context missing local workstation/skills: {gpt_ctx}",
         )
         require(
-            "hermes-gpt" in katana_ctx and "skills:" in katana_ctx,
-            f"Katana team context missing gpt/skills: {katana_ctx}",
+            "remote-agent" in local_agent_ctx and "skills:" in local_agent_ctx,
+            f"local workstation team context missing gpt/skills: {local_agent_ctx}",
         )
         record("7.1 team context shows names and skills", True)
 
         t0 = time.monotonic()
         sent_kg = send_task_checked(
-            katana, message="What is your name?", peer_id=gpt.manager.state.peer_id, wait_seconds=10
+            local_agent,
+            message="What is your name?",
+            peer_id=gpt.manager.state.peer_id,
+            wait_seconds=10,
         )
-        done_kg = wait_completed(katana, sent_kg["task_id"])
+        done_kg = wait_completed(local_agent, sent_kg["task_id"])
         kg_latency = time.monotonic() - t0
-        require(done_kg.get("status") == "completed", f"Katana->GPT status={done_kg.get('status')}")
-        require(bool(done_kg.get("artifact_text")), "Katana->GPT artifact_text empty")
+        require(
+            done_kg.get("status") == "completed",
+            f"local workstation->GPT status={done_kg.get('status')}",
+        )
+        require(bool(done_kg.get("artifact_text")), "local workstation->GPT artifact_text empty")
         record(
-            "7.1 Katana -> GPT task completed with artifact",
+            "7.1 local workstation -> GPT task completed with artifact",
             True,
             f"task={sent_kg['task_id']} latency={kg_latency:.3f}s",
         )
 
         t1 = time.monotonic()
         sent_gk = send_task_checked(
-            gpt, message="What is your name?", peer_id=katana.manager.state.peer_id, wait_seconds=10
+            gpt,
+            message="What is your name?",
+            peer_id=local_agent.manager.state.peer_id,
+            wait_seconds=10,
         )
         done_gk = wait_completed(gpt, sent_gk["task_id"])
         gk_latency = time.monotonic() - t1
-        require(done_gk.get("status") == "completed", f"GPT->Katana status={done_gk.get('status')}")
-        require(bool(done_gk.get("artifact_text")), "GPT->Katana artifact_text empty")
+        require(
+            done_gk.get("status") == "completed",
+            f"GPT->local workstation status={done_gk.get('status')}",
+        )
+        require(bool(done_gk.get("artifact_text")), "GPT->local workstation artifact_text empty")
         record(
-            "7.1 GPT -> Katana task completed with artifact",
+            "7.1 GPT -> local workstation task completed with artifact",
             True,
             f"task={sent_gk['task_id']} latency={gk_latency:.3f}s",
         )
 
-        katana_inbox = inbox(katana, limit=10)
+        local_agent_inbox = inbox(local_agent, limit=10)
         gpt_inbox = inbox(gpt, limit=10)
         require(
             any(
                 item.get("task_id") == sent_gk["task_id"] and item.get("status") == "completed"
-                for item in katana_inbox
+                for item in local_agent_inbox
             ),
-            "Katana inbox missing completed GPT->Katana task",
+            "local workstation inbox missing completed GPT->local workstation task",
         )
         require(
             any(
                 item.get("task_id") == sent_kg["task_id"] and item.get("status") == "completed"
                 for item in gpt_inbox
             ),
-            "GPT inbox missing completed Katana->GPT task",
+            "GPT inbox missing completed local workstation->GPT task",
         )
         record("7.1 incoming queues recorded completed tasks", True)
 
-        kb_kg = get_kanban_task(katana, sent_kg["task_id"])
+        kb_kg = get_kanban_task(local_agent, sent_kg["task_id"])
         kb_gk = get_kanban_task(gpt, sent_gk["task_id"])
-        require(kb_kg.get("available") and kb_kg.get("ok"), f"Katana Kanban lookup failed: {kb_kg}")
+        require(
+            kb_kg.get("available") and kb_kg.get("ok"),
+            f"local workstation Kanban lookup failed: {kb_kg}",
+        )
         require(kb_gk.get("available") and kb_gk.get("ok"), f"GPT Kanban lookup failed: {kb_gk}")
         require(
             kb_kg.get("task", {}).get("plugin_status") in {"done", "in_progress"},
-            f"Katana Kanban unexpected status: {kb_kg}",
+            f"local workstation Kanban unexpected status: {kb_kg}",
         )
         require(
             kb_gk.get("task", {}).get("plugin_status") in {"done", "in_progress"},
@@ -484,7 +499,7 @@ def validate_lan() -> None:
         record(
             "7.1 Kanban tasks created for delegations",
             True,
-            f"katana_kb={kb_kg.get('task_id')}; gpt_kb={kb_gk.get('task_id')}",
+            f"local-agent_kb={kb_kg.get('task_id')}; gpt_kb={kb_gk.get('task_id')}",
         )
 
         anns = announcements_mod.recent_announcements(50)
@@ -496,14 +511,14 @@ def validate_lan() -> None:
         record("7.1 announcements recorded delegate/start/complete", True)
 
         info_gpt = gpt.manager.info()
-        info_katana = katana.manager.info()
+        info_local_agent = local_agent.manager.info()
         require(
             info_gpt.get("started") and info_gpt.get("serve_task_running"),
             f"bad GPT info: {info_gpt}",
         )
         require(
-            info_katana.get("started") and info_katana.get("serve_task_running"),
-            f"bad Katana info: {info_katana}",
+            info_local_agent.get("started") and info_local_agent.get("serve_task_running"),
+            f"bad local workstation info: {info_local_agent}",
         )
         record("7.5 a2a_info-equivalent node state is correct", True)
 
@@ -512,36 +527,36 @@ def validate_lan() -> None:
             require(isinstance(agents, list), f"discover returned non-list: {agents!r}")
             require(
                 any(
-                    (item.get("peer_id") == katana.manager.state.peer_id)
+                    (item.get("peer_id") == local_agent.manager.state.peer_id)
                     for item in agents
                     if isinstance(item, dict)
                 ),
-                f"discover did not include Katana: {agents}",
+                f"discover did not include local workstation: {agents}",
             )
             record("7.5 a2a_discover works via registry", True, f"results={len(agents)}")
         except Exception as exc:
             record("7.5 a2a_discover works via registry", False, f"{type(exc).__name__}: {exc}")
 
-        # Peer leave/update behavior: stop Katana, force refresh on GPT, and require
-        # that direct peer list no longer includes Katana. Registration TTL may keep
+        # Peer leave/update behavior: stop local workstation, force refresh on GPT, and require
+        # that direct peer list no longer includes local workstation. Registration TTL may keep
         # a recent registration visible briefly, so this check is based on live peers.
-        stop_runtime(katana)
+        stop_runtime(local_agent)
         deadline = time.monotonic() + 10
         last_peers: list[dict[str, Any]] = []
         while time.monotonic() < deadline:
             last_peers = list_peers(gpt)
-            if not peer_seen(last_peers, katana.manager.state.last_peer_id):
+            if not peer_seen(last_peers, local_agent.manager.state.last_peer_id):
                 break
             time.sleep(POLL_INTERVAL_SECONDS)
         require(
-            not peer_seen(last_peers, katana.manager.state.last_peer_id),
-            f"Katana still in GPT peer list after stop: {last_peers}",
+            not peer_seen(last_peers, local_agent.manager.state.last_peer_id),
+            f"local workstation still in GPT peer list after stop: {last_peers}",
         )
         refresh_team(gpt)
         record("7.5 peer leave updates live peer list", True)
 
     finally:
-        cleanup(gpt, katana)
+        cleanup(gpt, local_agent)
         shutil.rmtree(tmp, ignore_errors=True)
 
 

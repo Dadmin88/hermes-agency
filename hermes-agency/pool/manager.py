@@ -17,14 +17,33 @@ from pathlib import Path
 import yaml
 
 REGISTRY_DEF = Path(__file__).with_name("registry_definition.json")
-AGENCY_CONFIG = Path("/home/dadmin/.hermes/agency/config.yaml")
-PROFILES_DIR = Path("/home/dadmin/.hermes/profiles")
-PLUGIN_PATH = Path("/home/dadmin/.hermes/plugins/hermes-agency")
-DEFAULT_SOUL_SRC = Path("/home/dadmin/Hermes_Agency/hermes-agency/default_staff/profiles")
-KANBAN_WORKER_SKILL_SRC = Path("/home/dadmin/.hermes/skills/devops/kanban-worker")
-HERMES_BIN = "/home/dadmin/.local/bin/hermes"
-HERMES_PYTHON = "/home/dadmin/.hermes/hermes-agent/venv/bin/python"
-NODE_RUNNER = Path("/home/dadmin/Hermes_Agency/hermes-agency/pool/agency_node_runner.py")
+HOME = Path.home()
+HERMES_HOME = Path(os.environ.get("HERMES_HOME", HOME / ".hermes")).expanduser()
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+
+AGENCY_CONFIG = Path(
+    os.environ.get("HERMES_AGENCY_CONFIG", HERMES_HOME / "agency" / "config.yaml")
+).expanduser()
+PROFILES_DIR = Path(os.environ.get("HERMES_PROFILES_DIR", HERMES_HOME / "profiles")).expanduser()
+PLUGIN_PATH = Path(
+    os.environ.get("HERMES_AGENCY_PLUGIN_PATH", HERMES_HOME / "plugins" / "hermes-agency")
+).expanduser()
+DEFAULT_SOUL_SRC = Path(
+    os.environ.get("HERMES_AGENCY_DEFAULT_STAFF_DIR", PLUGIN_ROOT / "default_staff" / "profiles")
+).expanduser()
+KANBAN_WORKER_SKILL_SRC = Path(
+    os.environ.get(
+        "HERMES_AGENCY_KANBAN_WORKER_SKILL", HERMES_HOME / "skills" / "devops" / "kanban-worker"
+    )
+).expanduser()
+HERMES_BIN = os.environ.get("HERMES_BIN", str(HOME / ".local" / "bin" / "hermes"))
+HERMES_PYTHON = os.environ.get(
+    "HERMES_PYTHON", str(HERMES_HOME / "hermes-agent" / "venv" / "bin" / "python")
+)
+NODE_RUNNER = Path(
+    os.environ.get("HERMES_AGENCY_NODE_RUNNER", PLUGIN_ROOT / "pool" / "agency_node_runner.py")
+).expanduser()
 PEER_ID_RE = re.compile(r"(12D3KooW[0-9A-Za-z]+)")
 OWN_PEER_ID_RE = re.compile(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z]+)', re.MULTILINE)
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"

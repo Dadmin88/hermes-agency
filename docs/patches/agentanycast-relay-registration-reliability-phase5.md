@@ -110,13 +110,13 @@ Result: passed.
 Deployed to:
 
 ```text
-/home/dadmin/.hermes/plugins/hermes-agency/tools.py
+~/.hermes/plugins/hermes-agency/tools.py
 ```
 
 Backup created before replacement:
 
 ```text
-/home/dadmin/.hermes/plugins/hermes-agency/tools.py.bak-phase5-compact-tools-*
+~/.hermes/plugins/hermes-agency/tools.py.bak-phase5-compact-tools-*
 ```
 
 Runtime syntax check:
@@ -181,5 +181,5 @@ Complete.
 Notes:
 
 - The current Hermes chat session still has stale tool handlers/schemas loaded, so a direct `a2a_discover` call from this same session can still show the old large response until a fresh Hermes session/tool reload. The deployed plugin files are patched and verified for future sessions.
-- I did not restart Katana or gpt profile daemons.
+- I did not restart local workstation or gpt profile daemons.
 - I did not restart the VPS node; this phase only changed model-tool response formatting and does not affect the long-running VPS wrapper.

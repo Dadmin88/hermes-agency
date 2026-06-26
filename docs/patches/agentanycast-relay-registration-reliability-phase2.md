@@ -8,8 +8,8 @@ Phase 2 deploys or confirms the canonical relay-registration reliability fix on 
 
 ### VPS runtime
 
-- Plugin path: `/home/dadmin/.hermes/plugins/hermes-agency/node_manager.py`
-- Wrapper path: `/home/dadmin/agency-node.py`
+- Plugin path: `~/.hermes/plugins/hermes-agency/node_manager.py`
+- Wrapper path: `~/agency-node.py`
 - Service: `agency-node.service`
 - Relay service: `agency-relay.service`
 
@@ -32,7 +32,7 @@ Status:
 - Reliability fix present.
 - Syntax check passed.
 
-### Katana profile
+### local workstation profile
 
 - Plugin path: `~/.hermes/profiles/<profile>/plugins/hermes-agency/node_manager.py`
 
@@ -41,7 +41,7 @@ Status:
 - Reliability fix present.
 - Syntax check passed.
 - No laptop daemon restart was performed.
-- No Katana daemon/runtime process was modified.
+- No local workstation daemon/runtime process was modified.
 
 ## Verification commands run
 
@@ -50,9 +50,9 @@ Status:
 cd ~/src/hermes-agentanycast
 python3 -m py_compile hermes-agency/node_manager.py hermes-agency/tools.py hermes-agency/tests/test_unit.py
 
-# gpt/Katana deployed plugin syntax validation, no daemon restart
+# gpt/local workstation deployed plugin syntax validation, no daemon restart
 python3 -m py_compile \
-  ~/.hermes/profiles/katana/plugins/hermes-agency/node_manager.py \
+  ~/.hermes/profiles/local-agent/plugins/hermes-agency/node_manager.py \
   ~/.hermes/profiles/gpt/plugins/hermes-agency/node_manager.py
 
 # VPS runtime validation
@@ -87,7 +87,7 @@ Discovery check showed all expected agents:
 
 ```text
 gpt
-Katana
+local workstation
 Hermes (VPS)
 ```
 
@@ -109,4 +109,4 @@ Notes:
 
 - The VPS runtime already had the hotfix from the previous deployment and was verified rather than overwritten from the dirty local source tree.
 - The local source tree still contains unrelated Hermes Agency changes, so no git commit was created during Phase 2.
-- Katana's plugin file already contains the reliability fix, so no write/restart was needed. The laptop daemon was not touched.
+- local workstation's plugin file already contains the reliability fix, so no write/restart was needed. The laptop daemon was not touched.

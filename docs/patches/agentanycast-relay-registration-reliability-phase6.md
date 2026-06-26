@@ -120,15 +120,15 @@ Runtime syntax check passed:
 Deployed to:
 
 ```text
-/home/dadmin/.hermes/plugins/hermes-agency/config.py
-/home/dadmin/.hermes/plugins/hermes-agency/team_context.py
+~/.hermes/plugins/hermes-agency/config.py
+~/.hermes/plugins/hermes-agency/team_context.py
 ```
 
 Backups created:
 
 ```text
-/home/dadmin/.hermes/plugins/hermes-agency/config.py.bak-phase6-team-context-budget-*
-/home/dadmin/.hermes/plugins/hermes-agency/team_context.py.bak-phase6-team-context-budget-*
+~/.hermes/plugins/hermes-agency/config.py.bak-phase6-team-context-budget-*
+~/.hermes/plugins/hermes-agency/team_context.py.bak-phase6-team-context-budget-*
 ```
 
 Runtime syntax check passed:
@@ -196,5 +196,5 @@ Complete.
 Notes:
 
 - I restarted the VPS `agency-node.service` to activate the updated team-context code in the long-running wrapper.
-- I did not restart Katana or the local gpt GUI/session.
+- I did not restart local workstation or the local gpt GUI/session.
 - Fresh Hermes sessions will pick up the new config fields and bounded team-context rendering.

@@ -126,13 +126,13 @@ Direct runtime verification passed using the gpt profile plugin package.
 Deployed to:
 
 ```text
-/home/dadmin/.hermes/plugins/hermes-agency/tools.py
+~/.hermes/plugins/hermes-agency/tools.py
 ```
 
 Backup created:
 
 ```text
-/home/dadmin/.hermes/plugins/hermes-agency/tools.py.bak-phase7-routine-compact-*
+~/.hermes/plugins/hermes-agency/tools.py.bak-phase7-routine-compact-*
 ```
 
 Runtime syntax check passed:
@@ -207,5 +207,5 @@ Complete.
 Notes:
 
 - I did not restart the VPS node because Phase 7 only changes Hermes model-tool response formatting in `tools.py`; the standalone VPS node wrapper does not need to import the updated tool handler for relay health.
-- I did not restart Katana or the local gpt GUI/session.
+- I did not restart local workstation or the local gpt GUI/session.
 - Fresh Hermes sessions will pick up the updated tool handlers. The current chat may still have stale tool handlers until session/tool reload.

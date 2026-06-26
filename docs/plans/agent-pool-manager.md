@@ -6,7 +6,7 @@ All 50+ agency profiles are discoverable and available, but only a few run as ac
 ## Current State
 - Each A2A node is a persistent daemon process
 - Running 50+ daemons = 50+ processes = too many resources
-- Only Hermes (VPS) + Katana are active right now
+- Only Hermes (VPS) + local workstation are active right now
 - 50+ agency profiles are configured but not running
 
 ## Architecture
@@ -346,4 +346,4 @@ After 5 min idle: sleep_agent("agency-frontend-engineer")
 3. **Idle timeout:** 5 minutes default.
 4. **Pool manager:** Separate systemd service on VPS.
 5. **Wake mechanism:** Direct node management via Python API (not subprocess).
-6. **Registry scope:** ONLY `agency-*` namespace profiles. NEVER include personal profiles (katana, gpt, grok, designer, git, default, vps).
+6. **Registry scope:** ONLY `agency-*` namespace profiles. NEVER include personal profiles (local-agent, gpt, grok, designer, git, default, vps).

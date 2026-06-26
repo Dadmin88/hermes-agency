@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=dadmin
-WorkingDirectory=/home/dadmin/Hermes_Agency/hermes-agency/pool
-ExecStart=/usr/bin/python3 /home/dadmin/Hermes_Agency/hermes-agency/pool/service.py
+WorkingDirectory=%h/Hermes_Agency/hermes-agency/pool
+ExecStart=/usr/bin/python3 %h/Hermes_Agency/hermes-agency/pool/service.py
 Restart=always
 Environment=PYTHONUNBUFFERED=1
+Environment=HERMES_HOME=%h/.hermes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

@@ -264,7 +264,7 @@ Another useful paragraph with **markdown** text.
 @pytest.mark.parametrize(
     ("paragraph", "expected"),
     [
-        ("Name: Katana Alias: Blade Role: Assistant", True),
+        ("Name: local workstation Alias: Blade Role: Assistant", True),
         ("Provider: OpenAI Model: gpt Tools: enabled", True),
         ("You are helpful: direct: and concise", False),
         ("This profile writes tests and explains code clearly.", False),
@@ -304,7 +304,7 @@ def test_read_profile_description_returns_first_descriptive_paragraph(plugin_mod
     profile.mkdir()
     (profile / "SOUL.md").write_text(
         "# SOUL.md — Test\n\n"
-        "Name: Katana\nAlias: Blade\nRole: Assistant\n\n"
+        "Name: local workstation\nAlias: Blade\nRole: Assistant\n\n"
         "This is the first descriptive paragraph for the profile.\n\n"
         "A later paragraph should not be returned.\n",
         encoding="utf-8",
@@ -431,7 +431,7 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         "Name: Safe Card\n\n"
         "Do not leak API key sk-abc123SECRET or Bearer token-secret.\n\n"
         "A safe profile description.\n\n"
-        "Profile path /home/user/.hermes/profiles/katana/ and env ${API_TOKEN}.\n",
+        "Profile path /home/user/.hermes/profiles/local-agent/ and env ${API_TOKEN}.\n",
         encoding="utf-8",
     )
     (profile / "skills" / "safe" / "SKILL.md").write_text(
@@ -455,7 +455,7 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         "  card_name: Public Name\n"
         "  skills_from_profile: true\n"
         "  daemon_bin: /home/user/.agentanycast/daemon.sock\n"
-        "  home: /home/user/.hermes/profiles/katana/.agency\n",
+        "  home: /home/user/.hermes/profiles/local-agent/.agency\n",
         encoding="utf-8",
     )
 
@@ -475,8 +475,8 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         "Bearer token-secret",
         "123456789012345678",
         "/home/user/.agentanycast/daemon.sock",
-        "/home/user/.hermes/profiles/katana/",
-        "/home/user/.hermes/profiles/katana/.agency",
+        "/home/user/.hermes/profiles/local-agent/",
+        "/home/user/.hermes/profiles/local-agent/.agency",
         "$SECRET_KEY",
         "${API_TOKEN}",
         "api_key",
@@ -976,7 +976,7 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                 },
                 "orchestrator": {
                     "enabled": True,
-                    "agent": "katana",
+                    "agent": "local-agent",
                     "auto_decompose": False,
                 },
                 "workspace": {"root": str(tmp_path / "workspace")},
@@ -984,7 +984,7 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                     "enabled": True,
                     "triggers": [{"type": "file-watch"}],
                 },
-                "routing": {"deploy": "hermes", "code": "katana"},
+                "routing": {"deploy": "hermes", "code": "local-agent"},
                 "outbound": {
                     "url_validation": "strict",
                     "url_allowlist": ["https://agents.example.com", "https://*.trusted.test"],
@@ -1036,11 +1036,11 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.team.tenant == "alpha"
     assert cfg.team.context_refresh_minutes == 9
     assert cfg.orchestrator.enabled is True
-    assert cfg.orchestrator.agent == "katana"
+    assert cfg.orchestrator.agent == "local-agent"
     assert cfg.orchestrator.auto_decompose is False
     assert cfg.workspace.root == tmp_path / "workspace"
     assert cfg.proactive == {"enabled": True, "triggers": [{"type": "file-watch"}]}
-    assert cfg.routing == {"deploy": "hermes", "code": "katana"}
+    assert cfg.routing == {"deploy": "hermes", "code": "local-agent"}
     assert cfg.outbound.url_validation == "strict"
     assert cfg.outbound.url_allowlist == ("https://agents.example.com", "https://*.trusted.test")
 
@@ -1049,8 +1049,8 @@ def test_trust_store_tofu_records_and_verifies_known_peer(plugin_modules, tmp_pa
     trust = plugin_modules.trust
     store = trust.TrustStore(tmp_path / "trust.json", tofu=True)
 
-    first = store.verify_peer("peer-1", name="Hermes VPS")
-    second = store.verify_peer("peer-1", name="Hermes VPS")
+    first = store.verify_peer("peer-1", name="remote agency host")
+    second = store.verify_peer("peer-1", name="remote agency host")
 
     assert first.allowed is True
     assert first.action == "tofu_recorded"
@@ -1058,7 +1058,7 @@ def test_trust_store_tofu_records_and_verifies_known_peer(plugin_modules, tmp_pa
     assert second.allowed is True
     assert second.action == "verified"
     data = json.loads((tmp_path / "trust.json").read_text(encoding="utf-8"))
-    assert data["peers"]["peer-1"]["name"] == "Hermes VPS"
+    assert data["peers"]["peer-1"]["name"] == "remote agency host"
     assert data["peers"]["peer-1"]["trust_level"] == "limited"
 
 
@@ -1071,7 +1071,7 @@ def test_trust_store_save_restricts_file_and_parent_permissions(plugin_modules, 
     trust = plugin_modules.trust
     store = trust.TrustStore(tmp_path / "trust-dir" / "trust.json", tofu=True)
 
-    store.verify_peer("peer-1", name="Hermes VPS")
+    store.verify_peer("peer-1", name="remote agency host")
 
     assert stat_mode(store.path) == 0o600
     assert stat_mode(store.path.parent) == 0o700
@@ -1098,8 +1098,8 @@ def test_trust_store_rejects_name_peer_id_mismatch_and_blocked_peer(plugin_modul
     trust = plugin_modules.trust
     store = trust.TrustStore(tmp_path / "trust.json", tofu=True)
 
-    store.verify_peer("peer-original", name="Katana", trust_level="full")
-    mismatch = store.verify_peer("peer-rotated", name="Katana")
+    store.verify_peer("peer-original", name="local workstation", trust_level="full")
+    mismatch = store.verify_peer("peer-rotated", name="local workstation")
     store.set_trust("peer-blocked", trust_level="blocked", name="Blocked")
     blocked = store.verify_peer("peer-blocked", name="Blocked")
 
@@ -1233,11 +1233,11 @@ async def test_tofu_mismatch_cannot_register(plugin_modules, monkeypatch, tmp_pa
         plugin_modules, tmp_path, allowlist=("peer-original", "peer-rotated"), tofu=True
     )
     plugin_modules.trust.store_for_config(cfg).set_trust(
-        "peer-original", trust_level="full", name="Katana"
+        "peer-original", trust_level="full", name="local workstation"
     )
     monkeypatch.setattr(nm, "get_config", lambda: cfg)
     task = _FakeIncomingTask(
-        _registration_control(plugin_modules, peer_id="peer-rotated", name="Katana"),
+        _registration_control(plugin_modules, peer_id="peer-rotated", name="local workstation"),
         peer_id="peer-rotated",
     )
 
@@ -1526,13 +1526,15 @@ def test_incoming_config_accepts_subprocess_mode_and_profile(plugin_modules, mon
     monkeypatch.setattr(
         cfg_mod,
         "load_config",
-        lambda: {"agency": {"incoming": {"mode": "subprocess", "subprocess_profile": "katana"}}},
+        lambda: {
+            "agency": {"incoming": {"mode": "subprocess", "subprocess_profile": "local-agent"}}
+        },
     )
 
     cfg = cfg_mod.get_config()
 
     assert cfg.incoming.mode == "subprocess"
-    assert cfg.incoming.subprocess_profile == "katana"
+    assert cfg.incoming.subprocess_profile == "local-agent"
 
 
 def test_incoming_config_reject_unmatched_skills_defaults_false_and_can_enable(
@@ -1586,13 +1588,13 @@ def test_task_processor_builds_prompt_and_maps_tool_access(plugin_modules):
         sender_peer_id="peer-1",
         target_skill_id="haiku",
         message_text="Write a haiku about AI agents",
-        context_packet={"sender_name": "Katana"},
+        context_packet={"sender_name": "local workstation"},
         metadata={},
     )
 
     prompt = tp.build_delegation_prompt(record)
 
-    assert "Sender: Katana (peer-1)" in prompt
+    assert "Sender: local workstation (peer-1)" in prompt
     assert "Skill requested: haiku" in prompt
     assert "Write a haiku about AI agents" in prompt
     assert tp.toolsets_for_access("safe") == ["web", "search", "skills", "memory", "session_search"]
@@ -1681,7 +1683,7 @@ def test_process_incoming_task_injects_loaded_skill_context(plugin_modules, monk
         sender_peer_id="peer-1",
         target_skill_id="hermes-agent",
         message_text="How do I inspect Hermes config?",
-        context_packet={"sender_name": "Katana"},
+        context_packet={"sender_name": "local workstation"},
         metadata={},
     )
     profile = tmp_path / "profile"
@@ -1820,7 +1822,7 @@ def test_process_incoming_task_extracts_delegate_summary(plugin_modules, monkeyp
         sender_peer_id="peer-1",
         target_skill_id="math",
         message_text="What is 2 + 2?",
-        context_packet={"sender_name": "Katana"},
+        context_packet={"sender_name": "local workstation"},
         metadata={},
     )
     captured = {}
@@ -2600,7 +2602,7 @@ def test_pool_runner_pid_scan_falls_back_to_profile_plugin_path(plugin_modules, 
     runner_proc = proc_root / "4321"
     runner_proc.mkdir(parents=True)
     (runner_proc / "cmdline").write_bytes(
-        b"python\0/home/dadmin/.hermes/profiles/agency-orchestrator/plugins/"
+        b"python\0~/.hermes/profiles/agency-orchestrator/plugins/"
         b"hermes-agency/pool/agency_node_runner.py\0"
     )
     (runner_proc / "environ").write_bytes(b"")
@@ -3589,11 +3591,13 @@ def test_render_roster_agent_reapplies_profile_overlay_at_render_seam(
 def test_build_team_context_uses_registration_when_card_unavailable(plugin_modules):
     team_context = importlib.import_module("hermes_plugin.team_context")
     registration = importlib.import_module("hermes_plugin.registration")
-    team_context._state.peers = {"peer-katana": team_context.PeerCapability(peer_id="peer-katana")}
+    team_context._state.peers = {
+        "peer-local-agent": team_context.PeerCapability(peer_id="peer-local-agent")
+    }
     registration._state.registrations = {
-        "peer-katana": registration.RegistrationRecord(
-            peer_id="peer-katana",
-            name="katana",
+        "peer-local-agent": registration.RegistrationRecord(
+            peer_id="peer-local-agent",
+            name="local-agent",
             description="Orchestrator profile",
             skills=[{"id": "deployment", "description": "Deploy safely"}],
             tenant="default",
@@ -3606,9 +3610,9 @@ def test_build_team_context_uses_registration_when_card_unavailable(plugin_modul
         )
     )
 
-    assert "- katana — skills: deployment (Deploy safely)" in context
+    assert "- local-agent — skills: deployment (Deploy safely)" in context
     assert "  Description: Orchestrator profile" in context
-    assert "  peer_id: peer-katana" in context
+    assert "  peer_id: peer-local-agent" in context
     assert "Unnamed agent" not in context
 
 

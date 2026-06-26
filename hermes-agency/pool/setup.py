@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-AGENCY_DIR = Path("/home/dadmin/.hermes/agency")
+AGENCY_DIR = Path.home() / ".hermes" / "agency"
 CONFIG_PATH = AGENCY_DIR / "config.yaml"
 PROVIDERS = {
     "1": {"name": "gpt-5.5", "provider": "openai-codex"},

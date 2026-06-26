@@ -39,7 +39,7 @@ PLUGIN_DIR = SCRIPT_PATH.parents[1]
 REPO_ROOT = PLUGIN_DIR.parent
 SDK_SRC_DIR = REPO_ROOT / "src"
 GPT_PROFILE_HOME = Path.home() / ".hermes" / "profiles" / "gpt"
-KATANA_PROFILE_HOME = Path.home() / ".hermes" / "profiles" / "katana"
+KATANA_PROFILE_HOME = Path.home() / ".hermes" / "profiles" / "local-agent"
 
 # Let local checkout imports win over any installed copy.
 sys.path.insert(0, str(SDK_SRC_DIR))
@@ -394,9 +394,9 @@ def scenario_a() -> None:
 
 def scenario_b() -> None:
     name = "Scenario B: Self-send (two localhost nodes)"
-    tmp = Path(tempfile.mkdtemp(prefix="agency-e2e-katana-"))
+    tmp = Path(tempfile.mkdtemp(prefix="agency-e2e-local-agent-"))
     a = new_runtime("gpt", GPT_PROFILE_HOME)
-    b = new_runtime("katana", KATANA_PROFILE_HOME, tmp / ".agency")
+    b = new_runtime("local-agent", KATANA_PROFILE_HOME, tmp / ".agency")
     try:
         start_runtime(a)
         start_runtime(b)
@@ -405,7 +405,7 @@ def scenario_b() -> None:
         record("Scenario B: a2a_list_peers both directions", True)
 
         sent_ab = send_task_checked(
-            a, message="e2e hello from gpt to katana", peer_id=b.manager.state.peer_id
+            a, message="e2e hello from gpt to local-agent", peer_id=b.manager.state.peer_id
         )
         done_ab = wait_completed(a, sent_ab["task_id"])
         require(done_ab.get("status") == "completed", f"A->B status={done_ab.get('status')}")
@@ -413,7 +413,7 @@ def scenario_b() -> None:
         log(f"{name}: A->B task={sent_ab['task_id']} completed")
 
         sent_ba = send_task_checked(
-            b, message="e2e hello from katana to gpt", peer_id=a.manager.state.peer_id
+            b, message="e2e hello from local-agent to gpt", peer_id=a.manager.state.peer_id
         )
         done_ba = wait_completed(b, sent_ba["task_id"])
         require(done_ba.get("status") == "completed", f"B->A status={done_ba.get('status')}")
@@ -492,7 +492,7 @@ def scenario_d() -> None:
     name = "Scenario D: Incoming task queue"
     tmp = Path(tempfile.mkdtemp(prefix="agency-e2e-queue-"))
     a = new_runtime("gpt", GPT_PROFILE_HOME)
-    b = new_runtime("katana", KATANA_PROFILE_HOME, tmp / ".agency")
+    b = new_runtime("local-agent", KATANA_PROFILE_HOME, tmp / ".agency")
     try:
         start_runtime(a)
         start_runtime(b)

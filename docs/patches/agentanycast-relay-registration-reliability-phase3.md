@@ -69,7 +69,7 @@ node_keys: card_name, incoming, node_started, ok, peer_id, registration, serve_t
 
 File changed on VPS:
 
-- `/home/dadmin/agency-node.py`
+- `~/agency-node.py`
 
 Changes:
 
@@ -131,7 +131,7 @@ alive: peers=1, incoming=0, serve=True, registration_healthy=True, consecutive_f
 Discovery still shows expected agents:
 
 ```text
-Katana
+local workstation
 Hermes (VPS)
 gpt
 ```
@@ -154,4 +154,4 @@ Notes:
 
 - The current chat's tool schema may not expose `compact` until a fresh Hermes session/tool reload because tool schemas are loaded at session start. The deployed plugin schema now includes it.
 - The current `a2a_send` / `a2a_discover` responses still include huge full `node` payloads. Phase 3 only added compact `a2a_info` and updated the VPS wrapper/watchdog. A later phase should consider using compact node payloads in `a2a_send`, `a2a_discover`, and error responses too.
-- Katana's daemon was not restarted.
+- local workstation's daemon was not restarted.
