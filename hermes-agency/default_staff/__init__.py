@@ -32,7 +32,11 @@ except Exception:  # pragma: no cover
 
 
 def _plugin_root() -> Path:
-    """Return the hermes-agency plugin directory (contains __init__.py)."""
+    """Return the hermes-agency plugin directory.
+
+    This module lives in hermes-agency/default_staff/__init__.py, so the
+    plugin root is the parent of the default_staff package directory.
+    """
     return Path(__file__).resolve().parent.parent
 
 
