@@ -54,6 +54,7 @@ class DashboardAgent(BaseModel):
     skills: list[str] = Field(default_factory=list)
     description: str = ""
     discoverable: bool = False
+    online: bool = False
     peer_id: str | None = None
 
 
@@ -138,7 +139,7 @@ class DashboardDispatchRequest(BaseModel):
     skill: str | None = None
     department: str | None = None
     target_agent: str | None = None
-    priority: int = 0
+    priority: int | str = 0
     create_kanban_task: bool = True
 
 

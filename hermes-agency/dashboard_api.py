@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .dashboard_models import (
     DashboardAgent,
@@ -62,6 +62,22 @@ def _department_from_category(category: str) -> str:
     return (category or "general").strip().lower()
 
 
+def _pool_roster_by_name() -> dict[str, dict[str, Any]]:
+    """Return the persistent agency pool roster keyed by profile name."""
+    try:
+        from .pool.roster import build_roster
+
+        roster = build_roster(include_plugin_setup=False)
+        profiles = roster.get("profiles") or []
+        return {
+            str(profile.get("name") or ""): profile
+            for profile in profiles
+            if isinstance(profile, dict) and str(profile.get("name") or "")
+        }
+    except Exception:
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Router factory
 # ---------------------------------------------------------------------------
@@ -72,6 +88,14 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
 
     router = APIRouter(prefix="/api")
     _server_start_time = settings.server_start_time or time.time()
+    _tasks_cache: list[DashboardTask] | None = None
+    _tasks_cache_at = 0.0
+    _tasks_cache_ttl_seconds = 10.0
+
+    def clear_tasks_cache() -> None:
+        nonlocal _tasks_cache, _tasks_cache_at
+        _tasks_cache = None
+        _tasks_cache_at = 0.0
 
     # -----------------------------------------------------------------------
     # GET /api/health
@@ -185,16 +209,22 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
     @router.get("/roster", response_model=list[DashboardDepartment])
     async def get_roster() -> list[DashboardDepartment]:
         agents_raw = _registry_agents()
+        pool_roster = _pool_roster_by_name()
         by_dept: dict[str, list[DashboardAgent]] = defaultdict(list)
         for entry in agents_raw:
             name = str(entry.get("name", ""))
+            runtime = pool_roster.get(name, {})
             dept = _department_from_category(str(entry.get("category", "")))
+            peer_id = str(runtime.get("peer_id") or "") or None
             agent = DashboardAgent(
                 name=name,
                 label=_agent_label(name),
                 department=dept,
                 skills=list(entry.get("skills") or []),
                 description=str(entry.get("description", "")),
+                discoverable=True,
+                online=bool(runtime.get("online")),
+                peer_id=peer_id,
             )
             by_dept[dept].append(agent)
 
@@ -217,27 +247,14 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
     @router.get("/agents", response_model=list[DashboardAgent])
     async def get_agents() -> list[DashboardAgent]:
         agents_raw = _registry_agents()
-
-        # Try to get live peer info for discoverability.
-        live_peer_ids: set[str] = set()
-        try:
-            from .node_manager import manager
-
-            if manager.state.started:
-                peers = manager.list_peers_sync(timeout=5)
-                for peer in peers:
-                    pid = str(peer.get("peer_id") or peer.get("id") or "")
-                    if pid:
-                        live_peer_ids.add(pid)
-        except Exception:
-            pass
+        pool_roster = _pool_roster_by_name()
 
         result: list[DashboardAgent] = []
         for entry in agents_raw:
             name = str(entry.get("name", ""))
+            runtime = pool_roster.get(name, {})
             dept = _department_from_category(str(entry.get("category", "")))
-            # We don't have direct peer_id mapping for static roster agents,
-            # but we can check if any live peer advertises matching skills.
+            peer_id = str(runtime.get("peer_id") or "") or None
             result.append(
                 DashboardAgent(
                     name=name,
@@ -245,7 +262,9 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                     department=dept,
                     skills=list(entry.get("skills") or []),
                     description=str(entry.get("description", "")),
-                    discoverable=bool(live_peer_ids),  # broad signal
+                    discoverable=True,
+                    online=bool(runtime.get("online")),
+                    peer_id=peer_id,
                 )
             )
         return result
@@ -282,8 +301,39 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
     # -----------------------------------------------------------------------
 
     @router.get("/tasks", response_model=list[DashboardTask])
-    async def get_tasks() -> list[DashboardTask]:
+    async def get_tasks(status: str | None = None) -> list[DashboardTask]:
+        nonlocal _tasks_cache, _tasks_cache_at
+
+        now = time.time()
+        if _tasks_cache is not None and now - _tasks_cache_at <= _tasks_cache_ttl_seconds:
+            tasks = list(_tasks_cache)
+            if status:
+                normalized = status.strip().lower()
+                active_statuses = {"active", "running", "working", "queued", "processing", "received"}
+                if normalized == "active":
+                    return [t for t in tasks if (t.status or "").lower() in active_statuses]
+                return [t for t in tasks if (t.status or "").lower() == normalized]
+            return tasks
+
         tasks: list[DashboardTask] = []
+        kanban_tasks: list[dict[str, Any]] = []
+        kanban_task_ids: set[str] = set()
+
+        # Load Kanban once. The incoming records use this set to resolve links without
+        # issuing one get_task call per incoming task.
+        try:
+            from .kanban_bridge import list_tasks as kanban_list_tasks
+
+            kanban_result = kanban_list_tasks({"limit": 100})
+            if kanban_result.get("available") and kanban_result.get("ok"):
+                kanban_tasks = [
+                    ktask
+                    for ktask in (kanban_result.get("tasks") or [])
+                    if isinstance(ktask, dict)
+                ]
+                kanban_task_ids = {str(ktask.get("id", "")) for ktask in kanban_tasks}
+        except Exception as exc:
+            logger.debug("Could not load Kanban tasks: %s", exc)
 
         # 1) Agency incoming records
         try:
@@ -295,7 +345,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 kanban_tid = rec.get("kanban_task_id")
                 linked_status = "none"
                 if kanban_tid:
-                    linked_status = _check_kanban_link(str(kanban_tid))
+                    linked_status = "present" if str(kanban_tid) in kanban_task_ids else "missing"
 
                 actions = _agency_actions(rec.get("status", ""))
                 tasks.append(
@@ -318,38 +368,45 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             logger.debug("Could not load agency incoming records: %s", exc)
 
         # 2) Kanban tasks
-        try:
-            from .kanban_bridge import list_tasks as kanban_list_tasks
+        for ktask in kanban_tasks:
+            ktask_id = str(ktask.get("id", ""))
+            actions = _kanban_actions(
+                ktask.get("status", ""), ktask.get("plugin_status", "")
+            )
+            tasks.append(
+                DashboardTask(
+                    id=ktask_id,
+                    source="kanban",
+                    title=str(ktask.get("title", "")),
+                    status=str(ktask.get("plugin_status") or ktask.get("status", "")),
+                    created_at=ktask.get("created_at"),
+                    updated_at=ktask.get("completed_at")
+                    or ktask.get("started_at")
+                    or ktask.get("created_at"),
+                    message_text=str(ktask.get("body", "")[:500]),
+                    result_text=ktask.get("result"),
+                    kanban_task_id=ktask_id,
+                    linked_kanban_status="present",
+                    available_actions=actions,
+                )
+            )
 
-            kanban_result = kanban_list_tasks({"limit": 100})
-            if kanban_result.get("available") and kanban_result.get("ok"):
-                for ktask in kanban_result.get("tasks") or []:
-                    ktask_id = str(ktask.get("id", ""))
-                    actions = _kanban_actions(
-                        ktask.get("status", ""), ktask.get("plugin_status", "")
-                    )
-                    tasks.append(
-                        DashboardTask(
-                            id=ktask_id,
-                            source="kanban",
-                            title=str(ktask.get("title", "")),
-                            status=str(ktask.get("plugin_status") or ktask.get("status", "")),
-                            created_at=ktask.get("created_at"),
-                            updated_at=ktask.get("completed_at")
-                            or ktask.get("started_at")
-                            or ktask.get("created_at"),
-                            message_text=str(ktask.get("body", "")[:500]),
-                            result_text=ktask.get("result"),
-                            kanban_task_id=ktask_id,
-                            linked_kanban_status="present",
-                            available_actions=actions,
-                        )
-                    )
-        except Exception as exc:
-            logger.debug("Could not load Kanban tasks: %s", exc)
-
-        # Sort newest first
+        # Sort newest first, cache the unified list, then apply an optional status filter.
         tasks.sort(key=lambda t: t.updated_at or t.created_at or 0, reverse=True)
+        if tasks:
+            _tasks_cache = list(tasks)
+            _tasks_cache_at = time.time()
+        else:
+            # Startup can briefly report an empty manager snapshot while the runtime warms.
+            # Do not cache that transient empty view.
+            clear_tasks_cache()
+        if status:
+            normalized = status.strip().lower()
+            active_statuses = {"active", "running", "working", "queued", "processing", "received"}
+            if normalized == "active":
+                tasks = [t for t in tasks if (t.status or "").lower() in active_statuses]
+            else:
+                tasks = [t for t in tasks if (t.status or "").lower() == normalized]
         return tasks
 
     # -----------------------------------------------------------------------
@@ -370,6 +427,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         record.updated_at = time.time()
         manager._refresh_incoming_state()
         manager._persist_incoming_records()
+        clear_tasks_cache()
         return {"ok": True, "record_id": record_id, "status": "archived"}
 
     # -----------------------------------------------------------------------
@@ -386,6 +444,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         result = update_task(task_id, status="archived")
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("error", "Archive failed"))
+        clear_tasks_cache()
         return result
 
     @router.post(
@@ -398,6 +457,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         result = update_task(task_id, status="done")
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("error", "Complete failed"))
+        clear_tasks_cache()
         return result
 
     @router.post(
@@ -410,6 +470,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         result = update_task(task_id, status="running")
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("error", "Retry failed"))
+        clear_tasks_cache()
         return result
 
     # -----------------------------------------------------------------------
@@ -424,9 +485,21 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
     async def dispatch_task(req: DashboardDispatchRequest) -> DashboardDispatchResponse:
         from .node_manager import manager
 
+        target_agent = str(req.target_agent or "").strip()
+        target = target_agent or req.skill or req.department or "auto-router"
+        priority_value = _dispatch_priority(req.priority)
         kanban_task_id: str | None = None
+        metadata = {
+            "source": "dashboard",
+            "priority": str(req.priority),
+            "target_agent": target_agent or None,
+            "department": req.department,
+            "skill": req.skill,
+        }
 
-        # Optionally create a Kanban task first.
+        # Dashboard dispatches should be visible in Kanban by default.  When a
+        # target agent is chosen, create_task routes to that agent's department
+        # board via kanban_bridge's department mapping.
         if req.create_kanban_task:
             try:
                 from .kanban_bridge import create_task as kanban_create
@@ -434,28 +507,57 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 kresult = kanban_create(
                     title=req.message[:80],
                     description=req.message,
-                    assigned_to=req.target_agent,
+                    assigned_to=target_agent or None,
                     skills=[req.skill] if req.skill else None,
-                    priority=req.priority,
+                    metadata=metadata,
+                    priority=priority_value,
                 )
                 if kresult.get("ok"):
                     kanban_task_id = str(kresult.get("task_id"))
             except Exception as exc:
                 logger.warning("Dashboard dispatch: Kanban task creation failed: %s", exc)
 
-        # Determine target peer / skill.
-        target = req.target_agent or req.skill or ""
+        dispatch_message = req.message
+        if kanban_task_id or target_agent or req.department or req.skill:
+            context_lines = ["", "Dashboard dispatch context:"]
+            if target_agent:
+                context_lines.append(f"- Target agent: {target_agent}")
+            if req.department:
+                context_lines.append(f"- Department: {req.department}")
+            if req.skill:
+                context_lines.append(f"- Requested skill: {req.skill}")
+            if kanban_task_id:
+                context_lines.append(f"- Kanban task id: {kanban_task_id}")
+            context_lines.append(f"- Priority: {req.priority}")
+            dispatch_message = req.message.rstrip() + "\n" + "\n".join(context_lines)
+
         try:
+            if target_agent.startswith("agency-"):
+                from .pool.tools import pool_send
+
+                pool_result = pool_send(target_agent, dispatch_message)
+                clear_tasks_cache()
+                task_id = _extract_dispatch_id(pool_result, "task_id") or _extract_dispatch_id(
+                    pool_result, "queue_id"
+                )
+                is_error = pool_result.startswith("Error:")
+                return DashboardDispatchResponse(
+                    ok=not is_error,
+                    task_id=task_id,
+                    kanban_task_id=kanban_task_id,
+                    target=target_agent,
+                    result_text=pool_result[:500],
+                    error_text=pool_result if is_error else None,
+                )
+
             result = manager.send_task_sync(
-                message=req.message,
+                message=dispatch_message,
                 skill=req.skill,
-                peer_id=req.target_agent
-                if req.target_agent and len(req.target_agent) > 20
-                else None,
-                metadata={"source": "dashboard", "priority": str(req.priority)},
+                metadata=metadata,
                 timeout=30,
             )
             task_id = str(result.get("task_id") or "")
+            clear_tasks_cache()
             return DashboardDispatchResponse(
                 ok=True,
                 task_id=task_id,
@@ -476,7 +578,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
     # -----------------------------------------------------------------------
 
     @router.get("/events", response_model=list[DashboardEvent])
-    async def get_events() -> list[DashboardEvent]:
+    async def get_events(limit: int = Query(default=100, ge=1, le=500)) -> list[DashboardEvent]:
         events: list[DashboardEvent] = []
 
         # Announcements (agency lifecycle events)
@@ -538,7 +640,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             pass
 
         events.sort(key=lambda e: e.timestamp or 0, reverse=True)
-        return events[:100]
+        return events[:limit]
 
     # -----------------------------------------------------------------------
     # GET /api/config
@@ -584,7 +686,12 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
 
     @router.get("/model-sets")
     async def list_model_sets() -> dict[str, Any]:
-        from .model_sets import discover_model_set_files, load_model_set, model_set_summary
+        from .model_sets import (
+            active_model_set_name,
+            discover_model_set_files,
+            load_model_set,
+            model_set_summary,
+        )
 
         files = discover_model_set_files()
         sets: list[dict[str, Any]] = []
@@ -594,7 +701,11 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 sets.append(model_set_summary(ms))
             except Exception as exc:
                 sets.append({"name": name, "error": str(exc)})
-        return {"model_sets": sets, "count": len(sets)}
+        return {
+            "model_sets": sets,
+            "count": len(sets),
+            "active_model_set": active_model_set_name(),
+        }
 
     # -----------------------------------------------------------------------
     # POST /api/model-sets/active
@@ -620,9 +731,49 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 detail=f"Unknown model set '{name}'. Available: {', '.join(sorted(available))}",
             )
 
-        # Set via environment variable (runtime override).
+        # Set via environment variable for the current dashboard process.
         os.environ["HERMES_AGENCY_MODEL_SET"] = name
-        return {"ok": True, "active_model_set": name}
+
+        # Persist to the active Hermes profile config unless explicitly disabled.
+        persisted = False
+        config_path: str | None = None
+        if bool(body.get("persist", True)):
+            try:
+                import yaml
+                from hermes_cli.config import ensure_hermes_home, get_config_path
+                from utils import atomic_yaml_write
+
+                ensure_hermes_home()
+                path = get_config_path()
+                if path.exists():
+                    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                else:
+                    raw = {}
+                config = raw if isinstance(raw, dict) else {}
+                agency = config.setdefault("agency", {})
+                if not isinstance(agency, dict):
+                    agency = {}
+                    config["agency"] = agency
+                models = agency.setdefault("models", {})
+                if not isinstance(models, dict):
+                    models = {}
+                    agency["models"] = models
+                models["active_set"] = name
+                atomic_yaml_write(path, config, sort_keys=False)
+                persisted = True
+                config_path = str(path)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to persist active model set: {type(exc).__name__}: {exc}",
+                ) from exc
+
+        return {
+            "ok": True,
+            "active_model_set": name,
+            "persisted": persisted,
+            "config_path": config_path,
+        }
 
     # -----------------------------------------------------------------------
     # GET /api/settings
@@ -638,6 +789,29 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
 # ---------------------------------------------------------------------------
 # Task normalisation helpers
 # ---------------------------------------------------------------------------
+
+
+def _dispatch_priority(value: Any) -> int:
+    """Map dashboard priority labels to Kanban's integer priority field."""
+    if isinstance(value, int):
+        return value
+    text = str(value or "").strip().lower()
+    mapping = {"low": 0, "medium": 1, "normal": 1, "high": 2, "critical": 3, "urgent": 3}
+    if text in mapping:
+        return mapping[text]
+    try:
+        return int(text)
+    except ValueError:
+        return 1
+
+
+def _extract_dispatch_id(text: str, key: str) -> str | None:
+    """Extract a compact key=value id from pool_send's human-readable result."""
+    marker = f"{key}="
+    if marker not in text:
+        return None
+    value = text.split(marker, 1)[1].split()[0].strip().strip(",.;")
+    return value or None
 
 
 def _title_from_message(message_text: str) -> str:
