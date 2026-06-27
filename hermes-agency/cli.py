@@ -1403,3 +1403,13 @@ def cmd_agency(args: Namespace) -> None:
             raise SystemExit(str(exc)) from exc
     else:
         raise SystemExit(f"Unknown agency command: {verb}")
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Run the standalone ``hermes-agency`` console command."""
+
+    parser = ArgumentParser(prog="hermes-agency", description="Manage Hermes Agency")
+    setup_agency_parser(parser)
+    args = parser.parse_args(argv)
+    func = getattr(args, "func", cmd_agency)
+    func(args)
