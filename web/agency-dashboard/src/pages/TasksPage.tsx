@@ -8,9 +8,8 @@ import ErrorState from "@/components/ErrorState";
 import Tabs from "@/components/Tabs";
 import Button from "@/components/Button";
 import { useTasks } from "@/api/queries";
-import type { Task } from "@/api/types";
+import type { DashboardTask } from "@/api/types";
 import { formatRelative, formatDate } from "@/lib/format";
-import { addToast } from "@/hooks/useToast";
 import { ListTodo, Archive, CheckCircle, Kanban } from "lucide-react";
 
 const statusTabs = [
@@ -26,7 +25,7 @@ const statusTabs = [
 
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selected, setSelected] = useState<Task | null>(null);
+  const [selected, setSelected] = useState<DashboardTask | null>(null);
   const { data, isLoading, error, refetch } = useTasks(
     statusFilter === "all" ? undefined : statusFilter
   );
@@ -72,31 +71,27 @@ export default function TasksPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-medium text-slate-200 truncate">
-                    {task.title || task.description.slice(0, 80)}
+                    {task.title || task.message_text?.slice(0, 80) || "—"}
                   </h4>
                   <span className="text-[10px] font-mono text-slate-600">
                     {task.source === "kanban" ? "kanban" : "agency"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5 truncate">
-                  {task.assigned_agent ? `→ ${task.assigned_agent}` : "Unassigned"}
-                  {" · "}
                   {formatRelative(task.created_at)}
                 </p>
               </div>
 
-              {/* Status + Priority */}
+              {/* Status */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Badge
-                  variant="status"
-                  status={task.priority === "critical" ? "error" : task.priority}
-                  size="sm"
-                >
-                  {task.priority}
-                </Badge>
                 <Badge variant="status" status={task.status} size="sm">
                   {task.status}
                 </Badge>
+                {task.linked_kanban_status !== "none" && (
+                  <Badge variant="outline" size="sm">
+                    kanban: {task.linked_kanban_status}
+                  </Badge>
+                )}
               </div>
             </div>
           ))}
@@ -120,8 +115,8 @@ export default function TasksPage() {
               <p className="text-sm text-slate-300">{selected.title || "—"}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 mb-1">Description</p>
-              <p className="text-sm text-slate-300 whitespace-pre-wrap">{selected.description || "—"}</p>
+              <p className="text-xs text-slate-500 mb-1">Message</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{selected.message_text || "—"}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -129,18 +124,18 @@ export default function TasksPage() {
                 <Badge variant="status" status={selected.status}>{selected.status}</Badge>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Priority</p>
-                <Badge variant="status" status={selected.priority}>{selected.priority}</Badge>
+                <p className="text-xs text-slate-500 mb-1">Source</p>
+                <p className="text-sm text-slate-300">{selected.source}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-slate-500 mb-1">Source</p>
-                <p className="text-sm text-slate-300">{selected.source}</p>
+                <p className="text-xs text-slate-500 mb-1">Kanban Task ID</p>
+                <p className="text-sm font-mono text-slate-300">{selected.kanban_task_id ?? "—"}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Assigned Agent</p>
-                <p className="text-sm text-slate-300">{selected.assigned_agent ?? "—"}</p>
+                <p className="text-xs text-slate-500 mb-1">Kanban Status</p>
+                <Badge variant="outline" size="sm">{selected.linked_kanban_status}</Badge>
               </div>
             </div>
             <div>
@@ -151,21 +146,29 @@ export default function TasksPage() {
               <p className="text-xs text-slate-500 mb-1">Updated</p>
               <p className="text-sm text-slate-300">{formatDate(selected.updated_at)}</p>
             </div>
-            {selected.tags.length > 0 && (
-              <div>
-                <p className="text-xs text-slate-500 mb-2">Tags</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selected.tags.map((t) => (
-                    <Badge key={t} variant="outline" size="sm">{t}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            {selected.result && (
+            {selected.result_text && (
               <div>
                 <p className="text-xs text-slate-500 mb-1">Result</p>
                 <div className="rounded-lg bg-slate-800/60 p-3 text-sm text-slate-300 whitespace-pre-wrap">
-                  {selected.result}
+                  {selected.result_text}
+                </div>
+              </div>
+            )}
+            {selected.error_text && (
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Error</p>
+                <div className="rounded-lg bg-red-900/20 p-3 text-sm text-red-300 whitespace-pre-wrap">
+                  {selected.error_text}
+                </div>
+              </div>
+            )}
+            {selected.available_actions.length > 0 && (
+              <div>
+                <p className="text-xs text-slate-500 mb-2">Available Actions</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.available_actions.map((action) => (
+                    <Badge key={action} variant="outline" size="sm">{action}</Badge>
+                  ))}
                 </div>
               </div>
             )}

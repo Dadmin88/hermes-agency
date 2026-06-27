@@ -46,7 +46,8 @@ export default function OverviewPage() {
   const allTasks = tasks.data ?? [];
   const activeTasks = allTasks.filter((t) => ["active", "working", "queued"].includes(t.status));
   const recentEvents = events.data ?? [];
-  const totalAgents = roster.data?.total_agents ?? 0;
+  const departments = roster.data ?? [];
+  const totalAgents = departments.reduce((sum, d) => sum + d.agent_count, 0);
 
   return (
     <div className="space-y-6">
@@ -63,7 +64,7 @@ export default function OverviewPage() {
         <MetricCard
           label="Agents"
           value={totalAgents}
-          subtitle={roster.data ? `${roster.data.departments.length} departments` : undefined}
+          subtitle={departments.length > 0 ? `${departments.length} departments` : undefined}
           icon={<Users className="h-5 w-5" />}
           accent="cyan"
         />
@@ -75,9 +76,9 @@ export default function OverviewPage() {
           accent="violet"
         />
         <MetricCard
-          label="Online Peers"
-          value={h?.registry.online_peers ?? 0}
-          subtitle={`of ${h?.registry.total_peers ?? 0}`}
+          label="Queue"
+          value={h?.incoming_queue_count ?? 0}
+          subtitle="incoming"
           icon={<Server className="h-5 w-5" />}
           accent="emerald"
         />
@@ -99,26 +100,26 @@ export default function OverviewPage() {
             <StatusRow
               icon={<Server className="h-4 w-4" />}
               label="Daemon"
-              value={h?.daemon.status ?? "unknown"}
-              status={h?.daemon.status === "running" ? "ok" : "warn"}
+              value={h?.daemon_running ? "running" : "stopped"}
+              status={h?.daemon_running ? "ok" : "warn"}
             />
             <StatusRow
               icon={<Database className="h-4 w-4" />}
               label="Registry"
-              value={h?.registry.status ?? "unknown"}
-              status={h?.registry.status === "ok" ? "ok" : "warn"}
+              value={h?.registry_configured ? "configured" : "not configured"}
+              status={h?.registry_configured ? "ok" : "warn"}
             />
             <StatusRow
               icon={<Zap className="h-4 w-4" />}
               label="Model Set"
-              value={h?.model_set.name ?? "unknown"}
+              value={h?.active_model_set ?? "unknown"}
               status="ok"
             />
             <StatusRow
               icon={<Activity className="h-4 w-4" />}
-              label="Version"
-              value={h?.version ?? "—"}
-              status="ok"
+              label="Kanban"
+              value={h?.kanban_available ? "available" : "unavailable"}
+              status={h?.kanban_available ? "ok" : "warn"}
             />
           </div>
         </GlassCard>

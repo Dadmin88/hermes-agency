@@ -34,11 +34,10 @@ export default function DiagnosticsPage() {
   const handleCopy = () => {
     const text = [
       `Hermes Agency Doctor Report`,
-      `Overall: ${report.overall_status}`,
-      `Pass: ${report.summary.pass} | Warn: ${report.summary.warn} | Fail: ${report.summary.fail}`,
-      "",
+      `Pass: ${report.summary.pass} | Warn: ${report.summary.warn} | Fail: ${report.summary.fail} | N/A: ${report.summary.na}`,
+      "Checks:",
       ...report.checks.map(
-        (c) => `[${c.status.toUpperCase()}] ${c.name}: ${c.message}${
+        (c) => `[${c.status.toUpperCase()}] ${c.label}: ${c.message}${
           c.remediation ? `\n  → ${c.remediation}` : ""
         }`
       ),
@@ -67,12 +66,6 @@ export default function DiagnosticsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <GlassCard className="text-center">
-          <p className="text-xs text-slate-500 mb-1">Overall</p>
-          <Badge variant="status" status={report.overall_status} size="md">
-            {report.overall_status}
-          </Badge>
-        </GlassCard>
-        <GlassCard className="text-center">
           <div className="flex items-center justify-center gap-2">
             <CheckCircle className="h-5 w-5 text-emerald-400" />
             <span className="text-2xl font-bold text-emerald-400">{report.summary.pass}</span>
@@ -93,6 +86,12 @@ export default function DiagnosticsPage() {
           </div>
           <p className="text-xs text-slate-500 mt-1">Fail</p>
         </GlassCard>
+        <GlassCard className="text-center">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-2xl font-bold text-slate-400">{report.summary.na}</span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">N/A</p>
+        </GlassCard>
       </div>
 
       {/* Filter tabs */}
@@ -100,8 +99,8 @@ export default function DiagnosticsPage() {
 
       {/* Check list */}
       <div className="space-y-3">
-        {checks.map((check, i) => (
-          <GlassCard key={i}>
+        {checks.map((check) => (
+          <GlassCard key={check.id}>
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 mt-0.5">
                 {check.status === "pass" && <CheckCircle className="h-5 w-5 text-emerald-400" />}
@@ -110,7 +109,7 @@ export default function DiagnosticsPage() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="text-sm font-semibold text-slate-200">{check.name}</h4>
+                  <h4 className="text-sm font-semibold text-slate-200">{check.label}</h4>
                   <Badge variant="status" status={check.status} size="sm">
                     {check.status}
                   </Badge>

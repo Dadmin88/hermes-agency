@@ -24,9 +24,10 @@ export async function apiFetch<T>(
 
   // Add token header for mutations
   if (options.method && options.method !== "GET") {
-    const token = localStorage.getItem("hermes-agency-token");
+    const meta = document.querySelector('meta[name="hermes-dashboard-token"]') as HTMLMetaElement | null;
+    const token = meta?.content || undefined;
     if (token) {
-      headers["X-Agency-Token"] = token;
+      headers["X-Hermes-Dashboard-Token"] = token;
     }
     if (!headers["Content-Type"]) {
       headers["Content-Type"] = "application/json";

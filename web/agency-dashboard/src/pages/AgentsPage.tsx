@@ -9,7 +9,7 @@ import Skeleton from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 import ErrorState from "@/components/ErrorState";
 import { useRoster } from "@/api/queries";
-import type { AgentCard } from "@/api/types";
+import type { AgentCard, RosterDepartment } from "@/api/types";
 import { Search, Users, Eye, EyeOff } from "lucide-react";
 
 export default function AgentsPage() {
@@ -19,14 +19,15 @@ export default function AgentsPage() {
   const [skillFilter, setSkillFilter] = useState("");
   const [selected, setSelected] = useState<AgentCard | null>(null);
 
-  const agents = data?.agents ?? [];
-  const departments = data?.departments ?? [];
+  const departments: RosterDepartment[] = data ?? [];
+  const agents = departments.flatMap((d) => d.agents);
+  const departmentNames = departments.map((d) => d.name);
   const allSkills = [...new Set(agents.flatMap((a) => a.skills))].sort();
 
   const filtered = useMemo(() => {
     return agents.filter((a) => {
       if (search && !a.name.toLowerCase().includes(search.toLowerCase()) &&
-          !a.id.toLowerCase().includes(search.toLowerCase())) return false;
+          !a.label.toLowerCase().includes(search.toLowerCase())) return false;
       if (deptFilter && a.department !== deptFilter) return false;
       if (skillFilter && !a.skills.includes(skillFilter)) return false;
       return true;
@@ -56,7 +57,7 @@ export default function AgentsPage() {
           <Select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            options={departments.map((d) => ({ value: d, label: d }))}
+            options={departmentNames.map((d) => ({ value: d, label: d }))}
             placeholder="All departments"
           />
         </div>
@@ -80,7 +81,7 @@ export default function AgentsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((agent) => (
             <GlassCard
-              key={agent.id}
+              key={agent.name}
               hover
               className="cursor-pointer"
               onClick={() => setSelected(agent)}
@@ -95,14 +96,11 @@ export default function AgentsPage() {
                   ) : (
                     <EyeOff className="h-3.5 w-3.5 text-slate-600" />
                   )}
-                  <Badge variant="status" status={agent.status} size="sm">
-                    {agent.status}
-                  </Badge>
                 </div>
               </div>
               <h3 className="text-sm font-semibold text-slate-200 truncate">{agent.name}</h3>
               <p className="text-xs text-slate-500 mt-0.5">{agent.department}</p>
-              <p className="text-xs text-slate-600 mt-1 line-clamp-2">{agent.role}</p>
+              <p className="text-xs text-slate-600 mt-1 line-clamp-2">{agent.label}</p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {agent.skills.slice(0, 3).map((s) => (
                   <span key={s} className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-500">
@@ -127,28 +125,28 @@ export default function AgentsPage() {
         {selected && (
           <div className="space-y-6">
             <div>
-              <p className="text-xs text-slate-500 mb-1">ID</p>
-              <p className="text-sm font-mono text-slate-300">{selected.id}</p>
+              <p className="text-xs text-slate-500 mb-1">Name</p>
+              <p className="text-sm font-mono text-slate-300">{selected.name}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Label</p>
+              <p className="text-sm text-slate-300">{selected.label}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 mb-1">Department</p>
               <p className="text-sm text-slate-300">{selected.department}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 mb-1">Role</p>
-              <p className="text-sm text-slate-300">{selected.role}</p>
-            </div>
-            <div>
               <p className="text-xs text-slate-500 mb-1">Description</p>
               <p className="text-sm text-slate-300">{selected.description || "No description"}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 mb-1">Status</p>
-              <Badge variant="status" status={selected.status}>{selected.status}</Badge>
-            </div>
-            <div>
               <p className="text-xs text-slate-500 mb-1">Discoverable</p>
               <p className="text-sm text-slate-300">{selected.discoverable ? "Yes" : "No"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Peer ID</p>
+              <p className="text-sm font-mono text-slate-300">{selected.peer_id ?? "—"}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 mb-2">Skills ({selected.skills.length})</p>

@@ -5,9 +5,8 @@ import Button from "@/components/Button";
 import Skeleton from "@/components/Skeleton";
 import ErrorState from "@/components/ErrorState";
 import { useConfig, useHealth } from "@/api/queries";
-import { addToast } from "@/hooks/useToast";
 import {
-  Settings, Server, Shield, Cpu, Zap, Info,
+  Settings, Server, Shield, Cpu, Info,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -35,8 +34,8 @@ export default function SettingsPage() {
             <h3 className="text-sm font-semibold text-slate-300">Dashboard</h3>
           </div>
           <div className="space-y-3">
-            <SettingsRow label="Version" value={h?.version ?? "—"} />
-            <SettingsRow label="API Status" value={h?.status ?? "unknown"} />
+            <SettingsRow label="Profile" value={h?.active_profile ?? "—"} />
+            <SettingsRow label="Profile Home" value={h?.profile_home ?? "—"} />
             <SettingsRow label="Framework" value="Vite + React + TypeScript" />
           </div>
         </GlassCard>
@@ -47,19 +46,16 @@ export default function SettingsPage() {
             <Cpu className="h-5 w-5 text-violet-400" />
             <h3 className="text-sm font-semibold text-slate-300">Model Sets</h3>
           </div>
-          {cfg?.model_sets && cfg.model_sets.length > 0 ? (
+          {cfg?.available_model_sets && cfg.available_model_sets.length > 0 ? (
             <div className="space-y-2">
-              {cfg.model_sets.map((ms) => (
+              {cfg.available_model_sets.map((ms) => (
                 <div
-                  key={ms.name}
+                  key={ms}
                   className="flex items-center justify-between rounded-lg bg-slate-800/40 px-3 py-2.5"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-slate-200">{ms.name}</p>
-                    <p className="text-xs text-slate-500">{ms.provider} · {ms.model}</p>
-                  </div>
-                  {ms.is_default && (
-                    <Badge variant="status" status="active" size="sm">default</Badge>
+                  <p className="text-sm font-medium text-slate-200">{ms}</p>
+                  {ms === cfg.active_model_set && (
+                    <Badge variant="status" status="active" size="sm">active</Badge>
                   )}
                 </div>
               ))}
@@ -77,16 +73,16 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-3">
             <SettingsRow
-              label="Enabled"
-              value={cfg?.agency_enabled ? "Yes" : "No"}
+              label="Active Model Set"
+              value={cfg?.active_model_set ?? "—"}
             />
             <SettingsRow
-              label="Daemon PID"
-              value={cfg?.daemon_pid?.toString() ?? "—"}
+              label="Daemon Status"
+              value={cfg?.daemon_status ?? "—"}
             />
             <SettingsRow
-              label="Registry Mode"
-              value={cfg?.registry_mode ?? "—"}
+              label="Profile Home"
+              value={cfg?.profile_home ?? "—"}
             />
           </div>
         </GlassCard>
@@ -103,9 +99,15 @@ export default function SettingsPage() {
               value={cfg?.security?.allow_remote_tasks ? "Allowed" : "Blocked"}
             />
             <SettingsRow
-              label="Incoming Tool Access"
-              value={cfg?.security?.incoming_tool_access ?? "—"}
+              label="Auto Allow Team"
+              value={cfg?.security?.auto_allow_team ? "Yes" : "No"}
             />
+            {cfg?.security?.allowlist && (
+              <SettingsRow
+                label="Allowlist"
+                value={`${cfg.security.allowlist.length} entries`}
+              />
+            )}
           </div>
         </GlassCard>
       </div>

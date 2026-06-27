@@ -21,8 +21,8 @@ export default function DispatchPage() {
   const dispatch = useDispatchTask();
   const roster = useRoster();
 
-  const departments = roster.data?.departments ?? [];
-  const agents = roster.data?.agents ?? [];
+  const departments = (roster.data ?? []).map((d) => d.name);
+  const agents = (roster.data ?? []).flatMap((d) => d.agents);
   const skills = [...new Set(agents.flatMap((a) => a.skills))].sort();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -35,12 +35,12 @@ export default function DispatchPage() {
         skill: skill || undefined,
         department: department || undefined,
         target_agent: targetAgent || undefined,
-        priority: priority as "low" | "medium" | "high" | "critical",
+        priority,
         create_kanban_task: createKanban,
       },
       {
         onSuccess: (result) => {
-          addToast("success", `Task dispatched: ${result.message}`);
+          addToast("success", `Task dispatched to ${result.target ?? "auto-router"}: task ${result.task_id ?? "pending"}`);
           setMessage("");
         },
         onError: (err) => {
@@ -142,18 +142,30 @@ export default function DispatchPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Task ID</span>
-                  <span className="text-slate-200 font-mono text-xs">{dispatch.data.task_id}</span>
+                  <span className="text-slate-200 font-mono text-xs">{dispatch.data.task_id ?? "—"}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Status</span>
-                  <Badge variant="status" status={dispatch.data.status}>
-                    {dispatch.data.status}
-                  </Badge>
-                </div>
-                {dispatch.data.assigned_agent && (
+                {dispatch.data.kanban_task_id && (
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Assigned</span>
-                    <span className="text-slate-200">{dispatch.data.assigned_agent}</span>
+                    <span className="text-slate-500">Kanban Task</span>
+                    <span className="text-slate-200 font-mono text-xs">{dispatch.data.kanban_task_id}</span>
+                  </div>
+                )}
+                {dispatch.data.target && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Target</span>
+                    <span className="text-slate-200">{dispatch.data.target}</span>
+                  </div>
+                )}
+                {dispatch.data.result_text && (
+                  <div className="mt-2">
+                    <p className="text-xs text-slate-500 mb-1">Result</p>
+                    <p className="text-sm text-slate-300">{dispatch.data.result_text}</p>
+                  </div>
+                )}
+                {dispatch.data.error_text && (
+                  <div className="mt-2">
+                    <p className="text-xs text-red-400 mb-1">Error</p>
+                    <p className="text-sm text-red-300">{dispatch.data.error_text}</p>
                   </div>
                 )}
               </div>

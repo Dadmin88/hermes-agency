@@ -8,7 +8,7 @@ import ErrorState from "@/components/ErrorState";
 import Select from "@/components/Select";
 import Input from "@/components/Input";
 import { useEvents } from "@/api/queries";
-import type { AgencyEvent } from "@/api/types";
+import type { DashboardEvent } from "@/api/types";
 import { formatRelative, formatDate, formatTime } from "@/lib/format";
 import { Activity, Info, AlertTriangle, XCircle, Bug } from "lucide-react";
 
@@ -16,14 +16,14 @@ const severityIcons: Record<string, typeof Info> = {
   info: Info,
   warning: AlertTriangle,
   error: XCircle,
-  debug: Bug,
+  success: Info,
 };
 
 export default function ActivityPage() {
   const [severityFilter, setSeverityFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<AgencyEvent | null>(null);
+  const [selected, setSelected] = useState<DashboardEvent | null>(null);
   const { data, isLoading, error, refetch } = useEvents(200);
 
   const events = data ?? [];
@@ -63,9 +63,9 @@ export default function ActivityPage() {
             onChange={(e) => setSeverityFilter(e.target.value)}
             options={[
               { value: "info", label: "Info" },
+              { value: "success", label: "Success" },
               { value: "warning", label: "Warning" },
               { value: "error", label: "Error" },
-              { value: "debug", label: "Debug" },
             ]}
             placeholder="All severities"
           />
@@ -106,8 +106,8 @@ export default function ActivityPage() {
                           ? "text-red-400"
                           : evt.severity === "warning"
                           ? "text-amber-400"
-                          : evt.severity === "debug"
-                          ? "text-slate-500"
+                          : evt.severity === "success"
+                          ? "text-emerald-400"
                           : "text-cyan-400"
                       }`}
                     />
@@ -118,10 +118,10 @@ export default function ActivityPage() {
                       <span className="text-xs text-slate-600">{formatRelative(evt.timestamp)}</span>
                       <span className="text-xs text-slate-700">·</span>
                       <span className="text-xs text-slate-600">{evt.source}</span>
-                      {evt.agent_id && (
+                      {evt.related_agent && (
                         <>
                           <span className="text-xs text-slate-700">·</span>
-                          <span className="text-xs text-slate-600">{evt.agent_id}</span>
+                          <span className="text-xs text-slate-600">{evt.related_agent}</span>
                         </>
                       )}
                     </div>
@@ -149,10 +149,6 @@ export default function ActivityPage() {
               <p className="text-sm font-mono text-slate-300">{selected.id}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 mb-1">Type</p>
-              <p className="text-sm text-slate-300">{selected.event_type}</p>
-            </div>
-            <div>
               <p className="text-xs text-slate-500 mb-1">Severity</p>
               <Badge variant="status" status={selected.severity}>{selected.severity}</Badge>
             </div>
@@ -160,10 +156,16 @@ export default function ActivityPage() {
               <p className="text-xs text-slate-500 mb-1">Source</p>
               <p className="text-sm text-slate-300">{selected.source}</p>
             </div>
-            {selected.agent_id && (
+            {selected.related_agent && (
               <div>
                 <p className="text-xs text-slate-500 mb-1">Agent</p>
-                <p className="text-sm text-slate-300">{selected.agent_id}</p>
+                <p className="text-sm text-slate-300">{selected.related_agent}</p>
+              </div>
+            )}
+            {selected.related_task_id && (
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Related Task</p>
+                <p className="text-sm font-mono text-slate-300">{selected.related_task_id}</p>
               </div>
             )}
             <div>
@@ -176,11 +178,11 @@ export default function ActivityPage() {
                 {formatDate(selected.timestamp)} {formatTime(selected.timestamp)}
               </p>
             </div>
-            {selected.details && (
+            {selected.metadata && Object.keys(selected.metadata).length > 0 && (
               <div>
-                <p className="text-xs text-slate-500 mb-1">Details</p>
+                <p className="text-xs text-slate-500 mb-1">Metadata</p>
                 <pre className="rounded-lg bg-slate-800/60 p-3 text-xs text-slate-400 overflow-x-auto">
-                  {JSON.stringify(selected.details, null, 2)}
+                  {JSON.stringify(selected.metadata, null, 2)}
                 </pre>
               </div>
             )}

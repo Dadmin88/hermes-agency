@@ -1,32 +1,32 @@
-export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+export function formatDate(iso: string | number | null | undefined): string {
+  if (iso === null || iso === undefined) return "—";
   try {
-    return new Date(iso).toLocaleDateString("en-US", {
+    return new Date(typeof iso === "number" ? iso * 1000 : iso).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
   } catch {
-    return iso;
+    return String(iso);
   }
 }
 
-export function formatTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
+export function formatTime(iso: string | number | null | undefined): string {
+  if (iso === null || iso === undefined) return "—";
   try {
-    return new Date(iso).toLocaleTimeString("en-US", {
+    return new Date(typeof iso === "number" ? iso * 1000 : iso).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
   } catch {
-    return iso;
+    return String(iso);
   }
 }
 
-export function formatRelative(iso: string | null | undefined): string {
-  if (!iso) return "—";
+export function formatRelative(iso: string | number | null | undefined): string {
+  if (iso === null || iso === undefined) return "—";
   try {
-    const diff = Date.now() - new Date(iso).getTime();
+    const diff = Date.now() - new Date(typeof iso === "number" ? iso * 1000 : iso).getTime();
     const seconds = Math.floor(diff / 1000);
     if (seconds < 60) return `${seconds}s ago`;
     const minutes = Math.floor(seconds / 60);
@@ -36,7 +36,7 @@ export function formatRelative(iso: string | null | undefined): string {
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
   } catch {
-    return iso;
+    return String(iso);
   }
 }
 
@@ -63,6 +63,8 @@ export const statusColor: Record<string, string> = {
   archived: "text-slate-500",
   completed: "text-emerald-400",
   done: "text-emerald-400",
+  success: "text-emerald-400",
+  na: "text-slate-400",
 };
 
 export const statusBg: Record<string, string> = {
@@ -88,6 +90,8 @@ export const statusBg: Record<string, string> = {
   archived: "bg-slate-400/10 text-slate-400 border-slate-400/20",
   completed: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20",
   done: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20",
+  success: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20",
+  na: "bg-slate-400/10 text-slate-400 border-slate-400/20",
 };
 
 export function getStatusColor(status: string): string {

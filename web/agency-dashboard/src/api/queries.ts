@@ -1,22 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
-  HealthStatus,
+  DashboardHealth,
   DoctorReport,
-  RosterInfo,
-  Task,
-  AgencyEvent,
+  RosterDepartment,
+  DashboardTask,
+  DashboardEvent,
+  DashboardConfig,
   DispatchRequest,
-  DispatchResult,
-  ConfigInfo,
-  ModelSet,
+  DispatchResponse,
 } from "./types";
 
 // Health
 export function useHealth() {
-  return useQuery<HealthStatus>({
+  return useQuery<DashboardHealth>({
     queryKey: ["health"],
-    queryFn: () => api.get<HealthStatus>("/health"),
+    queryFn: () => api.get<DashboardHealth>("/health"),
     refetchInterval: 30_000,
     retry: 2,
   });
@@ -32,54 +31,45 @@ export function useDoctor() {
 
 // Roster / Agents
 export function useRoster() {
-  return useQuery<RosterInfo>({
+  return useQuery<RosterDepartment[]>({
     queryKey: ["roster"],
-    queryFn: () => api.get<RosterInfo>("/roster"),
+    queryFn: () => api.get<RosterDepartment[]>("/roster"),
     staleTime: 60_000,
   });
 }
 
 export function useAgents() {
-  return useQuery<RosterInfo>({
+  return useQuery<RosterDepartment[]>({
     queryKey: ["agents"],
-    queryFn: () => api.get<RosterInfo>("/roster"),
+    queryFn: () => api.get<RosterDepartment[]>("/agents"),
     staleTime: 60_000,
   });
 }
 
 // Tasks
 export function useTasks(status?: string) {
-  return useQuery<Task[]>({
+  return useQuery<DashboardTask[]>({
     queryKey: ["tasks", status],
     queryFn: () =>
-      api.get<Task[]>(`/tasks${status ? `?status=${status}` : ""}`),
+      api.get<DashboardTask[]>(`/tasks${status ? `?status=${status}` : ""}`),
     refetchInterval: 15_000,
   });
 }
 
 // Events
 export function useEvents(limit = 100) {
-  return useQuery<AgencyEvent[]>({
+  return useQuery<DashboardEvent[]>({
     queryKey: ["events", limit],
-    queryFn: () => api.get<AgencyEvent[]>(`/events?limit=${limit}`),
+    queryFn: () => api.get<DashboardEvent[]>(`/events?limit=${limit}`),
     refetchInterval: 10_000,
   });
 }
 
 // Config
 export function useConfig() {
-  return useQuery<ConfigInfo>({
+  return useQuery<DashboardConfig>({
     queryKey: ["config"],
-    queryFn: () => api.get<ConfigInfo>("/config"),
-    staleTime: 60_000,
-  });
-}
-
-// Model Sets
-export function useModelSets() {
-  return useQuery<ModelSet[]>({
-    queryKey: ["model-sets"],
-    queryFn: () => api.get<ModelSet[]>("/model-sets"),
+    queryFn: () => api.get<DashboardConfig>("/config"),
     staleTime: 60_000,
   });
 }
@@ -87,8 +77,8 @@ export function useModelSets() {
 // Dispatch
 export function useDispatchTask() {
   const queryClient = useQueryClient();
-  return useMutation<DispatchResult, Error, DispatchRequest>({
-    mutationFn: (req) => api.post<DispatchResult>("/dispatch", req),
+  return useMutation<DispatchResponse, Error, DispatchRequest>({
+    mutationFn: (req) => api.post<DispatchResponse>("/dispatch", req),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });

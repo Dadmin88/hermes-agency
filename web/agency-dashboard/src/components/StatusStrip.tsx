@@ -27,7 +27,7 @@ export default function StatusStrip() {
     );
   }
 
-  const isHealthy = health.status === "ok" || health.status === "healthy";
+  const isHealthy = health.ok;
 
   return (
     <div className="glass-card-sm flex flex-wrap items-center gap-4 px-4 py-2 text-xs">
@@ -48,20 +48,20 @@ export default function StatusStrip() {
       <div className="flex items-center gap-1.5">
         <Activity className="h-3.5 w-3.5 text-slate-500" />
         <span className="text-slate-400">
-          Daemon: {health.daemon.status}
+          Daemon: {health.daemon_running ? "running" : "stopped"}
         </span>
       </div>
 
       <div className="h-4 w-px bg-slate-800" />
 
       <span className="text-slate-400">
-        Peers: {health.registry.online_peers}/{health.registry.total_peers}
+        Registry: {health.registry_configured ? "ok" : "not configured"}
       </span>
 
       <div className="h-4 w-px bg-slate-800" />
 
       <span className="text-slate-400">
-        Model: {health.model_set.name}
+        Model: {health.active_model_set ?? "—"}
       </span>
     </div>
   );

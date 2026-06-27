@@ -136,7 +136,7 @@ def start_server(
     print(f"  │  URL:   {display_url:<37s} │")
     print(f"  │  Token: {token[:20]}...{' ' * 14}│")
     if not local_only:
-        print(f"  │  LAN:   {host}:{port:<27s} │")
+        print(f"  │  LAN:   {host}:{str(port):<27s} │")
     print("  └─────────────────────────────────────────────┘")
     print()
 

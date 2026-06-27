@@ -8,7 +8,7 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { data: health } = useHealth();
-  const isHealthy = health?.status === "ok" || health?.status === "healthy";
+  const isHealthy = health?.ok;
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl px-4 py-3 lg:px-6">
@@ -31,16 +31,16 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             )}
           />
           <span className="text-xs font-medium text-slate-400">
-            {isHealthy ? "Healthy" : health?.status ?? "Unknown"}
+            {isHealthy ? "Healthy" : health ? "Degraded" : "Unknown"}
           </span>
         </div>
 
         {/* Model set */}
-        {health?.model_set && (
+        {health?.active_model_set && (
           <div className="hidden sm:flex items-center gap-2 rounded-full bg-slate-800/60 px-3 py-1.5">
             <Cpu className="h-3.5 w-3.5 text-violet-400" />
             <span className="text-xs font-medium text-slate-400">
-              {health.model_set.name}
+              {health.active_model_set}
             </span>
           </div>
         )}

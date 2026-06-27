@@ -1,94 +1,98 @@
-// TypeScript interfaces matching backend Pydantic models
+// TypeScript interfaces matching actual backend API responses
 
-export interface HealthStatus {
+export interface DashboardHealth {
+  ok: boolean;
+  profile_home: string;
+  active_profile: string | null;
+  active_model_set: string | null;
+  daemon_running: boolean | null;
+  registry_configured: boolean;
+  kanban_available: boolean;
+  incoming_queue_count: number;
+  warnings: DashboardWarning[];
+}
+
+export interface DashboardWarning {
+  id: string;
+  label: string;
   status: string;
-  daemon: {
-    status: string;
-    pid: number | null;
-    uptime_seconds: number | null;
-  };
-  registry: {
-    status: string;
-    total_peers: number;
-    online_peers: number;
-  };
-  model_set: {
-    name: string;
-    provider: string;
-  };
-  config_loaded: boolean;
-  version: string;
-}
-
-export interface DoctorReport {
-  overall_status: string;
-  checks: DoctorCheck[];
-  summary: {
-    pass: number;
-    warn: number;
-    fail: number;
-  };
-}
-
-export interface DoctorCheck {
-  name: string;
-  status: "pass" | "warn" | "fail";
   message: string;
   remediation?: string;
 }
 
-export interface AgentCard {
-  id: string;
-  name: string;
-  department: string;
-  role: string;
-  skills: string[];
-  description: string;
-  status: "online" | "offline" | "busy" | "unknown";
-  discoverable: boolean;
-  model?: string;
-  metadata?: Record<string, unknown>;
+export interface DoctorReport {
+  summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+    na: number;
+  };
+  checks: DoctorCheck[];
+  exit_code?: number;
 }
 
-export interface RosterInfo {
-  total_agents: number;
-  departments: string[];
+export interface DoctorCheck {
+  id: string;
+  label: string;
+  status: "pass" | "warn" | "fail" | "na";
+  message: string;
+  remediation?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface RosterDepartment {
+  name: string;
+  agent_count: number;
   agents: AgentCard[];
 }
 
-export interface Task {
-  id: string;
-  title: string;
+export interface AgentCard {
+  name: string;
+  label: string;
+  department: string;
+  skills: string[];
   description: string;
-  status: TaskStatus;
-  priority: "low" | "medium" | "high" | "critical";
-  assigned_agent?: string;
-  created_at: string;
-  updated_at: string;
-  source: "agency_incoming" | "kanban" | "manual";
-  tags: string[];
-  result?: string;
+  discoverable: boolean;
+  peer_id: string | null;
 }
 
-export type TaskStatus =
-  | "queued"
-  | "active"
-  | "working"
-  | "completed"
-  | "failed"
-  | "blocked"
-  | "archived"
-  | "stale";
-
-export interface AgencyEvent {
+export interface DashboardTask {
   id: string;
-  event_type: string;
-  severity: "info" | "warning" | "error" | "debug";
+  source: "agency_incoming" | "kanban";
+  title: string;
+  status: string;
+  created_at: number | null;
+  updated_at: number | null;
+  message_text: string | null;
+  result_text: string | null;
+  error_text: string | null;
+  kanban_task_id: string | null;
+  linked_kanban_status: "present" | "missing" | "unknown" | "none";
+  available_actions: string[];
+}
+
+export interface DashboardEvent {
+  id: string;
+  severity: "info" | "success" | "warning" | "error";
   source: string;
-  agent_id?: string;
   message: string;
-  details?: Record<string, unknown>;
-  timestamp: string;
+  timestamp: number | null;
+  related_task_id: string | null;
+  related_agent: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface DashboardConfig {
+  active_model_set: string;
+  available_model_sets: string[];
+  profile_home: string;
+  daemon_status: string;
+  security: {
+    allowlist?: string[];
+    auto_allow_team?: boolean;
+    allow_remote_tasks?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 export interface DispatchRequest {
@@ -96,39 +100,15 @@ export interface DispatchRequest {
   skill?: string;
   department?: string;
   target_agent?: string;
-  priority: "low" | "medium" | "high" | "critical";
-  create_kanban_task: boolean;
+  priority?: string;
+  create_kanban_task?: boolean;
 }
 
-export interface DispatchResult {
-  task_id: string;
-  status: string;
-  assigned_agent?: string;
-  message: string;
-}
-
-export interface ModelSet {
-  name: string;
-  provider: string;
-  model: string;
-  is_default: boolean;
-}
-
-export interface ConfigInfo {
-  agency_enabled: boolean;
-  daemon_pid: number | null;
-  registry_mode: string;
-  security: {
-    allow_remote_tasks: boolean;
-    incoming_tool_access: string;
-  };
-  runtime: Record<string, unknown>;
-  model_sets: ModelSet[];
-}
-
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
+export interface DispatchResponse {
+  ok: boolean;
+  task_id: string | null;
+  kanban_task_id: string | null;
+  target: string | null;
+  result_text: string | null;
+  error_text: string | null;
 }
