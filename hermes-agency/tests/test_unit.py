@@ -4754,7 +4754,6 @@ def test_proactive_routes_review_needed_markdown_to_editor(plugin_modules, monke
     assert created[0]["metadata"]["trigger"] == "kanban-tag"
 
 
-
 # --- Agency MoA native-adapter coverage ------------------------------------
 
 
@@ -4906,15 +4905,12 @@ def test_agency_moa_tool_recommend_does_not_run_model_calls(plugin_modules, monk
     assert "status" in payload
 
 
-
 def test_incoming_task_requires_full_trust_before_delegation_tools(plugin_modules, tmp_path):
     cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
     plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
     task = _FakeIncomingTask("remote work", peer_id="peer-good", task_id="task-limited-tools")
 
-    decision = plugin_modules.incoming_security.verify_incoming_sender(
-        task, cfg, purpose="task"
-    )
+    decision = plugin_modules.incoming_security.verify_incoming_sender(task, cfg, purpose="task")
 
     assert not decision.allowed
     assert decision.action == "insufficient_trust"
@@ -4926,9 +4922,7 @@ def test_incoming_task_allows_full_trust_sender(plugin_modules, tmp_path):
     plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
     task = _FakeIncomingTask("remote work", peer_id="peer-good", task_id="task-full")
 
-    decision = plugin_modules.incoming_security.verify_incoming_sender(
-        task, cfg, purpose="task"
-    )
+    decision = plugin_modules.incoming_security.verify_incoming_sender(task, cfg, purpose="task")
 
     assert decision.allowed
     assert decision.trust_level == "full"

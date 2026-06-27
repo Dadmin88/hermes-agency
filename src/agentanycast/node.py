@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import importlib
 import ipaddress
 import logging
 import os
@@ -217,8 +218,7 @@ def _load_outbound_url_policy() -> _OutboundUrlPolicy:
     validation = os.getenv("AGENTANYCAST_OUTBOUND_URL_VALIDATION", "").strip().lower()
     allowlist = _split_patterns(os.getenv("AGENTANYCAST_OUTBOUND_URL_ALLOWLIST", ""))
     try:
-        from hermes_cli.config import load_config  # type: ignore[import-not-found]
-
+        load_config = importlib.import_module("hermes_cli.config").load_config
         config = load_config()
     except Exception:
         config = {}
