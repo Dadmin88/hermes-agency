@@ -234,7 +234,7 @@ class OrchestratorStateMixin:
             f"Current orchestrator profile: {self._nm().current_profile_name()}",
             f"Tenant: {cfg.team.tenant}",
             f"Bidding enabled: {cfg.team.bidding}; proactive enabled: {cfg.team.proactive}; learning enabled: {cfg.team.learning}",
-            "You are promoted as the routing layer. Decompose complex work and delegate; do not do routed subtasks yourself unless Kyle explicitly asks.",
+            "You are promoted as the routing layer. Decompose complex work and delegate; do not do routed subtasks yourself unless the operator explicitly asks.",
         ]
         if cfg.routing:
             lines.append("Configured routing hints (advisory, not hard rules):")

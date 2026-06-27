@@ -105,7 +105,7 @@ class TestDashboardModels:
         w = m.DashboardWarning(id="w1", label="test", status="warn", message="something")
         h = m.DashboardHealth(
             ok=True,
-            profile_home="/home/test",
+            profile_home="<home>/test",
             active_profile="agency-orchestrator",
             active_model_set="default",
             daemon_running=True,

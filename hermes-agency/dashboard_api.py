@@ -331,7 +331,13 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         try:
             from .kanban_bridge import list_tasks as kanban_list_tasks
 
-            kanban_result = kanban_list_tasks({"limit": 100})
+            kanban_result = kanban_list_tasks(
+                {
+                    "limit": 250,
+                    "tenant": "*",
+                    "include_agency_boards": True,
+                }
+            )
             if kanban_result.get("available") and kanban_result.get("ok"):
                 kanban_tasks = [
                     ktask for ktask in (kanban_result.get("tasks") or []) if isinstance(ktask, dict)
@@ -443,10 +449,13 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         "/kanban-tasks/{task_id}/archive",
         dependencies=[Depends(require_token)],
     )
-    async def archive_kanban_task(task_id: str) -> dict[str, Any]:
+    async def archive_kanban_task(
+        task_id: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         from .kanban_bridge import update_task
 
-        result = update_task(task_id, status="archived")
+        board = str((body or {}).get("board") or "") or None
+        result = update_task(task_id, status="archived", board=board)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("error", "Archive failed"))
         clear_tasks_cache()
@@ -456,10 +465,13 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         "/kanban-tasks/{task_id}/complete",
         dependencies=[Depends(require_token)],
     )
-    async def complete_kanban_task(task_id: str) -> dict[str, Any]:
+    async def complete_kanban_task(
+        task_id: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         from .kanban_bridge import update_task
 
-        result = update_task(task_id, status="done")
+        board = str((body or {}).get("board") or "") or None
+        result = update_task(task_id, status="done", board=board)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("error", "Complete failed"))
         clear_tasks_cache()
@@ -469,10 +481,11 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         "/kanban-tasks/{task_id}/retry",
         dependencies=[Depends(require_token)],
     )
-    async def retry_kanban_task(task_id: str) -> dict[str, Any]:
+    async def retry_kanban_task(task_id: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
         from .kanban_bridge import update_task
 
-        result = update_task(task_id, status="running")
+        board = str((body or {}).get("board") or "") or None
+        result = update_task(task_id, status="running", board=board)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("error", "Retry failed"))
         clear_tasks_cache()
@@ -494,6 +507,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         target = target_agent or req.skill or req.department or "auto-router"
         priority_value = _dispatch_priority(req.priority)
         kanban_task_id: str | None = None
+        kanban_board: str | None = None
         metadata = {
             "source": "dashboard",
             "priority": str(req.priority),
@@ -519,6 +533,9 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 )
                 if kresult.get("ok"):
                     kanban_task_id = str(kresult.get("task_id"))
+                    kanban_board = str(kresult.get("board") or "") or None
+                    if kanban_board:
+                        metadata["agency_board"] = kanban_board
             except Exception as exc:
                 logger.warning("Dashboard dispatch: Kanban task creation failed: %s", exc)
 
@@ -541,6 +558,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 from .pool.tools import pool_send
 
                 pool_result = pool_send(target_agent, dispatch_message)
+                safe_pool_result = _redact_runtime_text(pool_result)
                 task_id = _extract_dispatch_id(pool_result, "task_id") or _extract_dispatch_id(
                     pool_result, "queue_id"
                 )
@@ -550,7 +568,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                         from .kanban_bridge import track_delegation, update_task
 
                         tracking_metadata = dict(metadata)
-                        tracking_metadata["dispatch_result"] = pool_result
+                        tracking_metadata["dispatch_result"] = safe_pool_result
                         if task_id:
                             tracking_metadata["a2a_task_id"] = task_id
                         track_delegation(
@@ -566,7 +584,8 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                             status="assigned"
                             if pool_result.startswith("Queued task")
                             else "running",
-                            result=pool_result,
+                            result=safe_pool_result,
+                            board=kanban_board,
                         )
                     except Exception as exc:
                         logger.warning("Dashboard dispatch: Kanban tracking failed: %s", exc)
@@ -576,8 +595,8 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                     task_id=task_id,
                     kanban_task_id=kanban_task_id,
                     target=target_agent,
-                    result_text=pool_result[:500],
-                    error_text=pool_result if is_error else None,
+                    result_text=safe_pool_result[:500],
+                    error_text=safe_pool_result if is_error else None,
                 )
 
             result = manager.send_task_sync(
@@ -587,6 +606,18 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 timeout=30,
             )
             task_id = str(result.get("task_id") or "")
+            if kanban_task_id:
+                try:
+                    from .kanban_bridge import update_task
+
+                    update_task(
+                        kanban_task_id,
+                        status="running",
+                        result=_redact_runtime_text(str(result.get("result") or "")),
+                        board=kanban_board,
+                    )
+                except Exception as exc:
+                    logger.warning("Dashboard dispatch: Kanban tracking failed: %s", exc)
             clear_tasks_cache()
             return DashboardDispatchResponse(
                 ok=True,
@@ -1016,6 +1047,18 @@ def _extract_dispatch_id(text: str, key: str) -> str | None:
         return None
     value = text.split(marker, 1)[1].split()[0].strip().strip(",.;")
     return value or None
+
+
+def _redact_runtime_text(text: str) -> str:
+    """Redact private network endpoints from dashboard-visible runtime text."""
+    import re
+
+    redacted = re.sub(
+        r"/ip4/[0-9.]+/tcp/[0-9]+/p2p/[0-9A-Za-z]+",
+        "/ip4/<host>/tcp/<port>/p2p/<peer-id>",
+        str(text or ""),
+    )
+    return re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "<ip-address>", redacted)
 
 
 def _title_from_message(message_text: str) -> str:

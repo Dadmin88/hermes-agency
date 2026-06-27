@@ -93,11 +93,11 @@ def announce_delegate(task: Any, target: Any, *, kanban_task_id: str | None = No
 
 
 def announce_escalate(task: Any, reason: Any) -> str:
-    """Announce that work needs Kyle's attention."""
+    """Announce that work needs operator attention."""
 
     task_text = _clean(task, max_len=320)
     reason_text = _clean(reason, max_len=700)
-    return _record("escalate", f"Kyle input needed for {task_text}: {reason_text}") or ""
+    return _record("escalate", f"Operator input needed for {task_text}: {reason_text}") or ""
 
 
 def announce_registration(agent: Any, event: str, *, peer_id: str | None = None) -> str:
@@ -186,7 +186,7 @@ def build_blocked_context(task: Any, why: Any, needed: Any = "") -> dict[str, st
     return {
         "task": _clean(task, max_len=700),
         "why_stuck": _clean(why, max_len=700),
-        "needed_from_kyle": _clean(needed, max_len=700),
+        "needed_from_operator": _clean(needed, max_len=700),
     }
 
 

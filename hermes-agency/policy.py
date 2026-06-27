@@ -110,7 +110,7 @@ def _default_decision(action: str) -> str:
     for decision, actions in DEFAULT_POLICY.items():
         if action in actions:
             return decision
-    # Unknown actions are conservative but not prohibited: ask Kyle.
+    # Unknown actions are conservative but not prohibited: ask the operator.
     return ASK
 
 

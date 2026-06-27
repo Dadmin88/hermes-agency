@@ -7,6 +7,7 @@ Usage:
 """
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -14,7 +15,7 @@ import time
 from pathlib import Path
 
 PROFILES = Path.home() / ".hermes" / "profiles"
-RELAY = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWGE3zmqw2FJTyuNGAzSNCUxSNSeMvCtocULczXfX9Y8nK"
+RELAY = os.environ.get("AGENTANYCAST_RELAY", "").strip()
 HERMES_BIN = Path.home() / ".hermes" / ".agentanycast" / "bin" / "agentanycastd"
 STARTUP_WAIT = 12
 STATE_FILE = Path.home() / "batch_wake_persistent_state.json"
@@ -101,14 +102,17 @@ def wake_profile(name):
         d.mkdir(parents=True, exist_ok=True)
     log.write_text("")
 
+    cmd = [
+        str(bin_path),
+        f"--key={key}",
+        f"--grpc-listen=unix://{sock}",
+        "--log-level=info",
+    ]
+    if RELAY:
+        cmd.append(f"--bootstrap-peers={RELAY}")
+
     subprocess.Popen(
-        [
-            str(bin_path),
-            f"--key={key}",
-            f"--grpc-listen=unix://{sock}",
-            "--log-level=info",
-            f"--bootstrap-peers={RELAY}",
-        ],
+        cmd,
         stdout=open(log, "a"),
         stderr=subprocess.STDOUT,
         start_new_session=True,

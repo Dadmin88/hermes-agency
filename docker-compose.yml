@@ -1,0 +1,22 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hermes-agency:local
+    ports:
+      - "8765:8765"
+    environment:
+      HERMES_HOME: /data/hermes
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: 8765
+      HERMES_DASHBOARD_ALLOW_LAN: "1"
+      HERMES_DASHBOARD_TOKEN: ${HERMES_DASHBOARD_TOKEN:-}
+      AGENTANYCAST_RELAY: ${AGENTANYCAST_RELAY:-}
+      AGENTANYCAST_REGISTRY_ADDRS: ${AGENTANYCAST_REGISTRY_ADDRS:-}
+    volumes:
+      - hermes-agency-data:/data/hermes
+    restart: unless-stopped
+
+volumes:
+  hermes-agency-data:

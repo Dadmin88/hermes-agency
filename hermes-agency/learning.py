@@ -44,7 +44,7 @@ def log_routing_correction(
     *,
     note: str = "",
 ) -> dict[str, Any]:
-    """Store Kyle's correction for future model-readable routing context."""
+    """Store the operator's correction for future model-readable routing context."""
 
     cfg = get_config()
     if not cfg.team.learning:

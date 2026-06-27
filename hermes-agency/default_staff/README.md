@@ -104,7 +104,7 @@ result = install_default_staff(force=True)
 The installation system has strict safety rules:
 
 1. **Never overwrites without `--force`** — If a profile with the same name already exists, it is skipped.
-2. **Never touches non-agency profiles** — Only `agency-*` profiles are created. Your existing `katana`, `gpt`, `grok`, `designer`, `git`, and other profiles are never modified.
+2. **Never touches non-agency profiles** — Only `agency-*` profiles are created. Your existing `example-profile`, other non-agency profiles are never modified.
 3. **Dry-run support** — Always preview before installing.
 4. **Namespace isolation** — The `agency-` prefix prevents collision with user-created profiles.
 

@@ -97,17 +97,22 @@ def _import_kb() -> Any:
 
 
 @contextmanager
-def _connection() -> Iterator[tuple[Any, Any]]:
-    """Yield ``(kb, conn)`` for the active Kanban board, initializing if needed."""
+def _connection(board: str | None = None) -> Iterator[tuple[Any, Any]]:
+    """Yield ``(kb, conn)`` for a Kanban board, initializing if needed."""
 
     kb = _import_kb()
     try:
-        # Mirrors ``hermes kanban``: opening a board is allowed to create/migrate
-        # the existing Kanban DB.  Permission/path errors are reported as graceful
-        # unavailability to callers.
-        kb.init_db()
-        with kb.connect_closing() as conn:
-            yield kb, conn
+        # Board selection must wrap init/connect.  A sqlite connection is bound
+        # to the board path selected when it opens.
+        ctx = (
+            kb.scoped_current_board(board)
+            if board and hasattr(kb, "scoped_current_board")
+            else nullcontext()
+        )
+        with ctx:
+            kb.init_db()
+            with kb.connect_closing() as conn:
+                yield kb, conn
     except KanbanUnavailable:
         raise
     except Exception as exc:
@@ -346,11 +351,13 @@ def create_task(
     """
 
     clean_metadata = dict(metadata or {})
-    agent_name = _agent_for_department_board(assigned_to, clean_metadata)
-    if agent_name:
+    board = _department_board_from_metadata(clean_metadata)
+    if board:
+        slug, board_name = board
         return _safe_call(
-            _create_task_on_department_board_impl,
-            agent_name,
+            _create_task_on_named_board_impl,
+            slug,
+            board_name,
             title,
             description,
             assigned_to,
@@ -359,13 +366,12 @@ def create_task(
             clean_metadata,
             int(priority or 0),
         )
-    board = _department_board_from_metadata(clean_metadata)
-    if board:
-        slug, board_name = board
+
+    agent_name = _agent_for_department_board(assigned_to, clean_metadata)
+    if agent_name:
         return _safe_call(
-            _create_task_on_named_board_impl,
-            slug,
-            board_name,
+            _create_task_on_department_board_impl,
+            agent_name,
             title,
             description,
             assigned_to,
@@ -563,13 +569,15 @@ def _track_delegation_impl(
     if kanban_task_id:
         meta["kanban_task_id"] = kanban_task_id
     if kanban_task_id:
+        board = _clean(meta.get("agency_board") or meta.get("board")) or None
         result = add_comment(
             kanban_task_id,
             "Hermes Agency delegation sent"
             + (f"; A2A task_id={a2a_task_id}" if a2a_task_id else ""),
+            board=board,
         )
         if result.get("available") and a2a_task_id:
-            with _connection() as (kb, conn):
+            with _connection(board) as (kb, conn):
                 resolved = _resolve_task_id(kb, conn, kanban_task_id)
                 if resolved:
                     _A2A_TO_KANBAN[a2a_task_id] = resolved
@@ -599,10 +607,11 @@ def update_task(
     status: str | None = None,
     result: str | None = None,
     error: str | None = None,
+    board: str | None = None,
 ) -> dict[str, Any]:
     """Update an Hermes Agency-tracked Kanban task's lifecycle state."""
 
-    return _safe_call(_update_task_impl, task_id, status, result, error)
+    return _safe_call(_update_task_impl, task_id, status, result, error, board)
 
 
 def _has_unfinished_parents(kb: Any, conn: Any, task_id: str) -> bool:
@@ -631,9 +640,13 @@ def _set_status(
 
 
 def _update_task_impl(
-    task_id: str, status: str | None, result: str | None, error: str | None
+    task_id: str,
+    status: str | None,
+    result: str | None,
+    error: str | None,
+    board: str | None = None,
 ) -> dict[str, Any]:
-    with _connection() as (kb, conn):
+    with _connection(board) as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
             return {
@@ -754,62 +767,57 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
     else:
         board_slugs = [None]
 
-    with _connection() as (kb, conn):
-        seen: set[str] = set()
-        data: list[dict[str, Any]] = []
-        for board_slug in board_slugs:
-            if board_slug and hasattr(kb, "board_exists") and not kb.board_exists(board_slug):
-                continue
-            ctx = (
-                kb.scoped_current_board(board_slug)
-                if board_slug and hasattr(kb, "scoped_current_board")
-                else nullcontext()
+    seen: set[str] = set()
+    data: list[dict[str, Any]] = []
+    for board_slug in board_slugs:
+        kb = _import_kb()
+        if board_slug and hasattr(kb, "board_exists") and not kb.board_exists(board_slug):
+            continue
+        with _connection(board_slug) as (kb, conn):
+            kb.recompute_ready(conn)
+            tasks = kb.list_tasks(
+                conn,
+                assignee=assignee,
+                status=status,
+                tenant=tenant,
+                session_id=session_id,
+                include_archived=include_archived,
+                limit=None,
+                order_by=filters.get("order_by") or filters.get("sort"),
             )
-            with ctx:
-                kb.recompute_ready(conn)
-                tasks = kb.list_tasks(
-                    conn,
-                    assignee=assignee,
-                    status=status,
-                    tenant=tenant,
-                    session_id=session_id,
-                    include_archived=include_archived,
-                    limit=None,
-                    order_by=filters.get("order_by") or filters.get("sort"),
-                )
-                for task in tasks:
-                    if task.id in seen:
-                        continue
-                    seen.add(task.id)
-                    item = _task_to_dict(kb, conn, task, include_thread=False)
-                    item["board"] = board_slug or getattr(kb, "current_board", None) or "default"
-                    data.append(item)
-        requested_status = _clean(filters.get("status")).lower()
-        if requested_status == "assigned":
-            data = [task for task in data if task.get("assignee")]
-        elif requested_status == "unassigned":
-            data = [task for task in data if not task.get("assignee")]
-        elif requested_status == "failed":
-            data = [task for task in data if task.get("plugin_status") == "failed"]
-        data.sort(
-            key=lambda task: (
-                task.get("completed_at") or task.get("started_at") or task.get("created_at") or 0
-            ),
-            reverse=True,
-        )
-        if limit:
-            data = data[: int(limit)]
-        return {"available": True, "ok": True, "tasks": data, "count": len(data)}
+            for task in tasks:
+                if task.id in seen:
+                    continue
+                seen.add(task.id)
+                item = _task_to_dict(kb, conn, task, include_thread=False)
+                item["board"] = board_slug or "default"
+                data.append(item)
+    requested_status = _clean(filters.get("status")).lower()
+    if requested_status == "assigned":
+        data = [task for task in data if task.get("assignee")]
+    elif requested_status == "unassigned":
+        data = [task for task in data if not task.get("assignee")]
+    elif requested_status == "failed":
+        data = [task for task in data if task.get("plugin_status") == "failed"]
+    data.sort(
+        key=lambda task: (
+            task.get("completed_at") or task.get("started_at") or task.get("created_at") or 0
+        ),
+        reverse=True,
+    )
+    if limit:
+        data = data[: int(limit)]
+    return {"available": True, "ok": True, "tasks": data, "count": len(data)}
 
 
-def add_comment(task_id: str, body: str) -> dict[str, Any]:
+def add_comment(task_id: str, body: str, board: str | None = None) -> dict[str, Any]:
     """Append a comment to a Kanban task thread."""
 
-    return _safe_call(_add_comment_impl, task_id, body)
+    return _safe_call(_add_comment_impl, task_id, body, board)
 
 
-def _add_comment_impl(task_id: str, body: str) -> dict[str, Any]:
-    with _connection() as (kb, conn):
+def _add_comment_impl(task_id: str, body: str, board: str | None = None) -> dict[str, Any]:
+    with _connection(board) as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
             return {

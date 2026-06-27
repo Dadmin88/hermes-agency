@@ -2,7 +2,7 @@
 
 The GPT Bridge is a pull-based escalation lane between Hermes Agency and a live ChatGPT session.
 
-It does not make ChatGPT an always-on background worker. Instead, agency profiles can queue a task into a durable inbox. When Kyle opens ChatGPT and asks it to check the bridge inbox, ChatGPT can claim the task, complete the work, and write the result back.
+It does not make ChatGPT an always-on background worker. Instead, agency profiles can queue a task into a durable inbox. When the operator opens ChatGPT and asks it to check the bridge inbox, ChatGPT can claim the task, complete the work, and write the result back.
 
 ## Flow
 
@@ -88,7 +88,7 @@ Good uses:
 - ambiguous planning
 - security-sensitive review
 - cross-repo reasoning
-- tasks Kyle explicitly wants ChatGPT to handle
+- tasks the operator explicitly wants ChatGPT to handle
 
 Bad uses:
 

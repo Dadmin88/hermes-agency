@@ -283,7 +283,7 @@ class TestExistingSocketStartup:
 
     @pytest.mark.asyncio
     async def test_start_passes_relay_as_bootstrap_peers(self, tmp_path, monkeypatch):
-        relay = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay"
+        relay = "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay"
         dm = DaemonManager(home=tmp_path, relay=relay)
         binary = tmp_path / "agentanycastd"
         binary.write_text("#!/bin/sh\n")

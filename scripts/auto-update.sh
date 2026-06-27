@@ -87,7 +87,7 @@ fi
 
 # ── Discover and restart all running Hermes gateways ────────────────────────
 # Finds any systemd user service matching hermes*gateway* or *gateway*hermes*
-# This works for any profile name: katana-gateway, hermes-gateway, etc.
+# This works for any configured gateway service name without hard-coded profile assumptions.
 
 RESTARTED=0
 FAILED=0

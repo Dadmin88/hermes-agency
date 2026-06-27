@@ -15,7 +15,7 @@ from .kanban_bridge import create_task as kanban_create_task
 DEFAULT_WORKFLOWS: dict[str, dict[str, Any]] = {
     "ship_feature": {
         "steps": [
-            {"name": "write_code", "skill": "code", "assigned_to": "katana"},
+            {"name": "write_code", "skill": "code", "assigned_to": "example-profile"},
             {
                 "name": "write_tests",
                 "skill": "testing",
@@ -32,8 +32,13 @@ DEFAULT_WORKFLOWS: dict[str, dict[str, Any]] = {
     },
     "fix_and_deploy": {
         "steps": [
-            {"name": "diagnose", "skill": "debugging", "assigned_to": "katana"},
-            {"name": "fix", "skill": "code", "assigned_to": "katana", "depends_on": ["diagnose"]},
+            {"name": "diagnose", "skill": "debugging", "assigned_to": "example-profile"},
+            {
+                "name": "fix",
+                "skill": "code",
+                "assigned_to": "example-profile",
+                "depends_on": ["diagnose"],
+            },
             {"name": "verify", "skill": "testing", "assigned_to": "qa", "depends_on": ["fix"]},
             {
                 "name": "deploy",

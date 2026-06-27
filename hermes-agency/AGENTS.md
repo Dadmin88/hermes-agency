@@ -6,7 +6,7 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 
 - This plugin is still in local testing / PR-prep mode.
 - Do **not** open pull requests from this checkout without explicit maintainer approval.
-- Keep changes profile-safe: do not depend on real `~/.hermes` homes, real peer IDs, private relays, messaging channels, or local daemon sockets in tests that should run in CI.
+- Keep changes profile-safe: do not depend on real Hermes homes, real peer IDs, private relays, messaging channels, local daemon sockets, or machine-specific paths in tests that should run in CI.
 
 ## Plugin shape
 
@@ -26,10 +26,43 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
   - `allow_remote_tasks: false`
   - `incoming.tool_access: full`
   - progress artifacts are opt-in via `incoming.send_progress: true`
-- Never expose API keys, tokens, Discord channel IDs, raw env vars, daemon paths, or local profile paths in AgentCards.
+- Never expose API keys, tokens, private channel IDs, raw env vars, daemon paths, local profile paths, private hostnames, machine names, or maintainer identity details in AgentCards, docs, logs committed to the repo, or tests.
 - Treat relay configuration and anycast registry configuration as separate concerns: relay/bootstrap connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
 - Always transition incoming tasks through `WORKING` before `COMPLETED`; daemon builds reject direct `SUBMITTED -> COMPLETED`.
 - Keep routine model-tool responses compact. Use full `agency_info` only for troubleshooting; health checks should call `agency_info({"compact": true})` or `NodeManager.compact_info()`.
+
+## Install and use expectations
+
+From the repository root, install development dependencies with:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+Build the dashboard frontend after changes under `web/agency-dashboard/`:
+
+```bash
+cd web/agency-dashboard
+npm ci
+npm run build
+```
+
+Run the dashboard through a configured Hermes runtime:
+
+```bash
+hermes agency dashboard --host 127.0.0.1 --no-open
+```
+
+For containerized dashboard work, prefer the repository Docker Compose setup:
+
+```bash
+docker compose up --build
+```
+
+Keep all examples generic. Use placeholders for relay, registry, profile, and workspace values.
 
 ## Test expectations
 

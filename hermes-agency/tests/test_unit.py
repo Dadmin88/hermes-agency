@@ -479,7 +479,7 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         "Name: Safe Card\n\n"
         "Do not leak API key sk-abc123SECRET or Bearer token-secret.\n\n"
         "A safe profile description.\n\n"
-        "Profile path /home/user/.hermes/profiles/local-agent/ and env ${API_TOKEN}.\n",
+        "Profile path <home>/.hermes/profiles/local-agent/ and env ${API_TOKEN}.\n",
         encoding="utf-8",
     )
     (profile / "skills" / "safe" / "SKILL.md").write_text(
@@ -502,8 +502,8 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         "agency:\n"
         "  card_name: Public Name\n"
         "  skills_from_profile: true\n"
-        "  daemon_bin: /home/user/.agentanycast/daemon.sock\n"
-        "  home: /home/user/.hermes/profiles/local-agent/.agency\n",
+        "  daemon_bin: <home>/.agentanycast/daemon.sock\n"
+        "  home: <home>/.hermes/profiles/local-agent/.agency\n",
         encoding="utf-8",
     )
 
@@ -522,9 +522,9 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
         "sk-abc123SECRET",
         "Bearer token-secret",
         "123456789012345678",
-        "/home/user/.agentanycast/daemon.sock",
-        "/home/user/.hermes/profiles/local-agent/",
-        "/home/user/.hermes/profiles/local-agent/.agency",
+        "<home>/.agentanycast/daemon.sock",
+        "<home>/.hermes/profiles/local-agent/",
+        "<home>/.hermes/profiles/local-agent/.agency",
         "$SECRET_KEY",
         "${API_TOKEN}",
         "api_key",
@@ -907,7 +907,7 @@ def test_get_config_inherits_shared_runtime_from_root_profile_config(
     profile_home = root_home / "profiles" / "agency-orchestrator"
     profile_home.mkdir(parents=True)
     daemon_bin = tmp_path / "agentanycastd"
-    relay = "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay"
+    relay = "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay"
     (root_home / "config.yaml").write_text(
         f"agency:\n  daemon_bin: {daemon_bin}\n  relay: {relay}\n",
         encoding="utf-8",
@@ -942,7 +942,7 @@ def test_profile_relay_map_overrides_root_relay_map_without_losing_address(plugi
         "agency": {
             "daemon_bin": "/root/bin/agentanycastd",
             "relay": {
-                "address": "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay",
+                "address": "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay",
                 "allowlist": ["root-peer"],
                 "auto_allow_team": True,
                 "token": "root-token",
@@ -958,7 +958,7 @@ def test_profile_relay_map_overrides_root_relay_map_without_losing_address(plugi
     }
     assert merged["agency"]["daemon_bin"] == "/root/bin/agentanycastd"
     assert merged["agency"]["relay"] == {
-        "address": "/ip4/100.123.57.115/tcp/4001/p2p/12D3KooWRelay",
+        "address": "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay",
         "allowlist": ["local-peer"],
         "auto_allow_team": False,
         "token": "root-token",
@@ -3783,9 +3783,9 @@ def test_registry_reregister_interval_stays_below_relay_ttl(plugin_modules):
 
 def test_registry_addresses_parse_env(plugin_modules, monkeypatch):
     nm = plugin_modules.node_manager
-    monkeypatch.setenv("AGENTANYCAST_REGISTRY_ADDRS", "100.123.57.115:50052, ,localhost:50052")
+    monkeypatch.setenv("AGENTANYCAST_REGISTRY_ADDRS", "198.51.100.10:50052, ,localhost:50052")
 
-    assert nm._registry_addresses() == ["100.123.57.115:50052", "localhost:50052"]
+    assert nm._registry_addresses() == ["198.51.100.10:50052", "localhost:50052"]
 
 
 @pytest.mark.asyncio

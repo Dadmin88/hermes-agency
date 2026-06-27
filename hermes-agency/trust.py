@@ -536,7 +536,7 @@ def relay_control_url(cfg: AgencyConfig) -> str | None:
         return None
     if ":" in host and not host.startswith("["):
         host = f"[{host}]"
-    # Kyle's VPS relay currently runs the directory/API server on 8083.
+    # The relay can run the directory/API server on 8083.
     return f"http://{host}:8083"
 
 

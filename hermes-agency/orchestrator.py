@@ -573,10 +573,10 @@ def _escalation_payload(
     blocked = build_blocked_context(
         task_description,
         reason,
-        "Kyle should choose a target agent, clarify scope, or approve a manual route.",
+        "The operator should choose a target agent, clarify scope, or approve a manual route.",
     )
     hook = mark_blocked_hook(
-        task_description, reason, blocked["needed_from_kyle"], task_id=kanban_task_id
+        task_description, reason, blocked["needed_from_operator"], task_id=kanban_task_id
     )
     return {
         "task_id": task_id,
@@ -670,7 +670,7 @@ def orch_route(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         task = manager.create_orchestrator_task(task_description, kind="route", status="escalated")
         escalation = _escalation_payload(
             task_description,
-            f"Autonomy policy requires Kyle approval for {policy_action}.",
+            f"Autonomy policy requires operator approval for {policy_action}.",
             task_id=task["task_id"],
         )
         manager.update_orchestrator_task(
@@ -1011,7 +1011,7 @@ def orch_list_tasks(args: dict[str, Any] | None = None, **_: Any) -> str:
 
 
 def orch_escalate(args: dict[str, Any] | None = None, **_: Any) -> str:
-    """Create a platform-native escalation message for Kyle."""
+    """Create a platform-native escalation message for the operator."""
 
     args = args or {}
     task_description = _clean(args.get("task_description") or args.get("task") or "")
@@ -1099,7 +1099,7 @@ ORCH_ROUTE_SCHEMA = {
                 },
                 "approved": {
                     "type": "boolean",
-                    "description": "Set true only when Kyle has approved a policy-gated action.",
+                    "description": "Set true only when the operator has approved a policy-gated action.",
                 },
             },
             "required": ["task_description", "target_agent"],
@@ -1171,11 +1171,14 @@ ORCH_ESCALATE_SCHEMA = {
     "type": "function",
     "function": {
         "name": "orch_escalate",
-        "description": "Escalate a blocked routing/delegation decision to Kyle via platform-native final response text.",
+        "description": "Escalate a blocked routing/delegation decision to the operator via platform-native final response text.",
         "parameters": {
             "type": "object",
             "properties": {
-                "task_description": {"type": "string", "description": "Task needing Kyle's input."},
+                "task_description": {
+                    "type": "string",
+                    "description": "Task needing operator input.",
+                },
                 "task_id": {
                     "type": "string",
                     "description": "Optional existing Kanban/local task ID to mark blocked.",

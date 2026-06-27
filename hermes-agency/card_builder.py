@@ -44,7 +44,7 @@ except Exception:  # pragma: no cover - only used in stripped environments
 def resolve_profile_home(profile: str | Path | None = None) -> Path:
     """Resolve a profile name/path to its Hermes profile home.
 
-    ``None`` means the active profile. A bare name like ``"katana"`` resolves
+    ``None`` means the active profile. A bare name like ``"example-profile"`` resolves
     next to the active profile when running under ``~/.hermes/profiles/<name>``.
     Absolute paths and path-like strings are used directly.
     """

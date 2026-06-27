@@ -80,7 +80,7 @@ export function useTaskAction() {
       if (task.source === "kanban") {
         return api.post(
           `/kanban-tasks/${encodeURIComponent(task.id)}/${encodeURIComponent(action)}`,
-          {}
+          { board: task.board || undefined }
         );
       }
 

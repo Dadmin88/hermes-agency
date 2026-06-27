@@ -175,7 +175,7 @@ This sets up a systemd user timer that:
 - Polls `origin/main` every 5 minutes (configurable via `POLL_SECONDS=600`)
 - Pulls new commits (with auto-stash if you have local changes)
 - Discovers and restarts **all** running Hermes gateways on the machine
-- Works for any profile name (`katana-gateway`, `hermes-gateway`, etc.)
+- Works for any configured gateway service name without hard-coded profile assumptions
 
 **Manual run:**
 
@@ -193,6 +193,27 @@ DRY_RUN=1 ./scripts/auto-update.sh     # check only, no changes
 ```
 
 For headless servers without systemd --user, the setup script falls back to cron automatically.
+
+## Docker
+
+Run the dashboard with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Open `http://127.0.0.1:8765`. A session token is printed in the container logs unless `HERMES_DASHBOARD_TOKEN` is provided.
+
+Optional environment variables:
+
+```bash
+HERMES_DASHBOARD_TOKEN=change-me \
+AGENTANYCAST_RELAY=<relay-multiaddr> \
+AGENTANYCAST_REGISTRY_ADDRS=<registry-address> \
+docker compose up --build
+```
+
+The compose file uses a named Docker volume for runtime data, so no machine-specific host paths are required.
 
 ### Instant VPS Deploy (GitHub Actions)
 
