@@ -30,6 +30,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
+    "hermes-agent>=0.17.0",
     "grpcio>=1.60",
     "protobuf>=7.34.1",
     "httpx>=0.27",
@@ -49,7 +50,6 @@ Changelog = "https://github.com/DeployFaith/Hermes_Agency/blob/main/CHANGELOG.md
 
 [project.scripts]
 hermes-agency = "hermes_agency.cli:main"
-hermes-agency-mcp = "hermes_agency.mcp:main"
 
 [project.optional-dependencies]
 crewai = ["crewai>=0.80"]
@@ -74,7 +74,19 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agentanycast"]
+packages = ["src/agentanycast", "hermes-agency"]
+sources = { "hermes-agency" = "hermes_agency" }
+exclude = [
+    "/hermes-agency/tests",
+    "/hermes-agency/**/__pycache__",
+    "/hermes-agency/**/*.pyc",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"hermes-agency/dashboard/dist" = "hermes_agency/dashboard/dist"
+
+[tool.hatch.build.targets.sdist.force-include]
+"hermes-agency/dashboard/dist" = "hermes-agency/dashboard/dist"
 
 [tool.ruff]
 target-version = "py310"

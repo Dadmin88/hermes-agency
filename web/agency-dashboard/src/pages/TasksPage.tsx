@@ -8,7 +8,8 @@ import ErrorState from "@/components/ErrorState";
 import Tabs from "@/components/Tabs";
 import Button from "@/components/Button";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { useTaskAction, useTasks } from "@/api/queries";
+import TaskKanbanBoard from "@/components/tasks/TaskKanbanBoard";
+import { useHealth, useTaskAction, useTasks } from "@/api/queries";
 import type { DashboardTask, TaskAction } from "@/api/types";
 import { formatRelative, formatDate } from "@/lib/format";
 import { addToast } from "@/hooks/useToast";
@@ -38,6 +39,8 @@ const actionLabel: Record<TaskAction, string> = {
 };
 
 const activeStatuses = new Set(["active", "running", "working", "queued", "processing", "received"]);
+const blockedStatuses = new Set(["blocked", "failed", "error"]);
+const doneStatuses = new Set(["done", "completed", "complete"]);
 
 function matchesStatus(task: DashboardTask, statusFilter: string) {
   if (statusFilter === "all") return true;
@@ -48,6 +51,7 @@ function matchesStatus(task: DashboardTask, statusFilter: string) {
 
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<DashboardTask | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     task: DashboardTask;
@@ -56,6 +60,7 @@ export default function TasksPage() {
   // Load the unified task list once and filter tabs client-side.
   // This keeps tab switching instant instead of issuing a fresh backend query per tab.
   const { data, isLoading, error, refetch, isFetching } = useTasks();
+  const { data: health } = useHealth();
   const taskAction = useTaskAction();
 
   const allTasks = data ?? [];
@@ -63,6 +68,16 @@ export default function TasksPage() {
     () => allTasks.filter((task) => matchesStatus(task, statusFilter)),
     [allTasks, statusFilter]
   );
+  const summary = useMemo(() => {
+    const counts = { total: tasks.length, active: 0, blocked: 0, done: 0 };
+    for (const task of tasks) {
+      const status = (task.status || "").toLowerCase();
+      if (activeStatuses.has(status)) counts.active += 1;
+      if (blockedStatuses.has(status)) counts.blocked += 1;
+      if (doneStatuses.has(status)) counts.done += 1;
+    }
+    return counts;
+  }, [tasks]);
 
   const runAction = (task: DashboardTask, action: TaskAction) => {
     taskAction.mutate(
@@ -101,9 +116,59 @@ export default function TasksPage() {
         description={`${tasks.length} ${statusFilter === "all" ? "tasks" : `${statusFilter} tasks`}${isFetching ? " · refreshing" : ""}`}
       />
 
-      <Tabs tabs={statusTabs} activeTab={statusFilter} onChange={setStatusFilter} />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <Tabs tabs={statusTabs} activeTab={statusFilter} onChange={setStatusFilter} />
+        <div className="flex rounded-xl border border-slate-800 bg-slate-950/40 p-1">
+          <Button
+            type="button"
+            variant={viewMode === "board" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("board")}
+            aria-pressed={viewMode === "board"}
+            className="rounded-lg"
+          >
+            <Kanban className="h-4 w-4" /> Board
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            aria-pressed={viewMode === "list"}
+            className="rounded-lg"
+          >
+            <ListTodo className="h-4 w-4" /> List
+          </Button>
+        </div>
+      </div>
 
-      {tasks.length === 0 ? (
+      <div className="glass-card-sm flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+          <Badge variant="outline" size="sm">{summary.total} visible</Badge>
+          <Badge variant="status" status="active" size="sm">{summary.active} active</Badge>
+          <Badge variant="status" status={summary.blocked > 0 ? "blocked" : "ok"} size="sm">
+            {summary.blocked} blocked
+          </Badge>
+          <Badge variant="status" status="done" size="sm">{summary.done} done</Badge>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          {isFetching && <span className="text-cyan-300">Refreshing…</span>}
+          {health && !health.kanban_available && (
+            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-amber-300">
+              Kanban unavailable — showing agency records only
+            </span>
+          )}
+        </div>
+      </div>
+
+      {viewMode === "board" ? (
+        <TaskKanbanBoard
+          tasks={tasks}
+          onSelect={setSelected}
+          onAction={requestAction}
+          actionPending={taskAction.isPending}
+        />
+      ) : tasks.length === 0 ? (
         <EmptyState
           icon={<ListTodo className="h-8 w-8" />}
           title="No tasks"
