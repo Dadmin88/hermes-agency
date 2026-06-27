@@ -281,6 +281,87 @@ def a2a_inbox(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         )
 
 
+def _agency_moa_gate() -> tuple[Any, dict[str, Any] | None]:
+    from .config import get_config
+
+    cfg = get_config()
+    if not cfg.enabled:
+        return cfg, {"ok": False, "error": "Hermes Agency is disabled"}
+    return cfg, None
+
+
+def agency_moa_status(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
+    """Return Agency policy and native Hermes Agent MoA availability/status."""
+
+    _args = _tool_args(args, **kwargs)
+    cfg, error = _agency_moa_gate()
+    if error:
+        return _json(error)
+    from .moa_adapter import get_native_moa_status
+
+    payload = get_native_moa_status(agency_config=cfg)
+    if not cfg.moa.enabled:
+        payload["ok"] = False
+        payload["disabled"] = True
+        payload["error"] = "Agency MoA policy is disabled; native Hermes MoA remains untouched"
+    return _json(payload)
+
+
+def agency_moa_presets(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
+    """List native Hermes Agent MoA presets through the Agency adapter."""
+
+    _args = _tool_args(args, **kwargs)
+    cfg, error = _agency_moa_gate()
+    if error:
+        return _json(error)
+    if not cfg.moa.enabled:
+        return _json({"ok": False, "disabled": True, "error": "Agency MoA policy is disabled"})
+    try:
+        from .moa_adapter import list_native_moa_presets
+
+        return _json({"ok": True, "presets": list_native_moa_presets(agency_config=cfg)})
+    except Exception as exc:
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
+
+
+def agency_moa_show(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
+    """Show one native Hermes Agent MoA preset through the Agency adapter."""
+
+    args = _tool_args(args, **kwargs)
+    cfg, error = _agency_moa_gate()
+    if error:
+        return _json(error)
+    if not cfg.moa.enabled:
+        return _json({"ok": False, "disabled": True, "error": "Agency MoA policy is disabled"})
+    name = str(args.get("preset") or args.get("name") or "").strip()
+    if not name:
+        return _json({"ok": False, "error": "preset is required"})
+    try:
+        from .moa_adapter import get_native_moa_preset
+
+        return _json({"ok": True, **get_native_moa_preset(name, agency_config=cfg)})
+    except KeyError:
+        return _json({"ok": False, "error": f"native MoA preset not found: {name}"})
+    except Exception as exc:
+        return _json({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
+
+
+def agency_moa_recommend(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
+    """Recommend native MoA for high-leverage Agency tasks without running it."""
+
+    args = _tool_args(args, **kwargs)
+    cfg, error = _agency_moa_gate()
+    if error:
+        return _json(error)
+    task_text = str(args.get("task_text") or args.get("prompt") or args.get("task") or "").strip()
+    trigger = str(args.get("trigger") or args.get("type") or "").strip() or None
+    if not task_text and not trigger:
+        return _json({"ok": False, "error": "task_text or trigger is required"})
+    from .moa_adapter import recommend_moa
+
+    return _json(recommend_moa(task_text, trigger, agency_config=cfg))
+
+
 Handler = Callable[..., str]
 
 
@@ -500,6 +581,58 @@ A2A_INBOX_SCHEMA = {
     },
 }
 
+AGENCY_MOA_STATUS_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_moa_status",
+        "description": "Show Agency MoA policy and native Hermes Agent MoA availability/status. Does not run model calls.",
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+}
+
+AGENCY_MOA_PRESETS_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_moa_presets",
+        "description": "List native Hermes Agent MoA presets visible to Agency. Does not mutate config.",
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+}
+
+AGENCY_MOA_SHOW_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_moa_show",
+        "description": "Show one native Hermes Agent MoA preset plus validation warnings.",
+        "parameters": {
+            "type": "object",
+            "properties": {"preset": {"type": "string", "description": "Native MoA preset name."}},
+            "required": ["preset"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+AGENCY_MOA_RECOMMEND_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_moa_recommend",
+        "description": "Recommend whether native Hermes Agent MoA should be used for a task. Does not auto-run MoA.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_text": {"type": "string", "description": "Task text to evaluate."},
+                "trigger": {
+                    "type": "string",
+                    "description": "Optional known trigger/type, e.g. architecture, security, release.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+}
+
+
 AGENCY_TOOLS = (
     (
         "agency_discover",
@@ -580,6 +713,30 @@ AGENCY_TOOLS = (
         ),
         agency_info,
         "🛰️",
+    ),
+    (
+        "agency_moa_status",
+        AGENCY_MOA_STATUS_SCHEMA,
+        agency_moa_status,
+        "🧪",
+    ),
+    (
+        "agency_moa_presets",
+        AGENCY_MOA_PRESETS_SCHEMA,
+        agency_moa_presets,
+        "📚",
+    ),
+    (
+        "agency_moa_show",
+        AGENCY_MOA_SHOW_SCHEMA,
+        agency_moa_show,
+        "🔎",
+    ),
+    (
+        "agency_moa_recommend",
+        AGENCY_MOA_RECOMMEND_SCHEMA,
+        agency_moa_recommend,
+        "🧭",
     ),
 )
 

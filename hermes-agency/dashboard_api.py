@@ -962,6 +962,52 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
     # GET /api/settings
     # -----------------------------------------------------------------------
 
+    # -----------------------------------------------------------------------
+    # Agency MoA visibility endpoints
+    # -----------------------------------------------------------------------
+
+    @router.get("/agency/moa/status")
+    async def get_agency_moa_status() -> dict[str, Any]:
+        from .config import get_config
+        from .moa_adapter import get_native_moa_status
+
+        return get_native_moa_status(agency_config=get_config())
+
+    @router.get("/agency/moa/presets")
+    async def get_agency_moa_presets() -> dict[str, Any]:
+        from .config import get_config
+        from .moa_adapter import list_native_moa_presets
+
+        try:
+            return {"ok": True, "presets": list_native_moa_presets(agency_config=get_config())}
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Native MoA unavailable: {exc}") from exc
+
+    @router.get("/agency/moa/presets/{name}")
+    async def get_agency_moa_preset(name: str) -> dict[str, Any]:
+        from .config import get_config
+        from .moa_adapter import get_native_moa_preset
+
+        try:
+            return {"ok": True, **get_native_moa_preset(name, agency_config=get_config())}
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404, detail=f"Native MoA preset not found: {name}"
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Native MoA unavailable: {exc}") from exc
+
+    @router.post("/agency/moa/recommend")
+    async def post_agency_moa_recommend(payload: dict[str, Any]) -> dict[str, Any]:
+        from .config import get_config
+        from .moa_adapter import recommend_moa
+
+        task_text = str(
+            payload.get("task_text") or payload.get("prompt") or payload.get("task") or ""
+        )
+        trigger = str(payload.get("trigger") or payload.get("type") or "").strip() or None
+        return recommend_moa(task_text, trigger, agency_config=get_config())
+
     @router.get("/settings", response_model=DashboardSettings)
     async def get_settings() -> DashboardSettings:
         return settings

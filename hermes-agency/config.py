@@ -68,6 +68,19 @@ Config schema and defaults::
         enabled: false
         agent: null
         auto_decompose: true
+      moa:
+        enabled: true             # Agency policy only; native presets remain under top-level moa:
+        default_preset: null       # null = use native moa.default_preset
+        allow_auto_moa: false      # recommend-only unless explicitly enabled
+        require_confirmation: true # do not silently run high-leverage MoA
+        kanban_tracking: true
+        attach_trace_to_cards: true
+        recommend_for_triggers:
+          - architecture
+          - security
+          - release
+          - destructive_change
+          - blocker
       routing: {}
 """
 
@@ -216,6 +229,36 @@ class KanbanConfig:
 
 
 @dataclass(frozen=True)
+class AgencyMoAConfig:
+    """Resolved Agency policy for native Hermes Agent MoA integration."""
+
+    enabled: bool = True
+    default_preset: str | None = None
+    allow_auto_moa: bool = False
+    require_confirmation: bool = True
+    kanban_tracking: bool = True
+    attach_trace_to_cards: bool = True
+    recommend_for_triggers: tuple[str, ...] = (
+        "architecture",
+        "security",
+        "release",
+        "destructive_change",
+        "blocker",
+    )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "default_preset": self.default_preset,
+            "allow_auto_moa": self.allow_auto_moa,
+            "require_confirmation": self.require_confirmation,
+            "kanban_tracking": self.kanban_tracking,
+            "attach_trace_to_cards": self.attach_trace_to_cards,
+            "recommend_for_triggers": list(self.recommend_for_triggers),
+        }
+
+
+@dataclass(frozen=True)
 class IncomingConfig:
     """Resolved incoming-task LLM processing configuration."""
 
@@ -302,6 +345,7 @@ class AgencyConfig:
         default_factory=lambda: WorkspaceConfig(_default_workspace_root())
     )
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
+    moa: AgencyMoAConfig = field(default_factory=AgencyMoAConfig)
     routing: dict[str, str] = field(default_factory=dict)
     proactive: dict[str, Any] = field(default_factory=dict)
     autonomy: dict[str, Any] = field(default_factory=dict)
@@ -347,6 +391,7 @@ class AgencyConfig:
             "kanban": self.kanban.as_dict(),
             "workspace": self.workspace.as_dict(),
             "orchestrator": self.orchestrator.as_dict(),
+            "moa": self.moa.as_dict(),
             "routing": dict(self.routing),
             "proactive": dict(self.proactive),
             "autonomy": dict(self.autonomy),
@@ -733,6 +778,44 @@ def _orchestrator_config(config: dict[str, Any]) -> OrchestratorConfig:
             "auto_decompose",
             default=True,
         ),
+    )
+
+
+def _agency_moa_config(config: dict[str, Any]) -> AgencyMoAConfig:
+    raw_default = str(_cfg_get(config, "agency", "moa", "default_preset", default="") or "").strip()
+    triggers = _string_tuple(
+        _cfg_get(
+            config,
+            "agency",
+            "moa",
+            "recommend_for_triggers",
+            default=(
+                "architecture",
+                "security",
+                "release",
+                "destructive_change",
+                "blocker",
+            ),
+        )
+    ) or (
+        "architecture",
+        "security",
+        "release",
+        "destructive_change",
+        "blocker",
+    )
+    return AgencyMoAConfig(
+        enabled=_bool_cfg(config, "agency", "moa", "enabled", default=True),
+        default_preset=raw_default or None,
+        allow_auto_moa=_bool_cfg(config, "agency", "moa", "allow_auto_moa", default=False),
+        require_confirmation=_bool_cfg(
+            config, "agency", "moa", "require_confirmation", default=True
+        ),
+        kanban_tracking=_bool_cfg(config, "agency", "moa", "kanban_tracking", default=True),
+        attach_trace_to_cards=_bool_cfg(
+            config, "agency", "moa", "attach_trace_to_cards", default=True
+        ),
+        recommend_for_triggers=triggers,
     )
 
 
@@ -1338,6 +1421,7 @@ def get_config() -> AgencyConfig:
         kanban=_kanban_config(config),
         workspace=_workspace_config(config),
         orchestrator=_orchestrator_config(config),
+        moa=_agency_moa_config(config),
         routing=_routing_config(config),
         proactive=_dict_config(config, "proactive"),
         autonomy=_dict_config(config, "autonomy"),

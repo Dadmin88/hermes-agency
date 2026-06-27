@@ -431,5 +431,8 @@ class TestDashboardServer:
     def test_create_app_has_api_routes(self, plugin_modules):
         srv = plugin_modules.dashboard_server
         app, _token = srv.create_app()
-        route_paths = {r.path for r in app.routes}
+        assert app.routes
+        api_router = srv.create_api_router(app.state.dashboard_settings)
+        route_paths = {getattr(r, "path", "") for r in api_router.routes}
         assert "/api/health" in route_paths
+        assert "/api/agency/moa/status" in route_paths

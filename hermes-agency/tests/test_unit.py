@@ -4752,3 +4752,154 @@ def test_proactive_routes_review_needed_markdown_to_editor(plugin_modules, monke
     assert result["ok"] is True
     assert created[0]["assigned_to"] == "agency-editor-in-chief"
     assert created[0]["metadata"]["trigger"] == "kanban-tag"
+
+
+# --- Agency MoA native-adapter coverage ------------------------------------
+
+
+def _install_moa_stubs(monkeypatch, native_config):
+    hermes_cli = sys.modules.get("hermes_cli") or types.ModuleType("hermes_cli")
+    hermes_cli_config = sys.modules.get("hermes_cli.config") or types.ModuleType(
+        "hermes_cli.config"
+    )
+    hermes_cli_config.cfg_get = _nested_cfg_get
+    hermes_cli_config.load_config = lambda: native_config
+    hermes_cli.config = hermes_cli_config
+
+    hermes_cli_moa = types.ModuleType("hermes_cli.moa_config")
+
+    def normalize_moa_config(raw):
+        raw = raw if isinstance(raw, dict) else {}
+        presets = raw.get("presets") or {}
+        if not presets:
+            presets = {
+                "default": {
+                    "enabled": True,
+                    "reference_models": [{"provider": "openai-codex", "model": "gpt-5.5"}],
+                    "aggregator": {"provider": "openrouter", "model": "aggregator-model"},
+                    "reference_temperature": 0.6,
+                    "aggregator_temperature": 0.4,
+                    "max_tokens": 4096,
+                }
+            }
+        default_preset = raw.get("default_preset") or next(iter(presets))
+        active = presets[default_preset]
+        return {
+            "default_preset": default_preset,
+            "active_preset": raw.get("active_preset") or "",
+            "presets": presets,
+            "reference_models": active.get("reference_models", []),
+            "aggregator": active.get("aggregator", {}),
+            "reference_temperature": active.get("reference_temperature", 0.6),
+            "aggregator_temperature": active.get("aggregator_temperature", 0.4),
+            "max_tokens": active.get("max_tokens", 4096),
+            "enabled": active.get("enabled", True),
+        }
+
+    def resolve_moa_preset(raw, name=None):
+        cfg = normalize_moa_config(raw)
+        preset_name = name or cfg["default_preset"]
+        if preset_name not in cfg["presets"]:
+            raise KeyError(preset_name)
+        return dict(cfg["presets"][preset_name])
+
+    hermes_cli_moa.normalize_moa_config = normalize_moa_config
+    hermes_cli_moa.resolve_moa_preset = resolve_moa_preset
+    hermes_cli.moa_config = hermes_cli_moa
+
+    agent_pkg = types.ModuleType("agent")
+    agent_moa_loop = types.ModuleType("agent.moa_loop")
+    agent_moa_loop.MoAClient = object
+    agent_moa_loop.MoAChatCompletions = object
+    agent_pkg.moa_loop = agent_moa_loop
+
+    monkeypatch.setitem(sys.modules, "hermes_cli", hermes_cli)
+    monkeypatch.setitem(sys.modules, "hermes_cli.config", hermes_cli_config)
+    monkeypatch.setitem(sys.modules, "hermes_cli.moa_config", hermes_cli_moa)
+    monkeypatch.setitem(sys.modules, "agent", agent_pkg)
+    monkeypatch.setitem(sys.modules, "agent.moa_loop", agent_moa_loop)
+
+
+def test_moa_adapter_lists_native_presets(plugin_modules, monkeypatch):
+    native_config = {
+        "moa": {
+            "default_preset": "default",
+            "presets": {
+                "default": {
+                    "enabled": True,
+                    "reference_models": [
+                        {"provider": "openai-codex", "model": "gpt-5.5"},
+                        {"provider": "openrouter", "model": "deepseek/deepseek-v4-pro"},
+                    ],
+                    "aggregator": {"provider": "openrouter", "model": "aggregator-model"},
+                    "reference_temperature": 0.6,
+                    "aggregator_temperature": 0.4,
+                    "max_tokens": 4096,
+                }
+            },
+        }
+    }
+    _install_moa_stubs(monkeypatch, native_config)
+    moa_adapter = importlib.import_module("hermes_plugin.moa_adapter")
+
+    status = moa_adapter.get_native_moa_status(agency_config=plugin_modules.config.AgencyConfig())
+    presets = moa_adapter.list_native_moa_presets(
+        agency_config=plugin_modules.config.AgencyConfig()
+    )
+
+    assert status["available"] is True
+    assert status["effective_preset"] == "default"
+    assert presets[0]["name"] == "default"
+    assert presets[0]["reference_count"] == 2
+    assert presets[0]["aggregator"] == {"provider": "openrouter", "model": "aggregator-model"}
+
+
+def test_moa_adapter_agency_override_requires_native_preset(plugin_modules, monkeypatch):
+    native_config = {"moa": {"default_preset": "default", "presets": {"default": {}}}}
+    _install_moa_stubs(monkeypatch, native_config)
+    moa_adapter = importlib.import_module("hermes_plugin.moa_adapter")
+    agency_config = plugin_modules.config.AgencyConfig(
+        moa=plugin_modules.config.AgencyMoAConfig(default_preset="missing")
+    )
+
+    validation = moa_adapter.validate_native_moa_available(agency_config=agency_config)
+
+    assert validation["available"] is True
+    assert validation["ok"] is False
+    assert validation["error"] == "native MoA preset not found: missing"
+
+
+def test_moa_recommend_respects_confirmation_policy(plugin_modules, monkeypatch):
+    native_config = {"moa": {"default_preset": "default", "presets": {"default": {}}}}
+    _install_moa_stubs(monkeypatch, native_config)
+    moa_adapter = importlib.import_module("hermes_plugin.moa_adapter")
+    agency_config = plugin_modules.config.AgencyConfig(
+        moa=plugin_modules.config.AgencyMoAConfig(
+            allow_auto_moa=True,
+            require_confirmation=True,
+        )
+    )
+
+    result = moa_adapter.recommend_moa(
+        "Review this security-sensitive release architecture", agency_config=agency_config
+    )
+
+    assert result["recommended"] is True
+    assert result["requires_confirmation"] is True
+    assert result["auto_run_allowed"] is False
+    assert result["preset"] == "default"
+
+
+def test_agency_moa_tool_recommend_does_not_run_model_calls(plugin_modules, monkeypatch):
+    native_config = {"moa": {"default_preset": "default", "presets": {"default": {}}}}
+    _install_moa_stubs(monkeypatch, native_config)
+    tools = plugin_modules.tools
+
+    payload = json.loads(
+        tools.agency_moa_recommend({"task_text": "Architecture review before release"})
+    )
+
+    assert payload["ok"] is True
+    assert payload["recommended"] is True
+    assert payload["preset"] == "default"
+    assert "status" in payload

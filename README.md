@@ -71,6 +71,25 @@ hermes agency info                        # Show Peer ID, DID, version
 - **WAN** -- deploy a [self-hosted relay](https://github.com/DeployFaith/agentanycast-relay (or original AgentAnycast relay)) and point agents to it.
 - The Go daemon is **auto-downloaded and managed** by the SDK. No manual setup.
 
+## MoA Integration
+
+Hermes Agency can recommend and run native Hermes Agent Mixture-of-Agents presets for high-leverage Agency tasks, with Kanban tracking when available.
+
+Hermes Agency integrates native Hermes Agent MoA. Native presets remain under top-level `moa:` in the active Hermes `config.yaml`; Agency policy lives separately under `agency.moa:`. Agency status, tools, dashboard endpoints, and orchestrator recommendations delegate to native Hermes Agent MoA instead of implementing an Agency-owned fan-out or aggregator runtime.
+
+Useful commands:
+
+```bash
+hermes moa ls                         # Native Hermes Agent presets
+hermes moa configure [name]           # Native preset editor
+hermes agency moa status              # Agency policy + native status
+hermes agency moa presets             # Native presets as seen by Agency
+hermes agency moa show default        # Show one native preset
+hermes agency moa recommend "Review this release architecture"
+```
+
+See `docs/agency-moa.md` for the integration contract, policy semantics, dashboard endpoints, and trace limits.
+
 ## Framework Adapters
 
 Turn existing frameworks into P2P agents with one function call:
