@@ -37,6 +37,8 @@ dependencies = [
     "base58>=2.1",
     "cryptography>=42.0",
     "PyYAML>=6.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
 [project.urls]
@@ -114,7 +116,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_gpt_bridge.py", "hermes-agency/tests/test_extended_status_discord.py"]
+testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_gpt_bridge.py", "hermes-agency/tests/test_extended_status_discord.py", "hermes-agency/tests/test_dashboard.py", "hermes-agency/tests/test_dashboard_cli.py"]
 markers = [
     "integration: mark test as integration test (requires relay/daemon binaries)",
 ]

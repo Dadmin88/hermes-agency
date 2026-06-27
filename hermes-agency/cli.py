@@ -1118,6 +1118,25 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     gpt_status.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     gpt_status.set_defaults(func=cmd_agency, agency_command="gpt-bridge")
 
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Start the local Hermes Agency dashboard",
+        description="Launch a local web dashboard for Hermes Agency.",
+    )
+    dashboard_parser.add_argument(
+        "--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)"
+    )
+    dashboard_parser.add_argument(
+        "--port", type=int, default=8765, help="Port to bind (default: 8765)"
+    )
+    dashboard_parser.add_argument(
+        "--no-open", action="store_true", help="Do not open browser automatically"
+    )
+    dashboard_parser.add_argument(
+        "--allow-lan", action="store_true", help="Allow LAN access (not recommended)"
+    )
+    dashboard_parser.set_defaults(func=cmd_agency)
+
     roster_parser = subparsers.add_parser("roster", help="Show agency pool roster")
     roster_parser.add_argument("query", nargs="?", default="", help="Filter by name/skill")
     roster_parser.set_defaults(func=cmd_agency, agency_command="roster")
@@ -1348,5 +1367,39 @@ def cmd_agency(args: Namespace) -> None:
         from .pool.tools import pool_sleep
 
         print(pool_sleep(getattr(args, "agent", "")))
+    elif verb == "dashboard":
+        host = getattr(args, "host", "127.0.0.1")
+        port = getattr(args, "port", 8765)
+        no_open = getattr(args, "no_open", False)
+        allow_lan = getattr(args, "allow_lan", False)
+
+        # Safety check: refuse 0.0.0.0 without explicit confirmation.
+        if host == "0.0.0.0" and not allow_lan:
+            raise SystemExit(
+                "ERROR: Binding to 0.0.0.0 exposes the dashboard to your entire network. "
+                "This is a security risk. Use --host 127.0.0.1 (default) for local-only "
+                "access, or pass --allow-lan to confirm you want LAN access."
+            )
+
+        try:
+            from .dashboard_server import start_server
+
+            start_server(
+                host=host,
+                port=port,
+                open_browser=not no_open,
+                allow_lan=allow_lan,
+            )
+        except FileNotFoundError as exc:
+            raise SystemExit(f"ERROR: {exc}") from exc
+        except OSError as exc:
+            if "address already in use" in str(exc).lower() or exc.errno == 98:
+                raise SystemExit(
+                    f"ERROR: Port {port} is already in use. "
+                    f"Try a different port with --port, or stop the other process."
+                ) from exc
+            raise
+        except FileNotFoundError as exc:
+            raise SystemExit(str(exc)) from exc
     else:
         raise SystemExit(f"Unknown agency command: {verb}")

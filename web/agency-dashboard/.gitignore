@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Local dev
+.vite/
+*.local
+
+# Editor
+.vscode/
+.idea/
+
+# Build output (committed separately via hermes-agency/dashboard/dist)
+# Do NOT ignore dist here — it's the production artifact.
