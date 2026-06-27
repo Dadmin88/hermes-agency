@@ -6,7 +6,18 @@ import Button from "@/components/Button";
 import Skeleton from "@/components/Skeleton";
 import ErrorState from "@/components/ErrorState";
 import Select from "@/components/Select";
-import { useConfig, useHealth, useModelSets, useSetActiveModelSet } from "@/api/queries";
+import Input from "@/components/Input";
+import Textarea from "@/components/Textarea";
+import {
+  useConfig,
+  useHealth,
+  useModelSets,
+  useModelSetSource,
+  useCreateModelSet,
+  useUpdateModelSet,
+  useDeleteModelSet,
+  useSetActiveModelSet,
+} from "@/api/queries";
 import type { ModelSetSummary } from "@/api/types";
 import { addToast } from "@/hooks/useToast";
 import {
@@ -24,14 +35,28 @@ export default function SettingsPage() {
   const config = useConfig();
   const health = useHealth();
   const modelSets = useModelSets();
+  const createModelSet = useCreateModelSet();
+  const updateModelSet = useUpdateModelSet();
+  const deleteModelSet = useDeleteModelSet();
   const setActiveModelSet = useSetActiveModelSet();
   const [selectedModelSet, setSelectedModelSet] = useState("");
+  const [newModelSetName, setNewModelSetName] = useState("");
+  const [duplicateFrom, setDuplicateFrom] = useState("");
+  const [editingModelSet, setEditingModelSet] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const modelSetSource = useModelSetSource(editingModelSet || undefined);
 
   useEffect(() => {
     if (config.data?.active_model_set) {
       setSelectedModelSet(config.data.active_model_set);
     }
   }, [config.data?.active_model_set]);
+
+  useEffect(() => {
+    if (modelSetSource.data?.content !== undefined) {
+      setEditContent(modelSetSource.data.content);
+    }
+  }, [modelSetSource.data?.content]);
 
   const cfg = config.data;
   const h = health.data;
@@ -64,6 +89,51 @@ export default function SettingsPage() {
         },
       }
     );
+  };
+
+
+  const createOrDuplicateModelSet = () => {
+    const name = newModelSetName.trim();
+    if (!name) {
+      addToast("warning", "Enter a name for the new model set");
+      return;
+    }
+    createModelSet.mutate(
+      { name, duplicate_from: duplicateFrom || undefined },
+      {
+        onSuccess: () => {
+          addToast("success", `Created model set ${name}`);
+          setNewModelSetName("");
+          setDuplicateFrom("");
+          setEditingModelSet(name);
+        },
+        onError: (err) => addToast("error", `Create failed: ${err.message}`),
+      }
+    );
+  };
+
+  const saveEditedModelSet = () => {
+    if (!editingModelSet) return;
+    updateModelSet.mutate(
+      { name: editingModelSet, content: editContent },
+      {
+        onSuccess: () => addToast("success", `Saved ${editingModelSet}`),
+        onError: (err) => addToast("error", `Save failed: ${err.message}`),
+      }
+    );
+  };
+
+  const removeEditedModelSet = () => {
+    if (!editingModelSet || editingModelSet === cfg?.active_model_set) return;
+    if (!window.confirm(`Delete model set ${editingModelSet}?`)) return;
+    deleteModelSet.mutate(editingModelSet, {
+      onSuccess: () => {
+        addToast("success", `Deleted ${editingModelSet}`);
+        setEditingModelSet("");
+        setEditContent("");
+      },
+      onError: (err) => addToast("error", `Delete failed: ${err.message}`),
+    });
   };
 
   return (
@@ -209,6 +279,81 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </GlassCard>
+
+      <GlassCard>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-300">Model Set Builder</h3>
+            <p className="mt-1 text-xs text-slate-500">Create, duplicate, edit, and delete user model sets.</p>
+          </div>
+          <Badge variant="outline" size="sm">user presets</Badge>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <Input
+              label="New model set name"
+              placeholder="my-custom-set"
+              value={newModelSetName}
+              onChange={(e) => setNewModelSetName(e.target.value)}
+            />
+            <Select
+              label="Duplicate from"
+              value={duplicateFrom}
+              onChange={(e) => setDuplicateFrom(e.target.value)}
+              options={availableModelSets.map((name) => ({ value: name, label: name }))}
+              placeholder="Start from blank template"
+            />
+            <Button
+              variant="secondary"
+              loading={createModelSet.isPending}
+              disabled={!newModelSetName.trim()}
+              onClick={createOrDuplicateModelSet}
+            >
+              Create / Duplicate
+            </Button>
+          </div>
+          <div className="space-y-3">
+            <Select
+              label="Edit model set"
+              value={editingModelSet}
+              onChange={(e) => setEditingModelSet(e.target.value)}
+              options={availableModelSets.map((name) => ({ value: name, label: name }))}
+              placeholder="Choose a model set"
+            />
+            {editingModelSet && modelSetSource.data && !modelSetSource.data.editable && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
+                Packaged model sets are read-only. Duplicate this set to edit it.
+              </div>
+            )}
+            <Textarea
+              label="YAML"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={12}
+              disabled={!editingModelSet || !modelSetSource.data?.editable}
+              placeholder="Select a user model set to edit its YAML"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                loading={updateModelSet.isPending}
+                disabled={!editingModelSet || !modelSetSource.data?.editable}
+                onClick={saveEditedModelSet}
+              >
+                Save YAML
+              </Button>
+              <Button
+                variant="danger"
+                loading={deleteModelSet.isPending}
+                disabled={!editingModelSet || !modelSetSource.data?.editable || editingModelSet === cfg?.active_model_set}
+                onClick={removeEditedModelSet}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       </GlassCard>
 
       {/* Clear cache */}

@@ -379,6 +379,107 @@ def _is_daemon_running(name: str) -> bool:
     return False
 
 
+
+
+def _encode_varint(value: int) -> bytes:
+    chunks: list[int] = []
+    while True:
+        byte = value & 0x7F
+        value >>= 7
+        if value:
+            chunks.append(byte | 0x80)
+        else:
+            chunks.append(byte)
+            break
+    return bytes(chunks)
+
+
+def _peer_id_from_public_key(public_key: bytes) -> str | None:
+    if len(public_key) != 32:
+        return None
+    try:
+        import base58  # type: ignore
+    except Exception:
+        return None
+    # libp2p Ed25519 PeerID = identity multihash of the protobuf public key.
+    proto_pubkey = b"\x08\x01\x12\x20" + public_key
+    multihash = b"\x00" + _encode_varint(len(proto_pubkey)) + proto_pubkey
+    return str(base58.b58encode(multihash).decode("ascii"))
+
+
+def _protobuf_field_bytes(data: bytes, field_number: int) -> bytes | None:
+    idx = 0
+    while idx < len(data):
+        tag = data[idx]
+        idx += 1
+        field = tag >> 3
+        wire_type = tag & 0x07
+        if wire_type == 0:
+            while idx < len(data):
+                byte = data[idx]
+                idx += 1
+                if not byte & 0x80:
+                    break
+        elif wire_type == 2:
+            length = 0
+            shift = 0
+            while idx < len(data):
+                byte = data[idx]
+                idx += 1
+                length |= (byte & 0x7F) << shift
+                if not byte & 0x80:
+                    break
+                shift += 7
+            value = data[idx : idx + length]
+            idx += length
+            if field == field_number:
+                return value
+        else:
+            return None
+    return None
+
+
+def _read_identity_peer_id(profile_dir: Path) -> str | None:
+    """Derive a stable public PeerID from the profile identity file when possible."""
+
+    identity_path = profile_dir / ".agency" / "key"
+    try:
+        raw = identity_path.read_bytes()
+    except Exception:
+        return None
+
+    candidates: list[bytes] = []
+    private_data = _protobuf_field_bytes(raw, 2)
+    if private_data:
+        candidates.append(private_data)
+    candidates.append(raw)
+
+    for candidate in candidates:
+        if len(candidate) == 64:
+            peer_id = _peer_id_from_public_key(candidate[32:])
+            if peer_id:
+                return peer_id
+        if len(candidate) == 32:
+            try:
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+                public_key = (
+                    Ed25519PrivateKey.from_private_bytes(candidate)
+                    .public_key()
+                    .public_bytes(
+                        encoding=serialization.Encoding.Raw,
+                        format=serialization.PublicFormat.Raw,
+                    )
+                )
+            except Exception:
+                continue
+            peer_id = _peer_id_from_public_key(public_key)
+            if peer_id:
+                return peer_id
+    return None
+
+
 def _read_peer_id(name: str) -> str | None:
     """Read this profile's own peer_id from daemon logs if available."""
 
@@ -550,12 +651,12 @@ def build_roster(
                 agents_by_name[profile_dir.name] = _merge_agent(
                     agents_by_name[profile_dir.name], meta
                 )
+            peer_id = _read_peer_id(profile_dir.name) or _read_identity_peer_id(profile_dir)
+            if peer_id:
+                agents_by_name[profile_dir.name]["peer_id"] = peer_id
             if _is_daemon_running(profile_dir.name):
                 agents_by_name[profile_dir.name]["online"] = True
                 agents_by_name[profile_dir.name]["last_seen"] = time.time()
-                peer_id = _read_peer_id(profile_dir.name)
-                if peer_id:
-                    agents_by_name[profile_dir.name]["peer_id"] = peer_id
 
     raw_live_items: list[Any]
     if isinstance(live_peers, dict):
@@ -617,8 +718,6 @@ def build_roster(
     profiles = []
     for name in sorted(agents_by_name):
         agent = agents_by_name[name]
-        if not agent.get("online"):
-            agent["peer_id"] = None
         profiles.append(agent)
     roster = {
         "version": 2,
@@ -685,8 +784,6 @@ def update_agent_status(
             if peer_id:
                 agent["peer_id"] = peer_id
             agent["last_wake_error"] = None
-        else:
-            agent["peer_id"] = None
         if error:
             agent["last_wake_error"] = error
         break

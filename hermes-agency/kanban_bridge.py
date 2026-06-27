@@ -22,7 +22,7 @@ import logging
 import os
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, is_dataclass
 from typing import Any, cast
 
@@ -136,6 +136,39 @@ def _agent_for_department_board(assigned_to: str | None, metadata: dict[str, Any
         if value and get_department_board_slug(str(value)):
             return str(value)
     return None
+
+
+REGISTRY_CATEGORY_BOARD_SLUGS: dict[str, tuple[str, str]] = {
+    "engineering": ("agency-engineering", "Agency Engineering"),
+    "design": ("agency-design", "Agency Design"),
+    "content": ("agency-content", "Agency Content"),
+    "marketing": ("agency-marketing", "Agency Marketing"),
+    "operations": ("agency-operations", "Agency Operations"),
+    "quality": ("agency-quality", "Agency Quality"),
+    "management": ("agency-management", "Agency Management"),
+    "research": ("agency-research", "Agency Research"),
+    "business": ("agency-business", "Agency Business"),
+}
+
+
+def _normalise_department(value: Any) -> str:
+    return str(value or "").strip().lower().replace("_", "-").replace(" ", "-")
+
+
+def _department_board_from_metadata(metadata: dict[str, Any]) -> tuple[str, str] | None:
+    department = _normalise_department(metadata.get("department") or metadata.get("target_department") or metadata.get("board"))
+    if not department:
+        return None
+    if department.startswith("agency-"):
+        label = department.removeprefix("agency-").replace("-", " ").title()
+        return department, f"Agency {label}"
+    if department in REGISTRY_CATEGORY_BOARD_SLUGS:
+        return REGISTRY_CATEGORY_BOARD_SLUGS[department]
+    for known_department, slug in DEPARTMENT_BOARD_SLUGS.items():
+        if department == _normalise_department(known_department) or department == slug:
+            return slug, DEPARTMENT_BOARD_NAMES.get(known_department, f"Agency {known_department}")
+    label = department.replace("-", " ").title()
+    return f"agency-{department}", f"Agency {label}"
 
 
 def _ensure_department_board(kb: Any, agent_name: str) -> tuple[str, str | None]:
@@ -324,6 +357,22 @@ def create_task(
             clean_metadata,
             int(priority or 0),
         )
+    board = _department_board_from_metadata(clean_metadata)
+    if board:
+        slug, board_name = board
+        return _safe_call(
+            _create_task_on_named_board_impl,
+            slug,
+            board_name,
+            title,
+            description,
+            assigned_to,
+            list(skills or []),
+            list(dependencies or []),
+            clean_metadata,
+            int(priority or 0),
+        )
+
     return _safe_call(
         _create_task_impl,
         title,
@@ -363,6 +412,39 @@ def _create_task_on_department_board_impl(
     result["department"] = department
     return result
 
+
+
+def _create_task_on_named_board_impl(
+    slug: str,
+    board_name: str,
+    title: str,
+    description: str,
+    assigned_to: str | None,
+    skills: list[str],
+    dependencies: list[str],
+    metadata: dict[str, Any],
+    priority: int,
+) -> dict[str, Any]:
+    kb = _import_kb()
+    if hasattr(kb, "board_exists") and not kb.board_exists(slug):
+        kb.create_board(
+            slug,
+            name=board_name,
+            description="Hermes Agency department board for routed specialist work.",
+        )
+    metadata.setdefault("agency_board", slug)
+    metadata.setdefault("department", slug.removeprefix("agency-"))
+    if dependencies:
+        metadata.setdefault("cross_board_dependencies", list(dependencies))
+    try:
+        scoped = kb.scoped_current_board
+    except AttributeError as exc:
+        raise KanbanUnavailable("hermes_cli.kanban_db lacks scoped_current_board") from exc
+    with scoped(slug):
+        result = _create_task_impl(title, description, assigned_to, skills, [], metadata, priority)
+    result["board"] = slug
+    result["department"] = metadata.get("department")
+    return result
 
 def _create_task_impl(
     title: str,
@@ -653,19 +735,47 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
     session_id = _clean(filters.get("session_id")) or None
     limit = filters.get("limit")
     include_archived = bool(filters.get("include_archived") or filters.get("archived"))
+    requested_board = _clean(filters.get("board") or filters.get("agency_board")) or None
+    board_names = {
+        slug: DEPARTMENT_BOARD_NAMES.get(department, f"Agency {department}")
+        for department, slug in DEPARTMENT_BOARD_SLUGS.items()
+    }
+    for slug, name in REGISTRY_CATEGORY_BOARD_SLUGS.values():
+        board_names.setdefault(slug, name)
+    board_slugs: list[str | None]
+    if requested_board and requested_board not in ("*", "all", "agency"):
+        board_slugs = [requested_board]
+    elif requested_board in ("*", "all", "agency") or bool(filters.get("include_agency_boards", True)):
+        board_slugs = [None] + sorted(board_names)
+    else:
+        board_slugs = [None]
+
     with _connection() as (kb, conn):
-        kb.recompute_ready(conn)
-        tasks = kb.list_tasks(
-            conn,
-            assignee=assignee,
-            status=status,
-            tenant=tenant,
-            session_id=session_id,
-            include_archived=include_archived,
-            limit=int(limit) if limit else None,
-            order_by=filters.get("order_by") or filters.get("sort"),
-        )
-        data = [_task_to_dict(kb, conn, task, include_thread=False) for task in tasks]
+        seen: set[str] = set()
+        data: list[dict[str, Any]] = []
+        for board_slug in board_slugs:
+            if board_slug and hasattr(kb, "board_exists") and not kb.board_exists(board_slug):
+                continue
+            ctx = kb.scoped_current_board(board_slug) if board_slug and hasattr(kb, "scoped_current_board") else nullcontext()
+            with ctx:
+                kb.recompute_ready(conn)
+                tasks = kb.list_tasks(
+                    conn,
+                    assignee=assignee,
+                    status=status,
+                    tenant=tenant,
+                    session_id=session_id,
+                    include_archived=include_archived,
+                    limit=None,
+                    order_by=filters.get("order_by") or filters.get("sort"),
+                )
+                for task in tasks:
+                    if task.id in seen:
+                        continue
+                    seen.add(task.id)
+                    item = _task_to_dict(kb, conn, task, include_thread=False)
+                    item["board"] = board_slug or getattr(kb, "current_board", None) or "default"
+                    data.append(item)
         requested_status = _clean(filters.get("status")).lower()
         if requested_status == "assigned":
             data = [task for task in data if task.get("assignee")]
@@ -673,6 +783,9 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
             data = [task for task in data if not task.get("assignee")]
         elif requested_status == "failed":
             data = [task for task in data if task.get("plugin_status") == "failed"]
+        data.sort(key=lambda task: task.get("completed_at") or task.get("started_at") or task.get("created_at") or 0, reverse=True)
+        if limit:
+            data = data[: int(limit)]
         return {"available": True, "ok": True, "tasks": data, "count": len(data)}
 
 

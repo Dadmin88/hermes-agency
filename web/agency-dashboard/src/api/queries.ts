@@ -10,6 +10,10 @@ import type {
   DispatchRequest,
   DispatchResponse,
   ModelSetsResponse,
+  ModelSetSourceResponse,
+  CreateModelSetRequest,
+  UpdateModelSetRequest,
+  DeleteModelSetResponse,
   SetActiveModelSetRequest,
   SetActiveModelSetResponse,
   TaskActionRequest,
@@ -113,6 +117,50 @@ export function useModelSets() {
     queryKey: ["model-sets"],
     queryFn: () => api.get<ModelSetsResponse>("/model-sets"),
     staleTime: 60_000,
+  });
+}
+
+
+export function useModelSetSource(name?: string) {
+  return useQuery<ModelSetSourceResponse>({
+    queryKey: ["model-set-source", name],
+    queryFn: () => api.get<ModelSetSourceResponse>(`/model-sets/${encodeURIComponent(name || "")}/source`),
+    enabled: !!name,
+  });
+}
+
+export function useCreateModelSet() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, CreateModelSetRequest>({
+    mutationFn: (req) => api.post("/model-sets", req),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["model-sets"] });
+      queryClient.invalidateQueries({ queryKey: ["config"] });
+    },
+  });
+}
+
+export function useUpdateModelSet() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, UpdateModelSetRequest>({
+    mutationFn: ({ name, content }) =>
+      api.put(`/model-sets/${encodeURIComponent(name)}`, { content }),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["model-sets"] });
+      queryClient.invalidateQueries({ queryKey: ["model-set-source", variables.name] });
+      queryClient.invalidateQueries({ queryKey: ["config"] });
+    },
+  });
+}
+
+export function useDeleteModelSet() {
+  const queryClient = useQueryClient();
+  return useMutation<DeleteModelSetResponse, Error, string>({
+    mutationFn: (name) => api.delete<DeleteModelSetResponse>(`/model-sets/${encodeURIComponent(name)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["model-sets"] });
+      queryClient.invalidateQueries({ queryKey: ["config"] });
+    },
   });
 }
 

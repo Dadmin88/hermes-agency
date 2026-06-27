@@ -97,6 +97,8 @@ class DashboardTask(BaseModel):
     error_text: str | None = None
     kanban_task_id: str | None = None
     linked_kanban_status: str = "none"  # 'present' | 'missing' | 'unknown' | 'none'
+    board: str | None = None
+    assignee: str | None = None
     available_actions: list[str] = Field(default_factory=list)
 
 

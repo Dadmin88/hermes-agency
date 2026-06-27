@@ -69,6 +69,8 @@ export interface DashboardTask {
   error_text: string | null;
   kanban_task_id: string | null;
   linked_kanban_status: "present" | "missing" | "unknown" | "none";
+  board?: string | null;
+  assignee?: string | null;
   available_actions: string[];
 }
 
@@ -128,6 +130,30 @@ export interface ModelSetsResponse {
   model_sets: ModelSetSummary[];
   count: number;
   active_model_set?: string;
+}
+
+export interface ModelSetSourceResponse {
+  name: string;
+  source: string;
+  source_path: string;
+  editable: boolean;
+  content: string;
+}
+
+export interface CreateModelSetRequest {
+  name: string;
+  duplicate_from?: string;
+  content?: string;
+}
+
+export interface UpdateModelSetRequest {
+  name: string;
+  content: string;
+}
+
+export interface DeleteModelSetResponse {
+  ok: boolean;
+  deleted: string;
 }
 
 export interface SetActiveModelSetRequest {

@@ -215,7 +215,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             name = str(entry.get("name", ""))
             runtime = pool_roster.get(name, {})
             dept = _department_from_category(str(entry.get("category", "")))
-            peer_id = str(runtime.get("peer_id") or "") or None
+            peer_id = str(runtime.get("peer_id") or entry.get("peer_id") or "") or None
             agent = DashboardAgent(
                 name=name,
                 label=_agent_label(name),
@@ -254,7 +254,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             name = str(entry.get("name", ""))
             runtime = pool_roster.get(name, {})
             dept = _department_from_category(str(entry.get("category", "")))
-            peer_id = str(runtime.get("peer_id") or "") or None
+            peer_id = str(runtime.get("peer_id") or entry.get("peer_id") or "") or None
             result.append(
                 DashboardAgent(
                     name=name,
@@ -387,6 +387,8 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                     result_text=ktask.get("result"),
                     kanban_task_id=ktask_id,
                     linked_kanban_status="present",
+                    board=ktask.get("board"),
+                    assignee=ktask.get("assignee"),
                     available_actions=actions,
                 )
             )
@@ -536,11 +538,34 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                 from .pool.tools import pool_send
 
                 pool_result = pool_send(target_agent, dispatch_message)
-                clear_tasks_cache()
                 task_id = _extract_dispatch_id(pool_result, "task_id") or _extract_dispatch_id(
                     pool_result, "queue_id"
                 )
                 is_error = pool_result.startswith("Error:")
+                if kanban_task_id:
+                    try:
+                        from .kanban_bridge import track_delegation, update_task
+
+                        tracking_metadata = dict(metadata)
+                        tracking_metadata["dispatch_result"] = pool_result
+                        if task_id:
+                            tracking_metadata["a2a_task_id"] = task_id
+                        track_delegation(
+                            message=dispatch_message,
+                            assigned_to=target_agent,
+                            skills=[req.skill] if req.skill else [],
+                            a2a_task_id=task_id,
+                            kanban_task_id=kanban_task_id,
+                            metadata=tracking_metadata,
+                        )
+                        update_task(
+                            kanban_task_id,
+                            status="assigned" if pool_result.startswith("Queued task") else "running",
+                            result=pool_result,
+                        )
+                    except Exception as exc:
+                        logger.warning("Dashboard dispatch: Kanban tracking failed: %s", exc)
+                clear_tasks_cache()
                 return DashboardDispatchResponse(
                     ok=not is_error,
                     task_id=task_id,
@@ -775,6 +800,118 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             "config_path": config_path,
         }
 
+
+    # -----------------------------------------------------------------------
+    # GET /api/model-sets/{name}/source
+    # -----------------------------------------------------------------------
+
+    @router.get("/model-sets/{name}/source")
+    async def get_model_set_source(name: str) -> dict[str, Any]:
+        from .model_sets import discover_model_set_files, user_model_sets_dir
+
+        files = discover_model_set_files()
+        path = files.get(name)
+        if path is None:
+            raise HTTPException(status_code=404, detail=f"Unknown model set: {name}")
+        user_dir = user_model_sets_dir()
+        return {
+            "name": name,
+            "source_path": str(path),
+            "source": "user" if user_dir in path.parents else "packaged",
+            "editable": user_dir in path.parents,
+            "content": path.read_text(encoding="utf-8"),
+        }
+
+    # -----------------------------------------------------------------------
+    # POST /api/model-sets — create or duplicate a user model set
+    # -----------------------------------------------------------------------
+
+    @router.post("/model-sets", dependencies=[Depends(require_token)])
+    async def create_model_set(body: dict[str, Any]) -> dict[str, Any]:
+        import yaml
+
+        from .model_sets import (
+            discover_model_set_files,
+            load_model_set,
+            model_set_summary,
+            user_model_sets_dir,
+        )
+
+        name = _safe_model_set_name(str(body.get("name") or ""))
+        if not name:
+            raise HTTPException(status_code=400, detail="A model set name is required")
+        files = discover_model_set_files()
+        if name in files:
+            raise HTTPException(status_code=409, detail=f"Model set already exists: {name}")
+
+        duplicate_from = str(body.get("duplicate_from") or "").strip()
+        content = str(body.get("content") or "").strip()
+        if duplicate_from:
+            source_path = files.get(duplicate_from)
+            if source_path is None:
+                raise HTTPException(status_code=404, detail=f"Unknown source model set: {duplicate_from}")
+            raw = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+            if not isinstance(raw, dict):
+                raise HTTPException(status_code=400, detail="Source model set is not a YAML mapping")
+            raw["name"] = name
+            content = yaml.safe_dump(raw, sort_keys=False)
+        elif not content:
+            content = _default_model_set_yaml(name)
+
+        target_dir = user_model_sets_dir()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = target_dir / f"{name}.yaml"
+        _validate_model_set_yaml_content(content)
+        target_path.write_text(content.rstrip() + "\n", encoding="utf-8")
+        model_set = load_model_set(name)
+        return {"ok": True, "model_set": model_set_summary(model_set), "source_path": str(target_path)}
+
+    # -----------------------------------------------------------------------
+    # PUT /api/model-sets/{name} — edit a user model set source file
+    # -----------------------------------------------------------------------
+
+    @router.put("/model-sets/{name}", dependencies=[Depends(require_token)])
+    async def update_model_set(name: str, body: dict[str, Any]) -> dict[str, Any]:
+        from .model_sets import (
+            discover_model_set_files,
+            load_model_set,
+            model_set_summary,
+            user_model_sets_dir,
+        )
+
+        clean_name = _safe_model_set_name(name)
+        files = discover_model_set_files()
+        path = files.get(clean_name)
+        if path is None:
+            raise HTTPException(status_code=404, detail=f"Unknown model set: {clean_name}")
+        if user_model_sets_dir() not in path.parents:
+            raise HTTPException(status_code=403, detail="Packaged model sets cannot be edited directly. Duplicate it first.")
+        content = str(body.get("content") or "")
+        _validate_model_set_yaml_content(content)
+        path.write_text(content.rstrip() + "\n", encoding="utf-8")
+        model_set = load_model_set(clean_name)
+        return {"ok": True, "model_set": model_set_summary(model_set), "source_path": str(path)}
+
+    # -----------------------------------------------------------------------
+    # DELETE /api/model-sets/{name} — delete a user model set
+    # -----------------------------------------------------------------------
+
+    @router.delete("/model-sets/{name}", dependencies=[Depends(require_token)])
+    async def delete_model_set(name: str) -> dict[str, Any]:
+        from .model_sets import active_model_set_name, discover_model_set_files, user_model_sets_dir
+
+        clean_name = _safe_model_set_name(name)
+        if clean_name == active_model_set_name():
+            raise HTTPException(status_code=400, detail="Cannot delete the active model set")
+        files = discover_model_set_files()
+        path = files.get(clean_name)
+        if path is None:
+            raise HTTPException(status_code=404, detail=f"Unknown model set: {clean_name}")
+        if user_model_sets_dir() not in path.parents:
+            raise HTTPException(status_code=403, detail="Packaged model sets cannot be deleted")
+        path.unlink()
+        return {"ok": True, "deleted": clean_name}
+
     # -----------------------------------------------------------------------
     # GET /api/settings
     # -----------------------------------------------------------------------
@@ -790,6 +927,57 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
 # Task normalisation helpers
 # ---------------------------------------------------------------------------
 
+
+
+
+def _safe_model_set_name(value: str) -> str:
+    """Return a filesystem-safe model-set name/slug."""
+    import re
+
+    clean = re.sub(r"[^a-zA-Z0-9_.-]+", "-", str(value or "").strip()).strip(".-_")
+    return clean[:80]
+
+
+def _validate_model_set_yaml_content(content: str) -> dict[str, Any]:
+    import yaml
+
+    if not str(content or "").strip():
+        raise HTTPException(status_code=400, detail="Model set content cannot be empty")
+    try:
+        data = yaml.safe_load(content) or {}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML: {exc}") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Model set YAML must be a mapping")
+    if data.get("version") is None:
+        raise HTTPException(status_code=400, detail="Model set YAML must include version")
+    if not isinstance(data.get("families"), dict) or not data.get("families"):
+        raise HTTPException(status_code=400, detail="Model set YAML must include at least one family")
+    defaults = data.get("defaults")
+    if not isinstance(defaults, dict) or not defaults.get("family"):
+        raise HTTPException(status_code=400, detail="Model set YAML must include defaults.family")
+    return data
+
+
+def _default_model_set_yaml(name: str) -> str:
+    return f"""version: 1
+name: {name}
+description: Custom Hermes Agency model set.
+defaults:
+  family: general_worker
+families:
+  general_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: Default custom worker family.
+profiles: {{}}
+escalation:
+  default_family: general_worker
+  triggers: []
+budget: {{}}
+metadata:
+  source: dashboard
+"""
 
 def _dispatch_priority(value: Any) -> int:
     """Map dashboard priority labels to Kanban's integer priority field."""
