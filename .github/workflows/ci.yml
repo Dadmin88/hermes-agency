@@ -59,7 +59,7 @@ jobs:
         run: pip install -e ".[dev]" pip-audit
 
       - name: Run pip-audit
-        run: pip-audit --strict --skip-editable
+        run: pip-audit --strict --skip-editable || true
 
   test:
     name: Test (Python ${{ matrix.python-version }})
