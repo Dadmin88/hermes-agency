@@ -53,6 +53,7 @@ export interface AgentCard {
   skills: string[];
   description: string;
   discoverable: boolean;
+  online: boolean;
   peer_id: string | null;
 }
 
@@ -68,6 +69,8 @@ export interface DashboardTask {
   error_text: string | null;
   kanban_task_id: string | null;
   linked_kanban_status: "present" | "missing" | "unknown" | "none";
+  board?: string | null;
+  assignee?: string | null;
   available_actions: string[];
 }
 
@@ -95,6 +98,76 @@ export interface DashboardConfig {
   };
 }
 
+export interface ModelFamily {
+  provider: string;
+  model: string;
+  enabled?: boolean;
+  reason?: string;
+  [key: string]: unknown;
+}
+
+export interface ModelSetValidation {
+  ok?: boolean;
+  errors?: string[];
+  warnings?: string[];
+  [key: string]: unknown;
+}
+
+export interface ModelSetSummary {
+  name: string;
+  description?: string;
+  source?: string;
+  source_path?: string;
+  families?: Record<string, ModelFamily>;
+  profiles?: Record<string, string>;
+  escalation?: Record<string, unknown>;
+  budget?: Record<string, unknown>;
+  validation?: ModelSetValidation;
+  error?: string;
+}
+
+export interface ModelSetsResponse {
+  model_sets: ModelSetSummary[];
+  count: number;
+  active_model_set?: string;
+}
+
+export interface ModelSetSourceResponse {
+  name: string;
+  source: string;
+  source_path: string;
+  editable: boolean;
+  content: string;
+}
+
+export interface CreateModelSetRequest {
+  name: string;
+  duplicate_from?: string;
+  content?: string;
+}
+
+export interface UpdateModelSetRequest {
+  name: string;
+  content: string;
+}
+
+export interface DeleteModelSetResponse {
+  ok: boolean;
+  deleted: string;
+}
+
+export interface SetActiveModelSetRequest {
+  name: string;
+  persist?: boolean;
+}
+
+export interface SetActiveModelSetResponse {
+  ok: boolean;
+  active_model_set: string;
+  persisted?: boolean;
+  config_path?: string | null;
+}
+
 export interface DispatchRequest {
   message: string;
   skill?: string;
@@ -111,4 +184,11 @@ export interface DispatchResponse {
   target: string | null;
   result_text: string | null;
   error_text: string | null;
+}
+
+export type TaskAction = "archive" | "complete" | "retry";
+
+export interface TaskActionRequest {
+  task: DashboardTask;
+  action: TaskAction;
 }

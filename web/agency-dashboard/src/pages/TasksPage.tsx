@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import Badge from "@/components/Badge";
 import Drawer from "@/components/Drawer";
@@ -7,10 +7,18 @@ import EmptyState from "@/components/EmptyState";
 import ErrorState from "@/components/ErrorState";
 import Tabs from "@/components/Tabs";
 import Button from "@/components/Button";
-import { useTasks } from "@/api/queries";
-import type { DashboardTask } from "@/api/types";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useTaskAction, useTasks } from "@/api/queries";
+import type { DashboardTask, TaskAction } from "@/api/types";
 import { formatRelative, formatDate } from "@/lib/format";
-import { ListTodo, Archive, CheckCircle, Kanban } from "lucide-react";
+import { addToast } from "@/hooks/useToast";
+import {
+  ListTodo,
+  Archive,
+  CheckCircle,
+  Kanban,
+  RotateCcw,
+} from "lucide-react";
 
 const statusTabs = [
   { id: "all", label: "All" },
@@ -23,14 +31,65 @@ const statusTabs = [
   { id: "stale", label: "Stale" },
 ];
 
+const actionLabel: Record<TaskAction, string> = {
+  archive: "Archive",
+  complete: "Complete",
+  retry: "Retry",
+};
+
+const activeStatuses = new Set(["active", "running", "working", "queued", "processing", "received"]);
+
+function matchesStatus(task: DashboardTask, statusFilter: string) {
+  if (statusFilter === "all") return true;
+  const status = (task.status || "").toLowerCase();
+  if (statusFilter === "active") return activeStatuses.has(status);
+  return status === statusFilter;
+}
+
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<DashboardTask | null>(null);
-  const { data, isLoading, error, refetch } = useTasks(
-    statusFilter === "all" ? undefined : statusFilter
+  const [confirmAction, setConfirmAction] = useState<{
+    task: DashboardTask;
+    action: TaskAction;
+  } | null>(null);
+  // Load the unified task list once and filter tabs client-side.
+  // This keeps tab switching instant instead of issuing a fresh backend query per tab.
+  const { data, isLoading, error, refetch, isFetching } = useTasks();
+  const taskAction = useTaskAction();
+
+  const allTasks = data ?? [];
+  const tasks = useMemo(
+    () => allTasks.filter((task) => matchesStatus(task, statusFilter)),
+    [allTasks, statusFilter]
   );
 
-  const tasks = data ?? [];
+  const runAction = (task: DashboardTask, action: TaskAction) => {
+    taskAction.mutate(
+      { task, action },
+      {
+        onSuccess: () => {
+          addToast("success", `${actionLabel[action]} succeeded`);
+          setConfirmAction(null);
+          if (action === "archive") {
+            setSelected(null);
+          }
+          refetch();
+        },
+        onError: (err) => {
+          addToast("error", `${actionLabel[action]} failed: ${err.message}`);
+        },
+      }
+    );
+  };
+
+  const requestAction = (task: DashboardTask, action: TaskAction) => {
+    if (action === "archive") {
+      setConfirmAction({ task, action });
+      return;
+    }
+    runAction(task, action);
+  };
 
   if (isLoading) return <Skeleton lines={8} />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
@@ -39,7 +98,7 @@ export default function TasksPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tasks"
-        description={`${tasks.length} tasks`}
+        description={`${tasks.length} ${statusFilter === "all" ? "tasks" : `${statusFilter} tasks`}${isFetching ? " · refreshing" : ""}`}
       />
 
       <Tabs tabs={statusTabs} activeTab={statusFilter} onChange={setStatusFilter} />
@@ -54,7 +113,7 @@ export default function TasksPage() {
         <div className="space-y-2">
           {tasks.map((task) => (
             <div
-              key={task.id}
+              key={`${task.source}:${task.id}`}
               onClick={() => setSelected(task)}
               className="glass-card-sm flex items-center gap-4 px-4 py-3 cursor-pointer hover:border-slate-700 transition-colors"
             >
@@ -108,7 +167,7 @@ export default function TasksPage() {
           <div className="space-y-6">
             <div>
               <p className="text-xs text-slate-500 mb-1">ID</p>
-              <p className="text-sm font-mono text-slate-300">{selected.id}</p>
+              <p className="text-sm font-mono text-slate-300 break-all">{selected.id}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 mb-1">Title</p>
@@ -131,7 +190,7 @@ export default function TasksPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-500 mb-1">Kanban Task ID</p>
-                <p className="text-sm font-mono text-slate-300">{selected.kanban_task_id ?? "—"}</p>
+                <p className="text-sm font-mono text-slate-300 break-all">{selected.kanban_task_id ?? "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">Kanban Status</p>
@@ -172,17 +231,57 @@ export default function TasksPage() {
                 </div>
               </div>
             )}
-            <div className="flex gap-2 pt-2">
-              <Button variant="secondary" size="sm">
-                <CheckCircle className="h-4 w-4" /> Complete
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Archive className="h-4 w-4" /> Archive
-              </Button>
+            <div className="flex flex-wrap gap-2 pt-2">
+              {selected.available_actions.includes("complete") && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={taskAction.isPending}
+                  onClick={() => requestAction(selected, "complete")}
+                >
+                  <CheckCircle className="h-4 w-4" /> Complete
+                </Button>
+              )}
+              {selected.available_actions.includes("retry") && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={taskAction.isPending}
+                  onClick={() => requestAction(selected, "retry")}
+                >
+                  <RotateCcw className="h-4 w-4" /> Retry
+                </Button>
+              )}
+              {selected.available_actions.includes("archive") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={taskAction.isPending}
+                  onClick={() => requestAction(selected, "archive")}
+                >
+                  <Archive className="h-4 w-4" /> Archive
+                </Button>
+              )}
+              {selected.available_actions.length === 0 && (
+                <p className="text-sm text-slate-500">No actions available for this task.</p>
+              )}
             </div>
           </div>
         )}
       </Drawer>
+
+      <ConfirmDialog
+        open={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (confirmAction) runAction(confirmAction.task, confirmAction.action);
+        }}
+        title="Archive task?"
+        message="This will hide the task from the active dashboard views. You can still inspect archived tasks using the Archived filter."
+        confirmLabel="Archive"
+        variant="danger"
+        loading={taskAction.isPending}
+      />
     </div>
   );
 }

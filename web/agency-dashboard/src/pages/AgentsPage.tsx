@@ -17,12 +17,15 @@ export default function AgentsPage() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [skillFilter, setSkillFilter] = useState("");
+  const [showDormantAgents, setShowDormantAgents] = useState(true);
   const [selected, setSelected] = useState<AgentCard | null>(null);
 
   const departments: RosterDepartment[] = data ?? [];
   const agents = departments.flatMap((d) => d.agents);
   const departmentNames = departments.map((d) => d.name);
   const allSkills = [...new Set(agents.flatMap((a) => a.skills))].sort();
+  const activeCount = agents.filter((a) => a.online).length;
+  const visibleCount = agents.filter((a) => a.discoverable).length;
 
   const filtered = useMemo(() => {
     return agents.filter((a) => {
@@ -30,9 +33,10 @@ export default function AgentsPage() {
           !a.label.toLowerCase().includes(search.toLowerCase())) return false;
       if (deptFilter && a.department !== deptFilter) return false;
       if (skillFilter && !a.skills.includes(skillFilter)) return false;
+      if (!showDormantAgents && !a.online) return false;
       return true;
     });
-  }, [agents, search, deptFilter, skillFilter]);
+  }, [agents, search, deptFilter, skillFilter, showDormantAgents]);
 
   if (isLoading) return <Skeleton lines={8} />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
@@ -41,11 +45,11 @@ export default function AgentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Agents"
-        description={`${agents.length} agents across ${departments.length} departments`}
+        description={`${agents.length} agents across ${departments.length} departments · ${activeCount} active · ${visibleCount} discoverable`}
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="w-64">
           <Input
             placeholder="Search agents…"
@@ -69,6 +73,15 @@ export default function AgentsPage() {
             placeholder="All skills"
           />
         </div>
+        <label className="ml-auto flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showDormantAgents}
+            onChange={(e) => setShowDormantAgents(e.target.checked)}
+            className="rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500/40"
+          />
+          Show standby discoverable agents
+        </label>
       </div>
 
       {/* Agent grid */}
