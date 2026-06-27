@@ -1,66 +1,34 @@
 # Hermes Agency
 
-**Hermes Agency P2P Agent Plugin for Hermes Agent.** The complete P2P multi-agent orchestration system for Hermes, built on the AgentAnycast Python SDK.
+**The complete P2P multi-agent orchestration system for Hermes Agent.**
 
-Hermes Agency is the primary component in this repository. The AgentAnycast Python SDK (`src/agentanycast/`) is included as the foundational dependency for P2P communication, daemon management, and A2A protocol support. The Hermes Agency plugin lives in `hermes-agency/` and provides the full roster of 83 specialized agents, orchestration, Kanban integration, team context, and autonomous workflows.
+Hermes Agency provides an 83-agent specialized roster, intelligent orchestration, department-based Kanban routing, team context injection, and autonomous workflows — all running over a secure P2P network.
+
+The AgentAnycast Python SDK (`src/agentanycast/`) is the underlying transport layer (daemon, Node API, A2A protocol). Hermes Agency is the star of this repository.
 
 [![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/agentanycast?color=3776AB)](https://pypi.org/project/agentanycast/)
+[![PyPI](https://img.shields.io/pypi/v/hermes-agency?color=3776AB)](https://pypi.org/project/hermes-agency/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
 ```bash
-pip install agentanycast
+pip install hermes-agency
 ```
 
-**Try it now** -- start a demo agent in one command:
+**Try the dashboard:**
 
 ```bash
-agentanycast demo
+hermes agency dashboard
 ```
 
-The daemon downloads automatically on first run. The demo prints the exact command to test it from another terminal.
+Or start the full system:
 
 ## Quick Start
 
-**Create an agent:**
+See the [Hermes Agency documentation](https://github.com/DeployFaith/Hermes_Agency/tree/main/hermes-agency) for full usage.
 
-```python
-from agentanycast import Node, AgentCard, Skill
+The underlying AgentAnycast SDK is available for advanced transport-level work.
 
-card = AgentCard(
-    name="EchoAgent",
-    description="Echoes back any message",
-    skills=[Skill(id="echo", description="Echo the input")],
-)
-
-async with Node(card=card) as node:
-    @node.on_task
-    async def handle(task):
-        text = task.messages[-1].parts[0].text
-        await task.complete(artifacts=[{"parts": [{"text": f"Echo: {text}"}]}])
-
-    print(f"Agent running — Peer ID: {node.peer_id}")
-    await node.serve_forever()
-```
-
-**Send a task to another agent:**
-
-```python
-async with Node(card=card) as node:
-    handle = await node.send_task(
-        peer_id="12D3KooW...",
-        message={"role": "user", "parts": [{"text": "Hello!"}]},
-    )
-    result = await handle.wait()
-    print(result.artifacts[0].parts[0].text)  # "Echo: Hello!"
-```
-
-## Three Ways to Send a Task
-
-```python
-# Direct — by Peer ID
-await node.send_task(peer_id="12D3KooW...", message=msg)
 
 # Anycast — by skill (relay resolves the target)
 await node.send_task(skill="translate", message=msg)
@@ -74,15 +42,15 @@ await node.send_task(url="https://agent.example.com", message=msg)
 Add `--verbose` (or `-v`) before any command for debug output:
 
 ```bash
-agentanycast --verbose demo
+hermes agency dashboard
 ```
 
 ```bash
-agentanycast demo                        # Start an echo agent
-agentanycast discover translate          # Find agents by skill
-agentanycast send 12D3KooW... "Hello!"   # Send a task
-agentanycast status                      # Check node status
-agentanycast info                        # Show Peer ID, DID, version
+hermes agency dashboard                        # Start an echo agent
+hermes agency discover translate          # Find agents by skill
+hermes agency send 12D3KooW... "Hello!"   # Send a task
+hermes agency status                      # Check node status
+hermes agency info                        # Show Peer ID, DID, version
 ```
 
 ## How It Works
@@ -108,12 +76,12 @@ agentanycast info                        # Show Peer ID, DID, version
 Turn existing frameworks into P2P agents with one function call:
 
 ```bash
-pip install agentanycast[crewai]         # CrewAI
-pip install agentanycast[langgraph]      # LangGraph
-pip install agentanycast[google-adk]     # Google ADK
-pip install agentanycast[openai-agents]  # OpenAI Agents SDK
-pip install agentanycast[claude]         # Claude Agent SDK
-pip install agentanycast[strands]        # AWS Strands Agents
+pip install hermes-agency[crewai]         # CrewAI
+pip install hermes-agency[langgraph]      # LangGraph
+pip install hermes-agency[google-adk]     # Google ADK
+pip install hermes-agency[openai-agents]  # OpenAI Agents SDK
+pip install hermes-agency[claude]         # Claude Agent SDK
+pip install hermes-agency[strands]        # AWS Strands Agents
 ```
 
 ```python
