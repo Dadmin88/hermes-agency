@@ -1320,7 +1320,7 @@ async def test_trusted_peer_can_send_normal_task(plugin_modules, monkeypatch, tm
     nm = plugin_modules.node_manager
     cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
     plugin_modules.trust.store_for_config(cfg).set_trust(
-        "peer-good", trust_level="limited", name="Good"
+        "peer-good", trust_level="full", name="Good"
     )
     monkeypatch.setattr(nm, "get_config", lambda: cfg)
     manager = nm.NodeManager()
@@ -1343,7 +1343,7 @@ async def test_incoming_queue_accepts_tasks_under_limit(plugin_modules, monkeypa
         trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
         incoming=plugin_modules.config.IncomingConfig(max_queue_size=2),
     )
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
     monkeypatch.setattr(nm, "get_config", lambda: cfg)
     manager = nm.NodeManager()
     manager._incoming_queue = __import__("asyncio").Queue(maxsize=cfg.incoming.max_queue_size)
@@ -1367,7 +1367,7 @@ async def test_incoming_queue_drops_newest_task_when_full(
         trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
         incoming=plugin_modules.config.IncomingConfig(max_queue_size=1),
     )
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
     monkeypatch.setattr(nm, "get_config", lambda: cfg)
     manager = nm.NodeManager()
     manager._incoming_queue = __import__("asyncio").Queue(maxsize=cfg.incoming.max_queue_size)
@@ -1394,7 +1394,7 @@ async def test_incoming_queue_recovers_after_draining(plugin_modules, monkeypatc
         trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
         incoming=plugin_modules.config.IncomingConfig(max_queue_size=1),
     )
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
     monkeypatch.setattr(nm, "get_config", lambda: cfg)
     manager = nm.NodeManager()
     manager._incoming_queue = __import__("asyncio").Queue(maxsize=cfg.incoming.max_queue_size)
@@ -1447,7 +1447,7 @@ def test_effective_relay_allowlist_includes_verified_team_peers_when_enabled(
         ),
         trust=cfg_mod.TrustConfig(store_path=tmp_path / "trust.json"),
     )
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-team", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-team", trust_level="full")
     monkeypatch.setattr(cfg_mod, "load_config", lambda: {})
     monkeypatch.setattr(node_manager, "get_config", lambda: cfg)
 
@@ -1497,7 +1497,7 @@ def test_team_peer_auto_add_requires_trust_verification(plugin_modules, tmp_path
 
     assert node_manager.NodeManager().effective_relay_allowlist(cfg) == []
 
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-unverified", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-unverified", trust_level="full")
     assert node_manager.NodeManager().effective_relay_allowlist(cfg) == ["peer-unverified"]
 
 
@@ -3523,7 +3523,7 @@ async def test_handle_incoming_task_treats_duplicate_working_transition_as_idemp
         relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=("peer-a",)),
         trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
     )
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-a", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-a", trust_level="full")
     monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
     manager = nm_mod.NodeManager()
     manager._incoming_queue = __import__("asyncio").Queue()
@@ -4672,7 +4672,7 @@ async def test_normal_task_with_insufficient_trust_is_rejected(
 async def test_normal_task_from_allowed_peer_is_queued(plugin_modules, monkeypatch, tmp_path):
     nm = plugin_modules.node_manager
     cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
-    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
     monkeypatch.setattr(nm, "get_config", lambda: cfg)
     monkeypatch.setattr(
         nm,
@@ -4752,6 +4752,7 @@ def test_proactive_routes_review_needed_markdown_to_editor(plugin_modules, monke
     assert result["ok"] is True
     assert created[0]["assigned_to"] == "agency-editor-in-chief"
     assert created[0]["metadata"]["trigger"] == "kanban-tag"
+
 
 
 # --- Agency MoA native-adapter coverage ------------------------------------
@@ -4903,3 +4904,31 @@ def test_agency_moa_tool_recommend_does_not_run_model_calls(plugin_modules, monk
     assert payload["recommended"] is True
     assert payload["preset"] == "default"
     assert "status" in payload
+
+
+
+def test_incoming_task_requires_full_trust_before_delegation_tools(plugin_modules, tmp_path):
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    task = _FakeIncomingTask("remote work", peer_id="peer-good", task_id="task-limited-tools")
+
+    decision = plugin_modules.incoming_security.verify_incoming_sender(
+        task, cfg, purpose="task"
+    )
+
+    assert not decision.allowed
+    assert decision.action == "insufficient_trust"
+    assert "requires full trust" in decision.reason
+
+
+def test_incoming_task_allows_full_trust_sender(plugin_modules, tmp_path):
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
+    task = _FakeIncomingTask("remote work", peer_id="peer-good", task_id="task-full")
+
+    decision = plugin_modules.incoming_security.verify_incoming_sender(
+        task, cfg, purpose="task"
+    )
+
+    assert decision.allowed
+    assert decision.trust_level == "full"

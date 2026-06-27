@@ -103,7 +103,7 @@ def verify_incoming_sender(
             decision.action,
         )
 
-    min_trust = "full" if normalized_purpose == "control" else "limited"
+    min_trust = "full"
     if _trust_rank(decision.trust_level) < _trust_rank(min_trust):
         return IncomingSecurityDecision(
             False,

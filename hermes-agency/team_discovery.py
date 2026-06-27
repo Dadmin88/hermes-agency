@@ -131,7 +131,7 @@ class TeamDiscoveryMixin:
                     name=peer.card_name or peer.name,
                     card={"name": peer.card_name or peer.name},
                     source="team_discovery",
-                    trust_level="full",
+                    trust_level="limited",
                 )
             except TrustError as exc:
                 logger.warning("Hermes Agency TOFU rejected discovered peer: %s", exc)

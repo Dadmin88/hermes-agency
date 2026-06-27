@@ -411,7 +411,7 @@ def trust_peer_for_handshake(
         name=name,
         card=card,
         source=source,
-        trust_level="full",
+        trust_level="limited",
     )
     if record is None:
         return None
