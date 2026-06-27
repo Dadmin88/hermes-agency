@@ -48,12 +48,22 @@ The Docker setup should stay host-neutral. Do not document host-specific paths; 
 docker compose up --build
 ```
 
+The default compose service is the full agency stack: setup, packaged staff install, model-set config, Kanban board initialization, local agency node manager, and dashboard.
+
 Useful environment overrides:
 
 ```bash
 HERMES_DASHBOARD_TOKEN=<token> docker compose up --build
+HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
 AGENTANYCAST_RELAY=<relay-multiaddr> docker compose up --build
 AGENTANYCAST_REGISTRY_ADDRS=<registry-address> docker compose up --build
+```
+
+Advanced profiles:
+
+```bash
+docker compose --profile tools run --rm setup
+docker compose --profile split up node dashboard
 ```
 
 ## Validation before commit

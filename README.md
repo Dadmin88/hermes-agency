@@ -196,21 +196,31 @@ For headless servers without systemd --user, the setup script falls back to cron
 
 ## Docker
 
-Run the dashboard with Docker Compose:
+Run the full Hermes Agency stack with Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-Open `http://127.0.0.1:8765`. A session token is printed in the container logs unless `HERMES_DASHBOARD_TOKEN` is provided.
+The default `agency` service performs setup, installs the packaged agency staff into a named Docker volume, initializes agency Kanban boards, starts the local agency node manager, and serves the dashboard at `http://127.0.0.1:8765`.
+
+A session token is printed in the container logs unless `HERMES_DASHBOARD_TOKEN` is provided.
 
 Optional environment variables:
 
 ```bash
 HERMES_DASHBOARD_TOKEN=change-me \
+HERMES_AGENCY_MODEL_SET=balanced \
 AGENTANYCAST_RELAY=<relay-multiaddr> \
 AGENTANYCAST_REGISTRY_ADDRS=<registry-address> \
 docker compose up --build
+```
+
+Advanced modes use the same image:
+
+```bash
+docker compose --profile tools run --rm setup      # setup only
+docker compose --profile split up node dashboard   # split node/dashboard services
 ```
 
 The compose file uses a named Docker volume for runtime data, so no machine-specific host paths are required.

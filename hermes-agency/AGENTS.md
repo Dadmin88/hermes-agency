@@ -56,11 +56,13 @@ Run the dashboard through a configured Hermes runtime:
 hermes agency dashboard --host 127.0.0.1 --no-open
 ```
 
-For containerized dashboard work, prefer the repository Docker Compose setup:
+For containerized work, prefer the repository Docker Compose setup:
 
 ```bash
 docker compose up --build
 ```
+
+The default service is the full agency stack: config bootstrap, packaged staff install, model-set config, Kanban board initialization, local agency node manager, and dashboard. Use `docker compose --profile tools run --rm setup` for setup-only and `docker compose --profile split up node dashboard` for split services.
 
 Keep all examples generic. Use placeholders for relay, registry, profile, and workspace values.
 

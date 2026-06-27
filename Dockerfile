@@ -11,13 +11,17 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     HERMES_HOME=/data/hermes \
+    HERMES_AGENCY_MODE=all \
+    HERMES_AGENCY_INSTALL_STAFF=1 \
+    HERMES_AGENCY_START_NODE=1 \
+    HERMES_AGENCY_MODEL_SET=balanced \
     HERMES_DASHBOARD_HOST=0.0.0.0 \
     HERMES_DASHBOARD_PORT=8765 \
     HERMES_DASHBOARD_ALLOW_LAN=1
 
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl ca-certificates \
+    && apt-get install -y --no-install-recommends git curl ca-certificates tini \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md LICENSE ./
@@ -32,4 +36,5 @@ RUN python -m pip install --upgrade pip \
 
 VOLUME ["/data/hermes"]
 EXPOSE 8765
-CMD ["python", "docker/run-dashboard.py"]
+ENTRYPOINT ["tini", "--", "python", "docker/run-agency.py"]
+CMD ["all"]
