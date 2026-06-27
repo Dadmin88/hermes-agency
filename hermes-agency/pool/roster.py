@@ -379,8 +379,6 @@ def _is_daemon_running(name: str) -> bool:
     return False
 
 
-
-
 def _encode_varint(value: int) -> bytes:
     chunks: list[int] = []
     while True:

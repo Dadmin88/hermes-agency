@@ -156,7 +156,9 @@ def _normalise_department(value: Any) -> str:
 
 
 def _department_board_from_metadata(metadata: dict[str, Any]) -> tuple[str, str] | None:
-    department = _normalise_department(metadata.get("department") or metadata.get("target_department") or metadata.get("board"))
+    department = _normalise_department(
+        metadata.get("department") or metadata.get("target_department") or metadata.get("board")
+    )
     if not department:
         return None
     if department.startswith("agency-"):
@@ -413,7 +415,6 @@ def _create_task_on_department_board_impl(
     return result
 
 
-
 def _create_task_on_named_board_impl(
     slug: str,
     board_name: str,
@@ -445,6 +446,7 @@ def _create_task_on_named_board_impl(
     result["board"] = slug
     result["department"] = metadata.get("department")
     return result
+
 
 def _create_task_impl(
     title: str,
@@ -745,7 +747,9 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
     board_slugs: list[str | None]
     if requested_board and requested_board not in ("*", "all", "agency"):
         board_slugs = [requested_board]
-    elif requested_board in ("*", "all", "agency") or bool(filters.get("include_agency_boards", True)):
+    elif requested_board in ("*", "all", "agency") or bool(
+        filters.get("include_agency_boards", True)
+    ):
         board_slugs = [None] + sorted(board_names)
     else:
         board_slugs = [None]
@@ -756,7 +760,11 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
         for board_slug in board_slugs:
             if board_slug and hasattr(kb, "board_exists") and not kb.board_exists(board_slug):
                 continue
-            ctx = kb.scoped_current_board(board_slug) if board_slug and hasattr(kb, "scoped_current_board") else nullcontext()
+            ctx = (
+                kb.scoped_current_board(board_slug)
+                if board_slug and hasattr(kb, "scoped_current_board")
+                else nullcontext()
+            )
             with ctx:
                 kb.recompute_ready(conn)
                 tasks = kb.list_tasks(
@@ -783,7 +791,12 @@ def _list_tasks_impl(filters: dict[str, Any]) -> dict[str, Any]:
             data = [task for task in data if not task.get("assignee")]
         elif requested_status == "failed":
             data = [task for task in data if task.get("plugin_status") == "failed"]
-        data.sort(key=lambda task: task.get("completed_at") or task.get("started_at") or task.get("created_at") or 0, reverse=True)
+        data.sort(
+            key=lambda task: (
+                task.get("completed_at") or task.get("started_at") or task.get("created_at") or 0
+            ),
+            reverse=True,
+        )
         if limit:
             data = data[: int(limit)]
         return {"available": True, "ok": True, "tasks": data, "count": len(data)}

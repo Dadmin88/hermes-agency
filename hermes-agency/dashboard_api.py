@@ -309,7 +309,14 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             tasks = list(_tasks_cache)
             if status:
                 normalized = status.strip().lower()
-                active_statuses = {"active", "running", "working", "queued", "processing", "received"}
+                active_statuses = {
+                    "active",
+                    "running",
+                    "working",
+                    "queued",
+                    "processing",
+                    "received",
+                }
                 if normalized == "active":
                     return [t for t in tasks if (t.status or "").lower() in active_statuses]
                 return [t for t in tasks if (t.status or "").lower() == normalized]
@@ -327,9 +334,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             kanban_result = kanban_list_tasks({"limit": 100})
             if kanban_result.get("available") and kanban_result.get("ok"):
                 kanban_tasks = [
-                    ktask
-                    for ktask in (kanban_result.get("tasks") or [])
-                    if isinstance(ktask, dict)
+                    ktask for ktask in (kanban_result.get("tasks") or []) if isinstance(ktask, dict)
                 ]
                 kanban_task_ids = {str(ktask.get("id", "")) for ktask in kanban_tasks}
         except Exception as exc:
@@ -370,9 +375,7 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         # 2) Kanban tasks
         for ktask in kanban_tasks:
             ktask_id = str(ktask.get("id", ""))
-            actions = _kanban_actions(
-                ktask.get("status", ""), ktask.get("plugin_status", "")
-            )
+            actions = _kanban_actions(ktask.get("status", ""), ktask.get("plugin_status", ""))
             tasks.append(
                 DashboardTask(
                     id=ktask_id,
@@ -560,7 +563,9 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
                         )
                         update_task(
                             kanban_task_id,
-                            status="assigned" if pool_result.startswith("Queued task") else "running",
+                            status="assigned"
+                            if pool_result.startswith("Queued task")
+                            else "running",
                             result=pool_result,
                         )
                     except Exception as exc:
@@ -800,7 +805,6 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
             "config_path": config_path,
         }
 
-
     # -----------------------------------------------------------------------
     # GET /api/model-sets/{name}/source
     # -----------------------------------------------------------------------
@@ -849,10 +853,14 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         if duplicate_from:
             source_path = files.get(duplicate_from)
             if source_path is None:
-                raise HTTPException(status_code=404, detail=f"Unknown source model set: {duplicate_from}")
+                raise HTTPException(
+                    status_code=404, detail=f"Unknown source model set: {duplicate_from}"
+                )
             raw = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
             if not isinstance(raw, dict):
-                raise HTTPException(status_code=400, detail="Source model set is not a YAML mapping")
+                raise HTTPException(
+                    status_code=400, detail="Source model set is not a YAML mapping"
+                )
             raw["name"] = name
             content = yaml.safe_dump(raw, sort_keys=False)
         elif not content:
@@ -864,7 +872,11 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         _validate_model_set_yaml_content(content)
         target_path.write_text(content.rstrip() + "\n", encoding="utf-8")
         model_set = load_model_set(name)
-        return {"ok": True, "model_set": model_set_summary(model_set), "source_path": str(target_path)}
+        return {
+            "ok": True,
+            "model_set": model_set_summary(model_set),
+            "source_path": str(target_path),
+        }
 
     # -----------------------------------------------------------------------
     # PUT /api/model-sets/{name} — edit a user model set source file
@@ -885,7 +897,10 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
         if path is None:
             raise HTTPException(status_code=404, detail=f"Unknown model set: {clean_name}")
         if user_model_sets_dir() not in path.parents:
-            raise HTTPException(status_code=403, detail="Packaged model sets cannot be edited directly. Duplicate it first.")
+            raise HTTPException(
+                status_code=403,
+                detail="Packaged model sets cannot be edited directly. Duplicate it first.",
+            )
         content = str(body.get("content") or "")
         _validate_model_set_yaml_content(content)
         path.write_text(content.rstrip() + "\n", encoding="utf-8")
@@ -928,8 +943,6 @@ def create_api_router(settings: DashboardSettings) -> APIRouter:
 # ---------------------------------------------------------------------------
 
 
-
-
 def _safe_model_set_name(value: str) -> str:
     """Return a filesystem-safe model-set name/slug."""
     import re
@@ -952,7 +965,9 @@ def _validate_model_set_yaml_content(content: str) -> dict[str, Any]:
     if data.get("version") is None:
         raise HTTPException(status_code=400, detail="Model set YAML must include version")
     if not isinstance(data.get("families"), dict) or not data.get("families"):
-        raise HTTPException(status_code=400, detail="Model set YAML must include at least one family")
+        raise HTTPException(
+            status_code=400, detail="Model set YAML must include at least one family"
+        )
     defaults = data.get("defaults")
     if not isinstance(defaults, dict) or not defaults.get("family"):
         raise HTTPException(status_code=400, detail="Model set YAML must include defaults.family")
@@ -978,6 +993,7 @@ budget: {{}}
 metadata:
   source: dashboard
 """
+
 
 def _dispatch_priority(value: Any) -> int:
     """Map dashboard priority labels to Kanban's integer priority field."""
