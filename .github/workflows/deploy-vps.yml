@@ -50,4 +50,5 @@ jobs:
             # performs the bootstrap pull before invoking the shared updater.
             FORCE_RESTART=1 bash scripts/auto-update.sh
             echo "--- Status ---"
-            PATH="$HOME/.local/bin:$PATH" hermes agency status 2>&1 | head -10
+            systemctl --user is-active hermes-gateway.service
+            pgrep -af "hermes_cli.main gateway run|agentanycastd --config=.*/profiles/agency-orchestrator" | head -10 || true
