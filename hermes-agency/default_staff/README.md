@@ -9,6 +9,8 @@ Default staff profiles are pre-configured Hermes profiles that come packaged wit
 - **SOUL.md** — Identity, mission, operating principles, responsibilities, and behavior rules
 - **ROUTING.md** — Ownership boundaries, delegation rules, escalation triggers, and handoff formats
 - **profile.yaml** — Metadata including category, tools, tags, and agency configuration
+- **skills/** — Curated, role-specific skills that ship with that staff profile
+- **.no-bundled-skills** — Marker that prevents generic bundled skills from being reseeded into Agency profiles
 
 These profiles are designed to work together as a coordinated agency team. They follow the [STAFF_CONTRACT.md](STAFF_CONTRACT.md) — a universal operating contract that governs all default staff behavior.
 
@@ -25,6 +27,8 @@ hermes-agency/default_staff/
       SOUL.md
       ROUTING.md
       profile.yaml
+      skills/
+      .no-bundled-skills
     agency-frontend-engineer/
       SOUL.md
       ROUTING.md

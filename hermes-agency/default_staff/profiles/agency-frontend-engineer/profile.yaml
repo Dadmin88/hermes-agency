@@ -1,8 +1,8 @@
-name: "agency-frontend-engineer"
-display_name: "Frontend Engineer"
-category: "engineering"
-summary: "Implements user-facing interfaces, manages frontend state, handles browser compatibility, and ensures responsive, accessible UI."
-
+name: agency-frontend-engineer
+display_name: Frontend Engineer
+category: engineering
+summary: Implements user-facing interfaces, manages frontend state, handles browser
+  compatibility, and ensures responsive, accessible UI.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,33 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - frontend implementation
-    - UI components
-    - client-side state management
-    - browser compatibility
-    - frontend performance
+  - frontend implementation
+  - UI components
+  - client-side state management
+  - browser compatibility
+  - frontend performance
   does_not_own:
-    - backend APIs
-    - database design
-    - infrastructure
-    - product decisions
-
+  - backend APIs
+  - database design
+  - infrastructure
+  - product decisions
 routing:
   delegates_to:
-    - "agency-git-steward"
-    - "agency-qa-tester"
+  - agency-git-steward
+  - agency-qa-tester
   receives_from:
-    - agency-orchestrator
-    - agency-technical-lead
-    - agency-ui-ux-designer
-
+  - agency-orchestrator
+  - agency-technical-lead
+  - agency-ui-ux-designer
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "engineering"
-    - "frontend"
-    - "ui"
-    - "implementation"
-
+- engineering
+- frontend
+- ui
+- implementation

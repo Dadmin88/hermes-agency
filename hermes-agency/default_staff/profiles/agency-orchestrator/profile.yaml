@@ -1,8 +1,8 @@
-name: "agency-orchestrator"
-display_name: "Orchestrator"
-category: "leadership"
-summary: "Primary coordinator that decomposes complex tasks, routes work to specialists, tracks progress, and ensures cross-team alignment."
-
+name: agency-orchestrator
+display_name: Orchestrator
+category: leadership
+summary: Primary coordinator that decomposes complex tasks, routes work to specialists,
+  tracks progress, and ensures cross-team alignment.
 agency:
   enabled: true
   auto_start: false
@@ -10,46 +10,43 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - "task decomposition"
-    - "work routing"
-    - "cross-team coordination"
-    - "progress tracking"
-    - "escalation management"
+  - task decomposition
+  - work routing
+  - cross-team coordination
+  - progress tracking
+  - escalation management
   does_not_own:
-    - "implementation details"
-    - "individual specialist work"
-    - "direct file editing"
-    - "git operations"
-
+  - implementation details
+  - individual specialist work
+  - direct file editing
+  - git operations
 routing:
   delegates_to:
-    - "agency-chief-of-staff"
-    - "agency-project-manager"
-    - "agency-traffic-manager"
-    - "agency-scrum-master"
-    - "agency-operations-manager"
+  - agency-chief-of-staff
+  - agency-project-manager
+  - agency-traffic-manager
+  - agency-scrum-master
+  - agency-operations-manager
   receives_from:
-    - "user"
-    - "agency-chief-of-staff"
-    - "agency-project-manager"
-
+  - user
+  - agency-chief-of-staff
+  - agency-project-manager
 recommended_tools:
-    - "orch_route"
-    - "orch_decompose"
-    - "orch_status"
-    - "orch_list_tasks"
-    - "orch_escalate"
-    - "orch_escalate_to_gpt"
-    - "a2a_send"
-    - "a2a_discover"
-    - "a2a_list_peers"
-
+- orch_route
+- orch_decompose
+- orch_status
+- orch_list_tasks
+- orch_escalate
+- orch_escalate_to_gpt
+- a2a_send
+- a2a_discover
+- a2a_list_peers
 tags:
-    - "orchestrator"
-    - "coordinator"
-    - "leadership"
-    - "primary"
-
+- orchestrator
+- coordinator
+- leadership
+- primary

@@ -1,8 +1,8 @@
-name: "agency-content-writer"
-display_name: "Content Writer"
-category: "content"
-summary: "Writes long-form content — articles, blog posts, guides, and educational material that informs and engages audiences."
-
+name: agency-content-writer
+display_name: Content Writer
+category: content
+summary: Writes long-form content — articles, blog posts, guides, and educational
+  material that informs and engages audiences.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,33 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - blog posts
-    - articles
-    - guides
-    - educational content
-    - content research
-    - content structure
+  - blog posts
+  - articles
+  - guides
+  - educational content
+  - content research
+  - content structure
   does_not_own:
-    - marketing copy
-    - technical documentation
-    - code implementation
-    - design
-
+  - marketing copy
+  - technical documentation
+  - code implementation
+  - design
 routing:
   delegates_to:
-    - "agency-editor-in-chief"
+  - agency-editor-in-chief
   receives_from:
-    - agency-orchestrator
-    - agency-editor-in-chief
-    - agency-marketing-strategist
-
+  - agency-orchestrator
+  - agency-editor-in-chief
+  - agency-marketing-strategist
 recommended_tools:
-    - "a2a_send"
-    - "web_search"
-
+- a2a_send
+- web_search
 tags:
-    - "content"
-    - "writing"
-    - "long-form"
-    - "blog"
-
+- content
+- writing
+- long-form
+- blog

@@ -1,8 +1,8 @@
-name: "agency-traffic-manager"
-display_name: "Traffic Manager"
-category: "leadership"
-summary: "Manages work-in-progress limits, prioritizes incoming requests, prevents overload, and ensures the team works on the right things."
-
+name: agency-traffic-manager
+display_name: Traffic Manager
+category: leadership
+summary: Manages work-in-progress limits, prioritizes incoming requests, prevents
+  overload, and ensures the team works on the right things.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,33 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - "WIP limits"
-    - "request prioritization"
-    - "workload balancing"
-    - "queue management"
-    - "urgent triage"
+  - WIP limits
+  - request prioritization
+  - workload balancing
+  - queue management
+  - urgent triage
   does_not_own:
-    - "task execution"
-    - "strategic direction"
-    - "project planning"
-    - "technical decisions"
-
+  - task execution
+  - strategic direction
+  - project planning
+  - technical decisions
 routing:
   delegates_to:
-    - "agency-orchestrator"
-    - "agency-project-manager"
+  - agency-orchestrator
+  - agency-project-manager
   receives_from:
-    - "agency-orchestrator"
-    - "agency-project-manager"
-    - "user"
-
+  - agency-orchestrator
+  - agency-project-manager
+  - user
 recommended_tools:
-    - "a2a_send"
-    - "a2a_list_peers"
-
+- a2a_send
+- a2a_list_peers
 tags:
-    - "leadership"
-    - "operations"
-    - "prioritization"
-    - "triage"
-
+- leadership
+- operations
+- prioritization
+- triage

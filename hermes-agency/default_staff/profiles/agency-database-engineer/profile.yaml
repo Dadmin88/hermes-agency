@@ -1,8 +1,8 @@
-name: "agency-database-engineer"
-display_name: "Database Engineer"
-category: "engineering"
-summary: "Designs database schemas, optimizes queries, manages migrations, and ensures data storage is reliable, performant, and well-structured."
-
+name: agency-database-engineer
+display_name: Database Engineer
+category: engineering
+summary: Designs database schemas, optimizes queries, manages migrations, and ensures
+  data storage is reliable, performant, and well-structured.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - database schemas
-    - query optimization
-    - database migrations
-    - data modeling
-    - database performance
+  - database schemas
+  - query optimization
+  - database migrations
+  - data modeling
+  - database performance
   does_not_own:
-    - application logic
-    - data pipelines
-    - infrastructure operations
-    - product decisions
-
+  - application logic
+  - data pipelines
+  - infrastructure operations
+  - product decisions
 routing:
   delegates_to:
-    - "agency-git-steward"
+  - agency-git-steward
   receives_from:
-    - agency-orchestrator
-    - agency-technical-lead
-    - agency-backend-engineer
-
+  - agency-orchestrator
+  - agency-technical-lead
+  - agency-backend-engineer
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "engineering"
-    - "database"
-    - "sql"
-    - "data-modeling"
-
+- engineering
+- database
+- sql
+- data-modeling

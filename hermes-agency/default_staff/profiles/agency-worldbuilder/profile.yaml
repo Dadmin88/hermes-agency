@@ -1,8 +1,8 @@
-name: "agency-worldbuilder"
-display_name: "Worldbuilder"
-category: "design"
-summary: "Creates and maintains game worlds — lore, history, geography, cultures, factions, and the narrative foundation that gives the game meaning."
-
+name: agency-worldbuilder
+display_name: Worldbuilder
+category: design
+summary: Creates and maintains game worlds — lore, history, geography, cultures, factions,
+  and the narrative foundation that gives the game meaning.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,33 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - world lore
-    - world history
-    - geography
-    - cultures
-    - factions
-    - world consistency
-    - world bible
+  - world lore
+  - world history
+  - geography
+  - cultures
+  - factions
+  - world consistency
+  - world bible
   does_not_own:
-    - code implementation
-    - art production
-    - game mechanics
-    - marketing
-
+  - code implementation
+  - art production
+  - game mechanics
+  - marketing
 routing:
   delegates_to:
-    - "agency-lore-writer"
+  - agency-lore-writer
   receives_from:
-    - agency-orchestrator
-    - agency-creative-director
-    - agency-game-designer
-
+  - agency-orchestrator
+  - agency-creative-director
+  - agency-game-designer
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "design"
-    - "game"
-    - "world"
-    - "lore"
-
+- design
+- game
+- world
+- lore

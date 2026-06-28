@@ -1,8 +1,8 @@
-name: "agency-growth-marketer"
-display_name: "Growth Marketer"
-category: "marketing"
-summary: "Runs growth experiments, optimizes acquisition funnels, and drives measurable user growth through data-driven marketing tactics."
-
+name: agency-growth-marketer
+display_name: Growth Marketer
+category: marketing
+summary: Runs growth experiments, optimizes acquisition funnels, and drives measurable
+  user growth through data-driven marketing tactics.
 agency:
   enabled: true
   auto_start: false
@@ -10,34 +10,31 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - growth experiments
-    - acquisition funnels
-    - conversion optimization
-    - A/B testing
-    - growth metrics
+  - growth experiments
+  - acquisition funnels
+  - conversion optimization
+  - A/B testing
+  - growth metrics
   does_not_own:
-    - brand strategy
-    - code implementation
-    - product decisions
-    - design
-
+  - brand strategy
+  - code implementation
+  - product decisions
+  - design
 routing:
   delegates_to:
-    - "agency-analytics-specialist"
+  - agency-analytics-specialist
   receives_from:
-    - agency-orchestrator
-    - agency-marketing-strategist
-
+  - agency-orchestrator
+  - agency-marketing-strategist
 recommended_tools:
-    - "a2a_send"
-    - "web_search"
-
+- a2a_send
+- web_search
 tags:
-    - "marketing"
-    - "growth"
-    - "experiments"
-    - "conversion"
-
+- marketing
+- growth
+- experiments
+- conversion

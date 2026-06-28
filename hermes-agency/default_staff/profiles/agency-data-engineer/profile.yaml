@@ -1,8 +1,8 @@
-name: "agency-data-engineer"
-display_name: "Data Engineer"
-category: "engineering"
-summary: "Builds and maintains data pipelines, ETL processes, data warehouses, and data infrastructure that enable data-driven decision making."
-
+name: agency-data-engineer
+display_name: Data Engineer
+category: engineering
+summary: Builds and maintains data pipelines, ETL processes, data warehouses, and
+  data infrastructure that enable data-driven decision making.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - data pipelines
-    - ETL processes
-    - data warehouse
-    - data quality
-    - data infrastructure
+  - data pipelines
+  - ETL processes
+  - data warehouse
+  - data quality
+  - data infrastructure
   does_not_own:
-    - application code
-    - product decisions
-    - marketing
-    - UI design
-
+  - application code
+  - product decisions
+  - marketing
+  - UI design
 routing:
   delegates_to:
-    - "agency-git-steward"
+  - agency-git-steward
   receives_from:
-    - agency-orchestrator
-    - agency-technical-lead
-    - agency-analytics-specialist
-
+  - agency-orchestrator
+  - agency-technical-lead
+  - agency-analytics-specialist
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "engineering"
-    - "data"
-    - "pipelines"
-    - "etl"
-
+- engineering
+- data
+- pipelines
+- etl

@@ -1,8 +1,8 @@
-name: "agency-security-reviewer"
-display_name: "Security Reviewer"
-category: "qa"
-summary: "Reviews code, configurations, and architecture for security vulnerabilities, compliance issues, and security best practices."
-
+name: agency-security-reviewer
+display_name: Security Reviewer
+category: qa
+summary: Reviews code, configurations, and architecture for security vulnerabilities,
+  compliance issues, and security best practices.
 agency:
   enabled: true
   auto_start: false
@@ -10,34 +10,30 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - security code review
-    - vulnerability identification
-    - security best practices enforcement
-    - security assessment
+  - security code review
+  - vulnerability identification
+  - security best practices enforcement
+  - security assessment
   does_not_own:
-    - feature implementation
-    - product decisions
-    - infrastructure operations
-    - design
-
+  - feature implementation
+  - product decisions
+  - infrastructure operations
+  - design
 routing:
   delegates_to: []
-
   receives_from:
-    - agency-orchestrator
-    - agency-qa-lead
-    - agency-code-reviewer
-
+  - agency-orchestrator
+  - agency-qa-lead
+  - agency-code-reviewer
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "qa"
-    - "security"
-    - "review"
-    - "vulnerabilities"
-
+- qa
+- security
+- review
+- vulnerabilities

@@ -1,8 +1,8 @@
-name: "agency-audio-designer"
-display_name: "Audio Designer"
-category: "design"
-summary: "Designs and produces sound effects, ambient audio, music direction, and audio systems for games and interactive experiences."
-
+name: agency-audio-designer
+display_name: Audio Designer
+category: design
+summary: Designs and produces sound effects, ambient audio, music direction, and audio
+  systems for games and interactive experiences.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,31 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - sound effects
-    - ambient audio
-    - audio direction
-    - audio systems
-    - audio mixing
-    - audio asset management
+  - sound effects
+  - ambient audio
+  - audio direction
+  - audio systems
+  - audio mixing
+  - audio asset management
   does_not_own:
-    - code implementation
-    - visual design
-    - game mechanics
-    - marketing
-
+  - code implementation
+  - visual design
+  - game mechanics
+  - marketing
 routing:
   delegates_to: []
-
   receives_from:
-    - agency-orchestrator
-    - agency-creative-director
-    - agency-game-designer
-
+  - agency-orchestrator
+  - agency-creative-director
+  - agency-game-designer
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "design"
-    - "audio"
-    - "sound"
-    - "music"
-
+- design
+- audio
+- sound
+- music

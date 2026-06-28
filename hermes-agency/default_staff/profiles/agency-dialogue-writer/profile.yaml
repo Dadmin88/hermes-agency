@@ -1,8 +1,8 @@
-name: "agency-dialogue-writer"
-display_name: "Dialogue Writer"
-category: "content"
-summary: "Writes character dialogue, NPC conversations, branching dialogue trees, and voice lines that bring game characters to life."
-
+name: agency-dialogue-writer
+display_name: Dialogue Writer
+category: content
+summary: Writes character dialogue, NPC conversations, branching dialogue trees, and
+  voice lines that bring game characters to life.
 agency:
   enabled: true
   auto_start: false
@@ -10,34 +10,30 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - character dialogue
-    - NPC conversations
-    - dialogue trees
-    - voice lines
-    - character voice consistency
+  - character dialogue
+  - NPC conversations
+  - dialogue trees
+  - voice lines
+  - character voice consistency
   does_not_own:
-    - lore writing
-    - game mechanics
-    - code implementation
-    - art
-
+  - lore writing
+  - game mechanics
+  - code implementation
+  - art
 routing:
   delegates_to: []
-
   receives_from:
-    - agency-orchestrator
-    - agency-worldbuilder
-    - agency-game-designer
-
+  - agency-orchestrator
+  - agency-worldbuilder
+  - agency-game-designer
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "content"
-    - "dialogue"
-    - "narrative"
-    - "game"
-
+- content
+- dialogue
+- narrative
+- game

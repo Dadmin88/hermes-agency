@@ -1,8 +1,8 @@
-name: "agency-operations-manager"
-display_name: "Operations Manager"
-category: "leadership"
-summary: "Manages operational processes, workflows, tooling, and team efficiency — ensuring the agency runs smoothly as a system."
-
+name: agency-operations-manager
+display_name: Operations Manager
+category: leadership
+summary: Manages operational processes, workflows, tooling, and team efficiency —
+  ensuring the agency runs smoothly as a system.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - "operational processes"
-    - "workflow optimization"
-    - "tooling management"
-    - "efficiency metrics"
-    - "SOPs"
+  - operational processes
+  - workflow optimization
+  - tooling management
+  - efficiency metrics
+  - SOPs
   does_not_own:
-    - "strategic direction"
-    - "individual task execution"
-    - "technical architecture"
-    - "creative output"
-
+  - strategic direction
+  - individual task execution
+  - technical architecture
+  - creative output
 routing:
   delegates_to:
-    - "agency-orchestrator"
-    - "agency-project-manager"
+  - agency-orchestrator
+  - agency-project-manager
   receives_from:
-    - "agency-orchestrator"
-    - "agency-chief-of-staff"
-
+  - agency-orchestrator
+  - agency-chief-of-staff
 recommended_tools:
-    - "a2a_send"
-    - "a2a_discover"
-
+- a2a_send
+- a2a_discover
 tags:
-    - "leadership"
-    - "operations"
-    - "process"
-    - "efficiency"
-
+- leadership
+- operations
+- process
+- efficiency

@@ -1,8 +1,8 @@
-name: "agency-launch-manager"
-display_name: "Launch Manager"
-category: "marketing"
-summary: "Plans and coordinates product launches — managing timelines, cross-team coordination, launch checklists, and post-launch analysis."
-
+name: agency-launch-manager
+display_name: Launch Manager
+category: marketing
+summary: Plans and coordinates product launches — managing timelines, cross-team coordination,
+  launch checklists, and post-launch analysis.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - launch planning
-    - launch coordination
-    - launch checklists
-    - cross-team launch sync
-    - post-launch analysis
+  - launch planning
+  - launch coordination
+  - launch checklists
+  - cross-team launch sync
+  - post-launch analysis
   does_not_own:
-    - product implementation
-    - marketing execution
-    - design
-    - code deployment
-
+  - product implementation
+  - marketing execution
+  - design
+  - code deployment
 routing:
   delegates_to:
-    - "agency-project-manager"
-    - "agency-release-manager"
+  - agency-project-manager
+  - agency-release-manager
   receives_from:
-    - agency-orchestrator
-    - agency-product-manager
-    - agency-marketing-strategist
-
+  - agency-orchestrator
+  - agency-product-manager
+  - agency-marketing-strategist
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "marketing"
-    - "launch"
-    - "coordination"
-    - "planning"
-
+- marketing
+- launch
+- coordination
+- planning

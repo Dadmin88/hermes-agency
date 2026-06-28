@@ -1,8 +1,8 @@
-name: "agency-technical-writer"
-display_name: "Technical Writer"
-category: "content"
-summary: "Writes technical documentation — API docs, SDK guides, architecture docs, and developer-facing content that enables users and developers."
-
+name: agency-technical-writer
+display_name: Technical Writer
+category: content
+summary: Writes technical documentation — API docs, SDK guides, architecture docs,
+  and developer-facing content that enables users and developers.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - API documentation
-    - SDK guides
-    - architecture documentation
-    - developer guides
-    - technical accuracy
+  - API documentation
+  - SDK guides
+  - architecture documentation
+  - developer guides
+  - technical accuracy
   does_not_own:
-    - marketing content
-    - code implementation
-    - product decisions
-    - design
-
+  - marketing content
+  - code implementation
+  - product decisions
+  - design
 routing:
   delegates_to:
-    - "agency-editor-in-chief"
+  - agency-editor-in-chief
   receives_from:
-    - agency-orchestrator
-    - agency-editor-in-chief
-    - agency-technical-lead
-
+  - agency-orchestrator
+  - agency-editor-in-chief
+  - agency-technical-lead
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "content"
-    - "technical-writing"
-    - "documentation"
-    - "api"
-
+- content
+- technical-writing
+- documentation
+- api

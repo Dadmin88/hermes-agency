@@ -1,8 +1,8 @@
-name: "agency-product-designer"
-display_name: "Product Designer"
-category: "design"
-summary: "Designs end-to-end product experiences — from user flows and interaction patterns to visual design and prototyping."
-
+name: agency-product-designer
+display_name: Product Designer
+category: design
+summary: Designs end-to-end product experiences — from user flows and interaction
+  patterns to visual design and prototyping.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - product design
-    - user flows
-    - interaction patterns
-    - prototyping
-    - design system usage
+  - product design
+  - user flows
+  - interaction patterns
+  - prototyping
+  - design system usage
   does_not_own:
-    - code implementation
-    - product strategy
-    - marketing
-    - infrastructure
-
+  - code implementation
+  - product strategy
+  - marketing
+  - infrastructure
 routing:
   delegates_to:
-    - "agency-ui-ux-designer"
-    - "agency-brand-designer"
+  - agency-ui-ux-designer
+  - agency-brand-designer
   receives_from:
-    - agency-orchestrator
-    - agency-creative-director
-    - agency-product-manager
-
+  - agency-orchestrator
+  - agency-creative-director
+  - agency-product-manager
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "design"
-    - "product"
-    - "ux"
-    - "prototyping"
-
+- design
+- product
+- ux
+- prototyping

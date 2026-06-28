@@ -1,8 +1,8 @@
-name: "agency-creative-director"
-display_name: "Creative Director"
-category: "design"
-summary: "Sets creative vision and direction for all visual and experiential work. Ensures creative consistency across all outputs."
-
+name: agency-creative-director
+display_name: Creative Director
+category: design
+summary: Sets creative vision and direction for all visual and experiential work.
+  Ensures creative consistency across all outputs.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,33 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - creative vision
-    - creative direction
-    - visual language
-    - creative standards
-    - cross-project creative consistency
+  - creative vision
+  - creative direction
+  - visual language
+  - creative standards
+  - cross-project creative consistency
   does_not_own:
-    - individual design execution
-    - code implementation
-    - business strategy
-    - marketing execution
-
+  - individual design execution
+  - code implementation
+  - business strategy
+  - marketing execution
 routing:
   delegates_to:
-    - "agency-art-director"
-    - "agency-product-designer"
-    - "agency-brand-designer"
+  - agency-art-director
+  - agency-product-designer
+  - agency-brand-designer
   receives_from:
-    - agency-orchestrator
-    - agency-chief-of-staff
-    - user
-
+  - agency-orchestrator
+  - agency-chief-of-staff
+  - user
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "design"
-    - "creative"
-    - "leadership"
-    - "vision"
-
+- design
+- creative
+- leadership
+- vision

@@ -1,8 +1,8 @@
-name: "agency-qa-lead"
-display_name: "QA Lead"
-category: "qa"
-summary: "Leads quality assurance strategy, defines testing standards, coordinates testing efforts, and ensures comprehensive quality coverage."
-
+name: agency-qa-lead
+display_name: QA Lead
+category: qa
+summary: Leads quality assurance strategy, defines testing standards, coordinates
+  testing efforts, and ensures comprehensive quality coverage.
 agency:
   enabled: true
   auto_start: false
@@ -10,38 +10,35 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - QA strategy
-    - testing standards
-    - test planning
-    - quality gates
-    - QA coordination
-    - defect management
+  - QA strategy
+  - testing standards
+  - test planning
+  - quality gates
+  - QA coordination
+  - defect management
   does_not_own:
-    - feature implementation
-    - product decisions
-    - design
-    - infrastructure
-
+  - feature implementation
+  - product decisions
+  - design
+  - infrastructure
 routing:
   delegates_to:
-    - "agency-qa-tester"
-    - "agency-code-reviewer"
-    - "agency-design-reviewer"
+  - agency-qa-tester
+  - agency-code-reviewer
+  - agency-design-reviewer
   receives_from:
-    - agency-orchestrator
-    - agency-technical-lead
-    - agency-release-manager
-
+  - agency-orchestrator
+  - agency-technical-lead
+  - agency-release-manager
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "qa"
-    - "leadership"
-    - "strategy"
-    - "quality"
-
+- qa
+- leadership
+- strategy
+- quality

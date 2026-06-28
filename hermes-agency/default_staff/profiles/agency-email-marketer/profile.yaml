@@ -1,8 +1,8 @@
-name: "agency-email-marketer"
-display_name: "Email Marketer"
-category: "marketing"
-summary: "Plans and executes email marketing campaigns — newsletters, drip campaigns, transactional emails, and email performance optimization."
-
+name: agency-email-marketer
+display_name: Email Marketer
+category: marketing
+summary: Plans and executes email marketing campaigns — newsletters, drip campaigns,
+  transactional emails, and email performance optimization.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,33 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - email campaigns
-    - newsletter content
-    - drip sequences
-    - email segmentation
-    - email performance
-    - deliverability
+  - email campaigns
+  - newsletter content
+  - drip sequences
+  - email segmentation
+  - email performance
+  - deliverability
   does_not_own:
-    - code implementation
-    - product decisions
-    - design
-    - PR
-
+  - code implementation
+  - product decisions
+  - design
+  - PR
 routing:
   delegates_to:
-    - "agency-copywriter"
-    - "agency-analytics-specialist"
+  - agency-copywriter
+  - agency-analytics-specialist
   receives_from:
-    - agency-orchestrator
-    - agency-marketing-strategist
-    - agency-launch-manager
-
+  - agency-orchestrator
+  - agency-marketing-strategist
+  - agency-launch-manager
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "marketing"
-    - "email"
-    - "campaigns"
-    - "automation"
-
+- marketing
+- email
+- campaigns
+- automation

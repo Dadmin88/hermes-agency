@@ -99,6 +99,33 @@ class TestProfileStructure:
         missing = [p.name for p in profile_dirs if not (p / "profile.yaml").is_file()]
         assert not missing, f"Profiles missing profile.yaml: {missing}"
 
+    def test_agency_profiles_ship_no_bundled_skills_marker(self, profile_dirs: list[Path]):
+        missing = [p.name for p in profile_dirs if not (p / ".no-bundled-skills").is_file()]
+        assert not missing, f"Profiles missing .no-bundled-skills marker: {missing}"
+
+    def test_registry_covers_packaged_agency_profiles(self, manifest: dict):
+        registry_path = _HERE.parent / "pool" / "registry_definition.json"
+        with open(registry_path, encoding="utf-8") as f:
+            registry = json.load(f)
+        expected_names = {
+            p["name"] for p in manifest["profiles"] if p["name"] != "agency-gpt-bridge"
+        }
+        registry_names = {p["name"] for p in registry["agents"]}
+        assert registry_names == expected_names
+
+    def test_registered_profiles_package_curated_skills(self, manifest: dict):
+        registry_path = _HERE.parent / "pool" / "registry_definition.json"
+        with open(registry_path, encoding="utf-8") as f:
+            registry = json.load(f)
+        profiles_with_skills = []
+        for agent in registry["agents"]:
+            skills_dir = _PROFILES_DIR / agent["name"] / "skills"
+            if list(skills_dir.glob("**/SKILL.md")):
+                profiles_with_skills.append(agent["name"])
+        # Most profiles should ship role-specific skills. A few agents may have
+        # routing-only capabilities while remaining safe package members.
+        assert len(profiles_with_skills) >= 75
+
     def test_soul_md_not_trivial(self, profile_dirs: list[Path]):
         """SOUL.md files should be substantial (>500 bytes)."""
         short = []

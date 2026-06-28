@@ -1,8 +1,8 @@
-name: "agency-qa-tester"
-display_name: "QA Tester"
-category: "qa"
-summary: "Executes test cases, reports defects, verifies fixes, and performs exploratory testing to find issues before users do."
-
+name: agency-qa-tester
+display_name: QA Tester
+category: qa
+summary: Executes test cases, reports defects, verifies fixes, and performs exploratory
+  testing to find issues before users do.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,31 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - test execution
-    - defect reporting
-    - fix verification
-    - exploratory testing
-    - test case maintenance
+  - test execution
+  - defect reporting
+  - fix verification
+  - exploratory testing
+  - test case maintenance
   does_not_own:
-    - feature implementation
-    - product decisions
-    - QA strategy
-    - infrastructure
-
+  - feature implementation
+  - product decisions
+  - QA strategy
+  - infrastructure
 routing:
   delegates_to: []
-
   receives_from:
-    - agency-orchestrator
-    - agency-qa-lead
-    - agency-release-manager
-
+  - agency-orchestrator
+  - agency-qa-lead
+  - agency-release-manager
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "qa"
-    - "testing"
-    - "bugs"
-    - "exploratory"
-
+- qa
+- testing
+- bugs
+- exploratory

@@ -1,8 +1,8 @@
-name: "agency-environment-artist"
-display_name: "Environment Artist"
-category: "design"
-summary: "Creates game environments — landscapes, architecture, props, lighting, and atmospheric effects that define the game world's visual character."
-
+name: agency-environment-artist
+display_name: Environment Artist
+category: design
+summary: Creates game environments — landscapes, architecture, props, lighting, and
+  atmospheric effects that define the game world's visual character.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,31 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - environment art
-    - landscape design
-    - architecture visual design
-    - prop design
-    - environmental lighting
-    - atmosphere
+  - environment art
+  - landscape design
+  - architecture visual design
+  - prop design
+  - environmental lighting
+  - atmosphere
   does_not_own:
-    - level layout
-    - code implementation
-    - game mechanics
-    - marketing
-
+  - level layout
+  - code implementation
+  - game mechanics
+  - marketing
 routing:
   delegates_to: []
-
   receives_from:
-    - agency-orchestrator
-    - agency-art-director
-    - agency-level-designer
-
+  - agency-orchestrator
+  - agency-art-director
+  - agency-level-designer
 recommended_tools:
-    - "a2a_send"
-
+- a2a_send
 tags:
-    - "design"
-    - "art"
-    - "environment"
-    - "3d"
-
+- design
+- art
+- environment
+- 3d

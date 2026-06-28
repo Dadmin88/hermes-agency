@@ -1,8 +1,8 @@
-name: "agency-technical-artist"
-display_name: "Technical Artist"
-category: "design"
-summary: "Bridges art and engineering — creates shaders, visual effects, optimizes art assets for performance, and builds art pipelines."
-
+name: agency-technical-artist
+display_name: Technical Artist
+category: design
+summary: Bridges art and engineering — creates shaders, visual effects, optimizes
+  art assets for performance, and builds art pipelines.
 agency:
   enabled: true
   auto_start: false
@@ -10,36 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - shaders
-    - visual effects
-    - art asset optimization
-    - art pipelines
-    - material systems
+  - shaders
+  - visual effects
+  - art asset optimization
+  - art pipelines
+  - material systems
   does_not_own:
-    - art direction
-    - code architecture
-    - game design
-    - marketing
-
+  - art direction
+  - code architecture
+  - game design
+  - marketing
 routing:
   delegates_to: []
-
   receives_from:
-    - agency-orchestrator
-    - agency-art-director
-    - agency-godot-engineer
-
+  - agency-orchestrator
+  - agency-art-director
+  - agency-godot-engineer
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-    - "mcp_godot_get_godot_status"
-
+- a2a_send
+- terminal
+- mcp_godot_get_godot_status
 tags:
-    - "design"
-    - "technical-art"
-    - "shaders"
-    - "optimization"
-
+- design
+- technical-art
+- shaders
+- optimization

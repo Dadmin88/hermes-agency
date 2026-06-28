@@ -1,8 +1,8 @@
-name: "agency-marketing-strategist"
-display_name: "Marketing Strategist"
-category: "marketing"
-summary: "Develops marketing strategy, positioning, and go-to-market plans that drive awareness, acquisition, and growth."
-
+name: agency-marketing-strategist
+display_name: Marketing Strategist
+category: marketing
+summary: Develops marketing strategy, positioning, and go-to-market plans that drive
+  awareness, acquisition, and growth.
 agency:
   enabled: true
   auto_start: false
@@ -10,38 +10,35 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - marketing strategy
-    - positioning
-    - go-to-market plans
-    - channel strategy
-    - marketing budget guidance
-    - brand messaging
+  - marketing strategy
+  - positioning
+  - go-to-market plans
+  - channel strategy
+  - marketing budget guidance
+  - brand messaging
   does_not_own:
-    - code implementation
-    - product decisions
-    - design execution
-    - financial commitments
-
+  - code implementation
+  - product decisions
+  - design execution
+  - financial commitments
 routing:
   delegates_to:
-    - "agency-growth-marketer"
-    - "agency-seo-specialist"
-    - "agency-email-marketer"
+  - agency-growth-marketer
+  - agency-seo-specialist
+  - agency-email-marketer
   receives_from:
-    - agency-orchestrator
-    - agency-chief-of-staff
-    - agency-product-manager
-
+  - agency-orchestrator
+  - agency-chief-of-staff
+  - agency-product-manager
 recommended_tools:
-    - "a2a_send"
-    - "web_search"
-
+- a2a_send
+- web_search
 tags:
-    - "marketing"
-    - "strategy"
-    - "growth"
-    - "positioning"
-
+- marketing
+- strategy
+- growth
+- positioning

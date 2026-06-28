@@ -1,8 +1,8 @@
-name: "agency-automation-engineer"
-display_name: "Automation Engineer"
-category: "engineering"
-summary: "Builds automation workflows, scripts, and bots that reduce manual work and enable autonomous operations."
-
+name: agency-automation-engineer
+display_name: Automation Engineer
+category: engineering
+summary: Builds automation workflows, scripts, and bots that reduce manual work and
+  enable autonomous operations.
 agency:
   enabled: true
   auto_start: false
@@ -10,35 +10,32 @@ agency:
   skills_from_profile: true
   incoming:
     tool_access: full
-
+  relay_security:
+    auto_allow_team: true
 ownership:
   owns:
-    - automation workflows
-    - scripting
-    - bot development
-    - workflow orchestration
-    - autonomous processes
+  - automation workflows
+  - scripting
+  - bot development
+  - workflow orchestration
+  - autonomous processes
   does_not_own:
-    - product features
-    - infrastructure operations
-    - marketing
-    - design
-
+  - product features
+  - infrastructure operations
+  - marketing
+  - design
 routing:
   delegates_to:
-    - "agency-git-steward"
+  - agency-git-steward
   receives_from:
-    - agency-orchestrator
-    - agency-operations-manager
-    - agency-technical-lead
-
+  - agency-orchestrator
+  - agency-operations-manager
+  - agency-technical-lead
 recommended_tools:
-    - "a2a_send"
-    - "terminal"
-
+- a2a_send
+- terminal
 tags:
-    - "engineering"
-    - "automation"
-    - "scripting"
-    - "workflows"
-
+- engineering
+- automation
+- scripting
+- workflows
