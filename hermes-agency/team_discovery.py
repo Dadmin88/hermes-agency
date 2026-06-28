@@ -179,7 +179,13 @@ class TeamDiscoveryMixin:
         }
 
     def _roster_handshake_candidates(self) -> list[dict[str, Any]]:
-        """Return online roster peers whose peer IDs are available."""
+        """Return online roster peers whose peer IDs are available.
+
+        Only returns peers currently visible in the team state (connected
+        to the relay).  Offline peers cannot receive handshake messages,
+        so attempting them wastes relay circuit retries and can trigger
+        a network storm that overloads the gateway.
+        """
 
         try:
             from .pool.roster import load_roster
@@ -187,12 +193,26 @@ class TeamDiscoveryMixin:
             roster = load_roster()
         except Exception:
             return []
+
+        # Build set of currently-connected peer IDs from team state.
+        visible_ids: set[str] = set()
+        try:
+            for peer in (get_team_state().peers or {}).values():
+                pid = str(getattr(peer, "peer_id", "") or "").strip()
+                if pid:
+                    visible_ids.add(pid)
+        except Exception:
+            pass
+
         candidates: list[dict[str, Any]] = []
         for agent in roster.get("profiles") or []:
             if not isinstance(agent, dict):
                 continue
             peer_id = str(agent.get("peer_id") or "").strip()
             if not peer_id:
+                continue
+            # Skip offline peers — handshake delivery will fail and retry.
+            if peer_id not in visible_ids:
                 continue
             candidates.append(
                 {
@@ -332,13 +352,13 @@ class TeamDiscoveryMixin:
             return {"ok": False, "peer_id": peer_id, "error": error}
 
     async def _perform_auto_handshakes(self, cfg: AgencyConfig) -> list[dict[str, Any]]:
-        """Handshake with all discovered or online-roster peers that have peer IDs."""
+        """Handshake with discovered online peers that have peer IDs."""
 
         visible_peers = filter_team_peers(get_team_state().peers, cfg)
         peers: list[Any] = [*visible_peers.values(), *self._roster_handshake_candidates()]
         seen: set[str] = set()
         results: list[dict[str, Any]] = []
-        for peer in peers:
+        for i, peer in enumerate(peers):
             peer_id = self._handshake_peer_id(peer)
             if not peer_id or peer_id in seen:
                 continue
@@ -346,6 +366,9 @@ class TeamDiscoveryMixin:
             result = await self._attempt_peer_handshake(cfg, peer)
             if result is not None:
                 results.append(result)
+            # Rate-limit: pause every 5 attempts to avoid relay storms.
+            if i > 0 and i % 5 == 0:
+                await asyncio.sleep(1)
         if any(item.get("ok") for item in results):
             refreshed_cfg = get_config()
             self.state.config = refreshed_cfg
