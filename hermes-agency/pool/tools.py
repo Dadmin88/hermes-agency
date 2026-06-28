@@ -32,7 +32,7 @@ from .roster import (
 PROFILES = Path.home() / ".hermes" / "profiles"
 NODE_RUNNER = Path(__file__).with_name("agency_node_runner.py")
 PLUGIN_PATH = Path(__file__).resolve().parents[1]
-STARTUP_WAIT = 30
+STARTUP_WAIT = 90
 
 
 def _pid_alive(pid: int) -> bool:

@@ -696,6 +696,8 @@ def _update_task_impl(
                 target_status,
                 {"source": "agency", "requested_status": clean_status},
             )
+        elif clean_status == "archived":
+            _set_status(kb, conn, resolved, "archived", {"source": "agency"})
         elif clean_status:
             return {"available": True, "ok": False, "error": f"unsupported status: {status}"}
 

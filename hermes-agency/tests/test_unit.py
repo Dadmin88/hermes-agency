@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import types
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -126,6 +127,44 @@ def plugin_modules(tmp_path, monkeypatch):
         spec.loader.exec_module(module)
         loaded[module_name] = module
     return types.SimpleNamespace(**loaded, hermes_home=hermes_home, cli_config=hermes_cli_config)
+
+
+def test_kanban_update_task_accepts_archived_status(plugin_modules, monkeypatch):
+    kb_mod = plugin_modules.kanban_bridge
+    updates: list[tuple[str, str, dict[str, str]]] = []
+
+    class FakeKanban:
+        def recompute_ready(self, conn):
+            conn["recomputed"] = True
+
+        def get_task(self, conn, task_id):
+            return {"id": task_id, "status": "archived"}
+
+    @contextmanager
+    def fake_connection(board=None):
+        yield FakeKanban(), {}
+
+    monkeypatch.setattr(kb_mod, "_connection", fake_connection)
+    monkeypatch.setattr(kb_mod, "_resolve_task_id", lambda _kb, _conn, task_id: task_id)
+    monkeypatch.setattr(
+        kb_mod,
+        "_set_status",
+        lambda _kb, _conn, task_id, status, payload=None: updates.append(
+            (task_id, status, dict(payload or {}))
+        ),
+    )
+    monkeypatch.setattr(kb_mod, "_plugin_status", lambda _kb, _conn, task: task["status"])
+    monkeypatch.setattr(
+        kb_mod,
+        "_task_to_dict",
+        lambda _kb, _conn, task, include_thread=False: dict(task),
+    )
+
+    result = kb_mod._update_task_impl("task-123", "archived", None, None)
+
+    assert result["ok"] is True
+    assert result["status"] == "archived"
+    assert updates == [("task-123", "archived", {"source": "agency"})]
 
 
 def test_context_packet_preserves_context_id_and_history(plugin_modules):
