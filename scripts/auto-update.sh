@@ -10,14 +10,15 @@
 # Environment:
 #   REPO_DIR   — path to Hermes_Agency git clone (default: script's parent dir)
 #   LOG_DIR    — where to write logs (default: ~/.hermes/agency-update/)
-#   DRY_RUN    — set to "1" to check without pulling or restarting
-
+#   FORCE_RESTART — set to "1" to restart running gateway services even when already up to date
+#
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(dirname "$SCRIPT_DIR")}"
 LOG_DIR="${LOG_DIR:-${HOME}/.hermes/agency-update}"
 DRY_RUN="${DRY_RUN:-0}"
+FORCE_RESTART="${FORCE_RESTART:-0}"
 
 mkdir -p "$LOG_DIR"
 LOGFILE="$LOG_DIR/update.log"
@@ -49,39 +50,43 @@ LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
-    # Already up to date — exit silently (no log spam)
-    exit 0
-fi
+    NEW=$(git rev-parse --short HEAD)
+    if [ "$FORCE_RESTART" != "1" ]; then
+        # Already up to date — exit silently (no log spam)
+        exit 0
+    fi
+    log "Already up to date ($NEW); FORCE_RESTART=1 so restarting services"
+else
+    log "UPDATE: $LOCAL -> $REMOTE"
 
-log "UPDATE: $LOCAL -> $REMOTE"
+    if [ "$DRY_RUN" = "1" ]; then
+        log "DRY_RUN: would pull and restart, skipping"
+        exit 0
+    fi
 
-if [ "$DRY_RUN" = "1" ]; then
-    log "DRY_RUN: would pull and restart, skipping"
-    exit 0
-fi
+    # ── Pull (stash if needed) ──────────────────────────────────────────────────
 
-# ── Pull (stash if needed) ──────────────────────────────────────────────────
+    STASHED=false
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+        git stash push -m "auto-stash before update $(date +%s)" --quiet && STASHED=true
+        log "Stashed local changes"
+    fi
 
-STASHED=false
-if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-    git stash push -m "auto-stash before update $(date +%s)" --quiet && STASHED=true
-    log "Stashed local changes"
-fi
+    if ! git pull --ff-only origin main --quiet 2>/dev/null; then
+        log "ERROR: git pull failed (non-fast-forward), manual intervention needed"
+        [ "$STASHED" = true ] && git stash pop --quiet 2>/dev/null || true
+        exit 1
+    fi
 
-if ! git pull --ff-only origin main --quiet 2>/dev/null; then
-    log "ERROR: git pull failed (non-fast-forward), manual intervention needed"
-    [ "$STASHED" = true ] && git stash pop --quiet 2>/dev/null || true
-    exit 1
-fi
+    NEW=$(git rev-parse --short HEAD)
+    log "Pulled $NEW"
 
-NEW=$(git rev-parse --short HEAD)
-log "Pulled $NEW"
-
-if [ "$STASHED" = true ]; then
-    if git stash pop --quiet 2>/dev/null; then
-        log "Restored stashed changes"
-    else
-        log "WARNING: stash pop had conflicts — stash preserved, resolve manually"
+    if [ "$STASHED" = true ]; then
+        if git stash pop --quiet 2>/dev/null; then
+            log "Restored stashed changes"
+        else
+            log "WARNING: stash pop had conflicts — stash preserved, resolve manually"
+        fi
     fi
 fi
 

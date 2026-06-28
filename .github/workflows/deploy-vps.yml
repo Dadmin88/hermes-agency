@@ -15,19 +15,39 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            set -e
-            cd ~/Hermes_Agency
-            # Pull latest so the auto-update script is current
+            set -euo pipefail
+
+            REPO_DIR="${DEPLOY_REPO_DIR:-}"
+            if [ -z "$REPO_DIR" ]; then
+              for candidate in "$HOME/repos/Hermes_Agency" "$HOME/Hermes_Agency"; do
+                if [ -d "$candidate/.git" ]; then
+                  REPO_DIR="$candidate"
+                  break
+                fi
+              done
+            fi
+            if [ -z "$REPO_DIR" ] || [ ! -d "$REPO_DIR/.git" ]; then
+              echo "ERROR: Hermes_Agency checkout not found" >&2
+              exit 1
+            fi
+            cd "$REPO_DIR"
+
             git fetch origin main
             LOCAL=$(git rev-parse HEAD)
             REMOTE=$(git rev-parse origin/main)
             if [ "$LOCAL" = "$REMOTE" ]; then
               echo "Already up to date ($LOCAL)"
             else
+              if [ -n "$(git status --porcelain)" ]; then
+                git stash push --include-untracked -m "deploy auto-stash before update $(date +%s)"
+                echo "Stashed local checkout changes before deploy"
+              fi
               git pull --ff-only origin main
               echo "Pulled $(git rev-parse --short HEAD)"
             fi
-            # Now run the shared auto-update script for gateway restarts
-            bash scripts/auto-update.sh
+
+            # Use the freshly pulled script and force a restart because this workflow
+            # performs the bootstrap pull before invoking the shared updater.
+            FORCE_RESTART=1 bash scripts/auto-update.sh
             echo "--- Status ---"
             PATH="$HOME/.local/bin:$PATH" hermes agency status 2>&1 | head -10
