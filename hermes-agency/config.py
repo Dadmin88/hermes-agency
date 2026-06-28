@@ -67,7 +67,11 @@ Config schema and defaults::
       orchestrator:
         enabled: false
         agent: null
+        auto_start: false          # true = active orchestrator may start its node on gateway/session startup
         auto_decompose: true
+      pool:
+        max_online_agents: 3       # cap pool-managed specialist runners; 0 = queue all wakes
+        max_total_rss_mb: 2048     # cap total pool runner/daemon RSS before new wakes are queued
       moa:
         enabled: true             # Agency policy only; native presets remain under top-level moa:
         default_preset: null       # null = use native moa.default_preset
@@ -204,13 +208,29 @@ class OrchestratorConfig:
 
     enabled: bool = False
     agent: str | None = None
+    auto_start: bool = False
     auto_decompose: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "agent": self.agent,
+            "auto_start": self.auto_start,
             "auto_decompose": self.auto_decompose,
+        }
+
+
+@dataclass(frozen=True)
+class PoolConfig:
+    """Resolved pool/wake-on-demand safety configuration."""
+
+    max_online_agents: int = 3
+    max_total_rss_mb: int = 2048
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "max_online_agents": self.max_online_agents,
+            "max_total_rss_mb": self.max_total_rss_mb,
         }
 
 
@@ -345,6 +365,7 @@ class AgencyConfig:
         default_factory=lambda: WorkspaceConfig(_default_workspace_root())
     )
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
+    pool: PoolConfig = field(default_factory=PoolConfig)
     moa: AgencyMoAConfig = field(default_factory=AgencyMoAConfig)
     routing: dict[str, str] = field(default_factory=dict)
     proactive: dict[str, Any] = field(default_factory=dict)
@@ -391,6 +412,7 @@ class AgencyConfig:
             "kanban": self.kanban.as_dict(),
             "workspace": self.workspace.as_dict(),
             "orchestrator": self.orchestrator.as_dict(),
+            "pool": self.pool.as_dict(),
             "moa": self.moa.as_dict(),
             "routing": dict(self.routing),
             "proactive": dict(self.proactive),
@@ -771,12 +793,40 @@ def _orchestrator_config(config: dict[str, Any]) -> OrchestratorConfig:
             default=False,
         ),
         agent=agent or None,
+        auto_start=_bool_cfg(
+            config,
+            "agency",
+            "orchestrator",
+            "auto_start",
+            default=False,
+        ),
         auto_decompose=_bool_cfg(
             config,
             "agency",
             "orchestrator",
             "auto_decompose",
             default=True,
+        ),
+    )
+
+
+def _pool_config(config: dict[str, Any]) -> PoolConfig:
+    return PoolConfig(
+        max_online_agents=_int_cfg(
+            config,
+            "agency",
+            "pool",
+            "max_online_agents",
+            default=3,
+            floor=0,
+        ),
+        max_total_rss_mb=_int_cfg(
+            config,
+            "agency",
+            "pool",
+            "max_total_rss_mb",
+            default=2048,
+            floor=0,
         ),
     )
 
@@ -1421,6 +1471,7 @@ def get_config() -> AgencyConfig:
         kanban=_kanban_config(config),
         workspace=_workspace_config(config),
         orchestrator=_orchestrator_config(config),
+        pool=_pool_config(config),
         moa=_agency_moa_config(config),
         routing=_routing_config(config),
         proactive=_dict_config(config, "proactive"),

@@ -841,7 +841,10 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.workspace.shared == cfg.workspace.root / "shared"
     assert cfg.orchestrator.enabled is False
     assert cfg.orchestrator.agent is None
+    assert cfg.orchestrator.auto_start is False
     assert cfg.orchestrator.auto_decompose is True
+    assert cfg.pool.max_online_agents == 3
+    assert cfg.pool.max_total_rss_mb == 2048
     assert cfg.routing == {}
     assert cfg.proactive == {}
     assert cfg.autonomy == {}
@@ -1064,8 +1067,10 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
                 "orchestrator": {
                     "enabled": True,
                     "agent": "local-agent",
+                    "auto_start": True,
                     "auto_decompose": False,
                 },
+                "pool": {"max_online_agents": 2, "max_total_rss_mb": 1536},
                 "workspace": {"root": str(tmp_path / "workspace")},
                 "proactive": {
                     "enabled": True,
@@ -1124,7 +1129,10 @@ def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatc
     assert cfg.team.context_refresh_minutes == 9
     assert cfg.orchestrator.enabled is True
     assert cfg.orchestrator.agent == "local-agent"
+    assert cfg.orchestrator.auto_start is True
     assert cfg.orchestrator.auto_decompose is False
+    assert cfg.pool.max_online_agents == 2
+    assert cfg.pool.max_total_rss_mb == 1536
     assert cfg.workspace.root == tmp_path / "workspace"
     assert cfg.proactive == {"enabled": True, "triggers": [{"type": "file-watch"}]}
     assert cfg.routing == {"deploy": "hermes", "code": "local-agent"}
@@ -2632,7 +2640,9 @@ def test_register_auto_start_true_starts_even_when_auto_discover_false(plugin_mo
     assert start_calls == ["start"]
 
 
-def test_register_active_orchestrator_starts_without_auto_start(plugin_modules, monkeypatch):
+def test_register_active_orchestrator_does_not_start_without_explicit_auto_start(
+    plugin_modules, monkeypatch
+):
     init_mod = _load_plugin_package_module(monkeypatch)
     cfg_mod = plugin_modules.config
     start_calls = []
@@ -2644,6 +2654,37 @@ def test_register_active_orchestrator_starts_without_auto_start(plugin_modules, 
             enabled=True,
             auto_start=False,
             orchestrator=cfg_mod.OrchestratorConfig(enabled=True),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: start_calls.append("start"))
+    monkeypatch.setattr(
+        init_mod,
+        "_stop_stale_pool_runner_for_in_process_node",
+        lambda cfg: cleanup_calls.append(cfg),
+    )
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    assert cleanup_calls == []
+    assert start_calls == []
+
+
+def test_register_active_orchestrator_starts_with_explicit_orchestrator_auto_start(
+    plugin_modules, monkeypatch
+):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    start_calls = []
+    cleanup_calls = []
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            orchestrator=cfg_mod.OrchestratorConfig(enabled=True, auto_start=True),
         ),
     )
     monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
@@ -2729,6 +2770,50 @@ def test_pool_sleep_stops_stale_runner_not_in_pidfile(plugin_modules, monkeypatc
     assert not (agency_dir / "runner.pid").exists()
 
 
+def test_pool_wake_block_reason_can_disable_all_wakes(plugin_modules, monkeypatch):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (0, 512))
+    monkeypatch.setattr(
+        pool_tools,
+        "_pool_resource_snapshot",
+        lambda: {"runner_count": 0, "total_rss_mb": 0.0},
+    )
+
+    reason = pool_tools._pool_wake_block_reason("agency-copywriter")
+
+    assert reason == "pool wake blocked for agency-copywriter: pool wakes are disabled by config"
+
+
+def test_pool_wake_block_reason_enforces_runner_limit(plugin_modules, monkeypatch):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (2, 0))
+    monkeypatch.setattr(
+        pool_tools,
+        "_pool_resource_snapshot",
+        lambda: {"runner_count": 2, "total_rss_mb": 128.0},
+    )
+
+    reason = pool_tools._pool_wake_block_reason("agency-copywriter")
+
+    assert reason is not None
+    assert "limit=2" in reason
+
+
+def test_pool_wake_block_reason_enforces_rss_limit(plugin_modules, monkeypatch):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (99, 512))
+    monkeypatch.setattr(
+        pool_tools,
+        "_pool_resource_snapshot",
+        lambda: {"runner_count": 1, "total_rss_mb": 700.0},
+    )
+
+    reason = pool_tools._pool_wake_block_reason("agency-copywriter")
+
+    assert reason is not None
+    assert "pool RSS 700.0 MiB" in reason
+
+
 def test_register_auto_start_and_auto_discover_starts_once(plugin_modules, monkeypatch):
     init_mod = _load_plugin_package_module(monkeypatch)
     cfg_mod = plugin_modules.config
@@ -2774,7 +2859,7 @@ def test_auto_start_if_configured_ignores_auto_discover_when_auto_start_false(
     assert start_calls == []
 
 
-def test_auto_start_if_configured_starts_active_orchestrator_without_auto_start(
+def test_auto_start_if_configured_does_not_start_active_orchestrator_without_explicit_auto_start(
     plugin_modules, monkeypatch
 ):
     nm_mod = plugin_modules.node_manager
@@ -2788,6 +2873,29 @@ def test_auto_start_if_configured_starts_active_orchestrator_without_auto_start(
             enabled=True,
             auto_start=False,
             orchestrator=cfg_mod.OrchestratorConfig(enabled=True),
+        ),
+    )
+    monkeypatch.setattr(manager, "start_background", lambda: start_calls.append("start"))
+
+    manager.auto_start_if_configured()
+
+    assert start_calls == []
+
+
+def test_auto_start_if_configured_starts_active_orchestrator_with_explicit_auto_start(
+    plugin_modules, monkeypatch
+):
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm_mod.NodeManager()
+    start_calls = []
+    monkeypatch.setattr(
+        nm_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            orchestrator=cfg_mod.OrchestratorConfig(enabled=True, auto_start=True),
         ),
     )
     monkeypatch.setattr(manager, "start_background", lambda: start_calls.append("start"))

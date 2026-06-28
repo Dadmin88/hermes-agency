@@ -9,6 +9,7 @@ Tools:
 
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import signal
@@ -202,6 +203,103 @@ def _stop_profile_daemon_processes(name: str) -> None:
     )
 
 
+def _proc_rss_kb(pid: int, proc_root: Path = Path("/proc")) -> int:
+    try:
+        for line in (
+            (proc_root / str(pid) / "status")
+            .read_text(encoding="utf-8", errors="ignore")
+            .splitlines()
+        ):
+            if line.startswith("VmRSS:"):
+                parts = line.split()
+                return int(parts[1]) if len(parts) > 1 else 0
+    except (OSError, ValueError):
+        return 0
+    return 0
+
+
+def _agency_pool_process_pids(proc_root: Path = Path("/proc")) -> list[int]:
+    pids: list[int] = []
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return pids
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        if pid == os.getpid():
+            continue
+        argv = _proc_cmdline(pid, proc_root=proc_root)
+        joined = "\0".join(argv)
+        if "agency_node_runner.py" in joined or (
+            "agentanycastd" in joined and "/profiles/agency-" in joined
+        ):
+            pids.append(pid)
+    return sorted(set(pids))
+
+
+def _pool_resource_snapshot() -> dict[str, Any]:
+    pids = _agency_pool_process_pids()
+    runner_pids = [
+        pid for pid in pids if any("agency_node_runner.py" in arg for arg in _proc_cmdline(pid))
+    ]
+    total_rss_kb = sum(_proc_rss_kb(pid) for pid in pids)
+    return {
+        "pids": pids,
+        "runner_pids": runner_pids,
+        "runner_count": len(runner_pids),
+        "total_rss_kb": total_rss_kb,
+        "total_rss_mb": round(total_rss_kb / 1024, 1),
+    }
+
+
+def _pool_limits() -> tuple[int, int]:
+    try:
+        from ..config import get_config
+
+        cfg = get_config()
+        return cfg.pool.max_online_agents, cfg.pool.max_total_rss_mb
+    except Exception:
+        return 3, 2048
+
+
+def _pool_wake_block_reason(name: str) -> str | None:
+    max_online, max_rss_mb = _pool_limits()
+    snapshot = _pool_resource_snapshot()
+    if max_online == 0:
+        return f"pool wake blocked for {name}: pool wakes are disabled by config"
+    if max_online and snapshot["runner_count"] >= max_online:
+        return (
+            f"pool wake blocked for {name}: {snapshot['runner_count']} pool runner(s) "
+            f"already online; limit={max_online}"
+        )
+    if max_rss_mb and snapshot["total_rss_mb"] >= max_rss_mb:
+        return (
+            f"pool wake blocked for {name}: pool RSS {snapshot['total_rss_mb']} MiB "
+            f">= limit={max_rss_mb} MiB"
+        )
+    return None
+
+
+def _wake_lock_path() -> Path:
+    root = Path.home() / ".hermes" / ".agency"
+    root.mkdir(parents=True, exist_ok=True)
+    return root / "wake.lock"
+
+
+class _WakeLock:
+    def __enter__(self):
+        self._fh = _wake_lock_path().open("w")
+        fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
+        self._fh.close()
+        return False
+
+
 def _extract_own_peer_id(text: str) -> str | None:
     match = re.search(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z]+)', text, re.M)
     return match.group(1) if match else None
@@ -260,38 +358,44 @@ def pool_wake(name: str) -> str:
 
     agency_dir = profile_dir / ".agency"
     agency_dir.mkdir(parents=True, exist_ok=True)
-    runner_pid = _read_runner_pid(profile_dir)
-    sock = agency_dir / "daemon.sock"
-    if runner_pid and _pid_alive(runner_pid) and sock.exists():
-        save_roster(build_roster())
-        agent = find_agent(name)
-        peer_id = agent.get("peer_id") if agent else None
-        update_agent_status(name, online=True, peer_id=peer_id)
-        return f"{name} is already online"
+    with _WakeLock():
+        runner_pid = _read_runner_pid(profile_dir)
+        sock = agency_dir / "daemon.sock"
+        if runner_pid and _pid_alive(runner_pid) and sock.exists():
+            save_roster(build_roster())
+            agent = find_agent(name)
+            peer_id = agent.get("peer_id") if agent else None
+            update_agent_status(name, online=True, peer_id=peer_id)
+            return f"{name} is already online"
 
-    # Migrate older direct-daemon wakes to the long-lived runner. A bare daemon
-    # can retain a card, but it has no Python task handler once the CLI exits.
-    stop_profile_runner_processes(name, profile_dir)
-    _stop_profile_daemon_processes(name)
-    sock.unlink(missing_ok=True)
-    for f in agency_dir.rglob("*.lock"):
-        f.unlink(missing_ok=True)
+        blocked = _pool_wake_block_reason(name)
+        if blocked:
+            record_wake_attempt(name, success=False, error=blocked)
+            return f"Error: {blocked}"
 
-    log = agency_dir / "logs" / "runner.log"
-    log.parent.mkdir(parents=True, exist_ok=True)
-    log.write_text("", encoding="utf-8")
+        # Migrate older direct-daemon wakes to the long-lived runner. A bare daemon
+        # can retain a card, but it has no Python task handler once the CLI exits.
+        stop_profile_runner_processes(name, profile_dir)
+        _stop_profile_daemon_processes(name)
+        sock.unlink(missing_ok=True)
+        for f in agency_dir.rglob("*.lock"):
+            f.unlink(missing_ok=True)
 
-    with open(log, "a", encoding="utf-8") as log_fh:
-        proc = subprocess.Popen(
-            [sys.executable, str(NODE_RUNNER)],
-            stdout=log_fh,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-            cwd=str(profile_dir),
-            env=_profile_env(name, profile_dir),
-            text=True,
-        )
-    _runner_pid_file(profile_dir).write_text(str(proc.pid), encoding="utf-8")
+        log = agency_dir / "logs" / "runner.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text("", encoding="utf-8")
+
+        with open(log, "a", encoding="utf-8") as log_fh:
+            proc = subprocess.Popen(
+                [sys.executable, str(NODE_RUNNER)],
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                cwd=str(profile_dir),
+                env=_profile_env(name, profile_dir),
+                text=True,
+            )
+        _runner_pid_file(profile_dir).write_text(str(proc.pid), encoding="utf-8")
 
     deadline = time.time() + STARTUP_WAIT
     peer_id = None

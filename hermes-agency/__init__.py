@@ -1,8 +1,9 @@
 """Hermes Agency Hermes plugin.
 
 Registers the ``agency`` toolset and lifecycle hooks for a per-profile
-Hermes Agency node. The node auto-starts when either ``agency.auto_start`` is
-true or this profile is the configured active orchestrator.
+Hermes Agency node. The node auto-starts only when ``agency.auto_start`` is true,
+or when this profile is the configured active orchestrator and
+``agency.orchestrator.auto_start`` is explicitly enabled.
 """
 
 from __future__ import annotations
@@ -28,7 +29,10 @@ if __package__:
         before starting the in-process node.
         """
 
-        if not (cfg.enabled and (cfg.auto_start or is_current_orchestrator(cfg))):
+        should_start = cfg.auto_start or (
+            is_current_orchestrator(cfg) and cfg.orchestrator.auto_start
+        )
+        if not (cfg.enabled and should_start):
             return
         try:
             from .pool.tools import stop_profile_runner_processes
@@ -117,17 +121,16 @@ if __package__:
         ctx.register_hook("on_session_reset", _shutdown_hook)
 
         # Discovery/load happens before hooks fire in many Hermes entry points. If
-        # the operator enabled auto_start or this profile is the configured
-        # orchestrator, kick it once at registration too so gateway/desktop launches
-        # can bring the node up without waiting for a specific session-start event.
+        # the operator enabled auto_start (or explicitly enabled orchestrator
+        # auto_start), kick it once at registration so gateway/desktop launches can
+        # bring the node up without waiting for a specific session-start event.
         # This remains non-blocking. Do not attempt startup when the optional SDK is
         # unavailable; plugin discovery must stay fail-open for profiles that have
         # the plugin present but dependencies absent.
-        if (
-            cfg.enabled
-            and check_agency_available()
-            and (cfg.auto_start or is_current_orchestrator(cfg))
-        ):
+        should_start = cfg.auto_start or (
+            is_current_orchestrator(cfg) and cfg.orchestrator.auto_start
+        )
+        if cfg.enabled and check_agency_available() and should_start:
             _stop_stale_pool_runner_for_in_process_node(cfg)
             manager.start_background()
 else:
