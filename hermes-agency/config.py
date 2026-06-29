@@ -553,29 +553,20 @@ def _load_profile_root_config() -> dict[str, Any]:
 
 
 def _merge_relay_config(profile_relay: Any, root_relay: Any) -> Any:
-    """Merge relay config so profile-specific values override root defaults."""
+    """Inherit only the root relay address into profile relay config."""
 
-    if _value_missing(_relay_address_from(root_relay)):
+    root_address = _relay_address_from(root_relay)
+    if _value_missing(root_address):
         return profile_relay
-
-    if isinstance(root_relay, dict):
-        merged = dict(root_relay)
-        if isinstance(profile_relay, dict):
-            for key, value in profile_relay.items():
-                if _value_missing(value) and key in merged:
-                    continue
-                merged[key] = value
-            return merged
-        if not _value_missing(profile_relay):
-            merged["address"] = profile_relay
-        return merged
 
     if isinstance(profile_relay, dict):
         merged = dict(profile_relay)
         if _value_missing(_relay_address_from(profile_relay)):
-            merged["address"] = root_relay
+            merged["address"] = root_address
         return merged
-    return root_relay if _value_missing(profile_relay) else profile_relay
+    if _value_missing(profile_relay):
+        return {"address": root_address} if isinstance(root_relay, dict) else root_address
+    return profile_relay
 
 
 def _merge_profile_root_agency_config(

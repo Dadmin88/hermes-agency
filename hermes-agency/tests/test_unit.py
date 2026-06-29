@@ -961,8 +961,32 @@ def test_profile_relay_map_overrides_root_relay_map_without_losing_address(plugi
         "address": "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay",
         "allowlist": ["local-peer"],
         "auto_allow_team": False,
-        "token": "root-token",
     }
+
+
+def test_profile_relay_inheritance_does_not_copy_root_security_policy(plugin_modules):
+    cfg_mod = plugin_modules.config
+    profile_config = {"agency": {"allow_remote_tasks": True}}
+    root_config = {
+        "agency": {
+            "relay": {
+                "address": "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay",
+                "allow_all": True,
+                "allowlist": ["root-peer"],
+                "auto_allow_team": True,
+                "token": "root-token",
+            }
+        }
+    }
+
+    merged = cfg_mod._merge_profile_root_agency_config(profile_config, root_config)
+    relay_security = cfg_mod._relay_security_config(merged)
+
+    assert merged["agency"]["relay"] == {"address": "/ip4/198.51.100.10/tcp/4001/p2p/12D3KooWRelay"}
+    assert relay_security.allowlist == ()
+    assert relay_security.auto_allow_team is False
+    assert relay_security.allow_all is False
+    assert relay_security.token is None
 
 
 def test_get_config_with_relay_and_list_trusted_peers(plugin_modules, monkeypatch, tmp_path):
