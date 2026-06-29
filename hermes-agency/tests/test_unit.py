@@ -39,6 +39,21 @@ def _load_runner_module(monkeypatch):
     return module
 
 
+def _load_pool_manager_module(monkeypatch):
+    module_name = "agency_pool_manager_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "manager.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.fixture()
 def plugin_modules(tmp_path, monkeypatch):
     """Load the plugin as a synthetic package and stub Hermes-only imports."""
@@ -2700,6 +2715,25 @@ def test_register_active_orchestrator_starts_with_explicit_orchestrator_auto_sta
 
     assert cleanup_calls
     assert start_calls == ["start"]
+
+
+def test_pool_manager_skips_orchestrator_child_runner_inside_gateway(monkeypatch):
+    pool_manager = _load_pool_manager_module(monkeypatch)
+    monkeypatch.setenv("_HERMES_GATEWAY", "1")
+    monkeypatch.setattr(pool_manager.PoolManager, "_load_config", lambda self: {"pool": {}})
+    monkeypatch.setattr(pool_manager.PoolManager, "_load_registry", lambda self: {"agents": []})
+    monkeypatch.setattr(pool_manager.PoolManager, "_start_idle_monitor", lambda self: None)
+    wake_calls = []
+    monkeypatch.setattr(
+        pool_manager.PoolManager,
+        "wake",
+        lambda self, name, persistent=False: wake_calls.append((name, persistent)),
+    )
+
+    manager = pool_manager.PoolManager()
+
+    assert manager.active == {}
+    assert wake_calls == []
 
 
 def test_pool_runner_pid_scan_matches_profile_env(plugin_modules, tmp_path):

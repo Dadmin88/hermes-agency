@@ -76,6 +76,18 @@ def _libp2p_peer_id_from_public_key(public_key: bytes) -> str:
     return _base58_encode(identity_multihash)
 
 
+def _running_inside_gateway() -> bool:
+    """Return true when the pool manager is loaded inside `hermes gateway run`.
+
+    The gateway process already owns the active profile's in-process NodeManager.
+    Starting a second long-lived runner for the orchestrator from inside that same
+    gateway contends for the same AgentAnycast BoltDB store and causes repeated
+    `open bolt db: timeout` failures.
+    """
+
+    return os.environ.get("_HERMES_GATEWAY") == "1"
+
+
 class PoolManager:
     def __init__(self):
         self.config = self._load_config()
@@ -84,7 +96,13 @@ class PoolManager:
         self.persistent_agents = {"agency-orchestrator"}
         self.lock = threading.RLock()
         self._start_idle_monitor()
-        # Spin up agency-orchestrator as persistent A2A node (always on)
+        # Spin up agency-orchestrator as persistent A2A node only for standalone
+        # pool-manager use. Inside `hermes gateway run`, the plugin's in-process
+        # NodeManager already starts the orchestrator node; a child runner would
+        # duplicate the same profile home and lock the same BoltDB store.
+        if _running_inside_gateway():
+            print("[PoolManager] gateway mode detected; using in-process orchestrator node")
+            return
         try:
             self.wake("agency-orchestrator", persistent=True)
             print("[PoolManager] agency-orchestrator started persistently")
