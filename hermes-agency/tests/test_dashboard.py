@@ -10,6 +10,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import importlib.util
 import sys
@@ -320,6 +321,20 @@ class TestDashboardStatic:
         static = plugin_modules.dashboard_static
         resp = static._missing_build_response()
         assert resp.status_code == 503
+
+    def test_serve_assets_rejects_path_traversal(self, plugin_modules, tmp_path, monkeypatch):
+        static = plugin_modules.dashboard_static
+        dist = tmp_path / "dist"
+        assets = dist / "assets"
+        assets.mkdir(parents=True)
+        secret = tmp_path / "secret.txt"
+        secret.write_text("not an asset", encoding="utf-8")
+        monkeypatch.setattr(static, "resolve_dashboard_dist", lambda: dist)
+
+        with pytest.raises(static.HTTPException) as exc_info:
+            asyncio.run(static.serve_assets("../../secret.txt"))
+
+        assert exc_info.value.status_code == 404
 
 
 # =========================================================================

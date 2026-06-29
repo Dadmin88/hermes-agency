@@ -88,7 +88,12 @@ async def serve_index() -> Response:
 @static_router.get("/assets/{file_path:path}")
 async def serve_assets(file_path: str) -> Response:
     """Serve Vite-hashed assets from dist/assets/."""
-    asset = _assets_dir() / file_path
+    assets_dir = _assets_dir().resolve()
+    asset = (assets_dir / file_path).resolve()
+    try:
+        asset.relative_to(assets_dir)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Asset not found: {file_path}") from None
     if not asset.exists() or not asset.is_file():
         raise HTTPException(status_code=404, detail=f"Asset not found: {file_path}")
     # Determine content type from suffix.
