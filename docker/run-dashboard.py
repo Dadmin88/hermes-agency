@@ -48,14 +48,14 @@ def _bool_env(name: str, default: bool = False) -> bool:
 
 def main() -> None:
     dashboard = _load_plugin_module("dashboard_server")
-    host = os.environ.get("HERMES_DASHBOARD_HOST", "0.0.0.0")
+    host = os.environ.get("HERMES_DASHBOARD_HOST", "127.0.0.1")
     port = int(os.environ.get("HERMES_DASHBOARD_PORT", "8765"))
     token = os.environ.get("HERMES_DASHBOARD_TOKEN") or None
     dashboard.start_server(
         host=host,
         port=port,
         open_browser=False,
-        allow_lan=_bool_env("HERMES_DASHBOARD_ALLOW_LAN", default=True),
+        allow_lan=_bool_env("HERMES_DASHBOARD_ALLOW_LAN", default=False),
         session_token=token,
     )
 
