@@ -747,6 +747,20 @@ export function pluginRoutes(
     return companyId === undefined ? base : { ...base, companyId };
   }
 
+  function assertAgentToolRunContextIdentity(req: Request, runContext: ToolRunContext): void {
+    if (req.actor.type !== "agent") {
+      return;
+    }
+
+    if (req.actor.agentId !== runContext.agentId) {
+      throw forbidden('"runContext.agentId" must match the authenticated agent');
+    }
+
+    if (!req.actor.runId || req.actor.runId !== runContext.runId) {
+      throw forbidden('"runContext.runId" must match the authenticated agent run');
+    }
+  }
+
   async function validateToolRunContextScope(runContext: ToolRunContext): Promise<string | null> {
     const [agent] = await db
       .select({ companyId: agents.companyId })
@@ -975,6 +989,7 @@ export function pluginRoutes(
     }
 
     assertCompanyAccess(req, runContext.companyId);
+    assertAgentToolRunContextIdentity(req, runContext);
     const scopeError = await validateToolRunContextScope(runContext);
     if (scopeError) {
       res.status(403).json({ error: scopeError });
