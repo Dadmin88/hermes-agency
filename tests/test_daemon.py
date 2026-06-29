@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from agentanycast.daemon import (
+    _DAEMON_SHA256,
     _DEFAULT_DAEMON_VERSION,
     _PLATFORM_MAP,
     DaemonManager,
@@ -215,6 +216,18 @@ class TestStorePath:
 
 
 class TestDownloadChecksumVerification:
+    def test_expected_binary_checksum_returns_pinned_hash(self, tmp_path):
+        dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
+
+        with patch.dict(_DAEMON_SHA256, {("9.9.9", "linux", "amd64"): "a" * 64}):
+            assert dm._expected_binary_checksum("linux", "amd64") == "a" * 64
+
+    def test_expected_binary_checksum_fails_closed_without_pinned_hash(self, tmp_path):
+        dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
+
+        with pytest.raises(DaemonNotFoundError, match="No pinned SHA-256 checksum"):
+            dm._expected_binary_checksum("linux", "amd64")
+
     def test_verify_binary_checksum_accepts_matching_sha256(self, tmp_path):
         binary = tmp_path / "agentanycastd"
         payload = b"trusted daemon binary"

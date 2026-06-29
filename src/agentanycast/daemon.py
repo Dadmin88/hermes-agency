@@ -8,7 +8,6 @@ import hashlib
 import logging
 import os
 import platform
-import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -41,6 +40,11 @@ _DEFAULT_BASE = Path.home() / ".agentanycast"
 # Daemon binary version — independent of the SDK package version.
 # Update this when a new agentanycast-node release is published.
 _DEFAULT_DAEMON_VERSION = "0.7.2"
+
+# Pinned SHA-256 digests for daemon release assets.
+# Keys are (daemon_version, os_name, arch). Values must be updated in the SDK
+# before enabling automatic download of a new daemon release.
+_DAEMON_SHA256: dict[tuple[str, str, str], str] = {}
 
 
 def _detect_platform() -> tuple[str, str]:
@@ -147,41 +151,18 @@ class DaemonManager:
             "  4. Or build from source: https://github.com/agentanycast/agentanycast-node#building"
         )
 
-    @staticmethod
-    def _checksum_url(binary_url: str) -> str:
-        """Return the release-side SHA-256 checksum URL for a daemon binary."""
+    def _expected_binary_checksum(self, os_name: str, arch: str) -> str:
+        """Return the SDK-pinned SHA-256 digest for a daemon release asset."""
 
-        return f"{binary_url}.sha256"
-
-    @staticmethod
-    def _parse_checksum_text(text: str) -> str:
-        """Extract a SHA-256 hex digest from a checksum file body."""
-
-        match = re.search(r"\b[a-fA-F0-9]{64}\b", text)
-        if not match:
-            raise DaemonNotFoundError("Daemon checksum file did not contain a SHA-256 hash")
-        return match.group(0).lower()
-
-    async def _fetch_expected_checksum(self, client: httpx.AsyncClient, checksum_url: str) -> str:
-        """Fetch and parse the expected SHA-256 checksum for a daemon release asset."""
-
-        logger.info("Downloading daemon checksum from %s", checksum_url)
-        try:
-            resp = await client.get(checksum_url)
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                raise DaemonNotFoundError(
-                    f"Daemon checksum file not found at {checksum_url} (HTTP 404). "
-                    "Release assets must include a .sha256 file. To temporarily use "
-                    "legacy releases during rollout, construct DaemonManager with "
-                    "verify_checksum=False."
-                ) from e
-            raise DaemonNotFoundError(
-                f"Failed to download daemon checksum from {checksum_url}: "
-                f"HTTP {e.response.status_code}"
-            ) from e
-        return self._parse_checksum_text(resp.text)
+        checksum = _DAEMON_SHA256.get((self._daemon_version, os_name, arch))
+        if checksum:
+            return checksum
+        raise DaemonNotFoundError(
+            "No pinned SHA-256 checksum is available for daemon "
+            f"v{self._daemon_version} on {os_name}/{arch}; refusing to download an "
+            "unverified executable. Install agentanycastd manually or use a newer SDK "
+            "with a pinned checksum for this platform."
+        )
 
     def _verify_binary_checksum(self, path: Path, expected_sha256: str) -> None:
         """Verify a downloaded daemon binary against its expected SHA-256 digest."""
@@ -206,7 +187,9 @@ class DaemonManager:
         os_name, arch = _detect_platform()
         suffix = ".exe" if os_name == "windows" else ""
         url = _RELEASE_URL.format(version=self._daemon_version, os=os_name, arch=arch)
-        checksum_url = self._checksum_url(url)
+        expected_sha256 = (
+            self._expected_binary_checksum(os_name, arch) if self._verify_checksum else None
+        )
 
         dest = self._bin_dir / f"agentanycastd{suffix}"
         self._bin_dir.mkdir(parents=True, exist_ok=True)
@@ -232,8 +215,7 @@ class DaemonManager:
                                     last_pct = milestone
                                     if milestone < 100:
                                         self._emit(f"Downloading daemon... {milestone}%")
-                if self._verify_checksum:
-                    expected_sha256 = await self._fetch_expected_checksum(client, checksum_url)
+                if expected_sha256 is not None:
                     self._verify_binary_checksum(dest, expected_sha256)
                 else:
                     logger.warning(
