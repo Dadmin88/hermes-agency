@@ -9,6 +9,18 @@ ExecStart=/usr/bin/python3 %h/Hermes_Agency/hermes-agency/pool/service.py
 Restart=always
 Environment=PYTHONUNBUFFERED=1
 Environment=HERMES_HOME=%h/.hermes
+# Security: bind loopback only by default.  Override HERMES_POOL_BIND and
+# HERMES_POOL_TOKEN in the environment file below for LAN exposure.
+EnvironmentFile=-%h/.config/hermes-agency/pool.env
+
+# --- Unprivileged user -------------------------------------------------------
+# Override the User= directive below with your service account.
+# Create the account first:
+#   sudo useradd -r -s /usr/sbin/nologin hermes-pool
+# Then set: User=hermes-pool
+# For local dev you may keep the default (your own user) by leaving this
+# commented out.
+#User=hermes-pool
 
 [Install]
 WantedBy=default.target

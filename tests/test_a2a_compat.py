@@ -1,6 +1,6 @@
 """Tests for A2A v1.0 compatibility layer (agentanycast.compat.a2a_v1)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from agentanycast.card import AgentCard, Skill  # noqa: F401
 from agentanycast.compat.a2a_v1 import (
@@ -121,7 +121,7 @@ class TestTaskConversion:
                     parts=[Part(data={"revenue": 1000})],
                 ),
             ],
-            updated_at=datetime(2026, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC),
         )
         json_data = task_to_a2a_json(task)
 

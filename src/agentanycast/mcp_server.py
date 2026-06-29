@@ -51,19 +51,26 @@ _node_lock = asyncio.Lock()
 # then environment variables are checked as fallback.
 _relay: str | None = None
 _home: str | None = None
+_allow_http_bridge: bool = False
 
 
-def configure(*, relay: str | None = None, home: str | None = None) -> None:
+def configure(
+    *,
+    relay: str | None = None,
+    home: str | None = None,
+    allow_http_bridge: bool = False,
+) -> None:
     """Set runtime options before the MCP server starts.
 
-    Called by the CLI layer to pass ``--relay`` / ``--home`` flags
-    through to the underlying :class:`Node`.
+    Called by the CLI layer to pass ``--relay`` / ``--home`` /
+    ``--allow-http-bridge`` flags through to the underlying
+    :class:`Node`.
 
     Must be called **before** the first MCP tool invocation creates the
     singleton Node.  Calling after the Node is already running logs a
     warning and has no effect.
     """
-    global _relay, _home  # noqa: PLW0603
+    global _relay, _home, _allow_http_bridge  # noqa: PLW0603
     if _node is not None and _node.is_running:
         logger.warning(
             "configure() called after Node already started — new settings will not take effect"
@@ -71,6 +78,7 @@ def configure(*, relay: str | None = None, home: str | None = None) -> None:
         return
     _relay = relay
     _home = home
+    _allow_http_bridge = allow_http_bridge
 
 
 def _resolve_config(explicit: str | None, env_key: str) -> str | None:
@@ -320,17 +328,29 @@ def _sync_shutdown() -> None:
             pass
 
 
-def run_server(transport: str = "stdio", port: int = 8080) -> None:
+def run_server(transport: str = "stdio", port: int = 8080, host: str = "127.0.0.1") -> None:
     """Start the MCP server with the given transport.
 
     Args:
         transport: ``"stdio"`` for local MCP clients (Claude Desktop,
             Cursor) or ``"http"`` for remote / web-based clients.
         port: Port number when *transport* is ``"http"``.
+        host: Bind address when *transport* is ``"http"``.
+            Defaults to ``"127.0.0.1"`` (localhost only).
+
+    Raises:
+        SystemExit: if ``transport="http"`` and the
+            ``--allow-http-bridge`` flag was not set.
     """
     atexit.register(_sync_shutdown)
     if transport == "http":
+        if not _allow_http_bridge:
+            raise SystemExit(
+                "HTTP bridge is disabled by default for security. "
+                "Pass --allow-http-bridge to explicitly enable it."
+            )
         mcp.settings.port = port
+        mcp.settings.host = host
     mcp.run(transport=transport)
 
 

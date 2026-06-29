@@ -91,7 +91,7 @@ exclude = [
 ]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 exclude = [
     "src/agentanycast/_generated",
@@ -110,7 +110,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "hermes-agency/tests/test_unit.py" = ["N802"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 warn_return_any = true
 mypy_path = "src"

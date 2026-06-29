@@ -8,6 +8,7 @@ import importlib
 import ipaddress
 import logging
 import os
+import socket
 from collections.abc import Callable, Coroutine, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -240,7 +241,7 @@ def _load_outbound_url_policy() -> _OutboundUrlPolicy:
     return _OutboundUrlPolicy(validation_mode=validation, allowlist=allowlist)
 
 
-def _host_is_private_or_internal(host: str) -> bool:
+def _host_is_private_or_internal(host: str, *, resolve: bool = False) -> bool:
     clean = host.strip().strip("[]").lower()
     if not clean:
         return True
@@ -253,7 +254,13 @@ def _host_is_private_or_internal(host: str) -> bool:
     try:
         ip = ipaddress.ip_address(clean)
     except ValueError:
-        return False
+        if not resolve:
+            return False
+        try:
+            addrinfos = socket.getaddrinfo(clean, None, type=socket.SOCK_STREAM)
+        except socket.gaierror:
+            return False
+        return any(_host_is_private_or_internal(str(addrinfo[4][0])) for addrinfo in addrinfos)
     return bool(
         ip.is_private
         or ip.is_loopback
@@ -287,7 +294,7 @@ def _validate_outbound_url(url: str, policy: _OutboundUrlPolicy | None = None) -
         _url_matches_pattern(clean_url, host, pattern) for pattern in effective_policy.allowlist
     ):
         raise ValueError("send_task url host is not allowed by outbound URL allowlist")
-    if _host_is_private_or_internal(host):
+    if _host_is_private_or_internal(host, resolve=effective_policy.validation_mode == "strict"):
         message = f"send_task url targets a private/internal host: {host}"
         if effective_policy.validation_mode == "strict":
             raise ValueError(message)
@@ -845,7 +852,7 @@ class Node:
                 async def _guarded(task: IncomingTask) -> None:
                     try:
                         await asyncio.wait_for(fn(task), timeout=timeout)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.error(
                             "Task handler timed out after %ss for task %s",
                             timeout,

@@ -45,22 +45,24 @@ except ImportError as _err:
 logger = logging.getLogger(__name__)
 
 _USER_ID = "agentanycast"
+_MAX_SESSIONS = 1000
 
 
 class ADKAdapter(BaseAdapter):
     """Wraps a Google ADK Agent as an A2A agent.
 
     Supports multi-turn conversations by reusing ADK sessions across tasks
-    that share the same ``context_id``. When a task has a non-empty
-    ``context_id``, the adapter looks up or creates a session for that
-    context, enabling the ADK agent to recall prior conversation turns.
+    from the same peer that share the same ``context_id``. When a task has a
+    non-empty ``context_id``, the adapter looks up or creates a session scoped
+    to both the originating peer and the context, enabling the ADK agent to
+    recall prior conversation turns without sharing state across peers.
     """
 
     def __init__(self, agent: Agent, *, app_name: str = "agentanycast", **kwargs: Any) -> None:
         self._agent = agent
         self._runner = InMemoryRunner(agent=agent, app_name=app_name)
-        # Map context_id -> session_id for multi-turn conversation state.
-        self._sessions: dict[str, str] = {}
+        # Map (peer_id, context_id) -> session_id for multi-turn conversation state.
+        self._sessions: dict[tuple[str, str], str] = {}
         super().__init__(**kwargs)
 
     async def _invoke(self, input_text: str, input_data: dict[str, Any] | None) -> str:
@@ -72,15 +74,18 @@ class ADKAdapter(BaseAdapter):
         input_text: str,
         input_data: dict[str, Any] | None,
         context_id: str = "",
+        peer_id: str = "",
     ) -> str:
-        """Run the ADK agent, reusing sessions for the same context_id.
+        """Run the ADK agent, reusing sessions for the same peer and context_id.
 
         Args:
             input_text: Text extracted from the incoming A2A message.
             input_data: Structured data (if any).
-            context_id: A2A context identifier. Tasks sharing the same
-                context_id will share an ADK session, enabling multi-turn
-                conversation state.
+            context_id: A2A context identifier. Tasks from the same peer sharing
+                the same context_id will share an ADK session, enabling
+                multi-turn conversation state.
+            peer_id: Originating peer identifier used to isolate ADK sessions
+                and user IDs between remote peers.
 
         Returns:
             The final response text from the ADK agent.
@@ -91,15 +96,30 @@ class ADKAdapter(BaseAdapter):
 
         content = Content(role="user", parts=[GenaiPart.from_text(text)])
 
-        # Reuse session for the same context, or create a new one.
-        if context_id and context_id in self._sessions:
-            session_id = self._sessions[context_id]
-            logger.debug("reusing ADK session %s for context %s", session_id, context_id)
+        user_id = peer_id or _USER_ID
+        session_key = (user_id, context_id)
+
+        # Reuse session for the same peer and context, or create a new one.
+        if context_id and session_key in self._sessions:
+            session_id = self._sessions[session_key]
+            logger.debug(
+                "reusing ADK session %s for peer %s context %s",
+                session_id,
+                user_id,
+                context_id,
+            )
         else:
             session_id = str(uuid4())
             if context_id:
-                self._sessions[context_id] = session_id
-                logger.debug("created ADK session %s for context %s", session_id, context_id)
+                self._sessions[session_key] = session_id
+                logger.debug(
+                    "created ADK session %s for peer %s context %s",
+                    session_id,
+                    user_id,
+                    context_id,
+                )
+                while len(self._sessions) > _MAX_SESSIONS:
+                    self._sessions.pop(next(iter(self._sessions)))
 
         # Collect text from the final response event(s).
         response_parts: list[str] = []
@@ -139,9 +159,11 @@ class ADKAdapter(BaseAdapter):
                         input_data = part.data
             input_text = "\n".join(text_parts)
 
-            # Pass context_id from the task for session reuse.
+            # Pass context_id and peer_id from the task for peer-scoped session reuse.
             context_id = getattr(task._task, "context_id", "") or ""
-            result = await self._invoke_with_context(input_text, input_data, context_id)
+            result = await self._invoke_with_context(
+                input_text, input_data, context_id, peer_id=task.peer_id
+            )
 
             artifact = Artifact(
                 name="output",

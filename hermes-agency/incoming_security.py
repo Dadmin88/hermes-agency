@@ -162,10 +162,6 @@ def _peer_allowed_by_effective_config(cfg: AgencyConfig, peer_id: str) -> bool:
         return False
     if peer_allowed_by_config(cfg, clean):
         return True
-    trust_level = str(record.get("trust_level") or "").strip().lower()
-    handshake_status = str(record.get("handshake_status") or "").strip().lower()
-    if trust_level in {"limited", "full"} and handshake_status in {"sent", "accepted"}:
-        return True
     if not cfg.relay_security.auto_allow_team:
         return False
     try:

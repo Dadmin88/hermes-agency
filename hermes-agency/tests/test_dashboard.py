@@ -321,6 +321,36 @@ class TestDashboardStatic:
         resp = static._missing_build_response()
         assert resp.status_code == 503
 
+    # -- Path-traversal regression tests (PR #13) --
+
+    def test_resolve_within_base_allows_valid_subpath(self, plugin_modules, tmp_path):
+        """A legitimate sub-path resolves inside the base directory."""
+        static = plugin_modules.dashboard_static
+        base = tmp_path / "assets"
+        base.mkdir()
+        (base / "app.js").write_text("/* ok */")
+        result = static._resolve_within_base(base, "app.js")
+        assert result == (base / "app.js").resolve()
+
+    def test_resolve_within_base_rejects_dot_dot_traversal(self, plugin_modules, tmp_path):
+        """A traversal like ``../secret.txt`` must be rejected with 403."""
+        static = plugin_modules.dashboard_static
+        base = tmp_path / "assets"
+        base.mkdir()
+        (tmp_path / "secret.txt").write_text("sensitive")
+        with pytest.raises(Exception) as exc_info:
+            static._resolve_within_base(base, "../secret.txt")
+        assert exc_info.value.status_code == 403  # type: ignore[attr-defined]
+
+    def test_resolve_within_base_rejects_nested_traversal(self, plugin_modules, tmp_path):
+        """A deeper traversal like ``../../etc/passwd`` must be rejected with 403."""
+        static = plugin_modules.dashboard_static
+        base = tmp_path / "assets"
+        base.mkdir()
+        with pytest.raises(Exception) as exc_info:
+            static._resolve_within_base(base, "../../etc/passwd")
+        assert exc_info.value.status_code == 403  # type: ignore[attr-defined]
+
 
 # =========================================================================
 # dashboard_api.py

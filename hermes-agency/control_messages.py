@@ -22,13 +22,27 @@ async def handle_control_message(manager: Any, task: Any, message_text: str, cfg
     if not control_payload:
         return False
 
+    security = nm.verify_incoming_sender(
+        task, cfg, purpose="control", control_payload=control_payload
+    )
+    if not security.allowed:
+        try:
+            await task.fail(security.reason)
+        except Exception:
+            pass
+        logger.warning(
+            "Hermes Agency rejected incoming control message from %s: %s",
+            security.sender_peer_id or "unknown peer",
+            security.reason,
+        )
+        return True
+
     if control_payload.get("type") == "handshake":
         try:
-            sender_peer_id = nm.extract_sender_peer_id(task, control_payload)
             control_result = nm.handle_peer_handshake(
                 cfg,
                 control_payload,
-                sender_peer_id=sender_peer_id,
+                sender_peer_id=security.sender_peer_id,
             )
         except Exception as exc:
             reason = f"{type(exc).__name__}: {exc}"
@@ -52,21 +66,6 @@ async def handle_control_message(manager: Any, task: Any, message_text: str, cfg
             )
         except Exception:
             pass
-        return True
-
-    security = nm.verify_incoming_sender(
-        task, cfg, purpose="control", control_payload=control_payload
-    )
-    if not security.allowed:
-        try:
-            await task.fail(security.reason)
-        except Exception:
-            pass
-        logger.warning(
-            "Hermes Agency rejected incoming control message from %s: %s",
-            security.sender_peer_id or "unknown peer",
-            security.reason,
-        )
         return True
 
     control_result = nm.handle_registration_message(control_payload) or nm.handle_bid_message(
