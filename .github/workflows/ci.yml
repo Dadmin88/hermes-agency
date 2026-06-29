@@ -10,6 +10,40 @@ permissions:
   contents: read
 
 jobs:
+  proto-freshness:
+    name: Proto Stubs Freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: bufbuild/buf-setup-action@v1
+
+      - name: Checkout proto repo
+        uses: actions/checkout@v4
+        with:
+          repository: AgentAnycast/agentanycast-proto
+          path: agentanycast-proto
+
+      - name: Regenerate Python stubs
+        run: |
+          cd agentanycast-proto
+          printf 'version: v2\nplugins:\n  - remote: buf.build/protocolbuffers/python\n    out: gen/python\n  - remote: buf.build/grpc/python\n    out: gen/python\n' > buf.gen.python.yaml
+          buf generate --template buf.gen.python.yaml
+
+      - name: Check generated stubs match committed files
+        continue-on-error: true
+        run: |
+          # Normalize protobuf version comments before comparing
+          DIFF=$(diff -r \
+            <(find agentanycast-proto/gen/python/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort) \
+            <(find src/agentanycast/_generated/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort)) \
+            || true
+          if [ -n "$DIFF" ]; then
+            echo "::warning::Generated stubs differ from committed files (beyond version comments)."
+            echo "$DIFF"
+            echo "Regenerate with: cd agentanycast-proto && buf generate --template buf.gen.python.yaml && cp -r gen/python/agentanycast/ ../src/agentanycast/_generated/agentanycast/"
+          fi
+
   lint:
     name: Ruff Lint
     runs-on: ubuntu-latest
@@ -66,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 

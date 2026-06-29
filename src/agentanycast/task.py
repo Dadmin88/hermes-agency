@@ -328,7 +328,7 @@ class TaskHandle:
 
         try:
             await asyncio.wait_for(self._done_event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise TaskTimeoutError(f"Task {self.task_id} timed out after {timeout}s")
 
         if self._task.status == TaskStatus.FAILED:

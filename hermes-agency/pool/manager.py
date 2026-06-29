@@ -202,6 +202,19 @@ class PoolManager:
             configured["model"] = configured.get("model") or DEFAULT_MODEL
         return configured
 
+    def _registered_agent_names(self):
+        """Return the set of known agent names from the registry."""
+        return {a.get("name") for a in self.registry.get("agents", [])}
+
+    def _validate_agent_name(self, name: str) -> None:
+        """Validate that *name* matches the ``agency-*`` pattern and exists in the
+        registry.  Raises :class:`ValueError` on invalid input and
+        :class:`KeyError` when the name is not in the registry."""
+        if not isinstance(name, str) or not name.startswith("agency-"):
+            raise ValueError("Only agency-* profiles allowed")
+        if name not in self._registered_agent_names():
+            raise KeyError(f"Agent {name!r} not found in registry")
+
     def _registry_agent(self, name):
         for agent in self.registry.get("agents", []):
             if agent.get("name") == name:

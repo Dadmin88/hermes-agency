@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -195,9 +195,7 @@ def apply_model_set(
             "results": [],
             "message": "No installed agency-* profiles found. Run `hermes agency staff install` first.",
         }
-    backup_id = (
-        datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") if backup and not dry_run else None
-    )
+    backup_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") if backup and not dry_run else None
     results: list[ProfileWriteResult] = []
     for profile in selected:
         planned = profile_plan(profile, model_set, base=root)
@@ -234,7 +232,7 @@ def apply_model_set(
         if not isinstance(models, dict):
             models = {}
             agency["models"] = models
-        applied_at = datetime.now(timezone.utc).isoformat()
+        applied_at = datetime.now(UTC).isoformat()
         models.update(
             {
                 "active_set": model_set.name,

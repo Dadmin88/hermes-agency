@@ -31,7 +31,7 @@ Example::
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from agentanycast.card import AgentCard, Skill
@@ -111,7 +111,7 @@ def card_to_oasf_record(
         "version": version or card.version or "1.0.0",
         "schema_version": schema_version,
         "authors": authors or [],
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "skills": [skill_to_oasf(s) for s in card.skills],
         "domains": domains or [],
         "modules": [

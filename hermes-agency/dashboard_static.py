@@ -38,6 +38,18 @@ def _assets_dir() -> Path:
     return resolve_dashboard_dist() / "assets"
 
 
+def _resolve_within_base(base: Path, user_path: str) -> Path:
+    """Resolve *user_path* under *base* and reject traversal attempts.
+
+    Returns the resolved ``Path`` if it is contained within *base*.
+    Raises ``HTTPException(403)`` if the resolved path escapes *base*.
+    """
+    resolved = (base / user_path).resolve()
+    if not resolved.is_relative_to(base.resolve()):
+        raise HTTPException(status_code=403, detail="Path traversal denied")
+    return resolved
+
+
 # ---------------------------------------------------------------------------
 # Token injection
 # ---------------------------------------------------------------------------
@@ -88,7 +100,7 @@ async def serve_index() -> Response:
 @static_router.get("/assets/{file_path:path}")
 async def serve_assets(file_path: str) -> Response:
     """Serve Vite-hashed assets from dist/assets/."""
-    asset = _assets_dir() / file_path
+    asset = _resolve_within_base(_assets_dir(), file_path)
     if not asset.exists() or not asset.is_file():
         raise HTTPException(status_code=404, detail=f"Asset not found: {file_path}")
     # Determine content type from suffix.

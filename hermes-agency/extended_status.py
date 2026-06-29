@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .departments import DEPARTMENT_BOARD_SLUGS, get_department
@@ -199,7 +199,7 @@ def extended_status() -> dict[str, Any]:
     doctor = run_doctor()
     return {
         "ok": doctor.exit_code == 0,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "node": {
             "started": bool(info.get("started")),
             "peer_id": info.get("peer_id") or info.get("last_peer_id"),

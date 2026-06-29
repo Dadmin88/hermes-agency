@@ -24,7 +24,7 @@ This directory contains the Hermes user-plugin scaffold for Hermes Agency P2P ag
 - Plugin discovery must not start daemon processes when the SDK is absent or `agency.enabled: false`.
 - Remote task execution is conservative by default:
   - `allow_remote_tasks: false`
-  - `incoming.tool_access: full`
+  - `incoming.tool_access: safe`
   - progress artifacts are opt-in via `incoming.send_progress: true`
 - Never expose API keys, tokens, private channel IDs, raw env vars, daemon paths, local profile paths, private hostnames, machine names, or maintainer identity details in AgentCards, docs, logs committed to the repo, or tests.
 - Treat relay configuration and anycast registry configuration as separate concerns: relay/bootstrap connects libp2p; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
