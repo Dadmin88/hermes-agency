@@ -993,6 +993,98 @@ describe.sequential("plugin tool and bridge authz", () => {
     );
   });
 
+  it("rejects agent JWT when runContext.agentId does not match the authenticated agent", async () => {
+    const otherAgent = "77777777-7777-4777-8777-777777777777";
+    const executeTool = vi.fn();
+    const { app } = await createApp(
+      agentActor(),
+      {},
+      {
+        db: createSelectQueueDb([]),
+        toolDeps: {
+          toolDispatcher: {
+            listToolsForAgent: vi.fn(),
+            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            executeTool,
+          },
+        },
+      },
+    );
+
+    const res = await request(app)
+      .post("/api/plugins/tools/execute")
+      .send({
+        tool: "paperclip.example:search",
+        parameters: {},
+        runContext: { agentId: otherAgent, runId: runA, companyId: companyA, projectId: projectA },
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('"runContext.agentId" must match the authenticated agent');
+    expect(executeTool).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent JWT when runContext.runId does not match the authenticated agent run", async () => {
+    const otherRun = "88888888-8888-4888-8888-888888888888";
+    const executeTool = vi.fn();
+    const { app } = await createApp(
+      agentActor(),
+      {},
+      {
+        db: createSelectQueueDb([]),
+        toolDeps: {
+          toolDispatcher: {
+            listToolsForAgent: vi.fn(),
+            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            executeTool,
+          },
+        },
+      },
+    );
+
+    const res = await request(app)
+      .post("/api/plugins/tools/execute")
+      .send({
+        tool: "paperclip.example:search",
+        parameters: {},
+        runContext: { agentId: agentA, runId: otherRun, companyId: companyA, projectId: projectA },
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('"runContext.runId" must match the authenticated agent run');
+    expect(executeTool).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent JWT without an authenticated run ID", async () => {
+    const executeTool = vi.fn();
+    const { app } = await createApp(
+      agentActor({ runId: null }),
+      {},
+      {
+        db: createSelectQueueDb([]),
+        toolDeps: {
+          toolDispatcher: {
+            listToolsForAgent: vi.fn(),
+            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            executeTool,
+          },
+        },
+      },
+    );
+
+    const res = await request(app)
+      .post("/api/plugins/tools/execute")
+      .send({
+        tool: "paperclip.example:search",
+        parameters: {},
+        runContext: { agentId: agentA, runId: runA, companyId: companyA, projectId: projectA },
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('"runContext.runId" must match the authenticated agent run');
+    expect(executeTool).not.toHaveBeenCalled();
+  });
+
   it("rejects agent JWT when runContext.companyId is outside the agent's company scope", async () => {
     const executeTool = vi.fn();
     const { app } = await createApp(
