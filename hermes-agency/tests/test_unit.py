@@ -105,6 +105,8 @@ def plugin_modules(tmp_path, monkeypatch):
         "incoming_security",
         "kanban_workspace",
         "registration",
+        "team_context",
+        "team_discovery",
         "bidding",
         "card_builder",
         "context_packet",
@@ -4965,3 +4967,59 @@ def test_incoming_task_allows_full_trust_sender(plugin_modules, tmp_path):
 
     assert decision.allowed
     assert decision.trust_level == "full"
+
+
+def test_auto_handshake_does_not_wake_local_profile_from_remote_name(
+    plugin_modules, tmp_path, monkeypatch
+):
+    team_discovery = plugin_modules.team_discovery
+    cfg = plugin_modules.config.AgencyConfig(
+        home=tmp_path / "agency-home",
+        trust=plugin_modules.config.TrustConfig(store_path=tmp_path / "trust.json"),
+    )
+    sent_tasks = []
+
+    class FakeNode:
+        async def send_task(self, **kwargs):
+            sent_tasks.append(kwargs)
+
+    class Discovery(team_discovery.TeamDiscoveryMixin):
+        def __init__(self):
+            self._node = FakeNode()
+            self.state = types.SimpleNamespace(
+                started=True,
+                peer_id="local-peer",
+                card_name="agency-local",
+                config=cfg,
+            )
+
+    async_calls = []
+
+    async def fake_to_thread(func, *args, **kwargs):
+        async_calls.append((func, args, kwargs))
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(team_discovery, "handshake_due", lambda _cfg, _peer_id: True)
+    monkeypatch.setattr(team_discovery, "trust_peer_for_handshake", lambda *a, **k: {})
+    monkeypatch.setattr(team_discovery, "add_peer_to_relay_allowlist", lambda peer_id: {"ok": True})
+    monkeypatch.setattr(team_discovery, "record_peer_handshake_attempt", lambda *a, **k: {})
+    monkeypatch.setattr(team_discovery, "build_card", lambda: {"name": "agency-local"})
+    monkeypatch.setattr(team_discovery, "card_to_dict", lambda card: dict(card))
+    monkeypatch.setattr(team_discovery.asyncio, "to_thread", fake_to_thread)
+
+    import asyncio
+
+    result = asyncio.run(
+        Discovery()._attempt_peer_handshake(
+            cfg,
+            {
+                "peer_id": "remote-peer",
+                "name": "agency-victim",
+                "card_name": "agency-victim",
+            },
+        )
+    )
+
+    assert result == {"ok": True, "peer_id": "remote-peer", "allowlist": {"ok": True}}
+    assert sent_tasks and sent_tasks[0]["peer_id"] == "remote-peer"
+    assert [call[0] for call in async_calls] == [team_discovery.add_peer_to_relay_allowlist]

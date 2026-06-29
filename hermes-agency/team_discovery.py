@@ -268,30 +268,6 @@ class TeamDiscoveryMixin:
                     source="auto_handshake_discovery",
                 )
                 return {"ok": False, "peer_id": peer_id, "queued": True}
-            # Wake the peer if it's offline — handshake requires delivery
-            agent_name = self._handshake_peer_name(peer) or ""
-            if agent_name and agent_name.startswith("agency-"):
-                try:
-                    from .pool.tools import pool_wake
-
-                    wake_result = await asyncio.to_thread(pool_wake, agent_name)
-                    if (
-                        "online" in str(wake_result).lower()
-                        or "already" in str(wake_result).lower()
-                    ):
-                        logger.info(
-                            "Hermes Agency auto-handshake: woke %s for handshake", agent_name
-                        )
-                    else:
-                        logger.debug(
-                            "Hermes Agency auto-handshake: wake for %s returned: %s",
-                            agent_name,
-                            wake_result,
-                        )
-                except Exception as wake_exc:
-                    logger.debug(
-                        "Hermes Agency auto-handshake: wake for %s failed: %s", agent_name, wake_exc
-                    )
             message_text = serialize_control_message(payload)
             await self._node.send_task(
                 message={"role": "user", "parts": [{"text": message_text}]},
