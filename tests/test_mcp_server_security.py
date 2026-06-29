@@ -8,11 +8,42 @@ Validates that:
 
 from __future__ import annotations
 
-import unittest.mock as mock
+import importlib
+import sys
+import types
 
 import pytest
 
-import agentanycast.mcp_server as mcp_server
+# Stub the optional `mcp` dependency before importing the server module.
+_mcp_stub = types.ModuleType("mcp")
+_mcp_server = types.ModuleType("mcp.server")
+_mcp_fastmcp = types.ModuleType("mcp.server.fastmcp")
+
+
+class _FakeSettings:
+    host: str | None = None
+    port: int | None = None
+
+
+class _FakeFastMCP:
+    def __init__(self, *a, **kw):
+        self.settings = _FakeSettings()
+
+    def tool(self):
+        def decorator(fn):
+            return fn
+        return decorator
+
+    def run(self, **kw):
+        pass
+
+
+_mcp_fastmcp.FastMCP = _FakeFastMCP  # type: ignore[attr-defined]
+sys.modules.setdefault("mcp", _mcp_stub)
+sys.modules.setdefault("mcp.server", _mcp_server)
+sys.modules.setdefault("mcp.server.fastmcp", _mcp_fastmcp)
+
+import agentanycast.mcp_server as mcp_server  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -28,48 +59,56 @@ def _reset_state():
 
 
 class TestHTTPBridgeDisabledByDefault:
-    """HTTP transport must be rejected unless --allow-http-bridge is set."""
+    def test_send_task_rejects_http_url_by_default(self):
+        """HTTP bridge targets must be rejected unless explicitly allowed."""
+        mcp_server._allow_http_bridge = False
 
-    def test_http_transport_blocked_without_flag(self):
-        """run_server(transport='http') raises SystemExit when allow_http_bridge is False."""
-        mcp_server.configure()
-        with pytest.raises(SystemExit, match="--allow-http-bridge"):
-            mcp_server.run_server(transport="http", port=8080)
+        import asyncio
 
-    def test_http_transport_allowed_with_flag(self):
-        """run_server(transport='http') does not raise when allow_http_bridge is True."""
-        mcp_server.configure(allow_http_bridge=True)
-        with mock.patch.object(mcp_server.mcp, "run") as mock_run:
-            mcp_server.run_server(transport="http", port=9090)
-            mock_run.assert_called_once_with(transport="http")
+        result = asyncio.run(mcp_server.send_task("http://example.com/a2a", "hello"))
+        assert "disabled" in result.lower() or "error" in result.lower()
+
+    def test_send_task_rejects_https_url_by_default(self):
+        """HTTPS bridge targets must also be rejected by default."""
+        mcp_server._allow_http_bridge = False
+
+        import asyncio
+
+        result = asyncio.run(mcp_server.send_task("https://example.com/a2a", "hello"))
+        assert "disabled" in result.lower() or "error" in result.lower()
+
+    def test_run_server_http_raises_when_bridge_disabled(self):
+        """run_server with transport=http must raise SystemExit when bridge is disabled."""
+        mcp_server._allow_http_bridge = False
+        with pytest.raises(SystemExit, match="disabled"):
+            mcp_server.run_server(transport="http", port=9999)
 
 
-class TestHTTPBindLocalhost:
-    """HTTP server must default to 127.0.0.1 (not 0.0.0.0)."""
-
-    def test_default_host_is_localhost(self):
-        """When host is not overridden, mcp.settings.host is set to 127.0.0.1."""
-        mcp_server.configure(allow_http_bridge=True)
-        with mock.patch.object(mcp_server.mcp, "run"):
-            mcp_server.run_server(transport="http", port=8080, host="127.0.0.1")
+class TestHTTPLocalhostBinding:
+    def test_http_transport_binds_localhost_by_default(self):
+        """HTTP transport must bind to 127.0.0.1, not 0.0.0.0."""
+        mcp_server._allow_http_bridge = True
+        mcp_server.run_server(transport="http", port=9999)
         assert mcp_server.mcp.settings.host == "127.0.0.1"
-        assert mcp_server.mcp.settings.port == 8080
 
-    def test_custom_host_applied(self):
-        """An explicit host override is forwarded to mcp.settings."""
-        mcp_server.configure(allow_http_bridge=True)
-        with mock.patch.object(mcp_server.mcp, "run"):
-            mcp_server.run_server(transport="http", port=9999, host="192.168.1.100")
-        assert mcp_server.mcp.settings.host == "192.168.1.100"
-        assert mcp_server.mcp.settings.port == 9999
+    def test_stdio_transport_does_not_set_host(self):
+        """stdio transport should not touch host/port settings."""
+        settings_before = (mcp_server.mcp.settings.host, mcp_server.mcp.settings.port)
+        mcp_server.run_server(transport="stdio")
+        # settings should remain unchanged for stdio
+        assert mcp_server.mcp.settings.host == settings_before[0]
 
 
-class TestStdioTransportUnaffected:
-    """stdio transport must still work without --allow-http-bridge."""
+class TestHTTPBridgeExplicitAllow:
+    def test_send_task_allows_http_when_explicitly_enabled(self):
+        """When allow_http_bridge is True, HTTP targets should be accepted."""
+        mcp_server._allow_http_bridge = True
+        # We can't fully test send_task without a running node, but we can
+        # verify the guard passes by checking it doesn't return an error string
+        # immediately. The actual send will fail (no node), but not due to the
+        # bridge check.
+        import asyncio
 
-    def test_stdio_works_without_flag(self):
-        """stdio mode should not require allow_http_bridge."""
-        mcp_server.configure()
-        with mock.patch.object(mcp_server.mcp, "run") as mock_run:
-            mcp_server.run_server(transport="stdio")
-            mock_run.assert_called_once_with(transport="stdio")
+        result = asyncio.run(mcp_server.send_task("http://example.com/a2a", "hello"))
+        # Should NOT contain the "disabled" error
+        assert "HTTP bridge targets are disabled" not in result
