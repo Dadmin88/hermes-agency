@@ -111,6 +111,47 @@ class TestADKAdapter:
         # The runner returns no events, so result is "".
         assert result == ""
 
+    @pytest.mark.asyncio
+    async def test_invoke_scopes_context_sessions_by_peer(self) -> None:
+        """Same context_id from different peers must not share ADK sessions."""
+        adapter, runner_mock = _make_adk_adapter()
+        calls: list[dict[str, Any]] = []
+
+        async def run_async(**kwargs: Any) -> Any:
+            calls.append(kwargs)
+            yield _adk_event(parts_text=["ok"], is_final=True)
+
+        runner_mock.run_async = run_async
+
+        await adapter._invoke_with_context("victim", None, "shared", peer_id="peer-victim")
+        await adapter._invoke_with_context("attacker", None, "shared", peer_id="peer-attacker")
+        await adapter._invoke_with_context("victim again", None, "shared", peer_id="peer-victim")
+
+        assert calls[0]["user_id"] == "peer-victim"
+        assert calls[1]["user_id"] == "peer-attacker"
+        assert calls[2]["user_id"] == "peer-victim"
+        assert calls[0]["session_id"] != calls[1]["session_id"]
+        assert calls[0]["session_id"] == calls[2]["session_id"]
+        assert len(adapter._sessions) == 2
+
+    @pytest.mark.asyncio
+    async def test_invoke_caps_peer_context_session_cache(self) -> None:
+        """Context session cache evicts oldest entries instead of growing unbounded."""
+        adapter, runner_mock = _make_adk_adapter()
+
+        async def run_async(**kwargs: Any) -> Any:
+            if False:
+                yield kwargs
+
+        runner_mock.run_async = run_async
+
+        with patch("agentanycast.adapters.adk._MAX_SESSIONS", 2):
+            await adapter._invoke_with_context("one", None, "ctx-1", peer_id="peer")
+            await adapter._invoke_with_context("two", None, "ctx-2", peer_id="peer")
+            await adapter._invoke_with_context("three", None, "ctx-3", peer_id="peer")
+
+        assert list(adapter._sessions) == [("peer", "ctx-2"), ("peer", "ctx-3")]
+
 
 # ---------------------------------------------------------------------------
 # OpenAI Agents Adapter
