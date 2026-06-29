@@ -2086,11 +2086,6 @@
     "ui/src/components/AgentBubbleActionRow.tsx::Paperclip::7af654bad5b7f95a",
     "ui/src/components/AsciiArtAnimation.tsx::Paperclip::6d85f1b6b98db34d",
     "ui/src/components/AsciiArtAnimation.tsx::Paperclip::fb4720a36f37cc02",
-    "ui/src/components/BootstrapPendingPage.tsx::Hermes Fabric::097b05d0fb7a4ea5",
-    "ui/src/components/BootstrapPendingPage.tsx::Hermes Fabric::480ed5303bbd83f8",
-    "ui/src/components/BootstrapPendingPage.tsx::Hermes Fabric::75c7cf9113b949ec",
-    "ui/src/components/BootstrapPendingPage.tsx::Hermes Fabric::deb6ac08614c283a",
-    "ui/src/components/BootstrapPendingPage.tsx::Hermes Fabric::ef96dbd9f82e5301",
     "ui/src/components/ChatComposer.tsx::Paperclip::23cb250d23fe5a20",
     "ui/src/components/ChatComposer.tsx::Paperclip::611e8806e83af924",
     "ui/src/components/ChatComposer.tsx::Paperclip::c4330727afe0ea76",
@@ -2225,11 +2220,6 @@
     "ui/src/pages/BoardChat.tsx::paperclip::54564f881c044ea8",
     "ui/src/pages/BoardChat.tsx::paperclip::6a2a80ac53162eb8",
     "ui/src/pages/BoardChat.tsx::paperclip::9361caabad1944ff",
-    "ui/src/pages/BootstrapSetupUxLab.tsx::Hermes Fabric::13e86acb6edb9a84",
-    "ui/src/pages/BootstrapSetupUxLab.tsx::Hermes Fabric::1a3ae5b67d6a260d",
-    "ui/src/pages/BootstrapSetupUxLab.tsx::Hermes Fabric::480ed5303bbd83f8",
-    "ui/src/pages/BootstrapSetupUxLab.tsx::Hermes Fabric::75c7cf9113b949ec",
-    "ui/src/pages/BootstrapSetupUxLab.tsx::Hermes Fabric::ef96dbd9f82e5301",
     "ui/src/pages/CliAuth.tsx::Paperclip::c62ea5b24db4f657",
     "ui/src/pages/CliAuth.tsx::Paperclip::d66cc8488e7d3ce9",
     "ui/src/pages/CliAuth.tsx::Paperclip::dc7992bf86e79007",
@@ -2492,5 +2482,5 @@
     "ui/storybook/stories/team-catalog.stories.tsx::Paperclip::6d0d533d371275a6",
     "ui/storybook/stories/team-catalog.stories.tsx::Paperclip::b47aa16f0311ac4b"
   ],
-  "updatedAt": "2026-06-29T22:53:51.139Z"
+  "updatedAt": "2026-06-29T23:08:57.009Z"
 }

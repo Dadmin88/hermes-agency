@@ -178,7 +178,7 @@ export function SidebarAccountMenu({
                 </div>
                 <p className="truncate text-sm text-muted-foreground">{secondaryLabel}</p>
                 {version ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Hermes Fabric v{version}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Hermes Agency v{version}</p>
                 ) : null}
               </div>
             </div>
@@ -200,7 +200,7 @@ export function SidebarAccountMenu({
               />
               <MenuAction
                 label="Documentation"
-                description="Open the upstream source until Hermes Fabric docs are published."
+                description="Open the upstream source until Hermes Agency docs are published."
                 icon={BookOpen}
                 href={DOCS_URL}
                 external

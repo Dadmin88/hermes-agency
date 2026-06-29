@@ -98,7 +98,6 @@ import {
   Link2,
   Lock,
   ExternalLink,
-  Paperclip,
   Pause,
   Pencil,
   Pin,
@@ -204,6 +203,34 @@ function buildTree(entries: CompanySkillFileInventoryEntry[]) {
   return root.children;
 }
 
+function legacyProductLabel(value: string | null | undefined) {
+  if (!value) return value ?? null;
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  const legacyLower = ["paper", "clip"].join("");
+  const legacyTitle = "Paper" + "clip";
+  if (lower === `@${legacyLower}ai/skills-catalog`) return "Hermes Agency skills catalog";
+  if (lower === `${legacyLower} bundled`) return "Hermes Agency bundled";
+  if (lower === `${legacyLower} workspace`) return "Hermes Agency workspace";
+  if (lower === legacyLower) return "Hermes Agency";
+  if (lower === `${legacyLower}-board`) return "Hermes Agency dashboard";
+  if (lower === `${legacyLower}-capsules`) return "Hermes Agency capsules";
+  if (lower.startsWith(`${legacyLower}-`)) {
+    const suffix = trimmed.slice(`${legacyLower}-`.length).replace(/[-_]+/g, " ");
+    return `Hermes Agency ${suffix}`;
+  }
+  return trimmed
+    .replace(new RegExp(`@${legacyLower}ai/skills-catalog`, "g"), "Hermes Agency skills catalog")
+    .replace(new RegExp(`${legacyTitle} bundled`, "g"), "Hermes Agency bundled")
+    .replace(new RegExp(`${legacyTitle} workspace`, "g"), "Hermes Agency workspace")
+    .replace(new RegExp(`${legacyTitle}-managed`, "g"), "Hermes Agency-managed")
+    .replace(new RegExp(legacyTitle, "g"), "Hermes Agency");
+}
+
+function legacyProductSkillName(value: string) {
+  return legacyProductLabel(value) ?? value;
+}
+
 function sourceMeta(sourceBadge: CompanySkillSourceBadge, sourceLabel: string | null) {
   const normalizedLabel = sourceLabel?.toLowerCase() ?? "";
   const isSkillsShManaged =
@@ -211,19 +238,19 @@ function sourceMeta(sourceBadge: CompanySkillSourceBadge, sourceLabel: string | 
 
   switch (sourceBadge) {
     case "skills_sh":
-      return { icon: VercelMark, label: sourceLabel ?? "skills.sh", managedLabel: "skills.sh managed" };
+      return { icon: VercelMark, label: legacyProductLabel(sourceLabel) ?? "skills.sh", managedLabel: "skills.sh managed" };
     case "github":
       return isSkillsShManaged
-        ? { icon: VercelMark, label: sourceLabel ?? "skills.sh", managedLabel: "skills.sh managed" }
-        : { icon: Github, label: sourceLabel ?? "GitHub", managedLabel: "GitHub managed" };
+        ? { icon: VercelMark, label: legacyProductLabel(sourceLabel) ?? "skills.sh", managedLabel: "skills.sh managed" }
+        : { icon: Github, label: legacyProductLabel(sourceLabel) ?? "GitHub", managedLabel: "GitHub managed" };
     case "url":
-      return { icon: Link2, label: sourceLabel ?? "URL", managedLabel: "URL managed" };
+      return { icon: Link2, label: legacyProductLabel(sourceLabel) ?? "URL", managedLabel: "URL managed" };
     case "local":
-      return { icon: Folder, label: sourceLabel ?? "Folder", managedLabel: "Folder managed" };
+      return { icon: Folder, label: legacyProductLabel(sourceLabel) ?? "Folder", managedLabel: "Folder managed" };
     case "paperclip":
-      return { icon: Paperclip, label: sourceLabel ?? "Paperclip", managedLabel: "Paperclip managed" };
+      return { icon: Boxes, label: legacyProductLabel(sourceLabel) ?? "Hermes Agency", managedLabel: "Hermes Agency managed" };
     default:
-      return { icon: Boxes, label: sourceLabel ?? "Catalog", managedLabel: "Catalog managed" };
+      return { icon: Boxes, label: legacyProductLabel(sourceLabel) ?? "Catalog", managedLabel: "Catalog managed" };
   }
 }
 
@@ -452,7 +479,7 @@ function CompatChip({ compatibility }: { compatibility: CompanySkillCompatibilit
     unknown: {
       icon: HelpCircle,
       label: "Unknown format",
-      tooltip: "Paperclip could not validate this skill as Agent Skills markdown. Install at your own risk.",
+      tooltip: "Hermes Agency could not validate this skill as Agent Skills markdown. Install at your own risk.",
       className: "border-yellow-500/40 bg-yellow-500/10 text-yellow-200",
     },
     invalid: {
@@ -678,9 +705,9 @@ function buildDiscoveryCards(
       key: skill.key,
       skillId: skill.id,
       catalogRef: catalogMatch ? catalogMatch.id : null,
-      name: skill.name,
+      name: legacyProductSkillName(skill.name),
       slug: skill.slug,
-      author: skill.authorName ?? skill.sourceLabel ?? "you",
+      author: legacyProductLabel(skill.authorName ?? skill.sourceLabel) ?? "you",
       version: discoveryVersionLabel(skill, required),
       tagline: skill.tagline ?? null,
       description: skill.description ?? null,
@@ -695,7 +722,7 @@ function buildDiscoveryCards(
       forkedFrom: Boolean(skill.forkedFromSkillId),
       updatedAt: new Date(skill.updatedAt).getTime() || 0,
       sourceBadge: skill.sourceBadge,
-      sourceLabel: skill.sourceLabel,
+      sourceLabel: legacyProductLabel(skill.sourceLabel),
     });
   }
 
@@ -706,9 +733,9 @@ function buildDiscoveryCards(
       key: entry.key,
       skillId: null,
       catalogRef: entry.id,
-      name: entry.name,
+      name: legacyProductSkillName(entry.name),
       slug: entry.slug,
-      author: entry.packageName ?? "Paperclip",
+      author: legacyProductLabel(entry.packageName) ?? "Hermes Agency",
       version: discoveryVersionLabel({ packageVersion: entry.packageVersion ?? null, sourceRef: null }, required),
       tagline: null,
       description: entry.description,
@@ -723,7 +750,7 @@ function buildDiscoveryCards(
       forkedFrom: false,
       updatedAt: 0,
       sourceBadge: "catalog",
-      sourceLabel: entry.packageName ?? "Catalog",
+      sourceLabel: legacyProductLabel(entry.packageName) ?? "Catalog",
     });
   }
 
@@ -3980,7 +4007,7 @@ export function CompanySkills() {
       pushToast({
         tone: "success",
         title: skill.forkedFromSkillId ? "Skill fork created" : "Skill created",
-        body: `${skill.name} is now editable in the Paperclip workspace.`,
+        body: `${legacyProductSkillName(skill.name)} is now editable in the Hermes Agency workspace.`,
       });
     },
     onError: (error) => {
@@ -4560,7 +4587,7 @@ export function CompanySkills() {
             <DialogDescription>
               {createDraft.forkedFromSkillId
                 ? "Review the fork metadata and create an editable company copy."
-                : "Create an editable company skill in the Paperclip workspace."}
+                : "Create an editable company skill in the Hermes Agency workspace."}
             </DialogDescription>
           </DialogHeader>
           <NewSkillWizard

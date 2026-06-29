@@ -59,20 +59,20 @@ describe("BreadcrumbContext", () => {
     expect(renderCounts).toHaveLength(2);
   });
 
-  it("builds page titles with the selected company name before Hermes Fabric", () => {
+  it("builds page titles with the selected company name before Hermes Agency", () => {
     expect(buildDocumentTitle([{ label: "Inbox" }], "Anachronist Wiki")).toBe(
-      "Inbox • Anachronist Wiki • Hermes Fabric",
+      "Inbox • Anachronist Wiki • Hermes Agency",
     );
     expect(
       buildDocumentTitle(
         [{ label: "Issues", href: "/issues" }, { label: "PAP-3515" }],
         "Anachronist Wiki",
       ),
-    ).toBe("PAP-3515 • Issues • Anachronist Wiki • Hermes Fabric");
+    ).toBe("PAP-3515 • Issues • Anachronist Wiki • Hermes Agency");
   });
 
   it("omits blank company names from page titles", () => {
-    expect(buildDocumentTitle([{ label: "Inbox" }], "  ")).toBe("Inbox • Hermes Fabric");
-    expect(buildDocumentTitle([], null)).toBe("Hermes Fabric");
+    expect(buildDocumentTitle([{ label: "Inbox" }], "  ")).toBe("Inbox • Hermes Agency");
+    expect(buildDocumentTitle([], null)).toBe("Hermes Agency");
   });
 });

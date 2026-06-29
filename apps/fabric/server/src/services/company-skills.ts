@@ -1980,8 +1980,8 @@ function deriveSkillSourceInfo(skill: SkillSourceInfoTarget): {
   if (metadata.sourceKind === "paperclip_bundled") {
     return {
       editable: false,
-      editableReason: "Bundled Paperclip skills are read-only.",
-      sourceLabel: "Paperclip bundled",
+      editableReason: "Bundled Hermes Agency skills are read-only.",
+      sourceLabel: "Hermes Agency bundled",
       sourceBadge: "paperclip",
       sourcePath: null,
     };
@@ -2030,7 +2030,7 @@ function deriveSkillSourceInfo(skill: SkillSourceInfoTarget): {
       return {
         editable: true,
         editableReason: null,
-        sourceLabel: "Paperclip workspace",
+        sourceLabel: "Hermes Agency workspace",
         sourceBadge: "paperclip",
         sourcePath: managedRoot,
       };
