@@ -49,10 +49,10 @@ function unavailableProvider(
       return { ok: false, warnings: [`${id} provider is not configured in this deployment`] };
     },
     async createSecret() {
-      throw unprocessable(`${id} provider is not configured for Paperclip-managed values`);
+      throw unprocessable(`${id} provider is not configured for Hermes Agency-managed values`);
     },
     async createVersion() {
-      throw unprocessable(`${id} provider is not configured for Paperclip-managed values`);
+      throw unprocessable(`${id} provider is not configured for Hermes Agency-managed values`);
     },
     async linkExternalSecret(input) {
       return prepareExternalReference(input);

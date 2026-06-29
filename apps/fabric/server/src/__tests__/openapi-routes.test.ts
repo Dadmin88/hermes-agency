@@ -133,7 +133,7 @@ describe("openapi routes", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.openapi).toBe("3.0.0");
-    expect(res.body.info.title).toBe("Paperclip API");
+    expect(res.body.info.title).toBe("Hermes Agency API");
     expect(res.body.paths["/api/openapi.json"].get.summary).toBe("Get the generated OpenAPI document");
     expect(res.body.paths["/api/companies/{companyId}/agents"].get.summary).toBe("List agents in a company");
     expect(res.body.paths["/api/agents/{id}/keys"].post.summary).toBe("Create an agent API key");

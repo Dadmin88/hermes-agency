@@ -380,7 +380,7 @@ describe("awsSecretsManagerProvider", () => {
           "arn:aws:secretsmanager:us-east-1:123456789012:secret:paperclip/prod-use1/company-2/openai-api-key",
         providerVersionRef: "linked-version-7",
       }),
-    ).rejects.toThrow(/Paperclip-managed namespace/i);
+    ).rejects.toThrow(/Hermes Agency-managed namespace/i);
   });
 
   it("lists remote AWS secrets with metadata only and never resolves plaintext", async () => {

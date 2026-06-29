@@ -27,9 +27,9 @@ const AWS_CREDENTIAL_EXPIRATION_SKEW_MS = 60_000;
 const PROVIDER_CONFIG_DISCOVERY_SAMPLE_LIMIT = 3;
 const PROVIDER_CONFIG_DISCOVERY_CANDIDATE_LIMIT = 6;
 const AWS_RUNTIME_CREDENTIAL_WARNING =
-  "AWS bootstrap credentials must be available to the Paperclip server runtime through the AWS SDK default credential provider chain: IAM role/workload identity, AWS_PROFILE/SSO/shared credentials, web identity, container/instance metadata, or short-lived shell credentials.";
+  "AWS bootstrap credentials must be available to the Hermes Agency server runtime through the AWS SDK default credential provider chain: IAM role/workload identity, AWS_PROFILE/SSO/shared credentials, web identity, container/instance metadata, or short-lived shell credentials.";
 const AWS_CREDENTIAL_CUSTODY_WARNING =
-  "Do not store AWS root credentials or long-lived IAM user access keys in Paperclip company_secrets; the AWS provider bootstrap belongs in deployment infrastructure, the process environment, an AWS profile, or the orchestrator secret store.";
+  "Do not store AWS root credentials or long-lived IAM user access keys in Hermes Agency company_secrets; the AWS provider bootstrap belongs in deployment infrastructure, the process environment, an AWS profile, or the orchestrator secret store.";
 
 interface AwsSecretsManagerMaterial extends StoredSecretVersionMaterial {
   scheme: typeof AWS_SECRETS_MANAGER_SCHEME;
@@ -501,7 +501,7 @@ function assertNotManagedNamespaceExternalRef(
 ) {
   if (!isManagedSecretNamespaceRef(config, externalRef)) return;
   throw unprocessable(
-    "AWS Paperclip-managed namespace secrets cannot be imported as external references",
+    "AWS Hermes Agency-managed namespace secrets cannot be imported as external references",
   );
 }
 
@@ -687,7 +687,7 @@ function discoverAwsProviderConfigCandidates(input: {
   };
 
   const skippedWarnings: string[] = [];
-  let skippedForeignPaperclipSampleCount = 0;
+  let skippedForeignManagedSampleCount = 0;
   const samples: DiscoverySample[] = [];
 
   for (const entry of input.entries) {
@@ -697,7 +697,7 @@ function discoverAwsProviderConfigCandidates(input: {
     const paperclipManaged = tagValue(tags, ["paperclip:managed-by"])?.toLowerCase() === "paperclip";
     const paperclipCompanyId = tagValue(tags, ["paperclip:company-id"]);
     if (paperclipManaged && paperclipCompanyId !== input.companyId) {
-      skippedForeignPaperclipSampleCount += 1;
+      skippedForeignManagedSampleCount += 1;
       continue;
     }
     const path = inferPathSignals(entry, tags);
@@ -715,9 +715,9 @@ function discoverAwsProviderConfigCandidates(input: {
     });
   }
 
-  if (skippedForeignPaperclipSampleCount > 0) {
+  if (skippedForeignManagedSampleCount > 0) {
     skippedWarnings.push(
-      `Skipped ${skippedForeignPaperclipSampleCount} Paperclip-managed AWS secret sample(s) that were not tagged for this company.`,
+      `Skipped ${skippedForeignManagedSampleCount} Hermes Agency-managed AWS secret sample(s) that were not tagged for this company.`,
     );
   }
 
@@ -762,7 +762,7 @@ function discoverAwsProviderConfigCandidates(input: {
         candidateWarnings.push("Sampled AWS secrets use multiple KMS keys; choose the intended KMS key before saving.");
       }
       if (group.some((sample) => sample.paperclipManaged && sample.paperclipCompanyId === input.companyId)) {
-        candidateWarnings.push("Sample includes Paperclip-managed secrets for this company; do not import them as external references.");
+        candidateWarnings.push("Sample includes Hermes Agency-managed secrets for this company; do not import them as external references.");
       }
 
       return {
@@ -796,7 +796,7 @@ function discoverAwsProviderConfigCandidates(input: {
           hasKmsKey: kmsKeys.length > 0,
           sampleCount: group.length,
           paperclipManagedSampleCount: group.filter((sample) => sample.paperclipManaged).length,
-          skippedForeignPaperclipSampleCount,
+          skippedForeignPaperclipSampleCount: skippedForeignManagedSampleCount,
         },
         warnings: candidateWarnings,
       };
@@ -814,7 +814,7 @@ function discoverAwsProviderConfigCandidates(input: {
     provider: "aws_secrets_manager",
     nextToken: input.nextToken,
     sampledSecretCount: samples.length,
-    skippedForeignPaperclipSampleCount,
+    skippedForeignPaperclipSampleCount: skippedForeignManagedSampleCount,
     candidates,
     warnings,
   };
@@ -1061,8 +1061,8 @@ export function createAwsSecretsManagerProvider(
           detectedCredentialSources: readiness.credentialSources,
         },
         backupGuidance: [
-          "Back up Paperclip metadata separately from AWS-managed secrets.",
-          "Restoring access requires the Paperclip database plus the same AWS secret namespace and KMS permissions.",
+          "Back up Hermes Agency metadata separately from AWS-managed secrets.",
+          "Restoring access requires the Hermes Agency database plus the same AWS secret namespace and KMS permissions.",
         ],
       };
     } catch (error) {
@@ -1128,7 +1128,7 @@ export function createAwsSecretsManagerProvider(
           Name: secretId,
           SecretString: input.value,
           ...(config.kmsKeyId ? { KmsKeyId: config.kmsKeyId } : {}),
-          Description: input.context ? `Paperclip secret ${input.context.secretName}` : undefined,
+          Description: input.context ? `Hermes Agency secret ${input.context.secretName}` : undefined,
           Tags: buildManagedSecretTags(config, input.context),
         };
         const created = await gateway.createSecret({
