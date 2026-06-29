@@ -10,10 +10,6 @@ x-agency-env: &agency-env
   HERMES_AGENCY_ORCHESTRATOR: ${HERMES_AGENCY_ORCHESTRATOR:-agency-orchestrator}
   HERMES_AGENCY_ORCHESTRATOR_ENABLED: ${HERMES_AGENCY_ORCHESTRATOR_ENABLED:-1}
   HERMES_AGENCY_TENANT: ${HERMES_AGENCY_TENANT:-default}
-  HERMES_DASHBOARD_HOST: 127.0.0.1
-  HERMES_DASHBOARD_PORT: 8765
-  HERMES_DASHBOARD_ALLOW_LAN: "0"
-  HERMES_DASHBOARD_TOKEN: ${HERMES_DASHBOARD_TOKEN:-}
   AGENTANYCAST_RELAY: ${AGENTANYCAST_RELAY:-}
   AGENTANYCAST_REGISTRY_ADDRS: ${AGENTANYCAST_REGISTRY_ADDRS:-}
 
@@ -24,8 +20,6 @@ services:
       dockerfile: Dockerfile
     image: hermes-agency:local
     command: ["all"]
-    ports:
-      - "127.0.0.1:8765:8765"
     environment:
       <<: *agency-env
     volumes:
@@ -47,19 +41,6 @@ services:
     command: ["node"]
     environment:
       <<: *agency-env
-    volumes:
-      - hermes-agency-data:/data/hermes
-    restart: unless-stopped
-
-  dashboard:
-    image: hermes-agency:local
-    profiles: ["split"]
-    command: ["dashboard"]
-    ports:
-      - "127.0.0.1:8765:8765"
-    environment:
-      <<: *agency-env
-      HERMES_AGENCY_START_NODE: "0"
     volumes:
       - hermes-agency-data:/data/hermes
     restart: unless-stopped

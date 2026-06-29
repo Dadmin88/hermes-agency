@@ -15,14 +15,6 @@ The AgentAnycast Python SDK (`src/agentanycast/`) is the underlying transport la
 pip install hermes-agency
 ```
 
-**Try the dashboard:**
-
-```bash
-hermes agency dashboard
-```
-
-Or start the full system:
-
 ## Quick Start
 
 See the [Hermes Agency documentation](https://github.com/DeployFaith/Hermes_Agency/tree/main/hermes-agency) for full usage.
@@ -42,11 +34,6 @@ await node.send_task(url="https://agent.example.com", message=msg)
 Add `--verbose` (or `-v`) before any command for debug output:
 
 ```bash
-hermes agency dashboard
-```
-
-```bash
-hermes agency dashboard                        # Start an echo agent
 hermes agency discover translate          # Find agents by skill
 hermes agency send 12D3KooW... "Hello!"   # Send a task
 hermes agency status                      # Check node status
@@ -75,7 +62,7 @@ hermes agency info                        # Show Peer ID, DID, version
 
 Hermes Agency can recommend and run native Hermes Agent Mixture-of-Agents presets for high-leverage Agency tasks, with Kanban tracking when available.
 
-Hermes Agency integrates native Hermes Agent MoA. Native presets remain under top-level `moa:` in the active Hermes `config.yaml`; Agency policy lives separately under `agency.moa:`. Agency status, tools, dashboard endpoints, and orchestrator recommendations delegate to native Hermes Agent MoA instead of implementing an Agency-owned fan-out or aggregator runtime.
+Hermes Agency integrates native Hermes Agent MoA. Native presets remain under top-level `moa:` in the active Hermes `config.yaml`; Agency policy lives separately under `agency.moa:`. Agency status, tools, and orchestrator recommendations delegate to native Hermes Agent MoA instead of implementing an Agency-owned fan-out or aggregator runtime.
 
 Useful commands:
 
@@ -88,7 +75,7 @@ hermes agency moa show default        # Show one native preset
 hermes agency moa recommend "Review this release architecture"
 ```
 
-See `docs/agency-moa.md` for the integration contract, policy semantics, dashboard endpoints, and trace limits.
+See `docs/agency-moa.md` for the integration contract, policy semantics, and trace limits.
 
 ## Framework Adapters
 
@@ -224,14 +211,11 @@ Run the full Hermes Agency stack with Docker Compose:
 docker compose up --build
 ```
 
-The default `agency` service performs setup, installs the packaged agency staff into a named Docker volume, initializes agency Kanban boards, starts the local agency node manager, and serves the dashboard at `http://127.0.0.1:8765`.
-
-A session token is printed in the container logs unless `HERMES_DASHBOARD_TOKEN` is provided.
+The default `agency` service performs setup, installs the packaged agency staff into a named Docker volume, initializes agency Kanban boards, and starts the local agency node manager.
 
 Optional environment variables:
 
 ```bash
-HERMES_DASHBOARD_TOKEN=change-me \
 HERMES_AGENCY_MODEL_SET=openai-codex-only \
 AGENTANYCAST_RELAY=<relay-multiaddr> \
 AGENTANYCAST_REGISTRY_ADDRS=<registry-address> \
@@ -242,7 +226,7 @@ Advanced modes use the same image:
 
 ```bash
 docker compose --profile tools run --rm setup      # setup only
-docker compose --profile split up node dashboard   # split node/dashboard services
+docker compose --profile split up node              # split node service
 ```
 
 The compose file uses a named Docker volume for runtime data, so no machine-specific host paths are required.

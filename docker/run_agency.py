@@ -4,8 +4,7 @@
 Modes:
   setup      Prepare config, install packaged staff profiles, and initialize boards.
   node       Start the local Hermes Agency node manager and keep it alive.
-  dashboard  Start only the dashboard API/UI.
-  all        Run setup, start the node manager, then serve the dashboard.
+  all        Run setup, then start the node manager.
 
 The entrypoint works with a full Hermes runtime when present and falls back to a
 small standalone compatibility layer for local Docker use.
@@ -205,20 +204,6 @@ def start_node() -> Any | None:
         return None
 
 
-def serve_dashboard() -> None:
-    dashboard = _load_plugin_module("dashboard_server")
-    host = os.environ.get("HERMES_DASHBOARD_HOST", "0.0.0.0")
-    port = int(os.environ.get("HERMES_DASHBOARD_PORT", "8765"))
-    token = os.environ.get("HERMES_DASHBOARD_TOKEN") or None
-    dashboard.start_server(
-        host=host,
-        port=port,
-        open_browser=False,
-        allow_lan=_bool_env("HERMES_DASHBOARD_ALLOW_LAN", default=True),
-        session_token=token,
-    )
-
-
 def wait_forever() -> None:
     stopped = False
 
@@ -241,9 +226,6 @@ def main() -> None:
     if mode == "setup":
         setup()
         return
-    if mode == "dashboard":
-        serve_dashboard()
-        return
     if mode == "node":
         setup()
         start_node()
@@ -252,7 +234,7 @@ def main() -> None:
     if mode == "all":
         setup()
         start_node()
-        serve_dashboard()
+        wait_forever()
         return
     raise SystemExit(f"Unknown mode: {mode}")
 

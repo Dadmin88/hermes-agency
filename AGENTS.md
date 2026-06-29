@@ -1,6 +1,6 @@
 # Hermes Agency — Agent Instructions
 
-Hermes Agency is the primary deliverable in this repository. It provides the agency plugin, dashboard, model-set controls, task routing, Kanban integration, and pool-based agent delegation. The AgentAnycast SDK under `src/agentanycast/` is the transport layer the agency uses.
+Hermes Agency is the primary deliverable in this repository. It provides the agency plugin, model-set controls, task routing, Kanban integration, and pool-based agent delegation. The AgentAnycast SDK under `src/agentanycast/` is the transport layer the agency uses.
 
 ## Repository priorities
 
@@ -20,26 +20,6 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Build the dashboard frontend when changing `web/agency-dashboard/`:
-
-```bash
-cd web/agency-dashboard
-npm ci
-npm run build
-```
-
-Run the dashboard through a Hermes runtime when available:
-
-```bash
-hermes agency dashboard --host 127.0.0.1 --no-open
-```
-
-For LAN exposure, require explicit opt-in:
-
-```bash
-hermes agency dashboard --host 0.0.0.0 --allow-lan --no-open
-```
-
 ## Docker workflow
 
 The Docker setup should stay host-neutral. Do not document host-specific paths; use the provided named volume.
@@ -48,12 +28,11 @@ The Docker setup should stay host-neutral. Do not document host-specific paths; 
 docker compose up --build
 ```
 
-The default compose service is the full agency stack: setup, packaged staff install, model-set config, Kanban board initialization, local agency node manager, and dashboard.
+The default compose service is the full agency stack: setup, packaged staff install, model-set config, Kanban board initialization, and local agency node manager.
 
 Useful environment overrides:
 
 ```bash
-HERMES_DASHBOARD_TOKEN=<token> docker compose up --build
 HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
 AGENTANYCAST_RELAY=<relay-multiaddr> docker compose up --build
 AGENTANYCAST_REGISTRY_ADDRS=<registry-address> docker compose up --build
@@ -63,7 +42,7 @@ Advanced profiles:
 
 ```bash
 docker compose --profile tools run --rm setup
-docker compose --profile split up node dashboard
+docker compose --profile split up node
 ```
 
 ## Validation before commit
@@ -73,8 +52,7 @@ Run the fastest relevant checks for the files you changed, then the broader chec
 ```bash
 ./.venv/bin/ruff check .
 ./.venv/bin/ruff format --check .
-PATH=.venv/bin:$PATH python -m pytest -q hermes-agency/tests/test_dashboard.py
-cd web/agency-dashboard && npm run build
+PATH=.venv/bin:$PATH python -m pytest -q
 ```
 
 For plugin/model-set changes, also run:
@@ -85,7 +63,6 @@ PATH=.venv/bin:$PATH python -m pytest -q hermes-agency/tests/test_model_sets.py
 
 ## Dispatch and Kanban expectations
 
-- Dashboard dispatch must create a Kanban task when requested.
 - Target-agent dispatch must route through the pool sender so offline agents can wake or queue safely.
 - Kanban tasks must include board, assignee, target, status, and A2A correlation where available.
 - `/api/tasks` must aggregate agency Kanban boards, not only the default board.
