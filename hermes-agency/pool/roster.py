@@ -525,6 +525,65 @@ def _persisted_state_by_name() -> dict[str, dict[str, Any]]:
     }
 
 
+def _update_roster_state(name: str, updates: dict[str, Any]) -> None:
+    """Atomically update a single agent's entry in roster_state.json."""
+    path = roster_state_path()
+    data = _load_json(path)
+    profiles = data.get("profiles")
+    if not isinstance(profiles, list):
+        profiles = []
+    found = False
+    for i, entry in enumerate(profiles):
+        if isinstance(entry, dict) and entry.get("name") == name:
+            profiles[i] = {**entry, **updates}
+            found = True
+            break
+    if not found:
+        profiles.append({"name": name, **updates})
+    data["profiles"] = profiles
+    _atomic_write_json(path, data)
+
+
+def set_agent_disabled(name: str, disabled: bool, reason: str = "manual") -> None:
+    """Mark or unmark an agent as disabled in roster state."""
+    import time as _time
+
+    updates: dict[str, Any] = {"disabled": disabled}
+    if disabled:
+        updates["disabled_at"] = _time.time()
+        updates["disabled_reason"] = reason
+    else:
+        updates["disabled_at"] = None
+        updates["disabled_reason"] = None
+    _update_roster_state(name, updates)
+
+
+def is_agent_disabled(name: str) -> bool:
+    """Check if an agent is marked as disabled in roster state."""
+    persisted = _persisted_state_by_name()
+    entry = persisted.get(name, {})
+    return bool(entry.get("disabled"))
+
+
+def agent_created_by(name: str) -> str:
+    """Return how an agent was created: 'lifecycle', 'default_staff', or 'registry'."""
+    persisted = _persisted_state_by_name()
+    entry = persisted.get(name, {})
+    created_by = entry.get("created_by")
+    if created_by:
+        return str(created_by)
+    # Check if it's in the static registry
+    for agent in _registry_agents():
+        if agent.get("name") == name:
+            return "registry"
+    return "default_staff"
+
+
+def set_agent_created_by(name: str, created_by: str) -> None:
+    """Record how an agent was created."""
+    _update_roster_state(name, {"created_by": created_by})
+
+
 def _normalise_live_peer(item: Any) -> dict[str, Any] | None:
     if isinstance(item, dict):
         peer_id = str(item.get("peer_id") or item.get("id") or item.get("did") or "").strip()
@@ -619,6 +678,14 @@ def build_roster(
         # Current online status is volatile.  Keep historical peer_id/last_seen
         # from state, but recompute online from live sources below.
         merged["online"] = False
+        if saved.get("disabled"):
+            merged["disabled"] = True
+            merged["disabled_at"] = saved.get("disabled_at")
+            merged["disabled_reason"] = saved.get("disabled_reason")
+        else:
+            merged["disabled"] = False
+            merged["disabled_at"] = None
+            merged["disabled_reason"] = None
         agents_by_name[agent["name"]] = merged
 
     profiles_dir = _profiles_dir()
@@ -644,6 +711,9 @@ def build_roster(
                     "last_wake_attempt_at": None,
                     "wake_attempt_count": 0,
                     "last_wake_error": None,
+                    "disabled": False,
+                    "disabled_at": None,
+                    "disabled_reason": None,
                 }
             else:
                 agents_by_name[profile_dir.name] = _merge_agent(

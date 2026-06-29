@@ -20,12 +20,15 @@ from pathlib import Path
 from typing import Any
 
 from .roster import (
+    _atomic_write_json,
+    _load_json,
     build_roster,
     ensure_profile_plugins,
     find_agent,
     load_roster,
     queue_offline_task,
     record_wake_attempt,
+    roster_state_path,
     save_roster,
     update_agent_status,
 )
@@ -526,3 +529,218 @@ def pool_send(name: str, message: str) -> str:
         f"Sent task to {name} (peer_id: {str(agent['peer_id'])[:24]}...). "
         f"task_id={result.get('task_id')} status={result.get('status')}"
     )
+
+
+def pool_create_agent(
+    name: str,
+    department: str = "Operations",
+    skills: list[str] | None = None,
+    description: str = "",
+) -> str:
+    """Create a new agency agent profile at runtime."""
+    import json as _json
+    import re
+
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+    if not name.startswith("agency-"):
+        return _json.dumps({"ok": False, "error": "name must start with 'agency-'"})
+    if not re.match(r"^[a-z0-9-]+$", name):
+        return _json.dumps(
+            {"ok": False, "error": "name must be lowercase alphanumeric with hyphens"}
+        )
+    if len(name) > 64:
+        return _json.dumps({"ok": False, "error": "name must be 64 characters or fewer"})
+
+    from ..departments import DEPARTMENT_BOARD_SLUGS
+
+    valid_departments = set(DEPARTMENT_BOARD_SLUGS.keys())
+    department = str(department or "").strip()
+    if department not in valid_departments:
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": f"department must be one of: {', '.join(sorted(valid_departments))}",
+            }
+        )
+
+    profile_dir = PROFILES / name
+    if profile_dir.exists():
+        return _json.dumps({"ok": False, "error": f"profile {name} already exists"})
+
+    skills = [str(s).strip().lower().replace("_", "-") for s in (skills or []) if str(s).strip()]
+
+    try:
+        from ..pool.manager import PoolManager
+
+        manager = PoolManager.__new__(PoolManager)
+        manager.lock = __import__("threading").Lock()
+        manager.active = {}
+        manager.persistent_agents = set()
+        manager._ensure_profile(name)
+    except Exception as exc:
+        return _json.dumps({"ok": False, "error": f"failed to create profile: {exc}"})
+
+    # Override SOUL.md with custom content
+    soul_path = profile_dir / "SOUL.md"
+    skill_lines = "\n".join(f"- {s}" for s in skills) if skills else "- general assistance"
+    description = str(description or "").strip() or f"A {department} agent"
+    soul_content = (
+        f"# SOUL.md — {department} Agent\n\n"
+        f"## Identity\n\n"
+        f"You are `{name}`, a Hermes Agency agent in the {department} department.\n\n"
+        f"## Skills\n\n"
+        f"{skill_lines}\n\n"
+        f"## Role Description\n\n"
+        f"{description}\n\n"
+        f"## Operating Principles\n\n"
+        f"- Stay inside your specialty unless the task explicitly asks otherwise.\n"
+        f"- Prefer concrete artifacts, verified results, and concise handoffs.\n"
+        f"- Escalate to the right specialist by creating Kanban follow-up cards when needed.\n"
+        f"- Do not deploy, publish, delete, or mutate production resources without explicit approval.\n"
+    )
+    try:
+        soul_path.write_text(soul_content, encoding="utf-8")
+    except Exception:
+        pass
+
+    # Record in roster state
+    from .roster import set_agent_created_by
+
+    set_agent_created_by(name, "lifecycle")
+
+    return _json.dumps(
+        {
+            "ok": True,
+            "name": name,
+            "department": department,
+            "skills": skills,
+            "profile_dir": str(profile_dir),
+        }
+    )
+
+
+def pool_disable_agent(name: str) -> str:
+    """Mark an agent as disabled — won't be woken or receive tasks."""
+    import json as _json
+
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+
+    profile_dir = PROFILES / name
+    from .roster import (
+        _persisted_state_by_name,
+        _registry_agents,
+        is_agent_disabled,
+        set_agent_disabled,
+    )
+
+    persisted = _persisted_state_by_name()
+    in_registry = any(a.get("name") == name for a in _registry_agents())
+    if not profile_dir.exists() and not in_registry and name not in persisted:
+        return _json.dumps({"ok": False, "error": f"agent {name} not found"})
+
+    if is_agent_disabled(name):
+        return _json.dumps({"ok": True, "name": name, "action": "already_disabled"})
+
+    # Sleep if online
+    try:
+        pool_sleep(name)
+    except Exception:
+        pass
+
+    set_agent_disabled(name, True, "manual")
+    return _json.dumps({"ok": True, "name": name, "action": "disabled"})
+
+
+def pool_enable_agent(name: str) -> str:
+    """Re-enable a disabled agent."""
+    import json as _json
+
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+
+    from .roster import is_agent_disabled, set_agent_disabled
+
+    if not is_agent_disabled(name):
+        return _json.dumps({"ok": False, "error": f"agent {name} is not disabled"})
+
+    set_agent_disabled(name, False)
+    return _json.dumps({"ok": True, "name": name, "action": "enabled"})
+
+
+def pool_prune_agent(name: str, force: bool = False) -> str:
+    """Remove an agent entirely — delete profile dir and roster state."""
+    import json as _json
+    import shutil
+
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+
+    if name == "agency-orchestrator":
+        return _json.dumps({"ok": False, "error": "cannot prune the orchestrator agent"})
+
+    profile_dir = PROFILES / name
+    from .roster import _persisted_state_by_name, _registry_agents
+
+    persisted = _persisted_state_by_name()
+    in_registry = any(a.get("name") == name for a in _registry_agents())
+    if not profile_dir.exists() and not in_registry and name not in persisted:
+        return _json.dumps({"ok": False, "error": f"agent {name} not found"})
+
+    if in_registry and not force:
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": f"{name} is a default staff agent. Pass force=True to prune (it can be reinstalled via pool_reset_agents).",
+                "reinstallable": True,
+            }
+        )
+
+    # Sleep if online
+    try:
+        pool_sleep(name)
+    except Exception:
+        pass
+
+    # Delete profile dir
+    if profile_dir.exists():
+        try:
+            shutil.rmtree(profile_dir)
+        except Exception as exc:
+            return _json.dumps({"ok": False, "error": f"failed to delete profile dir: {exc}"})
+
+    # Remove from roster state
+    data = _load_json(roster_state_path())
+    profiles = data.get("profiles")
+    if isinstance(profiles, list):
+        data["profiles"] = [
+            p for p in profiles if not (isinstance(p, dict) and p.get("name") == name)
+        ]
+        _atomic_write_json(roster_state_path(), data)
+
+    return _json.dumps(
+        {
+            "ok": True,
+            "name": name,
+            "action": "pruned",
+            "reinstallable": in_registry,
+        }
+    )
+
+
+def pool_reset_agents() -> str:
+    """Reinstall all default_staff profiles. Safety net for over-pruning."""
+    import json as _json
+
+    try:
+        from ..default_staff import install_default_staff
+
+        result = install_default_staff(force=True)
+        return _json.dumps({"ok": True, **result})
+    except Exception as exc:
+        return _json.dumps({"ok": False, "error": str(exc)})

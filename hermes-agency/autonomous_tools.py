@@ -118,6 +118,48 @@ def a2a_log_routing_correction(args: dict[str, Any] | None = None, **_: Any) -> 
     )
 
 
+def agency_create_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    args = args or {}
+    from .pool.tools import pool_create_agent
+
+    return pool_create_agent(
+        name=str(args.get("name") or ""),
+        department=str(args.get("department") or "Operations"),
+        skills=args.get("skills") if isinstance(args.get("skills"), list) else None,
+        description=str(args.get("description") or ""),
+    )
+
+
+def agency_disable_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    args = args or {}
+    from .pool.tools import pool_disable_agent
+
+    return pool_disable_agent(name=str(args.get("name") or ""))
+
+
+def agency_enable_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    args = args or {}
+    from .pool.tools import pool_enable_agent
+
+    return pool_enable_agent(name=str(args.get("name") or ""))
+
+
+def agency_prune_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    args = args or {}
+    from .pool.tools import pool_prune_agent
+
+    return pool_prune_agent(
+        name=str(args.get("name") or ""),
+        force=bool(args.get("force", False)),
+    )
+
+
+def agency_reset_agents(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_reset_agents
+
+    return pool_reset_agents()
+
+
 Handler = Callable[..., str]
 
 
@@ -309,6 +351,93 @@ A2A_LOG_ROUTING_CORRECTION_SCHEMA = {
     },
 }
 
+AGENCY_CREATE_AGENT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_create_agent",
+        "description": "Create a new agency agent profile at runtime.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Agent name, must start with 'agency-'."},
+                "department": {
+                    "type": "string",
+                    "description": "Department (Engineering, Design, Content, Marketing, Product, QA, Operations, Leadership).",
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of skill IDs.",
+                },
+                "description": {"type": "string", "description": "Role description."},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+AGENCY_DISABLE_AGENT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_disable_agent",
+        "description": "Disable an agency agent — won't be woken or receive tasks.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Agent name to disable."},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+AGENCY_ENABLE_AGENT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_enable_agent",
+        "description": "Re-enable a disabled agency agent.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Agent name to enable."},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+AGENCY_PRUNE_AGENT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_prune_agent",
+        "description": "Remove an agent entirely — delete profile dir and roster state.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Agent name to prune."},
+                "force": {
+                    "type": "boolean",
+                    "description": "Force prune even for default staff agents.",
+                },
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+AGENCY_RESET_AGENTS_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "agency_reset_agents",
+        "description": "Reinstall all default staff agents. Safety net for over-pruning.",
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+}
+
 AGENCY_AUTONOMOUS_TOOLS = (
     (
         "agency_registry",
@@ -369,6 +498,56 @@ AGENCY_AUTONOMOUS_TOOLS = (
         ),
         agency_log_routing_correction,
         "🧠",
+    ),
+    (
+        "agency_create_agent",
+        _schema_with_name(
+            AGENCY_CREATE_AGENT_SCHEMA,
+            "agency_create_agent",
+            "Create a new agency agent profile at runtime.",
+        ),
+        agency_create_agent,
+        "➕",
+    ),
+    (
+        "agency_disable_agent",
+        _schema_with_name(
+            AGENCY_DISABLE_AGENT_SCHEMA,
+            "agency_disable_agent",
+            "Disable an agency agent — won't be woken or receive tasks.",
+        ),
+        agency_disable_agent,
+        "🚫",
+    ),
+    (
+        "agency_enable_agent",
+        _schema_with_name(
+            AGENCY_ENABLE_AGENT_SCHEMA,
+            "agency_enable_agent",
+            "Re-enable a disabled agency agent.",
+        ),
+        agency_enable_agent,
+        "✅",
+    ),
+    (
+        "agency_prune_agent",
+        _schema_with_name(
+            AGENCY_PRUNE_AGENT_SCHEMA,
+            "agency_prune_agent",
+            "Remove an agent entirely — delete profile dir and roster state.",
+        ),
+        agency_prune_agent,
+        "🗑️",
+    ),
+    (
+        "agency_reset_agents",
+        _schema_with_name(
+            AGENCY_RESET_AGENTS_SCHEMA,
+            "agency_reset_agents",
+            "Reinstall all default staff agents. Safety net for over-pruning.",
+        ),
+        agency_reset_agents,
+        "🔄",
     ),
 )
 

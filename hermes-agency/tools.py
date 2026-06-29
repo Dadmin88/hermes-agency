@@ -888,6 +888,57 @@ def pool_send(args: dict[str, Any] | None = None, **_: Any) -> str:
     return _pool_send(name, message)
 
 
+def pool_create_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_create_agent as _pool_create_agent
+
+    args = args or {}
+    name = args.get("name", "")
+    if not name:
+        return "Error: name is required"
+    return _pool_create_agent(
+        name=str(name),
+        department=str(args.get("department") or "Operations"),
+        skills=args.get("skills") if isinstance(args.get("skills"), list) else None,
+        description=str(args.get("description") or ""),
+    )
+
+
+def pool_disable_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_disable_agent as _pool_disable_agent
+
+    args = args or {}
+    name = args.get("name", "")
+    if not name:
+        return "Error: name is required"
+    return _pool_disable_agent(name)
+
+
+def pool_enable_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_enable_agent as _pool_enable_agent
+
+    args = args or {}
+    name = args.get("name", "")
+    if not name:
+        return "Error: name is required"
+    return _pool_enable_agent(name)
+
+
+def pool_prune_agent(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_prune_agent as _pool_prune_agent
+
+    args = args or {}
+    name = args.get("name", "")
+    if not name:
+        return "Error: name is required"
+    return _pool_prune_agent(name, force=bool(args.get("force", False)))
+
+
+def pool_reset_agents(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_reset_agents as _pool_reset_agents
+
+    return _pool_reset_agents()
+
+
 def _pool_schema(name: str, description: str, parameters: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "function",
@@ -942,6 +993,93 @@ POOL_TOOLS = (
         ),
         pool_send,
         "📬",
+    ),
+    (
+        "agency_create_agent",
+        _pool_schema(
+            "agency_create_agent",
+            "Create a new agency agent at runtime.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Agent name, must start with 'agency-'.",
+                    },
+                    "department": {
+                        "type": "string",
+                        "description": "Department (Engineering, Design, Content, Marketing, Product, QA, Operations, Leadership).",
+                    },
+                    "skills": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of skill IDs.",
+                    },
+                    "description": {"type": "string", "description": "Role description."},
+                },
+                "required": ["name"],
+            },
+        ),
+        pool_create_agent,
+        "➕",
+    ),
+    (
+        "agency_disable_agent",
+        _pool_schema(
+            "agency_disable_agent",
+            "Disable an agency agent (won't be woken or receive tasks).",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string", "description": "Agent name to disable."}},
+                "required": ["name"],
+            },
+        ),
+        pool_disable_agent,
+        "🚫",
+    ),
+    (
+        "agency_enable_agent",
+        _pool_schema(
+            "agency_enable_agent",
+            "Re-enable a disabled agency agent.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string", "description": "Agent name to enable."}},
+                "required": ["name"],
+            },
+        ),
+        pool_enable_agent,
+        "✅",
+    ),
+    (
+        "agency_prune_agent",
+        _pool_schema(
+            "agency_prune_agent",
+            "Remove an agent entirely (profile dir + roster state).",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Agent name to prune."},
+                    "force": {
+                        "type": "boolean",
+                        "description": "Force prune even for default staff agents.",
+                    },
+                },
+                "required": ["name"],
+            },
+        ),
+        pool_prune_agent,
+        "🗑️",
+    ),
+    (
+        "agency_reset_agents",
+        _pool_schema(
+            "agency_reset_agents",
+            "Reinstall all default staff agents.",
+            {"type": "object", "properties": {}, "required": []},
+        ),
+        pool_reset_agents,
+        "🔄",
     ),
 )
 

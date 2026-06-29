@@ -29,10 +29,6 @@ Please include:
 
 Hermes Agency has several distinct trust boundaries. Understanding them helps you assess impact and report issues accurately.
 
-### Dashboard
-
-The web dashboard runs locally (default `127.0.0.1:8765`). It requires a session token. LAN exposure requires an explicit `--allow-lan` flag. The dashboard controls task dispatch, agent status, and model-set configuration — treat access to it as operator-level.
-
 ### Pool Manager
 
 The pool manager routes tasks to staff agents. It can attempt to wake offline agents and queue tasks persistently. A compromised pool manager could misroute tasks or exhaust agent wake budgets.

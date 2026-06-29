@@ -1,14 +1,13 @@
 # Hermes Agency
 
-> Multi-agent orchestration for Hermes Agent. Dashboard, 83-agent staff roster, model sets, Kanban routing, task delegation, and safe operations — backed by the AgentAnycast P2P transport layer.
+> Multi-agent orchestration for Hermes Agent. 83-agent staff roster, model sets, Kanban routing, task delegation, and safe operations — backed by the AgentAnycast P2P transport layer.
 
 ## Overview
 
-Hermes Agency turns Hermes Agent into a managed agency. Operators interact through a dashboard or CLI to dispatch work to specialized staff agents. The system handles routing, queuing, wake-up attempts, and status tracking automatically.
+Hermes Agency turns Hermes Agent into a managed agency. Operators interact through CLI to dispatch work to specialized staff agents. The system handles routing, queuing, wake-up attempts, and status tracking automatically.
 
 **Key components:**
 
-- **Dashboard** — web UI for dispatching tasks, viewing agent status, and monitoring Kanban boards
 - **Staff Roster** — 83 specialized agents (engineering, design, marketing, operations, and more)
 - **Model Sets** — configurable provider/model profiles per agent or role
 - **Kanban Routing** — task boards with assignees, statuses, and A2A correlation
@@ -21,14 +20,9 @@ Hermes Agency turns Hermes Agent into a managed agency. Operators interact throu
 pip install hermes-agency
 ```
 
-```bash
-hermes agency dashboard
-```
-
 ## CLI
 
 ```bash
-hermes agency dashboard                          # Start the dashboard
 hermes agency discover <skill>                   # Find agents by skill
 hermes agency send <target> "<message>"           # Send a task
 hermes agency status                              # Check node status
@@ -161,7 +155,6 @@ peer_id = did_key_to_peer_id("did:key:z6Mk...")
 
 ## Key Concepts
 
-- **Dashboard**: web UI for task dispatch, agent status, and Kanban boards
 - **Staff roster**: 83 specialized agents with configurable model sets
 - **Kanban routing**: task boards with assignees, statuses, and A2A correlation
 - **Pool dispatch**: offline queuing with automatic wake attempts for unreachable agents
@@ -171,7 +164,7 @@ peer_id = did_key_to_peer_id("did:key:z6Mk...")
 
 ## Related Repositories
 
-- [Hermes_Agency](https://github.com/DeployFaith/Hermes_Agency) — Dashboard, roster, and orchestration
+- [Hermes_Agency](https://github.com/DeployFaith/Hermes_Agency) — Roster and orchestration
 - [agentanycast](https://github.com/AgentAnycast/agentanycast) — Transport layer docs and issue tracker
 - [agentanycast-ts](https://github.com/AgentAnycast/agentanycast-ts) — TypeScript SDK
 - [agentanycast-node](https://github.com/AgentAnycast/agentanycast-node) — Go daemon

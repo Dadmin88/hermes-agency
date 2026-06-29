@@ -650,6 +650,9 @@ def test_pool_roster_uses_profile_config_model_over_static_registry(tmp_path, mo
             "last_wake_attempt_at": None,
             "wake_attempt_count": 0,
             "last_wake_error": None,
+            "disabled": False,
+            "disabled_at": None,
+            "disabled_reason": None,
         }
     ]
 

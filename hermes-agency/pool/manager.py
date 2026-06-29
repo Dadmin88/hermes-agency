@@ -551,6 +551,12 @@ class PoolManager:
         return peer_id, proc, "\n".join(output_lines)
 
     def wake(self, name, persistent=False):
+        from .roster import is_agent_disabled
+
+        if is_agent_disabled(name):
+            raise ValueError(
+                f"Agent {name} is disabled. Use pool_enable_agent to re-enable it first."
+            )
         if not name.startswith("agency-"):
             raise ValueError("Only agency-* profiles allowed")
         persistent = persistent or name in self.persistent_agents
