@@ -10,6 +10,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import importlib.util
 import sys
@@ -320,6 +321,36 @@ class TestDashboardStatic:
         static = plugin_modules.dashboard_static
         resp = static._missing_build_response()
         assert resp.status_code == 503
+
+    def test_serve_assets_rejects_path_traversal(self, plugin_modules, tmp_path, monkeypatch):
+        fastapi = pytest.importorskip("fastapi")
+        static = plugin_modules.dashboard_static
+        dist = tmp_path / "dist"
+        assets = dist / "assets"
+        assets.mkdir(parents=True)
+        secret = tmp_path / "secret.txt"
+        secret.write_text("secret", encoding="utf-8")
+        monkeypatch.setattr(static, "resolve_dashboard_dist", lambda: dist)
+
+        with pytest.raises(fastapi.HTTPException) as exc_info:
+            asyncio.run(static.serve_assets("../secret.txt"))
+
+        assert exc_info.value.status_code == 404
+
+    def test_serve_assets_serves_files_under_assets(self, plugin_modules, tmp_path, monkeypatch):
+        static = plugin_modules.dashboard_static
+        dist = tmp_path / "dist"
+        assets = dist / "assets"
+        assets.mkdir(parents=True)
+        asset = assets / "app.js"
+        asset.write_text("console.log('ok')", encoding="utf-8")
+        monkeypatch.setattr(static, "resolve_dashboard_dist", lambda: dist)
+
+        resp = asyncio.run(static.serve_assets("app.js"))
+
+        assert resp.status_code == 200
+        assert resp.media_type == "application/javascript"
+        assert resp.body == b"console.log('ok')"
 
 
 # =========================================================================
