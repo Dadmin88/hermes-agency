@@ -112,7 +112,7 @@ def configure() -> None:
     config_path = home / "config.yaml"
     config = _load_yaml(config_path)
     orchestrator = os.environ.get("HERMES_AGENCY_ORCHESTRATOR", "agency-orchestrator")
-    active_model_set = os.environ.get("HERMES_AGENCY_MODEL_SET", "balanced")
+    active_model_set = os.environ.get("HERMES_AGENCY_MODEL_SET", "openai-codex-only")
     patch = {
         "agency": {
             "enabled": True,

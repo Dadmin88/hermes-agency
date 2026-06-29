@@ -21,7 +21,7 @@ except Exception:  # pragma: no cover - Hermes normally depends on PyYAML
 
 SECRET_KEY_FRAGMENTS = ("api_key", "apikey", "token", "secret", "password", "credential")
 SUPPORTED_VERSION = 1
-DEFAULT_MODEL_SET = "balanced"
+DEFAULT_MODEL_SET = "openai-codex-only"
 CATEGORY_FAMILY_DEFAULTS: dict[str, str] = {
     "leadership": "orchestration",
     "engineering": "coding_worker",

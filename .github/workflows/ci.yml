@@ -80,7 +80,7 @@ jobs:
         run: mypy src/ --exclude '_generated'
 
   security:
-    name: Security Audit
+    name: Security Report
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,8 +92,32 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]" pip-audit
 
-      - name: Run pip-audit
-        run: pip-audit --strict --skip-editable || true
+      - name: Run pip-audit (advisory)
+        run: pip-audit --skip-editable || true
+
+  dashboard:
+    name: Dashboard Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/agency-dashboard/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: web/agency-dashboard
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: web/agency-dashboard
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: web/agency-dashboard
+        run: npm run build
 
   test:
     name: Test (Python ${{ matrix.python-version }})

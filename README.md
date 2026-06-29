@@ -232,7 +232,7 @@ Optional environment variables:
 
 ```bash
 HERMES_DASHBOARD_TOKEN=change-me \
-HERMES_AGENCY_MODEL_SET=balanced \
+HERMES_AGENCY_MODEL_SET=openai-codex-only \
 AGENTANYCAST_RELAY=<relay-multiaddr> \
 AGENTANYCAST_REGISTRY_ADDRS=<registry-address> \
 docker compose up --build
