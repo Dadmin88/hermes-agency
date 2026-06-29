@@ -31,6 +31,7 @@ class _FakeFastMCP:
     def tool(self):
         def decorator(fn):
             return fn
+
         return decorator
 
     def run(self, **kw):
