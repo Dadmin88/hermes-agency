@@ -537,6 +537,20 @@ class TestOutboundUrlValidation:
                 "http://127.0.0.1:8080/a2a", _OutboundUrlPolicy(validation_mode="strict")
             )
 
+    def test_strict_mode_rejects_hostname_resolving_to_private_ip(self, monkeypatch):
+        def fake_getaddrinfo(host, port, *, type=0):
+            assert host == "attacker.example"
+            assert port is None
+            assert type == 1
+            return [(None, None, None, None, ("127.0.0.1", 0))]
+
+        monkeypatch.setattr("agentanycast.node.socket.getaddrinfo", fake_getaddrinfo)
+
+        with pytest.raises(ValueError, match="private/internal"):
+            _validate_outbound_url(
+                "https://attacker.example/a2a", _OutboundUrlPolicy(validation_mode="strict")
+            )
+
 
 # ── on_task Decorator ────────────────────────────────────────
 
