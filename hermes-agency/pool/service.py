@@ -4,11 +4,31 @@ Hermes Agency Pool Manager Service
 FastAPI/Flask HTTP server on configured port.
 """
 
+import os
+
 from flask import Flask, jsonify, request
 from manager import PoolManager
 
 app = Flask(__name__)
 pm = PoolManager()
+
+
+def _auth_token():
+    return os.environ.get("HERMES_POOL_TOKEN") or pm.config.get("pool", {}).get("auth_token")
+
+
+def _authorized():
+    token = _auth_token()
+    if not token:
+        return False
+    return request.headers.get("Authorization") == f"Bearer {token}"
+
+
+@app.before_request
+def require_auth_for_state_changes():
+    if request.method == "POST" and not _authorized():
+        return jsonify({"error": "unauthorized"}), 401
+    return None
 
 
 @app.route("/pool/agents", methods=["GET"])
@@ -55,7 +75,8 @@ def pool_status():
 def run():
     port = pm.config["pool"]["port"]
     print(f"Starting Pool Manager Service on port {port}")
-    app.run(host="0.0.0.0", port=port, threaded=True)
+    host = pm.config.get("pool", {}).get("host", "127.0.0.1")
+    app.run(host=host, port=port, threaded=True)
 
 
 if __name__ == "__main__":

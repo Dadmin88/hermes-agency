@@ -82,6 +82,15 @@ class PoolManager:
                 return json.load(f)
         return {"agents": []}
 
+    def _registered_agent_names(self):
+        return {agent.get("name") for agent in self.registry.get("agents", [])}
+
+    def _validate_agent_name(self, name):
+        if not name.startswith("agency-"):
+            raise ValueError("Only agency-* profiles allowed")
+        if name not in self._registered_agent_names():
+            raise ValueError(f"Unknown agency profile: {name}")
+
     def _get_model(self, name):
         models = self.config.get("models", {})
         if name in models.get("overrides", {}):
@@ -321,8 +330,7 @@ class PoolManager:
         return peer_id, proc, "\n".join(output_lines)
 
     def wake(self, name, persistent=False):
-        if not name.startswith("agency-"):
-            raise ValueError("Only agency-* profiles allowed")
+        self._validate_agent_name(name)
         persistent = persistent or name in self.persistent_agents
         with self.lock:
             existing = self.active.get(name)
