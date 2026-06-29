@@ -10,13 +10,27 @@ import click
     "--transport",
     type=click.Choice(["stdio", "http"]),
     default="stdio",
-    help="Transport mode: stdio (Claude Desktop, Cursor) or http (remote clients).",
+    help="Transport mode: stdio (Claude Desktop, Cursor) or http (localhost only by default).",
 )
 @click.option(
     "--port",
     type=int,
     default=8080,
     help="HTTP port (only used with --transport http).",
+)
+@click.option(
+    "--host",
+    default="127.0.0.1",
+    show_default=True,
+    help="HTTP host to bind (only used with --transport http).",
+)
+@click.option(
+    "--allow-http-bridge",
+    is_flag=True,
+    help=(
+        "Allow MCP send_task to target arbitrary HTTP(S) bridge URLs. "
+        "Use only for trusted local clients."
+    ),
 )
 @click.option(
     "--relay",
@@ -28,7 +42,14 @@ import click
     default=None,
     help="Data directory for daemon state.",
 )
-def mcp_cmd(transport: str, port: int, relay: str | None, home: str | None) -> None:
+def mcp_cmd(
+    transport: str,
+    port: int,
+    host: str,
+    allow_http_bridge: bool,
+    relay: str | None,
+    home: str | None,
+) -> None:
     """Start the MCP server for AI tool integration.
 
     Exposes AgentAnycast P2P networking as MCP tools so that AI
@@ -38,10 +59,10 @@ def mcp_cmd(transport: str, port: int, relay: str | None, home: str | None) -> N
     \b
     Examples:
         agentanycast mcp                    # stdio (default)
-        agentanycast mcp --transport http   # HTTP on port 8080
+        agentanycast mcp --transport http   # HTTP on 127.0.0.1:8080
         agentanycast mcp --relay /ip4/...   # connect via relay
     """
     from agentanycast.mcp_server import configure, run_server
 
-    configure(relay=relay, home=home)
-    run_server(transport=transport, port=port)
+    configure(relay=relay, home=home, allow_http_bridge=allow_http_bridge)
+    run_server(transport=transport, port=port, host=host)

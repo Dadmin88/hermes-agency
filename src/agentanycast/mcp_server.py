@@ -13,6 +13,7 @@ Environment variables (read automatically, useful for MCP JSON configs)::
 
     AGENTANYCAST_RELAY   — Relay server multiaddr
     AGENTANYCAST_HOME    — Data directory for daemon state
+    AGENTANYCAST_MCP_ALLOW_HTTP_BRIDGE — Set to true to allow MCP URL targets
 """
 
 from __future__ import annotations
@@ -51,9 +52,15 @@ _node_lock = asyncio.Lock()
 # then environment variables are checked as fallback.
 _relay: str | None = None
 _home: str | None = None
+_allow_http_bridge: bool | None = None
 
 
-def configure(*, relay: str | None = None, home: str | None = None) -> None:
+def configure(
+    *,
+    relay: str | None = None,
+    home: str | None = None,
+    allow_http_bridge: bool | None = None,
+) -> None:
     """Set runtime options before the MCP server starts.
 
     Called by the CLI layer to pass ``--relay`` / ``--home`` flags
@@ -63,7 +70,7 @@ def configure(*, relay: str | None = None, home: str | None = None) -> None:
     singleton Node.  Calling after the Node is already running logs a
     warning and has no effect.
     """
-    global _relay, _home  # noqa: PLW0603
+    global _relay, _home, _allow_http_bridge  # noqa: PLW0603
     if _node is not None and _node.is_running:
         logger.warning(
             "configure() called after Node already started — new settings will not take effect"
@@ -71,6 +78,7 @@ def configure(*, relay: str | None = None, home: str | None = None) -> None:
         return
     _relay = relay
     _home = home
+    _allow_http_bridge = allow_http_bridge
 
 
 def _resolve_config(explicit: str | None, env_key: str) -> str | None:
@@ -78,6 +86,21 @@ def _resolve_config(explicit: str | None, env_key: str) -> str | None:
     if explicit is not None:
         return explicit
     return os.environ.get(env_key) or None
+
+
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    """Return whether an environment flag is enabled."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _http_bridge_allowed() -> bool:
+    """Return whether MCP callers may target arbitrary HTTP(S) bridge URLs."""
+    if _allow_http_bridge is not None:
+        return _allow_http_bridge
+    return _env_flag("AGENTANYCAST_MCP_ALLOW_HTTP_BRIDGE")
 
 
 async def _get_node() -> Node:
@@ -211,6 +234,17 @@ async def send_task(target: str, message: str, timeout: float = 30.0) -> str:
         kwargs: dict[str, Any] = {}
 
         if target.startswith(("http://", "https://")):
+            if not _http_bridge_allowed():
+                return json.dumps(
+                    {
+                        "error": (
+                            "HTTP bridge targets are disabled for MCP. "
+                            "Set AGENTANYCAST_MCP_ALLOW_HTTP_BRIDGE=true "
+                            "only for trusted local clients."
+                        )
+                    },
+                    indent=2,
+                )
             kwargs["url"] = target
             mode = "http_bridge"
         elif target.startswith("12D3KooW") or target.startswith("Qm"):
@@ -320,16 +354,18 @@ def _sync_shutdown() -> None:
             pass
 
 
-def run_server(transport: str = "stdio", port: int = 8080) -> None:
+def run_server(transport: str = "stdio", port: int = 8080, host: str = "127.0.0.1") -> None:
     """Start the MCP server with the given transport.
 
     Args:
         transport: ``"stdio"`` for local MCP clients (Claude Desktop,
-            Cursor) or ``"http"`` for remote / web-based clients.
+            Cursor) or ``"http"`` for local web-based clients.
         port: Port number when *transport* is ``"http"``.
+        host: Host interface when *transport* is ``"http"``. Defaults to localhost.
     """
     atexit.register(_sync_shutdown)
     if transport == "http":
+        mcp.settings.host = host
         mcp.settings.port = port
     mcp.run(transport=transport)
 
