@@ -15,7 +15,7 @@ Config schema and defaults::
         persist_queue: true       # persist incoming queue state across restarts
         queue_persistence_path: null # optional path (default: <agency.home>/incoming_queue.json)
         handler_timeout_seconds: 300 # max seconds one incoming worker handler may run
-        tool_access: full         # safe, full, none
+        tool_access: safe         # safe, full, none
         max_iterations: 25        # max subagent turns
         subprocess_profile: null  # optional Hermes profile override for subprocess fallback
         allow_subprocess: false   # true = permit remote tasks to use subprocess mode
@@ -192,7 +192,7 @@ class IncomingConfig:
     persist_queue: bool = True
     queue_persistence_path: Path | None = None
     handler_timeout_seconds: float = 300
-    tool_access: str = "full"
+    tool_access: str = "safe"
     max_iterations: int = 25
     subprocess_profile: str | None = None
     allow_subprocess: bool = False
@@ -1004,12 +1004,12 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
     if mode not in {"template", "delegation", "subprocess"}:
         mode = "delegation"
     tool_access = (
-        str(_cfg_get(config, "agency", "incoming", "tool_access", default="full") or "full")
+        str(_cfg_get(config, "agency", "incoming", "tool_access", default="safe") or "safe")
         .strip()
         .lower()
     )
     if tool_access not in {"safe", "full", "none"}:
-        tool_access = "full"
+        tool_access = "safe"
     subprocess_profile = str(
         _cfg_get(config, "agency", "incoming", "subprocess_profile", default="") or ""
     ).strip()

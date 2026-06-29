@@ -56,7 +56,7 @@ def toolsets_for_access(tool_access: str | None) -> list[str] | None:
     Hermes delegation represents unrestricted access.  ``[]`` means no tools.
     """
 
-    access = (tool_access or "full").strip().lower()
+    access = (tool_access or "safe").strip().lower()
     if access == "none":
         return []
     if access == "full":
@@ -254,7 +254,7 @@ def process_incoming_task(
     prompt = build_delegation_prompt(task_record, skill_context=skill_context)
     context = build_delegation_context(task_record)
     mode = str(getattr(config, "incoming_mode", "delegation") or "delegation").strip().lower()
-    toolsets = toolsets_for_access(getattr(config, "incoming_tool_access", "full"))
+    toolsets = toolsets_for_access(getattr(config, "incoming_tool_access", "safe"))
     max_iterations = getattr(config, "incoming_max_iterations", 25)
     timeout = int(getattr(config, "delegation_timeout", 120) or 120)
     send_progress = bool(getattr(config, "incoming_send_progress", False))
