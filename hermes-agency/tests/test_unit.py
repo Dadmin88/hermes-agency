@@ -756,6 +756,17 @@ def _registration_control(plugin_modules, peer_id: str = "peer-good", name: str 
     )
 
 
+def _handshake_control(plugin_modules, peer_id: str = "peer-good", name: str = "Good") -> str:
+    return plugin_modules.registration.serialize_control_message(
+        {
+            "protocol": "agency.autonomous.v1",
+            "type": "handshake",
+            "peer_id": peer_id,
+            "agent": {"name": name, "description": "Trusted sender", "skills": []},
+        }
+    )
+
+
 def _security_cfg(plugin_modules, tmp_path, *, allowlist=("peer-good",), tofu=True):
     return plugin_modules.config.AgencyConfig(
         relay_security=plugin_modules.config.RelaySecurityConfig(allowlist=allowlist),
@@ -962,6 +973,75 @@ async def test_incoming_queue_recovers_after_draining(plugin_modules, monkeypatc
     assert queued_task is second
     assert queued_task_id == "task-2"
     assert second.failed is None
+
+
+@pytest.mark.asyncio
+async def test_unknown_peer_handshake_does_not_create_trust_or_allowlist(
+    plugin_modules, monkeypatch, tmp_path
+):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
+    allowlist_calls = []
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        plugin_modules.config,
+        "add_peer_to_relay_allowlist",
+        lambda peer_id: allowlist_calls.append(peer_id),
+    )
+    task = _FakeIncomingTask(
+        _handshake_control(plugin_modules, peer_id="peer-attacker", name="Attacker"),
+        peer_id="peer-attacker",
+    )
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed
+    assert "allowlist" in task.failed
+    assert task.completed is None
+    assert allowlist_calls == []
+    assert plugin_modules.trust.store_for_config(cfg).list_peers() == {}
+
+
+@pytest.mark.asyncio
+async def test_authorized_full_trust_peer_can_handshake(plugin_modules, monkeypatch, tmp_path):
+    nm = plugin_modules.node_manager
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
+    plugin_modules.trust.store_for_config(cfg).set_trust(
+        "peer-good", trust_level="full", name="Good"
+    )
+    allowlist_calls = []
+    monkeypatch.setattr(nm, "get_config", lambda: cfg)
+    monkeypatch.setattr(
+        plugin_modules.config,
+        "add_peer_to_relay_allowlist",
+        lambda peer_id: {
+            "ok": True,
+            "changed": bool(allowlist_calls.append(peer_id) or True),
+            "peer_id": peer_id,
+        },
+    )
+    task = _FakeIncomingTask(_handshake_control(plugin_modules), peer_id="peer-good")
+
+    await nm.NodeManager()._handle_incoming_task(task)
+
+    assert task.failed is None
+    assert task.completed is not None
+    assert allowlist_calls == ["peer-good"]
+    record = plugin_modules.trust.store_for_config(cfg).list_peers()["peer-good"]
+    assert record["trust_level"] == "full"
+    assert record["handshake_status"] == "accepted"
+
+
+def test_handshake_status_does_not_bypass_effective_allowlist(plugin_modules, tmp_path):
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",), tofu=True)
+    store = plugin_modules.trust.store_for_config(cfg)
+    store.set_trust("peer-attacker", trust_level="full", name="Attacker")
+    store.update_peer_metadata("peer-attacker", handshake_status="accepted")
+
+    assert (
+        plugin_modules.incoming_security._peer_allowed_by_effective_config(cfg, "peer-attacker")
+        is False
+    )
 
 
 @pytest.mark.asyncio
