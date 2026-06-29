@@ -44,7 +44,20 @@ _DEFAULT_DAEMON_VERSION = "0.7.2"
 # Pinned SHA-256 digests for daemon release assets.
 # Keys are (daemon_version, os_name, arch). Values must be updated in the SDK
 # before enabling automatic download of a new daemon release.
-_DAEMON_SHA256: dict[tuple[str, str, str], str] = {}
+_DAEMON_SHA256: dict[tuple[str, str, str], str] = {
+    (
+        "0.7.2",
+        "darwin",
+        "amd64",
+    ): "6966dc390898b9bb4a2d760ab6c1e2c1c69ec923755ce75d313214812ff902ac",
+    (
+        "0.7.2",
+        "darwin",
+        "arm64",
+    ): "b01f5ea2b302a762b42d78773859ba36b3e7a500ed08111442a3fe32f69cf9e0",
+    ("0.7.2", "linux", "amd64"): "c6fb41049f2b25b9f109b07073fd90f87a44e0e85b932c5646c37f4b2cd2df82",
+    ("0.7.2", "linux", "arm64"): "8ffc9122dd4d5ade67a08f4a47415c9c15c518407a7417548dec8d485d38ac00",
+}
 
 
 def _detect_platform() -> tuple[str, str]:
