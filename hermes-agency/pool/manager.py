@@ -530,8 +530,11 @@ class PoolManager:
                 break
             else:
                 time.sleep(0.2)
-        if proc.poll() is None and not peer_id:
-            proc.terminate()
+        # If the runner is still alive but did not emit HERMES_AGENCY_NODE_STATE
+        # on the captured pipe, keep it running so wake() can resolve the peer ID
+        # from the daemon log/key. Some Hermes runtimes redirect later runner
+        # output to the per-profile runner log, while the child daemon is already
+        # healthy and registered.
         return peer_id, proc, "\n".join(output_lines)
 
     def wake(self, name, persistent=False):
