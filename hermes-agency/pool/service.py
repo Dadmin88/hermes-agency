@@ -53,9 +53,11 @@ def pool_status():
 
 
 def run():
-    port = pm.config["pool"]["port"]
-    print(f"Starting Pool Manager Service on port {port}")
-    app.run(host="0.0.0.0", port=port, threaded=True)
+    pool_config = pm.config["pool"]
+    port = pool_config["port"]
+    host = pool_config.get("host", "127.0.0.1")
+    print(f"Starting Pool Manager Service on {host}:{port}")
+    app.run(host=host, port=port, threaded=True)
 
 
 if __name__ == "__main__":

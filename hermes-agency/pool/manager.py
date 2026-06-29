@@ -56,6 +56,7 @@ class PoolManager:
     def __init__(self):
         self.config = self._load_config()
         self.registry = self._load_registry()
+        self.allowed_agents = self._registered_agent_names(self.registry)
         self.active = {}  # name -> {'peer_id': str, 'last_active': datetime, 'proc': Popen|None, 'persistent': bool}
         self.persistent_agents = {"agency-orchestrator"}
         self.lock = threading.RLock()
@@ -81,6 +82,19 @@ class PoolManager:
             with open(REGISTRY_DEF) as f:
                 return json.load(f)
         return {"agents": []}
+
+    def _registered_agent_names(self, registry):
+        return {
+            agent.get("name")
+            for agent in registry.get("agents", [])
+            if isinstance(agent, dict) and agent.get("name")
+        }
+
+    def _assert_allowed_agent(self, name):
+        if not name.startswith("agency-"):
+            raise ValueError("Only agency-* profiles allowed")
+        if name not in self.allowed_agents and name not in self.persistent_agents:
+            raise ValueError(f"Unknown agency profile: {name}")
 
     def _get_model(self, name):
         models = self.config.get("models", {})
@@ -321,8 +335,7 @@ class PoolManager:
         return peer_id, proc, "\n".join(output_lines)
 
     def wake(self, name, persistent=False):
-        if not name.startswith("agency-"):
-            raise ValueError("Only agency-* profiles allowed")
+        self._assert_allowed_agent(name)
         persistent = persistent or name in self.persistent_agents
         with self.lock:
             existing = self.active.get(name)
