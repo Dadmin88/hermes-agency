@@ -195,7 +195,7 @@ from agentanycast.compat.agntcy import AGNTCYDirectory
 
 ## Auto-Update
 
-Hermes Agency ships with an auto-update system that keeps your installation current with every push to `main`. Any Hermes gateway on the machine is automatically restarted after an update.
+Hermes Agency ships with an auto-update system that keeps your installation current with trusted, signed updates from `origin/main`. Any Hermes gateway on the machine is automatically restarted after a verified update.
 
 **One-command install** (systemd timer, polls every 5 minutes):
 
@@ -205,7 +205,8 @@ Hermes Agency ships with an auto-update system that keeps your installation curr
 
 This sets up a systemd user timer that:
 - Polls `origin/main` every 5 minutes (configurable via `POLL_SECONDS=600`)
-- Pulls new commits (with auto-stash if you have local changes)
+- Verifies the fetched commit signature against your local Git trust configuration before updating
+- Fast-forwards to verified commits (with auto-stash if you have local changes)
 - Discovers and restarts **all** running Hermes gateways on the machine
 - Works for any profile name (`katana-gateway`, `hermes-gateway`, etc.)
 
@@ -213,7 +214,7 @@ This sets up a systemd user timer that:
 
 ```bash
 ./scripts/auto-update.sh               # pull + restart gateways
-DRY_RUN=1 ./scripts/auto-update.sh     # check only, no changes
+DRY_RUN=1 ./scripts/auto-update.sh     # verify only, no changes
 ```
 
 **Logs:** `~/.hermes/agency-update/update.log`

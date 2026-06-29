@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Hermes Agency Auto-Updater
-# Pulls latest from origin/main and restarts all running Hermes gateways.
+# Pulls signed updates from origin/main and restarts all running Hermes gateways.
 # Works on any machine — discovers gateways dynamically via systemd.
 #
 # Usage:
@@ -11,6 +11,10 @@
 #   REPO_DIR   — path to Hermes_Agency git clone (default: script's parent dir)
 #   LOG_DIR    — where to write logs (default: ~/.hermes/agency-update/)
 #   DRY_RUN    — set to "1" to check without pulling or restarting
+#
+# Security:
+#   Updates are applied only when the fetched origin/main tip has a valid
+#   trusted GPG/SSH signature according to local git configuration.
 
 set -euo pipefail
 
@@ -55,12 +59,21 @@ fi
 
 log "UPDATE: $LOCAL -> $REMOTE"
 
+# Only deploy commits that are explicitly trusted by the local git signature
+# policy. This prevents the timer from executing unsigned code from the
+# mutable origin/main branch after a remote or branch-protection compromise.
+if ! git verify-commit "$REMOTE" >/dev/null 2>&1; then
+    log "ERROR: refusing unsigned or untrusted update $REMOTE"
+    log "ERROR: configure trusted GPG/SSH signing keys, then retry"
+    exit 1
+fi
+
 if [ "$DRY_RUN" = "1" ]; then
-    log "DRY_RUN: would pull and restart, skipping"
+    log "DRY_RUN: verified signed update; would fast-forward and restart, skipping"
     exit 0
 fi
 
-# ── Pull (stash if needed) ──────────────────────────────────────────────────
+# ── Fast-forward to verified commit (stash if needed) ───────────────────────
 
 STASHED=false
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
@@ -68,14 +81,14 @@ if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; th
     log "Stashed local changes"
 fi
 
-if ! git pull --ff-only origin main --quiet 2>/dev/null; then
-    log "ERROR: git pull failed (non-fast-forward), manual intervention needed"
+if ! git merge --ff-only "$REMOTE" --quiet 2>/dev/null; then
+    log "ERROR: git fast-forward failed, manual intervention needed"
     [ "$STASHED" = true ] && git stash pop --quiet 2>/dev/null || true
     exit 1
 fi
 
 NEW=$(git rev-parse --short HEAD)
-log "Pulled $NEW"
+log "Updated to verified commit $NEW"
 
 if [ "$STASHED" = true ]; then
     if git stash pop --quiet 2>/dev/null; then
