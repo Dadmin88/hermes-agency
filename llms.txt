@@ -1,172 +1,155 @@
 # Hermes Agency
 
-> Multi-agent orchestration for Hermes Agent. 83-agent staff roster, model sets, Kanban routing, task delegation, and safe operations — backed by the AgentAnycast P2P transport layer.
+Hermes Agency is a Hermes Agent plugin and local operations layer for running a managed multi-agent team. It installs and coordinates specialist `agency-*` Hermes profiles, routes work by skill, tracks execution through Kanban when available, manages model-set strategies, exposes Hermes CLI/slash/model-tool surfaces, and delegates work over the bundled AgentAnycast P2P transport layer.
 
-## Overview
+Hermes Agency is the product in this repository. AgentAnycast is the underlying transport foundation in `src/agentanycast/`.
 
-Hermes Agency turns Hermes Agent into a managed agency. Operators interact through CLI to dispatch work to specialized staff agents. The system handles routing, queuing, wake-up attempts, and status tracking automatically.
+## Primary capabilities
 
-**Key components:**
+- Packaged specialist staff roster under `hermes-agency/default_staff/`
+- Per-profile AgentCards built from `SOUL.md`, installed skills, and non-secret config metadata
+- Per-profile node lifecycle and task queue management
+- Skill-based discovery and task sending through AgentAnycast
+- Safe incoming task handling with conservative defaults
+- Kanban-aware task routing and reconciliation when Hermes Kanban is available
+- Team/orchestrator context injection through Hermes plugin hooks
+- Model-set management for bulk provider/model strategy changes
+- Orchestrator-only `orch_*` tools for promoted agency coordinators
+- GPT bridge inbox for live ChatGPT escalation
+- Discord intake for `!agency` task messages when configured
+- Headless Docker setup/node runtime
 
-- **Staff Roster** — 83 specialized agents (engineering, design, marketing, operations, and more)
-- **Model Sets** — configurable provider/model profiles per agent or role
-- **Kanban Routing** — task boards with assignees, statuses, and A2A correlation
-- **Task Delegation** — pool-based dispatch with offline queuing and wake attempts
-- **Safe Operations** — signed auto-updates, scoped tool access, and transport-layer encryption
+## Important command surfaces
 
-## Install
-
-```bash
-pip install hermes-agency
-```
-
-## CLI
-
-```bash
-hermes agency discover <skill>                   # Find agents by skill
-hermes agency send <target> "<message>"           # Send a task
-hermes agency status                              # Check node status
-hermes agency info                                # Show PeerID, DID, version
-```
-
-## Transport Layer
-
-The AgentAnycast SDK (`src/agentanycast/`) provides the P2P transport beneath Hermes Agency. It handles peer discovery, E2E-encrypted messaging (Noise_XX), relay connectivity, and offline queuing. Operators rarely interact with it directly.
+Standalone package command:
 
 ```bash
-pip install agentanycast               # Core SDK
-pip install agentanycast[crewai]       # + CrewAI adapter
-pip install agentanycast[langgraph]    # + LangGraph adapter
-pip install agentanycast[adk]          # + Google ADK adapter
-pip install agentanycast[openai-agents] # + OpenAI Agents adapter
-pip install agentanycast[claude]       # + Claude Agent SDK adapter
-pip install agentanycast[strands]      # + AWS Strands adapter
-pip install agentanycast[mcp]          # + MCP Server
-pip install agentanycast[adapters]     # All adapters
+hermes-agency doctor
+hermes-agency status --extended
+hermes-agency staff list
+hermes-agency staff install --dry-run
+hermes-agency models list
+hermes-agency models plan <model-set>
+hermes-agency setup-plugins
+hermes-agency start
+hermes-agency registry
+hermes-agency discover <skill>
 ```
 
-## Node — Transport API
-
-```python
-from agentanycast import Node, AgentCard, Skill
-
-card = AgentCard(
-    name="MyAgent",
-    description="Helpful assistant",
-    skills=[Skill(id="qa", description="Answer questions")],
-)
-
-async with Node(card=card, relay="<relay-multiaddr>") as node:
-    @node.on_task
-    async def handle(task):
-        text = task.messages[-1].parts[0].text
-        await task.update_status("working")
-        await task.complete(artifacts=[{"parts": [{"text": f"Answer: {text}"}]}])
-
-    await node.serve_forever()
-```
-
-## AgentCard and Skill
-
-```python
-from agentanycast import AgentCard, Skill
-
-skill = Skill(
-    id="translate",
-    description="Translate text between languages",
-    input_schema='{"type": "object", "properties": {"text": {"type": "string"}}}',
-    output_schema='{"type": "object", "properties": {"result": {"type": "string"}}}',
-)
-card = AgentCard(name="Translator", version="1.0.0", skills=[skill])
-```
-
-## Three send_task Modes
-
-```python
-msg = {"role": "user", "parts": [{"text": "Hello"}]}
-
-# Direct — known peer
-handle = await node.send_task(msg, peer_id="<peer-id>")
-
-# Anycast — skill-based routing via relay registry
-handle = await node.send_task(msg, skill="translate")
-
-# HTTP Bridge — standard HTTP A2A endpoint
-handle = await node.send_task(msg, url="https://agent.example.com")
-```
-
-## TaskHandle — Client-Side API
-
-```python
-handle = await node.send_task(msg, skill="translate")
-result = await handle.wait()
-print(handle.status)
-print(handle.artifacts[0].parts[0].text)
-await handle.cancel()
-```
-
-## Discovery
-
-```python
-agents = await node.discover("translate", tags={"lang": "en"}, limit=10)
-for agent in agents:
-    print(agent["peer_id"], agent["agent_name"])
-```
-
-## Framework Adapters
-
-```python
-from agentanycast.adapters.crewai import serve_crew
-from agentanycast.adapters.langgraph import serve_graph
-from agentanycast.adapters.adk import serve_adk_agent
-from agentanycast.adapters.openai_agents import serve_openai_agent
-from agentanycast.adapters.claude_agent import serve_claude_agent
-from agentanycast.adapters.strands import serve_strands_agent
-```
-
-## MCP Server
+Hermes Agent plugin CLI after the plugin is loaded:
 
 ```bash
-agentanycast mcp                     # stdio mode (Claude Desktop, Cursor)
-agentanycast mcp --transport http    # HTTP mode (ChatGPT, remote)
+hermes agency status
+hermes agency start
+hermes agency stop
+hermes agency discover <skill>
+hermes agency registry
+hermes agency doctor
 ```
 
-Available MCP tools: `discover_agents`, `send_task`, `send_task_by_skill`, `get_task_status`, `get_agent_card`, `list_connected_peers`, `get_node_info`.
+Hermes session slash command:
 
-## MCP Bridging
-
-```python
-from agentanycast import MCPTool, mcp_tool_to_skill, skill_to_mcp_tool, mcp_tools_to_agent_card
-
-tool = MCPTool(name="get_weather", description="Get weather", input_schema={"type": "object"})
-skill = mcp_tool_to_skill(tool)
-tool = skill_to_mcp_tool(skill)
-card = mcp_tools_to_agent_card("WeatherServer", [tool1, tool2], description="Weather tools")
+```text
+/agency status
+/agency start
+/agency stop
+/agency discover <skill>
+/agency registry
+/agency doctor
 ```
 
-## DID Identity
+Model tool names use the `agency_*` prefix. Legacy `a2a_*` tool names may exist as deprecated compatibility aliases.
 
-```python
-from agentanycast import peer_id_to_did_key, did_key_to_peer_id
+## Docker
 
-did = peer_id_to_did_key("<peer-id>")
-peer_id = did_key_to_peer_id("did:key:z6Mk...")
+The current Docker compose setup is headless. It runs setup and/or the local agency node manager; it is not a dashboard service.
+
+```bash
+docker compose up --build
+docker compose --profile tools run --rm setup
+docker compose --profile split up node
 ```
 
-## Key Concepts
+Useful environment variables:
 
-- **Staff roster**: 83 specialized agents with configurable model sets
-- **Kanban routing**: task boards with assignees, statuses, and A2A correlation
-- **Pool dispatch**: offline queuing with automatic wake attempts for unreachable agents
-- **Sidecar daemon**: Go binary auto-downloaded on first run; SDK communicates via gRPC over Unix socket
-- **AgentCard**: A2A-standard agent identity with name, skills, and P2P extensions
-- **Noise_XX**: all peer connections are end-to-end encrypted; no plaintext transport path
+```bash
+HERMES_AGENCY_MODEL_SET=<model-set>
+HERMES_AGENCY_START_NODE=0
+HERMES_AGENCY_ALLOW_REMOTE_TASKS=0
+HERMES_AGENCY_TOOL_ACCESS=safe
+AGENTANYCAST_RELAY=<relay-multiaddr>
+AGENTANYCAST_REGISTRY_ADDRS=<registry-address>
+```
 
-## Related Repositories
+## Configuration shape
 
-- [Hermes_Agency](https://github.com/DeployFaith/Hermes_Agency) — Roster and orchestration
-- [agentanycast](https://github.com/AgentAnycast/agentanycast) — Transport layer docs and issue tracker
-- [agentanycast-ts](https://github.com/AgentAnycast/agentanycast-ts) — TypeScript SDK
-- [agentanycast-node](https://github.com/AgentAnycast/agentanycast-node) — Go daemon
-- [agentanycast-relay](https://github.com/AgentAnycast/agentanycast-relay) — Relay server
-- [agentanycast-proto](https://github.com/AgentAnycast/agentanycast-proto) — Protobuf definitions
+Hermes profile config:
+
+```yaml
+plugins:
+  enabled:
+    - agency
+
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  incoming:
+    mode: delegation
+    tool_access: safe
+  team:
+    auto_discover: true
+    kanban_integration: true
+    inject_context: true
+  models:
+    active_set: <model-set>
+  orchestrator:
+    enabled: false
+    agent: null
+    auto_decompose: true
+```
+
+Relay/bootstrap and registry discovery are separate. `agency.relay` or `AGENTANYCAST_RELAY` connects libp2p peers. `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery through the registry.
+
+## Transport layer
+
+`src/agentanycast/` contains the P2P transport SDK used by Hermes Agency. It provides:
+
+- `agentanycastd` daemon management
+- AgentCards and skills
+- peer identity / DID helpers
+- direct and skill-based task sending
+- A2A-style task payloads and task handles
+- encrypted libp2p transport
+- relay and registry integration
+- optional framework adapters
+
+Most operators should use Hermes Agency commands/tools instead of the raw transport API. Modify `src/agentanycast/` only for transport-specific fixes or tasks that explicitly require it.
+
+## Safety boundaries
+
+- Remote task execution defaults to disabled: `allow_remote_tasks: false`.
+- Incoming remote-task tools should default to `safe`, not `full`.
+- Plugin discovery should not start daemons when Agency is disabled or transport dependencies are unavailable.
+- Do not expose API keys, raw environment variables, local paths, private relay addresses, real peer IDs, private hostnames, Discord channel IDs, gateway logs, or maintainer-local details in docs, AgentCards, logs, tests, or fixtures.
+- Management endpoints and local services should be loopback-only unless explicit remote/LAN mode is configured.
+- State-changing HTTP endpoints must require authentication.
+- Auto-update flows should verify trusted signed commits before applying changes.
+
+## Development checks
+
+```bash
+ruff check .
+ruff format --check .
+make test-agency
+make test-sdk
+python -m pytest
+python -m pip check
+```
+
+Manual/live checks:
+
+```bash
+make integration-agency
+make integration-agency-full
+```

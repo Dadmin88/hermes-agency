@@ -1,274 +1,218 @@
 # Hermes Agency
 
-**The complete P2P multi-agent orchestration system for Hermes Agent.**
+**A Hermes Agent plugin and local operations layer for running a managed multi-agent team.**
 
-Hermes Agency provides an 83-agent specialized roster, intelligent orchestration, department-based Kanban routing, team context injection, and autonomous workflows — all running over a secure P2P network.
+Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, GPT escalation, Discord intake, and safe P2P delegation. The AgentAnycast SDK in `src/agentanycast/` is the bundled transport foundation that provides the daemon, AgentCard/skill model, A2A-compatible task messages, discovery, and encrypted P2P networking.
 
-The AgentAnycast Python SDK (`src/agentanycast/`) is the underlying transport layer (daemon, Node API, A2A protocol). Hermes Agency is the star of this repository.
+Hermes Agency is the product in this repository. AgentAnycast is the transport layer it uses.
 
 [![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/hermes-agency?color=3776AB)](https://pypi.org/project/hermes-agency/)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
-```bash
-pip install hermes-agency
-```
+## What this repository contains
 
-## Quick Start
-
-See the [Hermes Agency documentation](https://github.com/DeployFaith/Hermes_Agency/tree/main/hermes-agency) for full usage.
-
-The underlying AgentAnycast SDK is available for advanced transport-level work.
-
-
-# Anycast — by skill (relay resolves the target)
-await node.send_task(skill="translate", message=msg)
-
-# HTTP Bridge — to standard HTTP A2A agents
-await node.send_task(url="https://agent.example.com", message=msg)
-```
-
-## CLI
-
-Add `--verbose` (or `-v`) before any command for debug output:
-
-```bash
-hermes agency discover translate          # Find agents by skill
-hermes agency send 12D3KooW... "Hello!"   # Send a task
-hermes agency status                      # Check node status
-hermes agency info                        # Show Peer ID, DID, version
-```
-
-## How It Works
-
-```
-┌─────────────┐         mDNS / Relay         ┌─────────────┐
-│  Agent A    │<------------------------------>│  Agent B    │
-│  (Python)   │     E2E encrypted (Noise)     │  (Python)   │
-└──────┬──────┘                               └──────┬──────┘
-       | gRPC                                        | gRPC
-┌──────┴──────┐                               ┌──────┴──────┐
-│ agentanycastd│                               │ agentanycastd│
-│  (Go daemon)│<---------- libp2p ------------>│  (Go daemon) │
-└─────────────┘                               └──────────────┘
-```
-
-- **LAN** -- agents discover each other via mDNS. Zero configuration.
-- **WAN** -- deploy a [self-hosted relay](https://github.com/DeployFaith/agentanycast-relay (or original AgentAnycast relay)) and point agents to it.
-- The Go daemon is **auto-downloaded and managed** by the SDK. No manual setup.
-
-## MoA Integration
-
-Hermes Agency can recommend and run native Hermes Agent Mixture-of-Agents presets for high-leverage Agency tasks, with Kanban tracking when available.
-
-Hermes Agency integrates native Hermes Agent MoA. Native presets remain under top-level `moa:` in the active Hermes `config.yaml`; Agency policy lives separately under `agency.moa:`. Agency status, tools, and orchestrator recommendations delegate to native Hermes Agent MoA instead of implementing an Agency-owned fan-out or aggregator runtime.
-
-Useful commands:
-
-```bash
-hermes moa ls                         # Native Hermes Agent presets
-hermes moa configure [name]           # Native preset editor
-hermes agency moa status              # Agency policy + native status
-hermes agency moa presets             # Native presets as seen by Agency
-hermes agency moa show default        # Show one native preset
-hermes agency moa recommend "Review this release architecture"
-```
-
-See `docs/agency-moa.md` for the integration contract, policy semantics, and trace limits.
-
-## Framework Adapters
-
-Turn existing frameworks into P2P agents with one function call:
-
-```bash
-pip install hermes-agency[crewai]         # CrewAI
-pip install hermes-agency[langgraph]      # LangGraph
-pip install hermes-agency[google-adk]     # Google ADK
-pip install hermes-agency[openai-agents]  # OpenAI Agents SDK
-pip install hermes-agency[claude]         # Claude Agent SDK
-pip install hermes-agency[strands]        # AWS Strands Agents
-```
-
-```python
-from agentanycast.adapters.crewai import serve_crew
-from agentanycast.adapters.langgraph import serve_graph
-from agentanycast.adapters.adk import serve_adk_agent
-from agentanycast.adapters.openai_agents import serve_openai_agent
-from agentanycast.adapters.claude_agent import serve_claude_agent
-from agentanycast.adapters.strands import serve_strands_agent
-
-await serve_crew(crew, card=card, relay="...")
-await serve_graph(graph, card=card, relay="...")
-await serve_adk_agent(agent, card=card, relay="...")
-await serve_openai_agent(agent, card=card, relay="...")
-await serve_claude_agent(prompt_template="...", card=card)
-await serve_strands_agent(agent, card=card)
-```
-
-## Skill Discovery
-
-```python
-agents = await node.discover("translate")
-agents = await node.discover("translate", tags={"lang": "fr"})
-```
-
-## Interoperability
-
-```python
-# W3C DID
-from agentanycast.did import peer_id_to_did_key, did_key_to_peer_id
-did = peer_id_to_did_key("12D3KooW...")      # "did:key:z6Mk..."
-pid = did_key_to_peer_id("did:key:z6Mk...")  # "12D3KooW..."
-
-# MCP Tool <-> A2A Skill mapping
-from agentanycast.mcp import mcp_tools_to_agent_card
-card = mcp_tools_to_agent_card(mcp_tools, name="MCPAgent")
-
-# A2A v1.0 JSON format
-from agentanycast.compat.a2a_v1 import task_to_a2a_json, task_from_a2a_json
-
-# OASF / AGNTCY Directory
-from agentanycast.compat.oasf import card_to_oasf_record
-from agentanycast.compat.agntcy import AGNTCYDirectory
-```
-
-## API Reference
-
-### Node
-
-| Method | Description |
+| Area | Purpose |
 |---|---|
-| `Node(card, relay?, home?, ...)` | Create a node with an AgentCard and optional config |
-| `async with Node(...) as node` | Context manager -- starts/stops daemon automatically |
-| `send_task(peer_id?, skill?, url?, message=)` | Send a task using any addressing mode |
-| `discover(skill, tags?)` | Find agents by skill with optional tag filtering |
-| `on_task(handler)` | Register handler for incoming tasks |
-| `serve_forever()` | Block and process incoming tasks until stopped |
+| `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, GPT bridge, Discord intake, and pool delegation. |
+| `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
+| `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
+| `src/agentanycast/` | The underlying P2P transport SDK used by Hermes Agency. Work here only when changing the transport itself. |
+| `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
+| `scripts/` | Operational helpers such as signed auto-update setup. |
+| `docs/` | Focused implementation and operations notes. |
 
-### Core Types
+## Install
 
-| Class | Description |
-|---|---|
-| `AgentCard` | Agent identity, capabilities, and metadata |
-| `Skill` | A single capability an agent can perform |
-| `TaskHandle` | Returned by `send_task()`. Call `wait()` for the result. |
-| `IncomingTask` | Passed to task handlers. Provides message data and response methods. |
+Hermes Agency is packaged as `hermes-agency` and requires Python 3.11+.
 
-### Node Options
+```bash
+python -m pip install hermes-agency
+```
 
-| Parameter | Description | Default |
+For development from this repository:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+## Command surfaces
+
+Hermes Agency has three related command surfaces. Keep them distinct:
+
+| Surface | Where it runs | Example |
 |---|---|---|
-| `card` | Agent's `AgentCard` | Required |
-| `relay` | Relay multiaddr for cross-network communication | `None` (LAN only) |
-| `daemon_path` | Path to a local `agentanycastd` binary | Auto-download |
-| `daemon_addr` | Address of an externally managed daemon | Auto-managed |
-| `key_path` | Path to Ed25519 identity key file | `<home>/key` |
-| `home` | Data directory. Use different values for multiple nodes. | `~/.agentanycast` |
-| `status_callback` | Optional callback for progress messages (download, startup) | `None` |
+| `hermes-agency ...` | Standalone package console script from `pyproject.toml`. | `hermes-agency status` |
+| `hermes agency ...` | Hermes Agent plugin CLI after the plugin is loaded. | `hermes agency status` |
+| `/agency ...` | Slash command inside a Hermes session. | `/agency status` |
 
-## Auto-Update
-
-Hermes Agency ships with an auto-update system that keeps your installation current with every push to `main`. Any Hermes gateway on the machine is automatically restarted after an update.
-
-**All updates are verified against signed commits before being applied.** Unsigned or invalid-signature commits are rejected to prevent tampering.
-
-**One-command install** (systemd timer, polls every 5 minutes):
+Useful standalone/plugin CLI commands:
 
 ```bash
-./scripts/setup-auto-update.sh
+hermes-agency doctor
+hermes-agency status --extended
+hermes-agency staff list
+hermes-agency staff install --dry-run
+hermes-agency models list
+hermes-agency models plan openai-codex-only
+hermes-agency setup-plugins
+hermes-agency start
+hermes-agency registry
+hermes-agency discover <skill>
 ```
 
-This sets up a systemd user timer that:
-- Polls `origin/main` every 5 minutes (configurable via `POLL_SECONDS=600`)
-- **Validates commit signatures** before pulling
-- Pulls new commits (with auto-stash if you have local changes)
-- Discovers and restarts **all** running Hermes gateways on the machine
-- Works for any configured gateway service name without hard-coded profile assumptions
+The same verbs are available through `hermes agency ...` when Hermes Agent has loaded the plugin. In-session slash commands use `/agency ...`.
 
-**Manual run:**
+## Quick start with Docker
 
-```bash
-./scripts/auto-update.sh               # verify + pull + restart gateways
-DRY_RUN=1 ./scripts/auto-update.sh     # verify only, no changes
-```
-
-**Logs:** `~/.hermes/agency-update/update.log`
-
-**Uninstall:**
-
-```bash
-./scripts/setup-auto-update.sh --remove
-```
-
-For headless servers without systemd --user, the setup script falls back to cron automatically.
-
-## Docker
-
-Run the full Hermes Agency stack with Docker Compose:
+The current Docker setup is a headless agency runtime. It prepares a Hermes home, installs packaged staff profiles, configures the active model set, initializes agency Kanban boards when the bridge is available, and starts the local Hermes Agency node manager.
 
 ```bash
 docker compose up --build
 ```
 
-The default `agency` service performs setup, installs the packaged agency staff into a named Docker volume, initializes agency Kanban boards, and starts the local agency node manager.
-
-Optional environment variables:
+Common overrides:
 
 ```bash
-HERMES_AGENCY_MODEL_SET=openai-codex-only \
-AGENTANYCAST_RELAY=<relay-multiaddr> \
-AGENTANYCAST_REGISTRY_ADDRS=<registry-address> \
-docker compose up --build
+HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
+AGENTANYCAST_RELAY=<relay-multiaddr> docker compose up --build
+AGENTANYCAST_REGISTRY_ADDRS=<registry-address> docker compose up --build
+HERMES_AGENCY_START_NODE=0 docker compose --profile tools run --rm setup
 ```
 
 Advanced modes use the same image:
 
 ```bash
 docker compose --profile tools run --rm setup      # setup only
-docker compose --profile split up node              # split node service
+docker compose --profile split up node              # node service only
 ```
 
-The compose file uses a named Docker volume for runtime data, so no machine-specific host paths are required.
+The compose file uses a named volume for runtime data so examples do not rely on maintainer-local paths.
 
-### Instant VPS Deploy (GitHub Actions)
+## How Hermes Agency works
 
-For instant deploys to a VPS on every push, add a `deploy-vps.yml` workflow with your SSH secrets. The workflow uses the same `auto-update.sh` script — no duplicated logic.
+```text
+Hermes Agent profile
+├── SOUL.md + skills/              → public AgentCard source
+├── config.yaml                    → agency.* policy and model-set choice
+├── plugins/hermes-agency/         → plugin entry point, CLI, model tools, hooks
+└── .agency/                       → per-profile node identity, queue, runtime state
 
-Required secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`.
+Hermes Agency
+├── installs specialist agency-* profiles
+├── builds profile-safe AgentCards
+├── starts/stops per-profile P2P nodes
+├── discovers peers by skill through AgentAnycast transport
+├── sends, receives, queues, and tracks tasks
+├── reconciles work with Hermes Kanban when available
+├── injects compact team/orchestrator context into Hermes calls
+├── applies model-set strategies across installed staff profiles
+└── escalates blocked work through the GPT bridge when requested
+```
 
-## Development
+AgentAnycast supplies the lower-level P2P machinery: `agentanycastd`, libp2p/relay connectivity, AgentCards, skills, DID/peer identity, A2A-style task messages, and encrypted peer transport. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly.
 
-Prerequisite:
+## Core capabilities
+
+- **Specialist staff roster** — packaged `agency-*` profiles for engineering, design, content, marketing, operations, QA, product, research, management, and business workflows.
+- **Skill-based delegation** — send work directly to a peer or by requested skill, with compact status/artifact tracking.
+- **Kanban integration** — create and reconcile agency task boards when Hermes Kanban is available.
+- **Team context injection** — bounded summaries of known teammates and orchestrator state can be injected into Hermes calls.
+- **Model sets** — choose a provider/model strategy once and apply it across installed staff profiles.
+- **Orchestrator promotion** — expose `orch_*` tools only for the configured orchestrator profile.
+- **GPT bridge** — pull-based inbox for routing blocked or high-leverage work to a live ChatGPT session.
+- **Discord intake** — queue `!agency` messages into agency work when configured.
+- **P2P transport** — encrypted local/WAN agent communication through the bundled AgentAnycast layer.
+
+## Model sets
+
+Model sets let you choose a provider/model strategy once and apply it across installed agency staff profiles.
 
 ```bash
-python -m pip install -e ".[dev]"    # Install in editable mode with dev deps
+hermes-agency models list
+hermes-agency models show openai-codex-only
+hermes-agency models validate openai-codex-only --strict
+hermes-agency models resolve agency-backend-engineer --set openai-codex-only
+hermes-agency models plan openai-codex-only
+hermes-agency models apply openai-codex-only --dry-run
+hermes-agency models apply openai-codex-only --yes --backup
 ```
 
-Canonical local checks:
+Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.hermes/agency/model_sets/` and override packaged presets by name. Presets must never contain API keys, tokens, passwords, or provider credentials.
+
+See `docs/agency-model-sets.md` for implementation details and rollout rules.
+
+## Hermes Agent MoA integration
+
+Hermes Agency can inspect native Hermes Agent Mixture-of-Agents availability and recommend MoA presets for high-leverage agency work. Native presets remain under top-level `moa:` in the active Hermes `config.yaml`; Agency policy lives under `agency.moa:`.
+
+The MoA integration is exposed through model tools such as `agency_moa_status`, `agency_moa_presets`, `agency_moa_show`, and `agency_moa_recommend`. See `docs/agency-moa.md` for the integration contract and policy semantics.
+
+## Security model
+
+Hermes Agency should be safe by default:
+
+- Plugin loading is opt-in through Hermes plugin configuration.
+- Runtime operation is gated by `agency.enabled`.
+- Remote task execution defaults to disabled: `allow_remote_tasks: false`.
+- Tool access for incoming remote tasks should default to `safe`, not `full`.
+- AgentCards must expose only non-secret metadata: no API keys, raw environment variables, private relay addresses, local paths, peer IDs that should remain private, Discord channel IDs, or maintainer-local details.
+- Relay/bootstrap config and anycast registry config are separate: the relay connects peers; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
+- Auto-update scripts verify signed commits before applying updates.
+
+## Auto-update
+
+Hermes Agency includes an opt-in auto-update system that can keep an installation current with `main` and restart running Hermes gateways after a verified update.
 
 ```bash
-make test-agency                     # Hermes Agency plugin unit tests (87 tests)
-make lint-agency                     # Ruff check/format for the plugin
-make test                            # SDK tests + Hermes Agency unit tests
-mypy src/                            # Type check SDK (strict)
+./scripts/setup-auto-update.sh
 ```
 
-The default pytest configuration skips tests marked `integration`. Run live daemon/relay checks manually with:
+Manual run:
 
 ```bash
-make integration-agency              # isolated local daemon homes; optional relay via env vars
-make integration-agency-full         # live profile/Kanban/relay validation
+./scripts/auto-update.sh
+DRY_RUN=1 ./scripts/auto-update.sh
 ```
+
+Logs are written to `~/.hermes/agency-update/update.log`. Remove the timer/cron integration with:
+
+```bash
+./scripts/setup-auto-update.sh --remove
+```
+
+## Development checks
+
+Run the fastest relevant checks for your change, then the broader checks before pushing:
+
+```bash
+ruff check .
+ruff format --check .
+make test-agency
+make test-sdk
+python -m pytest
+python -m pip check
+```
+
+Manual/live checks:
+
+```bash
+make integration-agency
+make integration-agency-full
+```
+
+The default pytest configuration skips tests marked `integration`.
 
 ## Requirements
 
-- Python 3.10+
-- The [agentanycastd](https://github.com/DeployFaith/agentanycast-node (or original)) daemon (auto-managed by the SDK)
-
----
-
-**Hermes Agency** (this repo) is the primary project. The AgentAnycast Python SDK is the P2P foundation included here. See `hermes-agency/AGENTS.md` and the roster of 83 specialized agents.
+- Python 3.11+
+- Hermes Agent 0.17.0+
+- Optional relay/registry services for cross-network discovery
+- `agentanycastd` daemon, auto-managed by the bundled AgentAnycast SDK unless explicitly configured otherwise
 
 ## License
 
