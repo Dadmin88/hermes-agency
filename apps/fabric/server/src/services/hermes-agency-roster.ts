@@ -85,18 +85,12 @@ function statusFor(input: { online: boolean; lastError: string | null }): Hermes
   return "offline";
 }
 
-function isRosterTargetAgent(name: string) {
-  // Hermes Fabric's operator roster shows the delegable agency workforce. The
-  // orchestration profile is runtime infrastructure, not a specialist target.
-  return name !== "agency-orchestrator";
-}
-
 export function normalizeHermesAgencyRoster(raw: RawRosterState): HermesAgencyRosterResponse {
   const profiles = Array.isArray(raw.profiles) ? raw.profiles as RawRosterProfile[] : [];
   const agents: HermesAgencyAgent[] = profiles
     .map((profile) => {
       const name = asString(profile.name);
-      if (!name || !isRosterTargetAgent(name)) return null;
+      if (!name) return null;
       const skills = asStringArray(profile.skills);
       const fallbackSkills = skillsFromCapabilities(profile.capabilities);
       const online = profile.online === true;

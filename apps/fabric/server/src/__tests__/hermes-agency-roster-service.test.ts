@@ -51,8 +51,8 @@ describe("Hermes Agency roster service", () => {
     expect(roster).toMatchObject({
       tenant: "default",
       filter: "agency-only",
-      total: 2,
-      online: 1,
+      total: 3,
+      online: 2,
       offline: 1,
     });
     expect(roster.agents[0]).toMatchObject({
@@ -69,6 +69,12 @@ describe("Hermes Agency roster service", () => {
     expect(roster.agents[1]).toMatchObject({
       name: "agency-frontend-engineer",
       skills: ["react", "typescript"],
+      online: true,
+      status: "online",
+    });
+    expect(roster.agents[2]).toMatchObject({
+      name: "agency-orchestrator",
+      skills: ["orchestration"],
       online: true,
       status: "online",
     });
