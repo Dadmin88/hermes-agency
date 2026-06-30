@@ -16,6 +16,11 @@ from pathlib import Path
 
 import yaml
 
+import gc
+import ctypes
+
+from .memory_tracker import MemoryTracker
+
 REGISTRY_DEF = Path(__file__).with_name("registry_definition.json")
 HOME = Path.home()
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", HOME / ".hermes")).expanduser()
@@ -95,6 +100,8 @@ class PoolManager:
         self.active = {}  # name -> {'peer_id': str, 'last_active': datetime, 'proc': Popen|None, 'persistent': bool}
         self.persistent_agents = {"agency-orchestrator"}
         self.lock = threading.RLock()
+        self.memory_tracker = MemoryTracker()
+        self._last_memory_log = 0.0
         self._start_idle_monitor()
         # Spin up agency-orchestrator as persistent A2A node only for standalone
         # pool-manager use. Inside `hermes gateway run`, the plugin's in-process
@@ -572,7 +579,8 @@ class PoolManager:
                 del self.active[name]
 
             active_pool_count = sum(1 for d in self.active.values() if not d.get("persistent"))
-            if not persistent and active_pool_count >= self.config["pool"]["max_active_agents"]:
+            effective_max = self._effective_max_agents()
+            if not persistent and active_pool_count >= effective_max:
                 self._swap_oldest()
 
             self._ensure_profile(name)
@@ -634,6 +642,7 @@ class PoolManager:
                 "last_active": datetime.now(),
                 "proc": proc,
                 "persistent": persistent,
+                "rss_at_wake_mb": None,
             }
             self.registry["agents"] = [
                 a for a in self.registry.get("agents", []) if a["name"] != name
@@ -670,6 +679,7 @@ class PoolManager:
                     )
             del self.active[name]
             self._record_roster_status(name, online=False)
+            self._release_memory()
             print(f"[PoolManager] Slept {name}")
             return True
 
@@ -680,20 +690,111 @@ class PoolManager:
         oldest = min(pool_agents.items(), key=lambda x: x[1]["last_active"])
         self.sleep(oldest[0])
 
+    def _release_memory(self):
+        """Force Python to return freed memory to the OS."""
+        gc.collect()
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except (OSError, AttributeError, ValueError):
+            pass  # Non-glibc or musl — best effort
+
+    def _effective_max_agents(self) -> int:
+        """Compute max agents based on memory budget and current usage."""
+        configured_max = self.config["pool"]["max_active_agents"]
+        budget_mb = self.config["pool"].get("memory_budget_mb", 1500)
+        current_rss_mb = self.memory_tracker.get_process_rss_mb()
+        available_mb = self.memory_tracker.get_system_available_mb()
+
+        # If over 80% of budget or system memory critically low, force reduction
+        if current_rss_mb > budget_mb * 0.8:
+            return max(1, len([a for a in self.active.values() if not a.get("persistent")]) - 1)
+        if available_mb < 500:
+            return max(1, len([a for a in self.active.values() if not a.get("persistent")]) - 1)
+        return configured_max
+
+    def _enforce_memory_budget(self, current_rss_mb: float, budget_mb: float):
+        """Swap out idle agents until we're under the memory budget."""
+        critical_mb = self.config["pool"].get("memory_critical_threshold_mb", 2000)
+        available_mb = self.memory_tracker.get_system_available_mb()
+
+        if current_rss_mb > critical_mb or available_mb < 300:
+            # Critical: sleep ALL non-persistent agents
+            to_sleep = [n for n, d in self.active.items() if not d.get("persistent")]
+            for name in to_sleep:
+                self.sleep(name)
+            print(f"[PoolManager] CRITICAL memory: {current_rss_mb:.0f} MB RSS, {available_mb:.0f} MB avail — slept ALL non-persistent agents")
+            return
+
+        # Over budget: sleep oldest idle agents one at a time
+        pool_agents = {n: d for n, d in self.active.items() if not d.get("persistent")}
+        while pool_agents and current_rss_mb > budget_mb:
+            oldest = min(pool_agents.items(), key=lambda x: x[1]["last_active"])
+            self.sleep(oldest[0])
+            del pool_agents[oldest[0]]
+            self._release_memory()
+            current_rss_mb = self.memory_tracker.get_process_rss_mb()
+            print(f"[PoolManager] Memory budget: slept {oldest[0]}, RSS now {current_rss_mb:.0f} MB")
+
+    def _log_memory_stats(self):
+        """Log memory stats every 5 minutes."""
+        now = time.time()
+        if now - self._last_memory_log < 300:
+            return
+        self._last_memory_log = now
+        report = self.memory_tracker.get_pool_memory_report(self.active)
+        budget_mb = self.config["pool"].get("memory_budget_mb", 1500)
+        print(
+            f"[PoolManager] Memory: RSS={report['process_rss_mb']:.0f}MB "
+            f"budget={budget_mb}MB "
+            f"system_avail={report['system_available_mb']:.0f}MB "
+            f"agents={report['agent_count']} "
+            f"per_agent={report['per_agent_mb']}"
+        )
+
     def _start_idle_monitor(self):
         def monitor():
             while True:
-                time.sleep(60)
-                with self.lock:
-                    now = datetime.now()
-                    timeout = timedelta(minutes=self.config["pool"]["idle_timeout_minutes"])
-                    to_sleep = [
-                        n
-                        for n, d in self.active.items()
-                        if now - d["last_active"] > timeout and n != "agency-orchestrator"
-                    ]
-                    for n in to_sleep:
-                        self.sleep(n)
+                check_interval = self.config["pool"].get("memory_check_interval_seconds", 30)
+                time.sleep(check_interval)
+                try:
+                    with self.lock:
+                        now = datetime.now()
+                        timeout = timedelta(minutes=self.config["pool"]["idle_timeout_minutes"])
+
+                        # Update per-agent RSS for agents with proc handles
+                        for name, data in self.active.items():
+                            proc = data.get("proc")
+                            if proc is not None and hasattr(proc, "pid") and proc.poll() is None:
+                                try:
+                                    data["rss_at_wake_mb"] = round(
+                                        self.memory_tracker.get_child_rss_mb(proc.pid), 1
+                                    )
+                                except (ProcessLookupError, OSError):
+                                    pass
+
+                        # Sleep idle agents
+                        to_sleep = [
+                            n
+                            for n, d in self.active.items()
+                            if now - d["last_active"] > timeout and n != "agency-orchestrator"
+                        ]
+                        for n in to_sleep:
+                            self.sleep(n)
+
+                        # Memory budget enforcement
+                        rss_mb = self.memory_tracker.get_process_rss_mb()
+                        budget_mb = self.config["pool"].get("memory_budget_mb", 1500)
+                        if rss_mb > budget_mb:
+                            self._enforce_memory_budget(rss_mb, budget_mb)
+
+                        # Release memory if any agents were swapped
+                        if to_sleep or rss_mb > budget_mb:
+                            self._release_memory()
+
+                        # Periodic memory stats logging
+                        self._log_memory_stats()
+                except Exception as exc:
+                    print(f"[PoolManager] idle monitor error: {exc}")
 
         t = threading.Thread(target=monitor, daemon=True)
         t.start()
@@ -701,12 +802,22 @@ class PoolManager:
     def status(self):
         active_pool = [n for n, d in self.active.items() if not d.get("persistent")]
         persistent = [n for n, d in self.active.items() if d.get("persistent")]
+        memory_report = self.memory_tracker.get_pool_memory_report(self.active)
+        budget_mb = self.config["pool"].get("memory_budget_mb", 1500)
         return {
             "active": len(active_pool),
             "max": self.config["pool"]["max_active_agents"],
+            "effective_max": self._effective_max_agents(),
             "agents": active_pool,
             "persistent": persistent,
             "peer_ids": {n: d["peer_id"] for n, d in self.active.items()},
+            "memory": {
+                "process_rss_mb": memory_report["process_rss_mb"],
+                "budget_mb": budget_mb,
+                "system_available_mb": memory_report["system_available_mb"],
+                "system_used_pct": memory_report["system_used_pct"],
+                "per_agent_mb": memory_report["per_agent_mb"],
+            },
         }
 
 
