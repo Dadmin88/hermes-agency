@@ -45,10 +45,6 @@ The relay server forwards encrypted P2P messages between peers. It cannot read m
 
 The AgentAnycast Go daemon binary is auto-downloaded on first run. The SDK verifies the binary before execution. A compromised download source could serve a malicious daemon. See the AgentAnycast documentation for verification details.
 
-### Auto-Update
-
-The auto-update system polls `origin/main` and applies new commits. **All updates are verified with signed commits before being applied.** Unsigned or invalid-signature commits are rejected. If you maintain a fork, configure your own signing keys and ensure the update script validates them.
-
 ### Model and Tool Access
 
 Each agent has a configured model set and tool set. The agency restricts which tools and models an agent can access based on its role and configuration. An agent should not be able to escalate beyond its assigned tool or model scope.

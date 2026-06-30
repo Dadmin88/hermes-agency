@@ -20,7 +20,7 @@ Hermes Agency is the product in this repository. AgentAnycast is the transport l
 | `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
 | `src/agentanycast/` | The underlying P2P transport SDK used by Hermes Agency. Work here only when changing the transport itself. |
 | `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
-| `scripts/` | Operational helpers such as signed auto-update setup. |
+| `scripts/` | Operational helpers such as batch agent wake scripts. |
 | `docs/` | Focused implementation and operations notes. |
 
 ## Install
@@ -202,28 +202,6 @@ Hermes Agency should be safe by default:
 - Tool access for incoming remote tasks should default to `safe`, not `full`.
 - AgentCards must expose only non-secret metadata: no API keys, raw environment variables, private relay addresses, local paths, peer IDs that should remain private, Discord channel IDs, or maintainer-local details.
 - Relay/bootstrap config and anycast registry config are separate: the relay connects peers; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
-- Auto-update scripts verify signed commits before applying updates.
-
-## Auto-update
-
-Hermes Agency includes an opt-in auto-update system that can keep an installation current with `main` and restart running Hermes gateways after a verified update.
-
-```bash
-./scripts/setup-auto-update.sh
-```
-
-Manual run:
-
-```bash
-./scripts/auto-update.sh
-DRY_RUN=1 ./scripts/auto-update.sh
-```
-
-Logs are written to `~/.hermes/agency-update/update.log`. Remove the timer/cron integration with:
-
-```bash
-./scripts/setup-auto-update.sh --remove
-```
 
 ## Development checks
 
