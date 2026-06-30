@@ -72,6 +72,17 @@ describe("company routes", () => {
     expect(toCompanyRelativePath("/PAP/artifacts")).toBe("/artifacts");
   });
 
+  // Regression: agency-roster was missing from BOARD_ROUTE_ROOTS, so navigating
+  // to /agency-roster caused extractCompanyPrefixFromPath to treat "AGENCY-ROSTER"
+  // as a company prefix. All subsequent nav links resolved to /AGENCY-ROSTER/*,
+  // which matched no company → "Company not found" 404 on every sidebar click.
+  it("treats /agency-roster as a board route that needs a company prefix", () => {
+    expect(isBoardPathWithoutPrefix("/agency-roster")).toBe(true);
+    expect(extractCompanyPrefixFromPath("/agency-roster")).toBeNull();
+    expect(applyCompanyPrefix("/agency-roster", "DF")).toBe("/DF/agency-roster");
+    expect(toCompanyRelativePath("/DF/agency-roster")).toBe("/agency-roster");
+  });
+
   it("preserves artifact deep-link anchors when applying the company prefix", () => {
     expect(applyCompanyPrefix("/issues/PAP-10205#work-product-wp-1", "PAP")).toBe(
       "/PAP/issues/PAP-10205#work-product-wp-1",
