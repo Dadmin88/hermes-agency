@@ -5169,6 +5169,26 @@ def test_incoming_task_requires_full_trust_before_delegation_tools(plugin_module
     assert "requires full trust" in decision.reason
 
 
+def test_incoming_handshake_allows_limited_trust_without_granting_task_execution(
+    plugin_modules, tmp_path
+):
+    cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
+    plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="limited")
+    task = _FakeIncomingTask("handshake", peer_id="peer-good", task_id="task-handshake")
+
+    handshake_decision = plugin_modules.incoming_security.verify_incoming_sender(
+        task, cfg, purpose="handshake"
+    )
+    task_decision = plugin_modules.incoming_security.verify_incoming_sender(
+        task, cfg, purpose="task"
+    )
+
+    assert handshake_decision.allowed
+    assert handshake_decision.trust_level == "limited"
+    assert not task_decision.allowed
+    assert task_decision.action == "insufficient_trust"
+
+
 def test_incoming_task_allows_full_trust_sender(plugin_modules, tmp_path):
     cfg = _security_cfg(plugin_modules, tmp_path, allowlist=("peer-good",))
     plugin_modules.trust.store_for_config(cfg).set_trust("peer-good", trust_level="full")
@@ -5178,3 +5198,49 @@ def test_incoming_task_allows_full_trust_sender(plugin_modules, tmp_path):
 
     assert decision.allowed
     assert decision.trust_level == "full"
+
+
+def test_pool_wake_seeds_only_configured_orchestrator_full_trust(
+    plugin_modules, monkeypatch, tmp_path
+):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    profile_dir = tmp_path / "profiles" / "agency-docs-writer"
+    trust_path = profile_dir / "agency" / "trust.json"
+    monkeypatch.setattr(
+        pool_tools,
+        "_current_orchestrator_identity",
+        lambda: {"name": "agency-orchestrator", "peer_id": "peer-orch"},
+    )
+
+    changed = pool_tools._ensure_worker_trusts_current_orchestrator(
+        "agency-docs-writer", profile_dir
+    )
+    data = json.loads(trust_path.read_text(encoding="utf-8"))
+
+    assert changed is True
+    assert data["peers"]["peer-orch"]["trust_level"] == "full"
+    assert data["peers"]["peer-orch"]["last_source"] == "local_orchestrator_seed"
+
+
+def test_pool_wake_does_not_override_blocked_orchestrator(plugin_modules, monkeypatch, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    profile_dir = tmp_path / "profiles" / "agency-docs-writer"
+    trust_path = profile_dir / "agency" / "trust.json"
+    trust_path.parent.mkdir(parents=True)
+    trust_path.write_text(
+        json.dumps({"version": 1, "peers": {"peer-orch": {"trust_level": "blocked"}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        pool_tools,
+        "_current_orchestrator_identity",
+        lambda: {"name": "agency-orchestrator", "peer_id": "peer-orch"},
+    )
+
+    changed = pool_tools._ensure_worker_trusts_current_orchestrator(
+        "agency-docs-writer", profile_dir
+    )
+    data = json.loads(trust_path.read_text(encoding="utf-8"))
+
+    assert changed is False
+    assert data["peers"]["peer-orch"]["trust_level"] == "blocked"

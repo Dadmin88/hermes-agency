@@ -22,9 +22,9 @@ async def handle_control_message(manager: Any, task: Any, message_text: str, cfg
     if not control_payload:
         return False
 
-    security = nm.verify_incoming_sender(
-        task, cfg, purpose="control", control_payload=control_payload
-    )
+    control_type = str(control_payload.get("type") or "").strip().lower()
+    purpose = "handshake" if control_type == "handshake" else "control"
+    security = nm.verify_incoming_sender(task, cfg, purpose=purpose, control_payload=control_payload)
     if not security.allowed:
         try:
             await task.fail(security.reason)
@@ -37,7 +37,7 @@ async def handle_control_message(manager: Any, task: Any, message_text: str, cfg
         )
         return True
 
-    if control_payload.get("type") == "handshake":
+    if control_type == "handshake":
         try:
             control_result = nm.handle_peer_handshake(
                 cfg,

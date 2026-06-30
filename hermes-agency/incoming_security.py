@@ -48,8 +48,11 @@ def verify_incoming_sender(
     Args:
         task: IncomingTask-like object from the SDK.
         cfg: Resolved Hermes Agency config.
-        purpose: One of ``"control"`` or ``"task"``. Control messages require
-            ``full`` trust because they mutate registry/bidding/workflow state.
+        purpose: One of ``"handshake"``, ``"control"`` or ``"task"``. Handshakes
+            require only ``limited`` trust because they establish identity/relay
+            metadata but do not grant tool execution. Normal tasks and other
+            control messages require ``full`` trust because they can execute tools
+            or mutate agency state.
         control_payload: Optional already-parsed control payload used to extract
             sender identity hints without reparsing the message.
     """
@@ -103,7 +106,7 @@ def verify_incoming_sender(
             decision.action,
         )
 
-    min_trust = "full"
+    min_trust = "limited" if normalized_purpose == "handshake" else "full"
     if _trust_rank(decision.trust_level) < _trust_rank(min_trust):
         return IncomingSecurityDecision(
             False,

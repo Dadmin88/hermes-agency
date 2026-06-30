@@ -38,6 +38,74 @@ NODE_RUNNER = Path(__file__).with_name("agency_node_runner.py")
 PLUGIN_PATH = Path(__file__).resolve().parents[1]
 STARTUP_WAIT = 90
 
+def _current_orchestrator_identity() -> dict[str, str] | None:
+    """Return the configured local orchestrator identity, if this process is it.
+
+    Pool wake/send can be called from many profiles. Only the configured local
+    orchestrator may seed full trust into staff profiles; otherwise any random
+    agent could promote itself into a worker's execution trust store.
+    """
+
+    try:
+        from ..config import current_profile_name, get_config, is_current_orchestrator
+        from ..node_manager import manager
+
+        if not is_current_orchestrator(get_config()):
+            return None
+        peer_id = str(getattr(manager.state, "peer_id", "") or "").strip()
+        if not peer_id:
+            return None
+        return {"name": current_profile_name(), "peer_id": peer_id}
+    except Exception:
+        return None
+
+
+def _ensure_worker_trusts_current_orchestrator(name: str, profile_dir: Path) -> bool:
+    """Seed the configured orchestrator as full trust for a local managed worker.
+
+    This is intentionally narrow: it does not trust discovered peers and does
+    not override a local operator's explicit ``blocked`` decision. It records the
+    routing authority that is already configured/promoted on this machine so
+    pool-managed workers can accept delegated tasks after wake.
+    """
+
+    identity = _current_orchestrator_identity()
+    if not identity or name == identity["name"]:
+        return False
+    peer_id = identity["peer_id"]
+    trust_path = profile_dir / "agency" / "trust.json"
+    data = _load_json(trust_path)
+    if not isinstance(data, dict) or not data:
+        data = {"version": 1, "peers": {}}
+    peers = data.setdefault("peers", {})
+    if not isinstance(peers, dict):
+        peers = {}
+        data["peers"] = peers
+    existing = dict(peers.get(peer_id) or {})
+    if str(existing.get("trust_level") or "").strip().lower() == "blocked":
+        return False
+    if str(existing.get("trust_level") or "").strip().lower() == "full":
+        return False
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    peers[peer_id] = {
+        **existing,
+        "peer_id": peer_id,
+        "name": identity["name"],
+        "owner": str(existing.get("owner") or "local-orchestrator"),
+        "trust_level": "full",
+        "first_seen": existing.get("first_seen") or now,
+        "last_seen": now,
+        "last_source": "local_orchestrator_seed",
+    }
+    data.setdefault("version", 1)
+    _atomic_write_json(trust_path, data)
+    try:
+        os.chmod(trust_path.parent, 0o700)
+        os.chmod(trust_path, 0o600)
+    except OSError:
+        pass
+    return True
+
 
 def _pid_alive(pid: int) -> bool:
     try:
@@ -382,6 +450,7 @@ def pool_wake(name: str) -> str:
 
     agency_dir = profile_dir / ".agency"
     agency_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_worker_trusts_current_orchestrator(name, profile_dir)
     with _WakeLock():
         runner_pid = _read_runner_pid(profile_dir)
         sock = agency_dir / "daemon.sock"
