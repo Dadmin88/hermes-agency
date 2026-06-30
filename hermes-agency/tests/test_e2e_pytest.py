@@ -163,9 +163,7 @@ class TestDepartmentOperationsE2E:
         assert "agency-frontend-engineer" in agent_names
         assert "agency-copywriter" not in agent_names
 
-    def test_department_roster_shows_online_status(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_roster_shows_online_status(self, plugin_env, mock_roster_data, monkeypatch):
         """Department roster should reflect correct online/offline status."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -175,9 +173,7 @@ class TestDepartmentOperationsE2E:
         assert agents["agency-backend-engineer"]["online"] is True
         assert agents["agency-frontend-engineer"]["online"] is False
 
-    def test_department_roster_case_insensitive(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_roster_case_insensitive(self, plugin_env, mock_roster_data, monkeypatch):
         """Department lookup should be case-insensitive."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -188,9 +184,7 @@ class TestDepartmentOperationsE2E:
         assert result2["ok"] is True
         assert result1["department"] == result2["department"]
 
-    def test_department_roster_rejects_empty_input(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_roster_rejects_empty_input(self, plugin_env, mock_roster_data, monkeypatch):
         """Empty department name should return an error."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -209,9 +203,7 @@ class TestDepartmentOperationsE2E:
         assert result["ok"] is False
         assert "unknown department" in result["error"].lower()
 
-    def test_department_wake_targets_only_offline(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_wake_targets_only_offline(self, plugin_env, mock_roster_data, monkeypatch):
         """Department wake should only wake offline agents."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -229,9 +221,7 @@ class TestDepartmentOperationsE2E:
         assert "agency-frontend-engineer" in wake_calls
         assert "agency-backend-engineer" not in wake_calls
 
-    def test_department_sleep_targets_only_online(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_sleep_targets_only_online(self, plugin_env, mock_roster_data, monkeypatch):
         """Department sleep should only sleep online agents."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -248,9 +238,7 @@ class TestDepartmentOperationsE2E:
         assert result["ok"] is True
         assert "agency-copywriter" in sleep_calls
 
-    def test_department_wake_handles_wake_failure(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_wake_handles_wake_failure(self, plugin_env, mock_roster_data, monkeypatch):
         """Department wake should report failures without crashing."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -262,9 +250,7 @@ class TestDepartmentOperationsE2E:
         assert result["ok"] is True
         assert result["failed"] >= 1
 
-    def test_department_sleep_empty_department(
-        self, plugin_env, mock_roster_data, monkeypatch
-    ):
+    def test_department_sleep_empty_department(self, plugin_env, mock_roster_data, monkeypatch):
         """Sleeping a department with no online agents should succeed."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "load_roster", lambda: mock_roster_data)
@@ -289,37 +275,27 @@ class TestDepartmentOperationsE2E:
 class TestAgentLifecycleE2E:
     """Test agent creation, disable/enable, and profile generation."""
 
-    def test_create_agent_generates_complete_profile(
-        self, plugin_env, tmp_path, monkeypatch
-    ):
+    def test_create_agent_generates_complete_profile(self, plugin_env, tmp_path, monkeypatch):
         """pool_create_agent should generate SOUL.md, profile.yaml, ROUTING.md, and skills."""
         pt = plugin_env.pool_tools
         profile_dir = tmp_path / "profiles" / "agency-test-e2e-agent"
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
 
         mock_manager = MagicMock()
-        mock_manager._ensure_profile = lambda name: profile_dir.mkdir(
-            parents=True, exist_ok=True
-        )
+        mock_manager._ensure_profile = lambda name: profile_dir.mkdir(parents=True, exist_ok=True)
         mock_manager.lock = threading.Lock()
         mock_manager.active = {}
         mock_manager.persistent_agents = set()
 
         # Mock PoolManager where it's lazily imported inside pool_create_agent
         mock_pm_module = types.ModuleType("hermes_plugin.pool.manager")
-        mock_pm_module.PoolManager = type(
-            "MockPM", (), {"__new__": lambda cls: mock_manager}
-        )
-        monkeypatch.setitem(
-            sys.modules, "hermes_plugin.pool.manager", mock_pm_module
-        )
+        mock_pm_module.PoolManager = type("MockPM", (), {"__new__": lambda cls: mock_manager})
+        monkeypatch.setitem(sys.modules, "hermes_plugin.pool.manager", mock_pm_module)
         monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: True)
         # Mock set_agent_created_by where it's imported from (pool.roster)
         roster_mod = sys.modules.get("hermes_plugin.pool.roster")
         if roster_mod is not None:
-            monkeypatch.setattr(
-                roster_mod, "set_agent_created_by", lambda n, s: None
-            )
+            monkeypatch.setattr(roster_mod, "set_agent_created_by", lambda n, s: None)
 
         result = json.loads(
             pt.pool_create_agent(
@@ -366,37 +342,25 @@ class TestAgentLifecycleE2E:
         assert "## Delegation" in routing
         assert "## Handoff Format" in routing
 
-    def test_create_agent_generates_starter_skills(
-        self, plugin_env, tmp_path, monkeypatch
-    ):
+    def test_create_agent_generates_starter_skills(self, plugin_env, tmp_path, monkeypatch):
         """pool_create_agent should create department-appropriate starter skills."""
         pt = plugin_env.pool_tools
         profile_dir = tmp_path / "profiles" / "agency-test-skills-agent"
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
 
         mock_manager = MagicMock()
-        mock_manager._ensure_profile = lambda name: profile_dir.mkdir(
-            parents=True, exist_ok=True
-        )
+        mock_manager._ensure_profile = lambda name: profile_dir.mkdir(parents=True, exist_ok=True)
 
         mock_pm_module = types.ModuleType("hermes_plugin.pool.manager")
-        mock_pm_module.PoolManager = type(
-            "MockPM", (), {"__new__": lambda cls: mock_manager}
-        )
-        monkeypatch.setitem(
-            sys.modules, "hermes_plugin.pool.manager", mock_pm_module
-        )
+        mock_pm_module.PoolManager = type("MockPM", (), {"__new__": lambda cls: mock_manager})
+        monkeypatch.setitem(sys.modules, "hermes_plugin.pool.manager", mock_pm_module)
         monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: True)
         roster_mod = sys.modules.get("hermes_plugin.pool.roster")
         if roster_mod is not None:
-            monkeypatch.setattr(
-                roster_mod, "set_agent_created_by", lambda n, s: None
-            )
+            monkeypatch.setattr(roster_mod, "set_agent_created_by", lambda n, s: None)
 
         result = json.loads(
-            pt.pool_create_agent(
-                "agency-test-skills-agent", "Design", ["figma"], "Design agent"
-            )
+            pt.pool_create_agent("agency-test-skills-agent", "Design", ["figma"], "Design agent")
         )
         assert result["ok"] is True
 
@@ -413,9 +377,7 @@ class TestAgentLifecycleE2E:
         assert figma_skill.exists()
         assert "figma" in figma_skill.read_text().lower()
 
-    def test_create_agent_rejects_duplicate_name(
-        self, plugin_env, tmp_path, monkeypatch
-    ):
+    def test_create_agent_rejects_duplicate_name(self, plugin_env, tmp_path, monkeypatch):
         """pool_create_agent should reject creating an agent that already exists."""
         pt = plugin_env.pool_tools
         profile_dir = tmp_path / "profiles" / "agency-duplicate"
@@ -423,37 +385,27 @@ class TestAgentLifecycleE2E:
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
         monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: True)
 
-        result = json.loads(
-            pt.pool_create_agent("agency-duplicate", "Engineering")
-        )
+        result = json.loads(pt.pool_create_agent("agency-duplicate", "Engineering"))
         assert result["ok"] is False
         assert "already exists" in result["error"]
 
-    def test_create_agent_rejects_non_agency_name(
-        self, plugin_env, tmp_path, monkeypatch
-    ):
+    def test_create_agent_rejects_non_agency_name(self, plugin_env, tmp_path, monkeypatch):
         """pool_create_agent should require 'agency-' prefix."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
         monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: True)
 
-        result = json.loads(
-            pt.pool_create_agent("freelance-worker", "Engineering")
-        )
+        result = json.loads(pt.pool_create_agent("freelance-worker", "Engineering"))
         assert result["ok"] is False
         assert "agency-" in result["error"]
 
-    def test_create_agent_rejects_disabled_lifecycle(
-        self, plugin_env, tmp_path, monkeypatch
-    ):
+    def test_create_agent_rejects_disabled_lifecycle(self, plugin_env, tmp_path, monkeypatch):
         """pool_create_agent should reject when lifecycle tools are disabled."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
         monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: False)
 
-        result = json.loads(
-            pt.pool_create_agent("agency-test-disabled", "Engineering")
-        )
+        result = json.loads(pt.pool_create_agent("agency-test-disabled", "Engineering"))
         assert result["ok"] is False
         assert "disabled" in result["error"].lower()
 
@@ -576,9 +528,7 @@ class TestHealthWatchdogE2E:
 
         assert restart_pos > 0, "Restart handler marker not found in manager.py"
         assert lock_pos > 0, "Lock block not found in manager.py"
-        assert restart_pos > lock_pos, (
-            "Restart handler must run outside the lock block"
-        )
+        assert restart_pos > lock_pos, "Restart handler must run outside the lock block"
 
         # The restart handler should call self.wake() which acquires its own lock
         restart_section = code[restart_pos:]
@@ -640,9 +590,7 @@ class TestModelSetE2E:
                 assert "provider" in family_config, (
                     f"{p.name} family {family_name} missing provider"
                 )
-                assert "model" in family_config, (
-                    f"{p.name} family {family_name} missing model"
-                )
+                assert "model" in family_config, f"{p.name} family {family_name} missing model"
 
 
 # ---------------------------------------------------------------------------
@@ -670,9 +618,7 @@ class TestDepartmentMappingE2E:
             for agent in agents:
                 resolved = plugin_env.departments.get_department(f"agency-{agent}")
                 # Agent may appear in multiple departments; first one wins via setdefault
-                assert resolved is not None, (
-                    f"agency-{agent} has no department mapping"
-                )
+                assert resolved is not None, f"agency-{agent} has no department mapping"
 
     def test_board_slugs_follow_naming_convention(self, plugin_env):
         """Board slugs should follow 'agency-<department>' pattern."""

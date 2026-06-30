@@ -1207,7 +1207,7 @@ agency:
     auto_allow_team: true
 ownership:
   owns:
-{chr(10).join(f'  - {s}' for s in (skills or ['general assistance']))}
+{chr(10).join(f"  - {s}" for s in (skills or ["general assistance"]))}
   does_not_own:
   - work outside {department} department
 routing:
@@ -1223,7 +1223,7 @@ routing:
 
 ### Owns
 
-{chr(10).join(f'- {s}' for s in (skills or ['general assistance']))}
+{chr(10).join(f"- {s}" for s in (skills or ["general assistance"]))}
 
 ### Does Not Own
 
@@ -1494,10 +1494,12 @@ def pool_department_roster(department: str) -> str:
             dept_key = key
             break
     if not dept_key:
-        return _json.dumps({
-            "ok": False,
-            "error": f"unknown department: {department}. Valid: {', '.join(sorted(DEPARTMENT_AGENTS.keys()))}",
-        })
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": f"unknown department: {department}. Valid: {', '.join(sorted(DEPARTMENT_AGENTS.keys()))}",
+            }
+        )
 
     roster = load_roster()
     profiles = roster.get("profiles", [])
@@ -1508,20 +1510,24 @@ def pool_department_roster(department: str) -> str:
     for p in profiles:
         canon = canonical_agent_name(p["name"])
         if canon in dept_agents:
-            matches.append({
-                "name": p["name"],
-                "online": p.get("online", False),
-                "skills": p.get("skills", [])[:5],
-                "description": p.get("description", ""),
-            })
+            matches.append(
+                {
+                    "name": p["name"],
+                    "online": p.get("online", False),
+                    "skills": p.get("skills", [])[:5],
+                    "description": p.get("description", ""),
+                }
+            )
 
-    return _json.dumps({
-        "ok": True,
-        "department": dept_key,
-        "total": len(dept_agents),
-        "installed": len(matches),
-        "agents": matches,
-    })
+    return _json.dumps(
+        {
+            "ok": True,
+            "department": dept_key,
+            "total": len(dept_agents),
+            "installed": len(matches),
+            "agents": matches,
+        }
+    )
 
 
 def pool_department_wake(department: str) -> str:
@@ -1540,10 +1546,12 @@ def pool_department_wake(department: str) -> str:
             dept_key = key
             break
     if not dept_key:
-        return _json.dumps({
-            "ok": False,
-            "error": f"unknown department: {department}",
-        })
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": f"unknown department: {department}",
+            }
+        )
 
     roster = load_roster()
     profiles = roster.get("profiles", [])
@@ -1556,18 +1564,21 @@ def pool_department_wake(department: str) -> str:
             try:
                 wake_result = pool_wake(p["name"])
                 import json as __json
+
                 wake_data = __json.loads(wake_result)
                 results.append({"name": p["name"], "ok": wake_data.get("ok", False)})
             except Exception as exc:
                 results.append({"name": p["name"], "ok": False, "error": str(exc)})
 
-    return _json.dumps({
-        "ok": True,
-        "department": dept_key,
-        "woken": sum(1 for r in results if r.get("ok")),
-        "failed": sum(1 for r in results if not r.get("ok")),
-        "results": results,
-    })
+    return _json.dumps(
+        {
+            "ok": True,
+            "department": dept_key,
+            "woken": sum(1 for r in results if r.get("ok")),
+            "failed": sum(1 for r in results if not r.get("ok")),
+            "results": results,
+        }
+    )
 
 
 def pool_department_sleep(department: str) -> str:
@@ -1586,10 +1597,12 @@ def pool_department_sleep(department: str) -> str:
             dept_key = key
             break
     if not dept_key:
-        return _json.dumps({
-            "ok": False,
-            "error": f"unknown department: {department}",
-        })
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": f"unknown department: {department}",
+            }
+        )
 
     roster = load_roster()
     profiles = roster.get("profiles", [])
@@ -1602,15 +1615,18 @@ def pool_department_sleep(department: str) -> str:
             try:
                 sleep_result = pool_sleep(p["name"])
                 import json as __json
+
                 sleep_data = __json.loads(sleep_result)
                 results.append({"name": p["name"], "ok": sleep_data.get("ok", False)})
             except Exception as exc:
                 results.append({"name": p["name"], "ok": False, "error": str(exc)})
 
-    return _json.dumps({
-        "ok": True,
-        "department": dept_key,
-        "slept": sum(1 for r in results if r.get("ok")),
-        "failed": sum(1 for r in results if not r.get("ok")),
-        "results": results,
-    })
+    return _json.dumps(
+        {
+            "ok": True,
+            "department": dept_key,
+            "slept": sum(1 for r in results if r.get("ok")),
+            "failed": sum(1 for r in results if not r.get("ok")),
+            "results": results,
+        }
+    )

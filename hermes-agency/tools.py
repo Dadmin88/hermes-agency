@@ -941,16 +941,19 @@ def pool_reset_agents(args: dict[str, Any] | None = None, **_: Any) -> str:
 
 def pool_department_roster(args: dict[str, Any] | None = None, **_: Any) -> str:
     from .pool.tools import pool_department_roster as _fn
+
     return _fn(str((args or {}).get("department", "")))
 
 
 def pool_department_wake(args: dict[str, Any] | None = None, **_: Any) -> str:
     from .pool.tools import pool_department_wake as _fn
+
     return _fn(str((args or {}).get("department", "")))
 
 
 def pool_department_sleep(args: dict[str, Any] | None = None, **_: Any) -> str:
     from .pool.tools import pool_department_sleep as _fn
+
     return _fn(str((args or {}).get("department", "")))
 
 
@@ -1104,7 +1107,10 @@ POOL_TOOLS = (
             {
                 "type": "object",
                 "properties": {
-                    "department": {"type": "string", "description": "Department name (Engineering, Design, Content, Marketing, Product, QA, Operations, Leadership)."},
+                    "department": {
+                        "type": "string",
+                        "description": "Department name (Engineering, Design, Content, Marketing, Product, QA, Operations, Leadership).",
+                    },
                 },
                 "required": ["department"],
             },

@@ -146,7 +146,16 @@ def test_create_starter_skills_generates_department_skills():
 
     import tempfile
 
-    for dept in ["Engineering", "Design", "Content", "Marketing", "Product", "QA", "Operations", "Leadership"]:
+    for dept in [
+        "Engineering",
+        "Design",
+        "Content",
+        "Marketing",
+        "Product",
+        "QA",
+        "Operations",
+        "Leadership",
+    ]:
         with tempfile.TemporaryDirectory() as tmpdir:
             profile_dir = Path(tmpdir)
             mod._create_starter_skills(profile_dir, f"agency-test-{dept.lower()}", dept, [])
@@ -183,6 +192,8 @@ def test_create_starter_skills_includes_custom_skills():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         profile_dir = Path(tmpdir)
-        mod._create_starter_skills(profile_dir, "agency-test", "Engineering", ["kubernetes", "terraform"])
+        mod._create_starter_skills(
+            profile_dir, "agency-test", "Engineering", ["kubernetes", "terraform"]
+        )
         assert (profile_dir / "skills" / "kubernetes" / "SKILL.md").exists()
         assert (profile_dir / "skills" / "terraform" / "SKILL.md").exists()
