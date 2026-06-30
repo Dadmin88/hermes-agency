@@ -1,0 +1,58 @@
+# Hermes Gateway — systemd service unit
+#
+# Copy to ~/.config/systemd/user/hermes-gateway.service, then:
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now hermes-gateway
+#
+# Adjust paths, memory limits, and environment to match your installation.
+
+[Unit]
+Description=Hermes Agent Gateway - Messaging Platform Integration
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+
+# --- Paths (edit for your environment) ---
+ExecStart=/home/<user>/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main gateway run
+WorkingDirectory=/home/<user>/.hermes
+Environment="PATH=/home/<user>/.hermes/hermes-agent/venv/bin:/home/<user>/.hermes/node/bin:/home/<user>/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV=/home/<user>/.hermes/hermes-agent/venv"
+Environment="HERMES_HOME=/home/<user>/.hermes"
+
+# --- Restart policy ---
+# on-failure restarts after crashes, OOM kills, and signal-induced exits.
+# Avoid Restart=no — the gateway will stay dead after any interruption.
+Restart=on-failure
+RestartSec=5
+RestartForceExitStatus=75
+
+# --- Shutdown ---
+# KillMode=mixed sends SIGTERM to the main process and SIGKILL to children
+# (daemons, node runners). TimeoutStopSec must exceed the longest drain time;
+# active sessions can take ~50s to flush, so 210s gives comfortable headroom.
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=210
+
+# --- Resource limits ---
+# MemoryMax is a hard kill limit. MemoryHigh triggers reclaim before hitting it.
+# The gateway + agency node runners can spike during multi-agent dispatch.
+# Start with 5G/4G for a production orchestrator; lower for single-agent setups.
+# Override via drop-in: systemctl --user edit hermes-gateway
+MemoryMax=5G
+MemoryHigh=4G
+TasksMax=512
+OOMPolicy=continue
+
+# --- Logging ---
+StandardOutput=journal
+StandardError=journal
+
+# --- Reload ---
+ExecReload=/bin/kill -USR1 $MAINPID
+
+[Install]
+WantedBy=default.target

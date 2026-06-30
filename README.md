@@ -93,6 +93,46 @@ docker compose --profile split up node              # node service only
 
 The compose file uses a named volume for runtime data so examples do not rely on maintainer-local paths.
 
+## Server deployment (systemd)
+
+For headless VPS or server deployments, use the bundled systemd service template:
+
+```bash
+# Copy and customize for your user/paths
+cp deploy/systemd/hermes-gateway.service.example ~/.config/systemd/user/hermes-gateway.service
+${EDITOR:-vi} ~/.config/systemd/user/hermes-gateway.service
+
+# Enable and start
+systemctl --user daemon-reload
+systemctl --user enable --now hermes-gateway
+
+# Check status and logs
+systemctl --user status hermes-gateway
+journalctl --user -u hermes-gateway -f
+```
+
+Key settings to review in the service file:
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `ExecStart` | `<user>/.hermes/...` | Path to your Hermes venv |
+| `MemoryMax` | `5G` | Hard kill limit (gateway + node runners can spike during multi-agent dispatch) |
+| `MemoryHigh` | `4G` | Soft reclaim limit — triggers GC before hitting MemoryMax |
+| `Restart` | `on-failure` | Auto-restart after crashes, OOM kills, or signal exits |
+| `TimeoutStopSec` | `210` | Drain timeout — active sessions can take ~50s to flush |
+
+To adjust limits at runtime without editing the unit file:
+
+```bash
+systemctl --user edit hermes-gateway
+# Add overrides, e.g.:
+#   [Service]
+#   MemoryMax=8G
+#   MemoryHigh=6G
+systemctl --user daemon-reload
+systemctl --user restart hermes-gateway
+```
+
 ## How Hermes Agency works
 
 ```text
