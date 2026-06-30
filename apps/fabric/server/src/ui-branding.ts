@@ -141,7 +141,7 @@ function createFaviconDataUrl(background: string, foreground: string): string {
 }
 
 export function isWorktreeUiBrandingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return isTruthyEnvValue(env.PAPERCLIP_IN_WORKTREE);
+  return isTruthyEnvValue((env.FABRIC_IN_WORKTREE ?? env.PAPERCLIP_IN_WORKTREE));
 }
 
 export function getWorktreeUiBranding(env: NodeJS.ProcessEnv = process.env): WorktreeUiBranding {
@@ -155,8 +155,8 @@ export function getWorktreeUiBranding(env: NodeJS.ProcessEnv = process.env): Wor
     };
   }
 
-  const name = nonEmpty(env.PAPERCLIP_WORKTREE_NAME) ?? nonEmpty(env.PAPERCLIP_INSTANCE_ID) ?? "worktree";
-  const color = normalizeHexColor(env.PAPERCLIP_WORKTREE_COLOR) ?? deriveColorFromSeed(name);
+  const name = nonEmpty((env.FABRIC_WORKTREE_NAME ?? env.PAPERCLIP_WORKTREE_NAME)) ?? nonEmpty((env.FABRIC_INSTANCE_ID ?? env.PAPERCLIP_INSTANCE_ID)) ?? "worktree";
+  const color = normalizeHexColor((env.FABRIC_WORKTREE_COLOR ?? env.PAPERCLIP_WORKTREE_COLOR)) ?? deriveColorFromSeed(name);
   const textColor = pickReadableTextColor(color);
 
   return {

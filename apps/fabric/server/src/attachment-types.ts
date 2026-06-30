@@ -18,6 +18,7 @@ import {
   DEFAULT_COMPANY_ATTACHMENT_MAX_BYTES,
   MAX_COMPANY_ATTACHMENT_MAX_BYTES,
 } from "@paperclipai/shared";
+import { fabricEnv } from "./fabric-env.js";
 
 export const DEFAULT_ALLOWED_TYPES: readonly string[] = [
   "image/png",
@@ -95,7 +96,7 @@ export function isInlineAttachmentContentType(contentType: string): boolean {
 // ---------- Module-level singletons read once at startup ----------
 
 const allowedPatterns: string[] = parseAllowedTypes(
-  process.env.PAPERCLIP_ALLOWED_ATTACHMENT_TYPES,
+  fabricEnv("ALLOWED_ATTACHMENT_TYPES"),
 );
 
 /** Convenience wrapper using the process-level allowed list. */
@@ -104,7 +105,7 @@ export function isAllowedContentType(contentType: string): boolean {
 }
 
 export const MAX_ATTACHMENT_BYTES =
-  Number(process.env.PAPERCLIP_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;
+  Number(fabricEnv("ATTACHMENT_MAX_BYTES")) || 10 * 1024 * 1024;
 
 export function normalizeIssueAttachmentMaxBytes(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {

@@ -249,7 +249,9 @@ export function boardChatRoutes(
       cwd: "/tmp",
       env: {
         ...process.env,
+        FABRIC_API_URL: apiUrl,
         PAPERCLIP_API_URL: apiUrl,
+        FABRIC_COMPANY_ID: companyId,
         PAPERCLIP_COMPANY_ID: companyId,
       },
     });

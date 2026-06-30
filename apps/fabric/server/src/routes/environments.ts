@@ -30,6 +30,7 @@ import { assertBoardOrgAccess, getActorInfo } from "./authz.js";
 import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
 import { environmentService } from "../services/environments.js";
 import { executionWorkspaceService } from "../services/execution-workspaces.js";
+import { fabricEnv } from "../fabric-env.js";
 
 export function environmentRoutes(
   db: Db,
@@ -42,7 +43,7 @@ export function environmentRoutes(
   const instanceSettings = instanceSettingsService(db);
   const projects = projectService(db);
   const secrets = secretService(db);
-  const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
+  const strictSecretsMode = fabricEnv("SECRETS_STRICT_MODE") === "true";
 
   function parseObject(value: unknown): Record<string, unknown> {
     return value && typeof value === "object" && !Array.isArray(value)

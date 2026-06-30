@@ -12,7 +12,7 @@ export interface AdapterModelEntry {
 export function parseAdapterModelsEnv(
   env: Record<string, string | undefined> = process.env,
 ): Record<string, AdapterModelEntry[]> | null {
-  const raw = env.PAPERCLIP_ADAPTER_MODELS?.trim();
+  const raw = (env.FABRIC_ADAPTER_MODELS ?? env.PAPERCLIP_ADAPTER_MODELS)?.trim();
   if (!raw) return null;
   let parsed: unknown;
   try {

@@ -62,6 +62,7 @@ import type {
   InstanceDatabaseBackupRunResult,
   InstanceDatabaseBackupTrigger,
 } from "./routes/instance-database-backups.js";
+import { fabricEnv, fabricEnvSet, fabricEnvDefined } from "./fabric-env.js";
 
 type BetterAuthSessionUser = {
   id: string;
@@ -106,14 +107,14 @@ export async function startServer(): Promise<StartedServer> {
   await instrumentationReady;
   let config = loadConfig();
   initTelemetry({ enabled: config.telemetryEnabled });
-  if (process.env.PAPERCLIP_SECRETS_PROVIDER === undefined) {
-    process.env.PAPERCLIP_SECRETS_PROVIDER = config.secretsProvider;
+  if (!fabricEnvDefined("SECRETS_PROVIDER")) {
+    fabricEnvSet("SECRETS_PROVIDER", config.secretsProvider);
   }
-  if (process.env.PAPERCLIP_SECRETS_STRICT_MODE === undefined) {
-    process.env.PAPERCLIP_SECRETS_STRICT_MODE = config.secretsStrictMode ? "true" : "false";
+  if (!fabricEnvDefined("SECRETS_STRICT_MODE")) {
+    fabricEnvSet("SECRETS_STRICT_MODE", config.secretsStrictMode ? "true" : "false");
   }
-  if (process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE === undefined) {
-    process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE = config.secretsMasterKeyFilePath;
+  if (!fabricEnvDefined("SECRETS_MASTER_KEY_FILE")) {
+    fabricEnvSet("SECRETS_MASTER_KEY_FILE", config.secretsMasterKeyFilePath);
   }
 
   type MigrationSummary =
@@ -130,8 +131,8 @@ export async function startServer(): Promise<StartedServer> {
   }
 
   async function promptApplyMigrations(migrations: string[]): Promise<boolean> {
-    if (process.env.PAPERCLIP_MIGRATION_AUTO_APPLY === "true") return true;
-    if (process.env.PAPERCLIP_MIGRATION_PROMPT === "never") return false;
+    if (fabricEnv("MIGRATION_AUTO_APPLY") === "true") return true;
+    if (fabricEnv("MIGRATION_PROMPT") === "never") return false;
     if (!stdin.isTTY || !stdout.isTTY) return true;
 
     const prompt = createInterface({ input: stdin, output: stdout });
@@ -339,7 +340,7 @@ export async function startServer(): Promise<StartedServer> {
     const configuredPort = config.embeddedPostgresPort;
     let port = configuredPort;
     const logBuffer = createEmbeddedPostgresLogBuffer(120);
-    const verboseEmbeddedPostgresLogs = process.env.PAPERCLIP_EMBEDDED_POSTGRES_VERBOSE === "true";
+    const verboseEmbeddedPostgresLogs = fabricEnv("EMBEDDED_POSTGRES_VERBOSE") === "true";
     const appendEmbeddedPostgresLog = (message: unknown) => {
       logBuffer.append(message);
       if (!verboseEmbeddedPostgresLogs) {
@@ -685,7 +686,7 @@ export async function startServer(): Promise<StartedServer> {
     bindHost: runtimeListenHost,
     port: listenPort,
   });
-  const configuredApiUrl = process.env.PAPERCLIP_API_URL?.trim() || runtimeApiUrl;
+  const configuredApiUrl = fabricEnv("API_URL")?.trim() || runtimeApiUrl;
   const runtimeApiCandidates = buildRuntimeApiCandidateUrls({
     preferredApiUrl: configuredApiUrl,
     authPublicBaseUrl: config.authPublicBaseUrl ?? null,
@@ -693,11 +694,11 @@ export async function startServer(): Promise<StartedServer> {
     bindHost: runtimeListenHost,
     port: listenPort,
   });
-  process.env.PAPERCLIP_LISTEN_HOST = runtimeListenHost;
-  process.env.PAPERCLIP_LISTEN_PORT = String(listenPort);
-  process.env.PAPERCLIP_RUNTIME_API_URL = runtimeApiUrl;
-  process.env.PAPERCLIP_RUNTIME_API_CANDIDATES_JSON = JSON.stringify(runtimeApiCandidates);
-  process.env.PAPERCLIP_API_URL = configuredApiUrl;
+  fabricEnvSet("LISTEN_HOST", runtimeListenHost);
+  fabricEnvSet("LISTEN_PORT", String(listenPort));
+  fabricEnvSet("RUNTIME_API_URL", runtimeApiUrl);
+  fabricEnvSet("RUNTIME_API_CANDIDATES_JSON", JSON.stringify(runtimeApiCandidates));
+  fabricEnvSet("API_URL", configuredApiUrl);
 
   setupLiveEventsWebSocketServer(server, db as any, {
     deploymentMode: config.deploymentMode,
@@ -986,7 +987,7 @@ export async function startServer(): Promise<StartedServer> {
     server.listen(listenPort, config.host, () => {
       server.off("error", onError);
       logger.info(`Server listening on ${config.host}:${listenPort}`);
-      if (process.env.PAPERCLIP_OPEN_ON_LISTEN === "true") {
+      if (fabricEnv("OPEN_ON_LISTEN") === "true") {
         const openHost = config.host === "0.0.0.0" || config.host === "::" ? "127.0.0.1" : config.host;
         const url = `http://${openHost}:${listenPort}`;
         void import("open")

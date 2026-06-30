@@ -78,6 +78,7 @@ import {
   readPortableCatalogProvenance,
 } from "./catalog-provenance.js";
 import { normalizePortablePath } from "./portable-path.js";
+import { fabricEnv } from "../fabric-env.js";
 
 /** Build OrgNode tree from manifest agent list (slug + reportsToSlug). */
 function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]): OrgNode[] {
@@ -2999,7 +3000,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
   const issues = issueService(db);
   const companySkills = companySkillService(db);
   const secrets = secretService(db);
-  const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
+  const strictSecretsMode = fabricEnv("SECRETS_STRICT_MODE") === "true";
   const defaultSecretProvider = getConfiguredSecretProvider();
 
   function assertKnownImportAdapterType(type: string | null | undefined): string {

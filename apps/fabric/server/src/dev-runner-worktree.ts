@@ -67,7 +67,7 @@ function resolveHomeAwarePath(value: string): string {
 }
 
 function resolveDefaultWorktreeHome(env: NodeJS.ProcessEnv): string {
-  return path.resolve(expandHomePrefix(env.PAPERCLIP_WORKTREES_DIR?.trim() || "~/.paperclip-worktrees"));
+  return path.resolve(expandHomePrefix((env[`FABRIC_WORKTREES_DIR`] ?? env[`PAPERCLIP_WORKTREES_DIR`])?.trim() || "~/.paperclip-worktrees"));
 }
 
 function repairStaleMigratedWorktreeEnvEntries(
@@ -76,7 +76,7 @@ function repairStaleMigratedWorktreeEnvEntries(
   env: NodeJS.ProcessEnv,
 ): Record<string, string> {
   const localConfigPath = path.resolve(rootDir, ".paperclip", "config.json");
-  const configuredPath = entries.PAPERCLIP_CONFIG?.trim();
+  const configuredPath = (entries[`FABRIC_CONFIG`] ?? entries[`PAPERCLIP_CONFIG`])?.trim();
   if (!configuredPath) return entries;
 
   const resolvedConfiguredPath = resolveHomeAwarePath(configuredPath);
@@ -89,8 +89,11 @@ function repairStaleMigratedWorktreeEnvEntries(
   const homeDir = resolveDefaultWorktreeHome(env);
   return {
     ...entries,
+    FABRIC_HOME: homeDir,
     PAPERCLIP_HOME: homeDir,
+    FABRIC_CONFIG: localConfigPath,
     PAPERCLIP_CONFIG: localConfigPath,
+    FABRIC_CONTEXT: path.resolve(homeDir, "context.json"),
     PAPERCLIP_CONTEXT: path.resolve(homeDir, "context.json"),
   };
 }

@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { PaperclipConfig } from "@paperclipai/shared";
 import { resolvePaperclipConfigPath, resolvePaperclipEnvPath } from "./paths.js";
+import { fabricEnvSet } from "./fabric-env.js";
 
 function nonEmpty(value: string | null | undefined): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -110,7 +111,7 @@ function resolveWorktreeRuntimeContext(
   env: NodeJS.ProcessEnv,
   overrideConfigPath?: string,
 ): WorktreeRuntimeContext | null {
-  if (env.PAPERCLIP_IN_WORKTREE !== "true") return null;
+  if ((env[`FABRIC_IN_WORKTREE`] ?? env[`PAPERCLIP_IN_WORKTREE`]) !== "true") return null;
 
   const configPath = resolvePaperclipConfigPath(overrideConfigPath);
   const envPath = resolvePaperclipEnvPath(configPath);
@@ -124,16 +125,16 @@ function resolveWorktreeRuntimeContext(
   const worktreeRoot = path.resolve(path.dirname(configPath), "..");
   const worktreeName =
     nonEmpty(stablePersistedEnv.PAPERCLIP_WORKTREE_NAME) ??
-    nonEmpty(env.PAPERCLIP_WORKTREE_NAME) ??
+    nonEmpty((env[`FABRIC_WORKTREE_NAME`] ?? env[`PAPERCLIP_WORKTREE_NAME`])) ??
     path.basename(worktreeRoot);
   const instanceId =
     nonEmpty(stablePersistedEnv.PAPERCLIP_INSTANCE_ID) ??
-    nonEmpty(env.PAPERCLIP_INSTANCE_ID) ??
+    nonEmpty((env[`FABRIC_INSTANCE_ID`] ?? env[`PAPERCLIP_INSTANCE_ID`])) ??
     sanitizeWorktreeInstanceId(worktreeName);
   const homeDir = resolveHomeAwarePath(
     nonEmpty(stablePersistedEnv.PAPERCLIP_HOME) ??
-      nonEmpty(env.PAPERCLIP_HOME) ??
-      nonEmpty(env.PAPERCLIP_WORKTREES_DIR) ??
+      nonEmpty((env[`FABRIC_HOME`] ?? env[`PAPERCLIP_HOME`])) ??
+      nonEmpty((env[`FABRIC_WORKTREES_DIR`] ?? env[`PAPERCLIP_WORKTREES_DIR`])) ??
       "~/.paperclip-worktrees",
   );
   const instanceRoot = path.resolve(homeDir, "instances", instanceId);
@@ -382,11 +383,11 @@ export function maybeRepairLegacyWorktreeConfigAndEnvFiles(): {
     return { repairedConfig: false, repairedEnv: false };
   }
 
-  process.env.PAPERCLIP_HOME = context.homeDir;
-  process.env.PAPERCLIP_INSTANCE_ID = context.instanceId;
-  process.env.PAPERCLIP_CONFIG = context.configPath;
-  process.env.PAPERCLIP_CONTEXT = context.contextPath;
-  process.env.PAPERCLIP_WORKTREE_NAME = context.worktreeName;
+  fabricEnvSet("HOME", context.homeDir);
+  fabricEnvSet("INSTANCE_ID", context.instanceId);
+  fabricEnvSet("CONFIG", context.configPath);
+  fabricEnvSet("CONTEXT", context.contextPath);
+  fabricEnvSet("WORKTREE_NAME", context.worktreeName);
 
   let repairedConfig = false;
   if (fs.existsSync(context.configPath)) {
@@ -430,11 +431,17 @@ export function maybeRepairLegacyWorktreeConfigAndEnvFiles(): {
   const existingEnvEntries = readEnvEntries(context.envPath);
   const desiredEnvEntries: Record<string, string> = {
     ...existingEnvEntries,
+    FABRIC_HOME: context.homeDir,
     PAPERCLIP_HOME: context.homeDir,
+    FABRIC_INSTANCE_ID: context.instanceId,
     PAPERCLIP_INSTANCE_ID: context.instanceId,
+    FABRIC_CONFIG: context.configPath,
     PAPERCLIP_CONFIG: context.configPath,
+    FABRIC_CONTEXT: context.contextPath,
     PAPERCLIP_CONTEXT: context.contextPath,
+    FABRIC_IN_WORKTREE: "true",
     PAPERCLIP_IN_WORKTREE: "true",
+    FABRIC_WORKTREE_NAME: context.worktreeName,
     PAPERCLIP_WORKTREE_NAME: context.worktreeName,
   };
 

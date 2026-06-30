@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { fabricEnv } from "./fabric-env.js";
 
 interface JwtHeader {
   alg: string;
@@ -32,15 +33,15 @@ function parseBooleanEnv(value: string | undefined): boolean {
 }
 
 function jwtConfig() {
-  const secret = process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim() || process.env.BETTER_AUTH_SECRET?.trim();
+  const secret = fabricEnv("AGENT_JWT_SECRET")?.trim() || process.env.BETTER_AUTH_SECRET?.trim();
   if (!secret) return null;
 
   return {
     secret,
-    ttlSeconds: parseNumber(process.env.PAPERCLIP_AGENT_JWT_TTL_SECONDS, 60 * 60),
-    issuer: process.env.PAPERCLIP_AGENT_JWT_ISSUER ?? "paperclip",
-    audience: process.env.PAPERCLIP_AGENT_JWT_AUDIENCE ?? "paperclip-api",
-    disableLegacyFallback: parseBooleanEnv(process.env.PAPERCLIP_AGENT_JWT_DISABLE_LEGACY_FALLBACK),
+    ttlSeconds: parseNumber(fabricEnv("AGENT_JWT_TTL_SECONDS"), 60 * 60),
+    issuer: fabricEnv("AGENT_JWT_ISSUER") ?? "paperclip",
+    audience: fabricEnv("AGENT_JWT_AUDIENCE") ?? "paperclip-api",
+    disableLegacyFallback: parseBooleanEnv(fabricEnv("AGENT_JWT_DISABLE_LEGACY_FALLBACK")),
   };
 }
 

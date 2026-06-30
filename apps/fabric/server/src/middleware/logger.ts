@@ -6,9 +6,10 @@ import { readConfigFile } from "../config-file.js";
 import { resolveDefaultLogsDir, resolveHomeAwarePath } from "../home-paths.js";
 import { shouldSilenceHttpSuccessLog } from "./http-log-policy.js";
 import { redactSensitive } from "./redact-sensitive.js";
+import { fabricEnv } from "../fabric-env.js";
 
 function resolveServerLogDir(): string {
-  const envOverride = process.env.PAPERCLIP_LOG_DIR?.trim();
+  const envOverride = fabricEnv("LOG_DIR")?.trim();
   if (envOverride) return resolveHomeAwarePath(envOverride);
 
   const fileLogDir = readConfigFile()?.logging.logDir?.trim();

@@ -29,6 +29,7 @@ import {
   resolveDefaultStorageDir,
   resolveHomeAwarePath,
 } from "./home-paths.js";
+import { fabricEnv, fabricEnvDefined } from "./fabric-env.js";
 
 const PAPERCLIP_ENV_FILE_PATH = resolvePaperclipEnvPath();
 if (existsSync(PAPERCLIP_ENV_FILE_PATH)) {
@@ -90,7 +91,7 @@ export interface Config {
 }
 
 function detectTailnetBindHost(): string | undefined {
-  const explicit = process.env.PAPERCLIP_TAILNET_BIND_HOST?.trim();
+  const explicit = fabricEnv("TAILNET_BIND_HOST")?.trim();
   if (explicit) return explicit;
 
   try {
@@ -121,7 +122,7 @@ export function loadConfig(): Config {
   const fileSecrets = fileConfig?.secrets;
   const fileStorage = fileConfig?.storage;
 
-  const providerFromEnvRaw = process.env.PAPERCLIP_SECRETS_PROVIDER;
+  const providerFromEnvRaw = fabricEnv("SECRETS_PROVIDER");
   const providerFromEnv =
     providerFromEnvRaw && SECRET_PROVIDERS.includes(providerFromEnvRaw as SecretProvider)
       ? (providerFromEnvRaw as SecretProvider)
@@ -129,46 +130,46 @@ export function loadConfig(): Config {
   const providerFromFile = fileSecrets?.provider;
   const secretsProvider: SecretProvider = providerFromEnv ?? providerFromFile ?? "local_encrypted";
 
-  const storageProviderFromEnvRaw = process.env.PAPERCLIP_STORAGE_PROVIDER;
+  const storageProviderFromEnvRaw = fabricEnv("STORAGE_PROVIDER");
   const storageProviderFromEnv =
     storageProviderFromEnvRaw && STORAGE_PROVIDERS.includes(storageProviderFromEnvRaw as StorageProvider)
       ? (storageProviderFromEnvRaw as StorageProvider)
       : null;
   const storageProvider: StorageProvider = storageProviderFromEnv ?? fileStorage?.provider ?? "local_disk";
   const storageLocalDiskBaseDir = resolveHomeAwarePath(
-    process.env.PAPERCLIP_STORAGE_LOCAL_DIR ??
+    fabricEnv("STORAGE_LOCAL_DIR") ??
       fileStorage?.localDisk?.baseDir ??
       resolveDefaultStorageDir(),
   );
-  const storageS3Bucket = process.env.PAPERCLIP_STORAGE_S3_BUCKET ?? fileStorage?.s3?.bucket ?? "paperclip";
-  const storageS3Region = process.env.PAPERCLIP_STORAGE_S3_REGION ?? fileStorage?.s3?.region ?? "us-east-1";
-  const storageS3Endpoint = process.env.PAPERCLIP_STORAGE_S3_ENDPOINT ?? fileStorage?.s3?.endpoint ?? undefined;
-  const storageS3Prefix = process.env.PAPERCLIP_STORAGE_S3_PREFIX ?? fileStorage?.s3?.prefix ?? "";
+  const storageS3Bucket = fabricEnv("STORAGE_S3_BUCKET") ?? fileStorage?.s3?.bucket ?? "paperclip";
+  const storageS3Region = fabricEnv("STORAGE_S3_REGION") ?? fileStorage?.s3?.region ?? "us-east-1";
+  const storageS3Endpoint = fabricEnv("STORAGE_S3_ENDPOINT") ?? fileStorage?.s3?.endpoint ?? undefined;
+  const storageS3Prefix = fabricEnv("STORAGE_S3_PREFIX") ?? fileStorage?.s3?.prefix ?? "";
   const storageS3ForcePathStyle =
-    process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE !== undefined
-      ? process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE === "true"
+    fabricEnvDefined("STORAGE_S3_FORCE_PATH_STYLE")
+      ? fabricEnv("STORAGE_S3_FORCE_PATH_STYLE") === "true"
       : (fileStorage?.s3?.forcePathStyle ?? false);
   const feedbackExportBackendUrl =
-    process.env.PAPERCLIP_FEEDBACK_EXPORT_BACKEND_URL?.trim() ||
-    process.env.PAPERCLIP_TELEMETRY_BACKEND_URL?.trim() ||
+    fabricEnv("FEEDBACK_EXPORT_BACKEND_URL")?.trim() ||
+    fabricEnv("TELEMETRY_BACKEND_URL")?.trim() ||
     undefined;
   const feedbackExportBackendToken =
-    process.env.PAPERCLIP_FEEDBACK_EXPORT_BACKEND_TOKEN?.trim() ||
-    process.env.PAPERCLIP_TELEMETRY_BACKEND_TOKEN?.trim() ||
+    fabricEnv("FEEDBACK_EXPORT_BACKEND_TOKEN")?.trim() ||
+    fabricEnv("TELEMETRY_BACKEND_TOKEN")?.trim() ||
     undefined;
 
-  const deploymentModeFromEnvRaw = process.env.PAPERCLIP_DEPLOYMENT_MODE;
+  const deploymentModeFromEnvRaw = fabricEnv("DEPLOYMENT_MODE");
   const deploymentModeFromEnv =
     deploymentModeFromEnvRaw && DEPLOYMENT_MODES.includes(deploymentModeFromEnvRaw as DeploymentMode)
       ? (deploymentModeFromEnvRaw as DeploymentMode)
       : null;
   const deploymentMode: DeploymentMode = deploymentModeFromEnv ?? fileConfig?.server.deploymentMode ?? "local_trusted";
-  const strictModeFromEnv = process.env.PAPERCLIP_SECRETS_STRICT_MODE;
+  const strictModeFromEnv = fabricEnv("SECRETS_STRICT_MODE");
   const secretsStrictMode =
     strictModeFromEnv !== undefined
       ? strictModeFromEnv === "true"
       : (fileSecrets?.strictMode ?? deploymentMode === "authenticated");
-  const deploymentExposureFromEnvRaw = process.env.PAPERCLIP_DEPLOYMENT_EXPOSURE;
+  const deploymentExposureFromEnvRaw = fabricEnv("DEPLOYMENT_EXPOSURE");
   const deploymentExposureFromEnv =
     deploymentExposureFromEnvRaw &&
     DEPLOYMENT_EXPOSURES.includes(deploymentExposureFromEnvRaw as DeploymentExposure)
@@ -178,7 +179,7 @@ export function loadConfig(): Config {
     deploymentMode === "local_trusted"
       ? "private"
       : (deploymentExposureFromEnv ?? fileConfig?.server.exposure ?? "private");
-  const bindFromEnvRaw = process.env.PAPERCLIP_BIND;
+  const bindFromEnvRaw = fabricEnv("BIND");
   const bindFromEnv =
     bindFromEnvRaw && BIND_MODES.includes(bindFromEnvRaw as BindMode)
       ? (bindFromEnvRaw as BindMode)
@@ -189,16 +190,16 @@ export function loadConfig(): Config {
     bindFromEnv ??
     fileConfig?.server.bind ??
     inferBindModeFromHost(configuredHost, { tailnetBindHost });
-  const customBindHost = process.env.PAPERCLIP_BIND_HOST ?? fileConfig?.server.customBindHost;
-  const authBaseUrlModeFromEnvRaw = process.env.PAPERCLIP_AUTH_BASE_URL_MODE;
+  const customBindHost = fabricEnv("BIND_HOST") ?? fileConfig?.server.customBindHost;
+  const authBaseUrlModeFromEnvRaw = fabricEnv("AUTH_BASE_URL_MODE");
   const authBaseUrlModeFromEnv =
     authBaseUrlModeFromEnvRaw &&
     AUTH_BASE_URL_MODES.includes(authBaseUrlModeFromEnvRaw as AuthBaseUrlMode)
       ? (authBaseUrlModeFromEnvRaw as AuthBaseUrlMode)
       : null;
-  const publicUrlFromEnv = process.env.PAPERCLIP_PUBLIC_URL;
+  const publicUrlFromEnv = fabricEnv("PUBLIC_URL");
   const authPublicBaseUrlRaw =
-    process.env.PAPERCLIP_AUTH_PUBLIC_BASE_URL ??
+    fabricEnv("AUTH_PUBLIC_BASE_URL") ??
     process.env.BETTER_AUTH_URL ??
     process.env.BETTER_AUTH_BASE_URL ??
     publicUrlFromEnv ??
@@ -208,12 +209,12 @@ export function loadConfig(): Config {
     authBaseUrlModeFromEnv ??
     fileConfig?.auth?.baseUrlMode ??
     (authPublicBaseUrl ? "explicit" : "auto");
-  const disableSignUpFromEnv = process.env.PAPERCLIP_AUTH_DISABLE_SIGN_UP;
+  const disableSignUpFromEnv = fabricEnv("AUTH_DISABLE_SIGN_UP");
   const authDisableSignUp: boolean =
     disableSignUpFromEnv !== undefined
       ? disableSignUpFromEnv === "true"
       : (fileConfig?.auth?.disableSignUp ?? false);
-  const allowedHostnamesFromEnvRaw = process.env.PAPERCLIP_ALLOWED_HOSTNAMES;
+  const allowedHostnamesFromEnvRaw = fabricEnv("ALLOWED_HOSTNAMES");
   const allowedHostnamesFromEnv = allowedHostnamesFromEnvRaw
     ? allowedHostnamesFromEnvRaw
       .split(",")
@@ -239,29 +240,29 @@ export function loadConfig(): Config {
         .filter(Boolean),
     ),
   );
-  const companyDeletionEnvRaw = process.env.PAPERCLIP_ENABLE_COMPANY_DELETION;
+  const companyDeletionEnvRaw = fabricEnv("ENABLE_COMPANY_DELETION");
   const companyDeletionEnabled =
     companyDeletionEnvRaw !== undefined
       ? companyDeletionEnvRaw === "true"
       : deploymentMode === "local_trusted";
   const databaseBackupEnabled =
-    process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
-      ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
+    fabricEnvDefined("DB_BACKUP_ENABLED")
+      ? fabricEnv("DB_BACKUP_ENABLED") === "true"
       : (fileDatabaseBackup?.enabled ?? true);
   const databaseBackupIntervalMinutes = Math.max(
     1,
-    Number(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) ||
+    Number(fabricEnv("DB_BACKUP_INTERVAL_MINUTES")) ||
       fileDatabaseBackup?.intervalMinutes ||
       60,
   );
   const databaseBackupRetentionDays = Math.max(
     1,
-    Number(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) ||
+    Number(fabricEnv("DB_BACKUP_RETENTION_DAYS")) ||
       fileDatabaseBackup?.retentionDays ||
       7,
   );
   const databaseBackupDir = resolveHomeAwarePath(
-    process.env.PAPERCLIP_DB_BACKUP_DIR ??
+    fabricEnv("DB_BACKUP_DIR") ??
       fileDatabaseBackup?.dir ??
       resolveDefaultBackupDir(),
   );
@@ -311,12 +312,12 @@ export function loadConfig(): Config {
       process.env.SERVE_UI !== undefined
         ? process.env.SERVE_UI === "true"
         : fileConfig?.server.serveUi ?? true,
-    uiDevMiddleware: process.env.PAPERCLIP_UI_DEV_MIDDLEWARE === "true",
+    uiDevMiddleware: fabricEnv("UI_DEV_MIDDLEWARE") === "true",
     secretsProvider,
     secretsStrictMode,
     secretsMasterKeyFilePath:
       resolveHomeAwarePath(
-        process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE ??
+        fabricEnv("SECRETS_MASTER_KEY_FILE") ??
           fileSecrets?.localEncrypted.keyFilePath ??
           resolveDefaultSecretsKeyFilePath(),
       ),

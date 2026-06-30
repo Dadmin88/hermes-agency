@@ -9,6 +9,7 @@ import { logger } from "../middleware/logger.js";
 import { getServerInfoSnapshot, type ServerInfoSnapshot } from "../server-info.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { serverVersion } from "../version.js";
+import { fabricEnv } from "../fabric-env.js";
 
 function shouldExposeFullHealthDetails(
   actorType: "none" | "board" | "agent" | null | undefined,
@@ -19,7 +20,7 @@ function shouldExposeFullHealthDetails(
 }
 
 function hasDevServerStatusToken(providedToken: string | undefined) {
-  const expectedToken = process.env.PAPERCLIP_DEV_SERVER_STATUS_TOKEN?.trim();
+  const expectedToken = fabricEnv("DEV_SERVER_STATUS_TOKEN")?.trim();
   const token = providedToken?.trim();
   if (!expectedToken || !token) return false;
 
