@@ -9,6 +9,7 @@ import { CloudAccessGate } from "./components/CloudAccessGate";
 import { Dashboard } from "./pages/Dashboard";
 import { DashboardLive } from "./pages/DashboardLive";
 import { Companies } from "./pages/Companies";
+import { Agents } from "./pages/Agents";
 import { HermesAgencyRoster } from "./pages/HermesAgencyRoster";
 import { AgentDetail } from "./pages/AgentDetail";
 import { Projects } from "./pages/Projects";
@@ -107,12 +108,12 @@ function boardRoutes() {
       <Route path="settings/*" element={<LegacySettingsRedirect />} />
       <Route path="plugins/:pluginId" element={<PluginPage />} />
       <Route path="org" element={<OrgChart />} />
-      <Route path="agents" element={<Navigate to="/agency-roster" replace />} />
-      <Route path="agents/all" element={<HermesAgencyRoster />} />
+      <Route path="agents" element={<Navigate to="/agents/all" replace />} />
+      <Route path="agents/all" element={<Agents />} />
       <Route path="agency-roster" element={<HermesAgencyRoster />} />
-      <Route path="agents/active" element={<HermesAgencyRoster />} />
-      <Route path="agents/paused" element={<HermesAgencyRoster />} />
-      <Route path="agents/error" element={<HermesAgencyRoster />} />
+      <Route path="agents/active" element={<Agents />} />
+      <Route path="agents/paused" element={<Agents />} />
+      <Route path="agents/error" element={<Agents />} />
       <Route path="agents/new" element={<NewAgent />} />
       <Route path="agents/:agentId" element={<AgentDetail />} />
       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />

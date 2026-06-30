@@ -59,7 +59,7 @@ describe("MobileBottomNav", () => {
     vi.clearAllMocks();
   });
 
-  it("routes the Agents tab to the Hermes Agency roster", async () => {
+  it("keeps the Agents tab on the native agents workspace", async () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -74,6 +74,6 @@ describe("MobileBottomNav", () => {
       anchor.textContent?.includes("Agents"),
     );
 
-    expect(agentsLink?.getAttribute("href")).toBe("/agency-roster");
+    expect(agentsLink?.getAttribute("href")).toBe("/agents/all");
   });
 });

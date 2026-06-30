@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bot, Clock, Search, Send, Users, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, Bot, ChevronDown, ChevronRight, Clock, Search, Send, Users, Wifi, WifiOff } from "lucide-react";
 import type { HermesAgencyAgent, HermesAgencyAgentStatus, HermesAgencyDispatchRecord, HermesAgencyTaskPacketPreview } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,20 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 
 type StatusFilter = "all" | HermesAgencyAgentStatus;
+type RosterPanelToggle = "status" | "skills" | "dispatch";
+
+const statusFilterOptions: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "online", label: "Online" },
+  { value: "offline", label: "Offline" },
+  { value: "wake_failed", label: "Wake failed" },
+];
+
+const rosterPanelLabels: Record<RosterPanelToggle, string> = {
+  status: "Status details",
+  skills: "Skills",
+  dispatch: "Task controls",
+};
 
 const statusLabels: Record<HermesAgencyAgentStatus, string> = {
   online: "Online",
@@ -103,68 +117,124 @@ function StatusBadge({ status }: { status: HermesAgencyAgentStatus }) {
   );
 }
 
-function AgentCard({ agent, onDispatch, isDispatching }: {
+function ToggleButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AgentListRow({ agent, expanded, visiblePanels, onToggleExpanded, onDispatch, isDispatching }: {
   agent: HermesAgencyAgent;
+  expanded: boolean;
+  visiblePanels: Set<RosterPanelToggle>;
+  onToggleExpanded: () => void;
   onDispatch: (agent: HermesAgencyAgent) => void;
   isDispatching: boolean;
 }) {
   return (
-    <article className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="break-words text-base font-semibold">{agent.name}</h2>
-            <StatusBadge status={agent.status} />
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">{agent.description || "No description provided."}</p>
-        </div>
-        <div className="flex shrink-0 flex-col gap-2">
-          <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-            {formatProvider(agent)}
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onDispatch(agent)}
-            disabled={isDispatching}
-          >
-            <Send className="h-4 w-4" />
-            Send to Hermes Agency
-          </Button>
-        </div>
-      </div>
+    <article className="border-b border-border last:border-b-0">
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="grid w-full grid-cols-[auto_1fr] gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40 md:grid-cols-[auto_minmax(14rem,1.2fr)_140px_minmax(12rem,1fr)_120px] md:items-center"
+        aria-expanded={expanded}
+      >
+        <span className="mt-1 text-muted-foreground md:mt-0">
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </span>
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="break-words text-sm font-semibold">{agent.name}</span>
+            <span className="md:hidden"><StatusBadge status={agent.status} /></span>
+          </span>
+          <span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">
+            {agent.description || "No description provided."}
+          </span>
+        </span>
+        <span className="hidden md:block"><StatusBadge status={agent.status} /></span>
+        <span className="hidden truncate text-xs text-muted-foreground md:block" title={formatProvider(agent)}>
+          {formatProvider(agent)}
+        </span>
+        <span className="hidden text-right text-xs text-muted-foreground md:block">
+          {formatNullable(agent.lastSeen)}
+        </span>
+      </button>
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        {agent.skills.length > 0 ? agent.skills.map((skill) => (
-          <Badge key={skill} variant="secondary" className="font-normal">{skill}</Badge>
-        )) : <span className="text-xs text-muted-foreground">No skills listed</span>}
-      </div>
+      {expanded ? (
+        <div className="space-y-4 border-t border-border/60 bg-muted/20 px-4 py-4 md:pl-11">
+          {visiblePanels.has("status") ? (
+            <dl className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
+              <div>
+                <dt className="font-medium text-foreground/80">Status</dt>
+                <dd>{statusLabels[agent.status]}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-foreground/80">Last seen</dt>
+                <dd>{formatNullable(agent.lastSeen)}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-foreground/80">Wake attempts</dt>
+                <dd>{agent.wakeAttempts}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-foreground/80">Last attempt</dt>
+                <dd>{formatNullable(agent.lastAttempt)}</dd>
+              </div>
+              <div className="sm:col-span-4">
+                <dt className="font-medium text-foreground/80">Provider / model</dt>
+                <dd>{formatProvider(agent)}</dd>
+              </div>
+            </dl>
+          ) : null}
 
-      <dl className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-        <div>
-          <dt className="font-medium text-foreground/80">Last seen</dt>
-          <dd>{formatNullable(agent.lastSeen)}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-foreground/80">Wake attempts</dt>
-          <dd>{agent.wakeAttempts}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-foreground/80">Last attempt</dt>
-          <dd>{formatNullable(agent.lastAttempt)}</dd>
-        </div>
-      </dl>
-
-      {agent.lastError ? (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <div className="font-medium">Last wake/profile error</div>
-              <div className="mt-1 break-words font-mono text-xs">{agent.lastError}</div>
+          {visiblePanels.has("skills") ? (
+            <div className="flex flex-wrap gap-1.5">
+              {agent.skills.length > 0 ? agent.skills.map((skill) => (
+                <Badge key={skill} variant="secondary" className="font-normal">{skill}</Badge>
+              )) : <span className="text-xs text-muted-foreground">No skills listed</span>}
             </div>
-          </div>
+          ) : null}
+
+          {agent.lastError ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <div className="font-medium">Last wake/profile error</div>
+                  <div className="mt-1 break-words font-mono text-xs">{agent.lastError}</div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {visiblePanels.has("dispatch") ? (
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                Send a reviewed task packet to this agent while preserving offline wake/queue semantics.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onDispatch(agent)}
+                disabled={isDispatching}
+              >
+                <Send className="h-4 w-4" />
+                Send task
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </article>
@@ -176,6 +246,17 @@ export function HermesAgencyRoster() {
   const [agentQuery, setAgentQuery] = useState("");
   const [skillQuery, setSkillQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [expandedAgentName, setExpandedAgentName] = useState<string | null>("agency-orchestrator");
+  const [visiblePanels, setVisiblePanels] = useState<Set<RosterPanelToggle>>(() => new Set(["status", "skills"]));
+
+  const togglePanel = (panel: RosterPanelToggle) => {
+    setVisiblePanels((current) => {
+      const next = new Set(current);
+      if (next.has(panel)) next.delete(panel);
+      else next.add(panel);
+      return next;
+    });
+  };
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Hermes Agency roster" }]);
@@ -291,12 +372,30 @@ export function HermesAgencyRoster() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
             >
-              <option value="all">All statuses</option>
-              <option value="online">Online</option>
-              <option value="offline">Offline</option>
-              <option value="wake_failed">Wake failed</option>
+              {statusFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </label>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="Status quick filters">
+          {statusFilterOptions.map((option) => (
+            <ToggleButton
+              key={option.value}
+              active={statusFilter === option.value}
+              onClick={() => setStatusFilter(option.value)}
+            >
+              {option.label}
+            </ToggleButton>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Roster detail toggles">
+          <span className="text-xs font-medium text-muted-foreground">Show:</span>
+          {(Object.keys(rosterPanelLabels) as RosterPanelToggle[]).map((panel) => (
+            <ToggleButton key={panel} active={visiblePanels.has(panel)} onClick={() => togglePanel(panel)}>
+              {rosterPanelLabels[panel]}
+            </ToggleButton>
+          ))}
         </div>
         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />
@@ -335,11 +434,21 @@ export function HermesAgencyRoster() {
           </p>
         </div>
       ) : (
-        <section className="grid gap-3" aria-label="Agents">
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm" aria-label="Agents">
+          <div className="hidden grid-cols-[auto_minmax(14rem,1.2fr)_140px_minmax(12rem,1fr)_120px] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
+            <span />
+            <span>Agent</span>
+            <span>Status</span>
+            <span>Provider / model</span>
+            <span className="text-right">Last seen</span>
+          </div>
           {filteredAgents.map((agent) => (
-            <AgentCard
+            <AgentListRow
               key={agent.name}
               agent={agent}
+              expanded={expandedAgentName === agent.name}
+              visiblePanels={visiblePanels}
+              onToggleExpanded={() => setExpandedAgentName((current) => (current === agent.name ? null : agent.name))}
               onDispatch={(selectedAgent) => dispatchMutation.mutate(selectedAgent)}
               isDispatching={dispatchMutation.isPending}
             />
