@@ -35,6 +35,7 @@ cli/package.dev.json
 server/src/**/*.js
 server/src/**/*.js.map
 server/src/**/*.d.ts
+!server/src/types/**/*.d.ts
 server/src/**/*.d.ts.map
 tmp/
 feedback-export-*
