@@ -75,7 +75,7 @@ hermes-agency = "hermes_agency.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentanycast", "hermes-agency"]
 sources = { "hermes-agency" = "hermes_agency" }
-dev-mode-dirs = ["src", "hermes-agency"]
+dev-mode-dirs = [".", "src"]
 exclude = [
     "/hermes-agency/tests",
     "/hermes-agency/**/__pycache__",

@@ -275,11 +275,10 @@ export function Agents() {
       <EntityRow
         key={agent.id}
         title={agent.name}
-        // Fixed (truncating) title width so the `meta` group starts at a
-        // constant x on every row — that's what makes the model + timestamp
-        // columns line up vertically. Agent names vary in width, so
-        // a content-sized title (`min-w-[7rem]`) shifted meta's start per row.
-        titleClassName="w-56"
+        // Mobile lets the title take the available row space; desktop keeps a
+        // fixed (truncating) title width so the `meta` group starts at a
+        // constant x on every row.
+        titleClassName="flex-1 sm:w-56 sm:flex-none"
         subtitle={`${roleLabels[agent.role] ?? agent.role}${agent.title ? ` - ${agent.title}` : ""}`}
         to={agentUrl(agent)}
         className={cn(
@@ -302,7 +301,7 @@ export function Agents() {
           </div>
         }
         trailing={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span className="sm:hidden">
               {liveRunByAgent.has(agent.id) ? (
                 <LiveRunIndicator
@@ -339,36 +338,39 @@ export function Agents() {
                 companyId={selectedCompanyId}
                 runLabel="Run Heartbeat"
                 showStatus={false}
+                primaryActionsClassName="hidden sm:contents"
               />
             </div>
-            <MembershipAction
-              state={resourceMembershipState(membershipsQuery.data, "agent", agent.id)}
-              pending={
-                membershipMutation.isPending &&
-                membershipMutation.variables?.resourceType === "agent" &&
-                membershipMutation.variables.resourceId === agent.id
-              }
-              pendingState={
-                membershipMutation.isPending &&
-                membershipMutation.variables?.resourceType === "agent" &&
-                membershipMutation.variables.resourceId === agent.id
-                  ? membershipMutation.variables.state
-                  : null
-              }
-              resourceName={agent.name}
-              onJoin={() => membershipMutation.mutate({
-                resourceType: "agent",
-                resourceId: agent.id,
-                resourceName: agent.name,
-                state: "joined",
-              })}
-              onLeave={() => membershipMutation.mutate({
-                resourceType: "agent",
-                resourceId: agent.id,
-                resourceName: agent.name,
-                state: "left",
-              })}
-            />
+            <div>
+              <MembershipAction
+                state={resourceMembershipState(membershipsQuery.data, "agent", agent.id)}
+                pending={
+                  membershipMutation.isPending &&
+                  membershipMutation.variables?.resourceType === "agent" &&
+                  membershipMutation.variables.resourceId === agent.id
+                }
+                pendingState={
+                  membershipMutation.isPending &&
+                  membershipMutation.variables?.resourceType === "agent" &&
+                  membershipMutation.variables.resourceId === agent.id
+                    ? membershipMutation.variables.state
+                    : null
+                }
+                resourceName={agent.name}
+                onJoin={() => membershipMutation.mutate({
+                  resourceType: "agent",
+                  resourceId: agent.id,
+                  resourceName: agent.name,
+                  state: "joined",
+                })}
+                onLeave={() => membershipMutation.mutate({
+                  resourceType: "agent",
+                  resourceId: agent.id,
+                  resourceName: agent.name,
+                  state: "left",
+                })}
+              />
+            </div>
           </div>
         }
       />

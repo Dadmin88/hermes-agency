@@ -438,6 +438,15 @@ async def _process_via_subprocess_async(
     timeout_seconds = max(1.0, float(timeout or 120))
     env = os.environ.copy()
     env.pop("HERMES_YOLO_MODE", None)
+    # Pool runners are long-lived processes that may be launched from an active
+    # Hermes chat/session. Do not leak the runner's own session context into the
+    # worker CLI subprocess: if HERMES_SESSION_ID points at a session from a
+    # different profile DB, the child can try to create its new session as a
+    # branch of a non-existent parent and spam FOREIGN KEY failures while still
+    # doing real work.
+    for key in list(env):
+        if key.startswith("HERMES_SESSION_"):
+            env.pop(key, None)
     if allow_hooks:
         env["HERMES_ACCEPT_HOOKS"] = "1"
     else:
@@ -784,6 +793,14 @@ def _build_parent_agent():
     except Exception:
         session_db = None
 
+    parent_session_id = f"agency-{uuid.uuid4().hex[:12]}"
+    _precreate_delegate_parent_session(
+        session_db=session_db,
+        parent_session_id=parent_session_id,
+        effective_model=effective_model,
+        runtime=runtime,
+    )
+
     parent = AIAgent(
         api_key=runtime.get("api_key"),
         base_url=runtime.get("base_url"),
@@ -793,7 +810,7 @@ def _build_parent_agent():
         enabled_toolsets=None,
         quiet_mode=True,
         platform="agency",
-        session_id=f"agency-{uuid.uuid4().hex[:12]}",
+        session_id=parent_session_id,
         session_db=session_db,
         credential_pool=runtime.get("credential_pool"),
         fallback_model=get_fallback_chain(cfg) or None,
@@ -803,6 +820,37 @@ def _build_parent_agent():
     parent.stream_delta_callback = None
     parent.tool_gen_callback = None
     return parent
+
+
+def _precreate_delegate_parent_session(
+    *,
+    session_db: Any,
+    parent_session_id: str,
+    effective_model: str,
+    runtime: dict[str, Any],
+) -> None:
+    """Create the parent session row used by delegate_task children.
+
+    Hermes delegate_task records child sessions with parent_session_id set to
+    the parent agent's session id. Incoming A2A processing builds that parent
+    outside a normal chat turn, so the row must exist before children write to
+    the profile SessionDB or SQLite foreign keys fail.
+    """
+
+    if session_db is None:
+        return
+    try:
+        session_db.create_session(
+            parent_session_id,
+            "agency",
+            model=effective_model,
+            model_config={
+                "_agency_delegate_parent": True,
+                "provider": runtime.get("provider"),
+            },
+        )
+    except Exception:  # noqa: BLE001 - missing parent row must not break task handling
+        logger.warning("Could not pre-create Hermes Agency delegate parent session", exc_info=True)
 
 
 def _extract_delegate_summary(raw: Any) -> str:

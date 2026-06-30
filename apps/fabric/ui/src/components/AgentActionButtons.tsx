@@ -157,6 +157,7 @@ export function AgentActionButtons({
   onActionError,
   children,
   className,
+  primaryActionsClassName,
 }: {
   agent: Agent;
   companyId?: string | null;
@@ -177,6 +178,9 @@ export function AgentActionButtons({
   /** Extra content rendered just before the overflow menu (e.g. live-run link). */
   children?: React.ReactNode;
   className?: string;
+  /** Optional wrapper class for the primary inline buttons. Used by dense rows
+   * to collapse primary actions while leaving the overflow menu available. */
+  primaryActionsClassName?: string;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -296,37 +300,39 @@ export function AgentActionButtons({
 
   return (
     <div className={className ?? "flex items-center gap-1 sm:gap-2 shrink-0"}>
-      <Button
-        variant="outline"
-        size={size}
-        onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
-        disabled={assignAndRunDisabled}
-        title={workActionsDisabled ? workActionsDisabledReason : undefined}
-      >
-        <Plus className="h-3.5 w-3.5 sm:mr-1" />
-        <span className="hidden sm:inline">{assignLabel}</span>
-      </Button>
-      <RunButton
-        onClick={() => agentAction.mutate("invoke")}
-        disabled={assignAndRunDisabled}
-        label={runLabel}
-        size={size}
-      />
-      {isError ? (
-        <ClearErrorButton
-          onClick={() => agentAction.mutate("clear_error")}
-          disabled={clearErrorDisabled}
+      <div className={primaryActionsClassName ?? "contents"}>
+        <Button
+          variant="outline"
+          size={size}
+          onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
+          disabled={assignAndRunDisabled}
+          title={workActionsDisabled ? workActionsDisabledReason : undefined}
+        >
+          <Plus className="h-3.5 w-3.5 sm:mr-1" />
+          <span className="hidden sm:inline">{assignLabel}</span>
+        </Button>
+        <RunButton
+          onClick={() => agentAction.mutate("invoke")}
+          disabled={assignAndRunDisabled}
+          label={runLabel}
           size={size}
         />
-      ) : (
-        <PauseResumeButton
-          isPaused={isPaused}
-          onPause={() => agentAction.mutate("pause")}
-          onResume={() => agentAction.mutate("resume")}
-          disabled={pauseResumeDisabled}
-          size={size}
-        />
-      )}
+        {isError ? (
+          <ClearErrorButton
+            onClick={() => agentAction.mutate("clear_error")}
+            disabled={clearErrorDisabled}
+            size={size}
+          />
+        ) : (
+          <PauseResumeButton
+            isPaused={isPaused}
+            onPause={() => agentAction.mutate("pause")}
+            onResume={() => agentAction.mutate("resume")}
+            disabled={pauseResumeDisabled}
+            size={size}
+          />
+        )}
+      </div>
       {showStatus && (
         <span className="hidden sm:inline">
           <AgentStatusBadge status={agent.status} />
@@ -340,6 +346,53 @@ export function AgentActionButtons({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-44 p-1" align="end">
+          <button
+            className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 disabled:opacity-50"
+            disabled={assignAndRunDisabled}
+            onClick={() => {
+              openNewIssue({ assigneeAgentId: agent.id });
+              setMoreOpen(false);
+            }}
+          >
+            <Plus className="h-3 w-3" />
+            {assignLabel}
+          </button>
+          <button
+            className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 disabled:opacity-50"
+            disabled={assignAndRunDisabled}
+            onClick={() => {
+              agentAction.mutate("invoke");
+              setMoreOpen(false);
+            }}
+          >
+            <Play className="h-3 w-3" />
+            {runLabel}
+          </button>
+          {isError ? (
+            <button
+              className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 disabled:opacity-50"
+              disabled={clearErrorDisabled}
+              onClick={() => {
+                agentAction.mutate("clear_error");
+                setMoreOpen(false);
+              }}
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              Clear Error
+            </button>
+          ) : (
+            <button
+              className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 disabled:opacity-50"
+              disabled={pauseResumeDisabled}
+              onClick={() => {
+                agentAction.mutate(isPaused ? "resume" : "pause");
+                setMoreOpen(false);
+              }}
+            >
+              {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              {isPaused ? "Resume" : "Pause"}
+            </button>
+          )}
           <button
             className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
             disabled={duplicateAgent.isPending}

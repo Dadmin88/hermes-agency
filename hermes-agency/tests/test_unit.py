@@ -1877,6 +1877,56 @@ def test_process_via_subprocess_streams_batched_progress(plugin_modules, monkeyp
     assert updates == ["first progress\nsecond progress\nthird progress"]
 
 
+def test_process_via_subprocess_strips_session_env(plugin_modules, monkeypatch, tmp_path):
+    tp = plugin_modules.task_processor
+    fake_hermes = tmp_path / "fake-hermes"
+    fake_hermes.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "leaked = sorted(k for k in os.environ if k.startswith('HERMES_SESSION_'))\n"
+        "print('leaked=' + ','.join(leaked), flush=True)\n",
+        encoding="utf-8",
+    )
+    fake_hermes.chmod(0o755)
+    monkeypatch.setattr(tp, "_resolve_hermes_command", lambda: str(fake_hermes))
+    monkeypatch.setenv("HERMES_SESSION_ID", "parent-session-from-runner")
+    monkeypatch.setenv("HERMES_SESSION_KEY", "parent-key-from-runner")
+    monkeypatch.setenv("HERMES_SESSION_PLATFORM", "telegram")
+
+    response = tp.process_via_subprocess("gpt", "hello", 10)
+
+    assert response == "leaked="
+
+
+def test_precreate_delegate_parent_session_writes_parent_row(plugin_modules):
+    tp = plugin_modules.task_processor
+    calls = []
+
+    class FakeSessionDB:
+        def create_session(self, *args, **kwargs):
+            calls.append((args, kwargs))
+
+    tp._precreate_delegate_parent_session(
+        session_db=FakeSessionDB(),
+        parent_session_id="agency-parent-1",
+        effective_model="gpt-test",
+        runtime={"provider": "test-provider"},
+    )
+
+    assert calls == [
+        (
+            ("agency-parent-1", "agency"),
+            {
+                "model": "gpt-test",
+                "model_config": {
+                    "_agency_delegate_parent": True,
+                    "provider": "test-provider",
+                },
+            },
+        )
+    ]
+
+
 def test_process_incoming_task_sends_delegation_heartbeat_after_threshold(
     plugin_modules, monkeypatch
 ):
