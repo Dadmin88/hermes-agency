@@ -15,7 +15,7 @@ import {
   renderPaperclipWakePrompt,
   runningProcesses,
   runChildProcess,
-  sanitizeInheritedPaperclipEnv,
+  sanitizeInheritedRuntimeEnv,
   sanitizeSshRemoteEnv,
   shapePaperclipWorkspaceEnvForExecution,
   rewriteWorkspaceCwdEnvVarsForExecution,
@@ -69,10 +69,10 @@ describe("buildInvocationEnvForLogs", () => {
   });
 });
 
-describe("sanitizeInheritedPaperclipEnv", () => {
+describe("sanitizeInheritedRuntimeEnv", () => {
   it("drops inherited Paperclip and Fabric secrets while preserving runtime connection variables", () => {
     expect(
-      sanitizeInheritedPaperclipEnv({
+      sanitizeInheritedRuntimeEnv({
         SAFE_VALUE: "visible",
         PAPERCLIP_AGENT_JWT_SECRET: "paperclip-jwt-secret",
         PAPERCLIP_SECRETS_MASTER_KEY: "paperclip-master-key",
