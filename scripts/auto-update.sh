@@ -114,11 +114,11 @@ restart_gateway() {
     local svc="$1"
     if systemctl --user is-active "$svc" >/dev/null 2>&1; then
         log "Restarting $svc..."
-        if systemctl --user restart "$svc" 2>/dev/null; then
-            log "Restarted $svc ✓"
+        if systemctl --user --no-block restart "$svc" 2>/dev/null; then
+            log "Queued restart for $svc ✓"
             ((RESTARTED++)) || true
         else
-            log "ERROR: Failed to restart $svc"
+            log "ERROR: Failed to queue restart for $svc"
             ((FAILED++)) || true
         fi
     fi
