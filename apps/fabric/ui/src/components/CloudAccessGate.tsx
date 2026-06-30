@@ -14,7 +14,7 @@ function NoBoardAccessPage() {
         <h1 className="text-xl font-semibold">No workspace access</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           This account is signed in, but it does not have an active workspace membership or instance-admin access on
-          this Hermes Fabric instance.
+          this Hermes Agency instance.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           Use a workspace invite or sign in with an account that already belongs to this organization.

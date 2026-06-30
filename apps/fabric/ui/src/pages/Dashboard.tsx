@@ -176,7 +176,7 @@ export function Dashboard() {
       return (
         <EmptyState
           icon={LayoutDashboard}
-          message="Welcome to Hermes Fabric. Set up your first workspace and specialist to get started."
+          message="Welcome to Hermes Agency. Set up your first workspace and specialist to get started."
           action="Get Started"
           onAction={openOnboarding}
         />

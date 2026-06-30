@@ -200,7 +200,7 @@ function InviteSummaryPanel({
           className="h-16 w-16 rounded-none border border-zinc-800"
         />
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">You&apos;ve been invited to join Paperclip</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">You&apos;ve been invited to join Hermes Agency</p>
           <h3 className="mt-2 text-2xl font-semibold text-zinc-100">{title}</h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-300">{description}</p>
         </div>
@@ -255,8 +255,8 @@ function InlineAuthPreview({
         </h3>
         <p className="mt-1 text-sm text-zinc-400">
           {mode === "sign_up"
-            ? "Start with a Hermes Fabric account. After that, you'll come right back here to accept the invite for Acme Robotics."
-            : "Use the Hermes Fabric account that already matches this invite. If you do not have one yet, switch back to create account."}
+            ? "Start with a Hermes Agency account. After that, you'll come right back here to accept the invite for Acme Robotics."
+            : "Use the Hermes Agency account that already matches this invite. If you do not have one yet, switch back to create account."}
         </p>
       </div>
 
@@ -312,7 +312,7 @@ function InlineAuthPreview({
 
       <p className="text-xs leading-5 text-zinc-500">
         {mode === "sign_up"
-          ? "Already signed up before? Use the existing-account option instead so the invite lands on the right Paperclip user."
+          ? "Already signed up before? Use the existing-account option instead so the invite lands on the right Hermes Agency user."
           : "No account yet? Switch back to create account so you can accept the invite with a new login."}
       </p>
     </div>
@@ -457,10 +457,10 @@ function AuthScreenPreview({ mode, error }: { mode: "sign_in" | "sign_up"; error
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 flex items-center gap-2">
               <FlaskConical className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Hermes Fabric</span>
+              <span className="text-sm font-medium">Hermes Agency</span>
             </div>
             <h3 className="text-xl font-semibold">
-              {mode === "sign_in" ? "Sign in to Hermes Fabric" : "Create your Hermes Fabric account"}
+              {mode === "sign_in" ? "Sign in to Hermes Agency" : "Create your Hermes Agency account"}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "sign_in"
@@ -811,7 +811,7 @@ export function InviteUxLab() {
             left={
               <InviteSummaryPanel
                 title="Join Acme Robotics"
-                description="Create your Hermes Fabric account first. If you already have one, switch to sign in and continue the invite with the same email."
+                description="Create your Hermes Agency account first. If you already have one, switch to sign in and continue the invite with the same email."
                 inviteMessage="Welcome aboard."
                 requestedAccess="Operator"
               />
@@ -823,7 +823,7 @@ export function InviteUxLab() {
             left={
               <InviteSummaryPanel
                 title="Join Acme Robotics"
-                description="Create your Hermes Fabric account first. If you already have one, switch to sign in and continue the invite with the same email."
+                description="Create your Hermes Agency account first. If you already have one, switch to sign in and continue the invite with the same email."
                 inviteMessage="Welcome aboard."
                 requestedAccess="Operator"
               />
