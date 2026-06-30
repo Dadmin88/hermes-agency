@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,8 @@ from hermes_constants import get_hermes_home
 DEFAULT_DESCRIPTION = "Hermes profile exposed over Hermes Agency."
 CARD_VERSION = "1.0.0"
 REGISTRY_DEFINITION_PATH = Path(__file__).with_name("pool") / "registry_definition.json"
+_SKILLS_CACHE: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_SKILLS_CACHE_TTL = 300  # 5 minutes
 
 _PUBLIC_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _SENSITIVE_TEXT_PATTERNS = [
@@ -222,12 +225,19 @@ def read_profile_description(profile_home: str | Path | None = None) -> str:
 
 
 def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str, str]]:
-    """Read installed Hermes skills and return A2A-ready skill descriptors."""
+    """Read installed Hermes skills — cached with TTL to avoid repeated glob over 22K files."""
 
     profile_dir = resolve_profile_home(profile_home)
     skills_dir = profile_dir / "skills"
     if not skills_dir.exists():
         return []
+
+    cache_key = str(skills_dir)
+    now = time.time()
+    if cache_key in _SKILLS_CACHE:
+        cached_time, cached_skills = _SKILLS_CACHE[cache_key]
+        if now - cached_time < _SKILLS_CACHE_TTL:
+            return cached_skills
 
     raw_skills: list[dict[str, str]] = []
     for skill_file in sorted(skills_dir.glob("**/SKILL.md")):
@@ -269,7 +279,9 @@ def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str
         seen.add(unique_id)
         skills.append({"id": unique_id, "description": skill["description"]})
 
-    return sorted(skills, key=lambda item: item["id"])
+    result = sorted(skills, key=lambda item: item["id"])
+    _SKILLS_CACHE[cache_key] = (now, result)
+    return result
 
 
 def read_registry_skills(profile_home: str | Path | None = None) -> list[dict[str, str]]:
@@ -364,11 +376,15 @@ def read_profile_metadata(profile_home: str | Path | None = None) -> dict[str, A
     }
 
 
-def build_card(profile_home: str | Path | None = None) -> Any:
+def build_card(profile_home: str | Path | None = None, *, lazy: bool = False) -> Any:
     """Return an ``agency.AgentCard`` for a Hermes profile.
 
     The import is lazy so Hermes can load the plugin even when the SDK is not
     installed; tool check functions remain responsible for availability.
+
+    When ``lazy=True``, returns a stub card without scanning the skills
+    directory.  The full card is built on the first team refresh or session
+    start.  This avoids the 22K-file glob during gateway startup.
     """
 
     from agentanycast import AgentCard, Skill
@@ -376,9 +392,12 @@ def build_card(profile_home: str | Path | None = None) -> Any:
     profile_dir = resolve_profile_home(profile_home)
     metadata = read_profile_metadata(profile_dir)
     card_name = metadata.get("hermes", {}).get("card_name") or profile_dir.name
-    include_skills = metadata.get("hermes", {}).get("skills_from_profile", True)
-    profile_skill_dicts = read_profile_skills(profile_dir) if include_skills else []
-    skill_dicts = _merge_skill_dicts(profile_skill_dicts, read_registry_skills(profile_dir))
+    if lazy:
+        skill_dicts: list[dict[str, str]] = []
+    else:
+        include_skills = metadata.get("hermes", {}).get("skills_from_profile", True)
+        profile_skill_dicts = read_profile_skills(profile_dir) if include_skills else []
+        skill_dicts = _merge_skill_dicts(profile_skill_dicts, read_registry_skills(profile_dir))
     # Always expose the generic Hermes chat capability so agents can discover
     # Hermes profiles even when their installed skill sets do not overlap.
     if not any(item.get("id") == "hermes-chat" for item in skill_dicts):

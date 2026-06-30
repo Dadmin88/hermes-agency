@@ -132,7 +132,7 @@ class NodeLifecycleMixin:
         try:
             from agentanycast import Node
 
-            card = self._nm().build_card()
+            card = self._nm().build_card(lazy=True)
             self._record_card_state(card)
             daemon_bin = self._nm()._resolve_daemon_bin()
             if daemon_bin is not None:
