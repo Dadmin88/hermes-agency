@@ -102,15 +102,16 @@ class PoolManager:
         self.lock = threading.RLock()
         self.memory_tracker = MemoryTracker()
         self._last_memory_log = 0.0
-        self._start_idle_monitor()
         # Spin up agency-orchestrator as persistent A2A node only for standalone
         # pool-manager use. Inside `hermes gateway run`, the plugin's in-process
         # NodeManager already starts the orchestrator node; a child runner would
         # duplicate the same profile home and lock the same BoltDB store.
         if _running_inside_gateway():
             print("[PoolManager] gateway mode detected; using in-process orchestrator node")
+            self._start_idle_monitor()
             return
         try:
+            self._start_idle_monitor()
             self.wake("agency-orchestrator", persistent=True)
             print("[PoolManager] agency-orchestrator started persistently")
         except Exception as e:
@@ -787,9 +788,9 @@ class PoolManager:
                         if rss_mb > budget_mb:
                             self._enforce_memory_budget(rss_mb, budget_mb)
 
-                        # Release memory if any agents were swapped
-                        if to_sleep or rss_mb > budget_mb:
-                            self._release_memory()
+                        # Always release memory every cycle — Python's pymalloc
+                        # holds freed pages; malloc_trim returns them to the OS.
+                        self._release_memory()
 
                         # Periodic memory stats logging
                         self._log_memory_stats()
