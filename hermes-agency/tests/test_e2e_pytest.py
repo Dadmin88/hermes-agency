@@ -399,7 +399,32 @@ class TestAgentLifecycleE2E:
         assert result["ok"] is False
         assert "agency-" in result["error"]
 
-    def test_create_agent_rejects_disabled_lifecycle(self, plugin_env, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        ("name", "expected_error"),
+        [
+            ("agency-Uppercase", "name must be lowercase alphanumeric with hyphens"),
+            ("agency-../../escape", "name must be lowercase alphanumeric with hyphens"),
+            ("/tmp/agency-escape", "name must start with 'agency-'"),
+        ],
+    )
+    def test_create_agent_rejects_uppercase_and_path_escape_names(
+        self, plugin_env, tmp_path, monkeypatch, name, expected_error
+    ):
+        """pool_create_agent should reject uppercase and path-escaping names before touching disk."""
+        pt = plugin_env.pool_tools
+        profiles_dir = tmp_path / "profiles"
+        profiles_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(pt, "PROFILES", profiles_dir)
+        monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: True)
+
+        result = json.loads(pt.pool_create_agent(name, "Engineering"))
+
+        assert result == {"ok": False, "error": expected_error}
+        assert list(profiles_dir.iterdir()) == []
+
+    def test_create_agent_rejects_disabled_lifecycle(
+        self, plugin_env, tmp_path, monkeypatch
+    ):
         """pool_create_agent should reject when lifecycle tools are disabled."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
@@ -408,6 +433,24 @@ class TestAgentLifecycleE2E:
         result = json.loads(pt.pool_create_agent("agency-test-disabled", "Engineering"))
         assert result["ok"] is False
         assert "disabled" in result["error"].lower()
+
+    def test_create_agent_validates_name_before_disabled_lifecycle_gate(
+        self, plugin_env, tmp_path, monkeypatch
+    ):
+        """Invalid create-agent names should be rejected even when lifecycle tools are disabled."""
+        pt = plugin_env.pool_tools
+        profiles_dir = tmp_path / "profiles"
+        profiles_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(pt, "PROFILES", profiles_dir)
+        monkeypatch.setattr(pt, "_lifecycle_tools_enabled", lambda: False)
+
+        result = json.loads(pt.pool_create_agent("agency-../../escape", "Engineering"))
+
+        assert result == {
+            "ok": False,
+            "error": "name must be lowercase alphanumeric with hyphens",
+        }
+        assert list(profiles_dir.iterdir()) == []
 
 
 # ---------------------------------------------------------------------------

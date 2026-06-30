@@ -181,3 +181,51 @@ def test_disable_and_enable_reject_invalid_names(mock_hermes, monkeypatch):
 
     assert disable_result == {"ok": False, "error": "name must start with 'agency-'"}
     assert enable_result == {"ok": False, "error": "name must start with 'agency-'"}
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args", "expected_error"),
+    [
+        (
+            "pool_create_agent",
+            ("agency-../../victim", "Engineering"),
+            "name must be lowercase alphanumeric with hyphens",
+        ),
+        (
+            "pool_create_agent",
+            ("Agency-Target", "Engineering"),
+            "name must start with 'agency-'",
+        ),
+        (
+            "pool_create_agent",
+            ("/tmp/agency-target", "Engineering"),
+            "name must start with 'agency-'",
+        ),
+        (
+            "pool_disable_agent",
+            ("../agency-target",),
+            "name must start with 'agency-'",
+        ),
+        (
+            "pool_enable_agent",
+            ("Agency-Target",),
+            "name must start with 'agency-'",
+        ),
+        (
+            "pool_prune_agent",
+            ("agency-../../victim", True),
+            "name must be lowercase alphanumeric with hyphens",
+        ),
+    ],
+)
+def test_lifecycle_tools_validate_names_before_disabled_gate(
+    mock_hermes, monkeypatch, method_name, args, expected_error
+):
+    import json
+
+    tools = _import_pool_tools(monkeypatch, mock_hermes)
+    monkeypatch.setattr(tools, "_lifecycle_tools_enabled", lambda: False)
+
+    result = json.loads(getattr(tools, method_name)(*args))
+
+    assert result == {"ok": False, "error": expected_error}

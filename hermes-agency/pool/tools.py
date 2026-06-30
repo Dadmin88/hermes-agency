@@ -1094,6 +1094,13 @@ def pool_create_agent(
     """
     import json as _json
 
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
+
     if not _lifecycle_tools_enabled():
         return _json.dumps(
             {
@@ -1101,13 +1108,6 @@ def pool_create_agent(
                 "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
             }
         )
-
-    name = str(name or "").strip()
-    if not name:
-        return _json.dumps({"ok": False, "error": "name is required"})
-    name_error = _validate_agent_name(name)
-    if name_error:
-        return _json.dumps({"ok": False, "error": name_error})
 
     from ..departments import DEPARTMENT_BOARD_SLUGS
 
@@ -1331,6 +1331,13 @@ def pool_disable_agent(name: str) -> str:
     """
     import json as _json
 
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
+
     if not _lifecycle_tools_enabled():
         return _json.dumps(
             {
@@ -1338,13 +1345,6 @@ def pool_disable_agent(name: str) -> str:
                 "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
             }
         )
-
-    name = str(name or "").strip()
-    if not name:
-        return _json.dumps({"ok": False, "error": "name is required"})
-    name_error = _validate_agent_name(name)
-    if name_error:
-        return _json.dumps({"ok": False, "error": name_error})
 
     try:
         profile_dir = _profile_dir_for_agent_name(name)
@@ -1382,6 +1382,13 @@ def pool_enable_agent(name: str) -> str:
     """
     import json as _json
 
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
+
     if not _lifecycle_tools_enabled():
         return _json.dumps(
             {
@@ -1389,13 +1396,6 @@ def pool_enable_agent(name: str) -> str:
                 "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
             }
         )
-
-    name = str(name or "").strip()
-    if not name:
-        return _json.dumps({"ok": False, "error": "name is required"})
-    name_error = _validate_agent_name(name)
-    if name_error:
-        return _json.dumps({"ok": False, "error": name_error})
 
     from .roster import is_agent_disabled, set_agent_disabled
 
@@ -1415,6 +1415,13 @@ def pool_prune_agent(name: str, force: bool = False) -> str:
     import json as _json
     import shutil
 
+    name = str(name or "").strip()
+    if not name:
+        return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
+
     if not _lifecycle_tools_enabled():
         return _json.dumps(
             {
@@ -1422,13 +1429,6 @@ def pool_prune_agent(name: str, force: bool = False) -> str:
                 "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
             }
         )
-
-    name = str(name or "").strip()
-    if not name:
-        return _json.dumps({"ok": False, "error": "name is required"})
-    name_error = _validate_agent_name(name)
-    if name_error:
-        return _json.dumps({"ok": False, "error": name_error})
 
     if name == "agency-orchestrator":
         return _json.dumps({"ok": False, "error": "cannot prune the orchestrator agent"})
