@@ -108,6 +108,26 @@ def _ensure_worker_trusts_current_orchestrator(name: str, profile_dir: Path) -> 
     return True
 
 
+def _validate_agent_name(name: str) -> str | None:
+    """Return an error message when an agent lifecycle name is invalid."""
+    if not name.startswith("agency-"):
+        return "name must start with 'agency-'"
+    if not re.fullmatch(r"[a-z0-9-]+", name):
+        return "name must be lowercase alphanumeric with hyphens"
+    if len(name) > 64:
+        return "name must be 64 characters or fewer"
+    return None
+
+
+def _profile_dir_for_agent_name(name: str) -> Path:
+    """Build a safe profile directory path for a validated agent name."""
+    profile_root = PROFILES.expanduser().resolve()
+    profile_dir = (profile_root / name).resolve()
+    if profile_dir.parent != profile_root or profile_dir.name != name:
+        raise ValueError("profile dir must be directly under profiles")
+    return profile_dir
+
+
 def _pid_alive(pid: int) -> bool:
     try:
         state = (Path("/proc") / str(pid) / "status").read_text(encoding="utf-8", errors="ignore")
@@ -1073,7 +1093,6 @@ def pool_create_agent(
     Requires agency.lifecycle_tools_enabled: true in config.
     """
     import json as _json
-    import re
 
     if not _lifecycle_tools_enabled():
         return _json.dumps(
@@ -1086,14 +1105,9 @@ def pool_create_agent(
     name = str(name or "").strip()
     if not name:
         return _json.dumps({"ok": False, "error": "name is required"})
-    if not name.startswith("agency-"):
-        return _json.dumps({"ok": False, "error": "name must start with 'agency-'"})
-    if not re.match(r"^[a-z0-9-]+$", name):
-        return _json.dumps(
-            {"ok": False, "error": "name must be lowercase alphanumeric with hyphens"}
-        )
-    if len(name) > 64:
-        return _json.dumps({"ok": False, "error": "name must be 64 characters or fewer"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
 
     from ..departments import DEPARTMENT_BOARD_SLUGS
 
@@ -1107,7 +1121,10 @@ def pool_create_agent(
             }
         )
 
-    profile_dir = PROFILES / name
+    try:
+        profile_dir = _profile_dir_for_agent_name(name)
+    except ValueError as exc:
+        return _json.dumps({"ok": False, "error": str(exc)})
     if profile_dir.exists():
         return _json.dumps({"ok": False, "error": f"profile {name} already exists"})
 
@@ -1325,8 +1342,14 @@ def pool_disable_agent(name: str) -> str:
     name = str(name or "").strip()
     if not name:
         return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
 
-    profile_dir = PROFILES / name
+    try:
+        profile_dir = _profile_dir_for_agent_name(name)
+    except ValueError as exc:
+        return _json.dumps({"ok": False, "error": str(exc)})
     from .roster import (
         _persisted_state_by_name,
         _registry_agents,
@@ -1370,6 +1393,9 @@ def pool_enable_agent(name: str) -> str:
     name = str(name or "").strip()
     if not name:
         return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
 
     from .roster import is_agent_disabled, set_agent_disabled
 
@@ -1400,11 +1426,17 @@ def pool_prune_agent(name: str, force: bool = False) -> str:
     name = str(name or "").strip()
     if not name:
         return _json.dumps({"ok": False, "error": "name is required"})
+    name_error = _validate_agent_name(name)
+    if name_error:
+        return _json.dumps({"ok": False, "error": name_error})
 
     if name == "agency-orchestrator":
         return _json.dumps({"ok": False, "error": "cannot prune the orchestrator agent"})
 
-    profile_dir = PROFILES / name
+    try:
+        profile_dir = _profile_dir_for_agent_name(name)
+    except ValueError as exc:
+        return _json.dumps({"ok": False, "error": str(exc)})
     from .roster import _persisted_state_by_name, _registry_agents
 
     persisted = _persisted_state_by_name()

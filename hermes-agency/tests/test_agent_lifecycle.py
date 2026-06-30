@@ -115,3 +115,69 @@ def test_enable_clears_disabled_fields(mock_hermes, monkeypatch):
     assert persisted["agency-z"]["disabled"] is False
     assert persisted["agency-z"]["disabled_at"] is None
     assert persisted["agency-z"]["disabled_reason"] is None
+
+
+def _import_pool_tools(monkeypatch, agent_home):
+    """Import pool.tools with isolated paths."""
+    import importlib
+
+    roster = _import_roster(monkeypatch, agent_home)
+    plugin_dir = Path(__file__).resolve().parents[1]
+
+    pool_package = sys.modules.get("hermes_plugin.pool")
+    if pool_package is None:
+        pool_package = types.ModuleType("hermes_plugin.pool")
+        pool_package.__path__ = [str(plugin_dir / "pool")]
+        monkeypatch.setitem(sys.modules, "hermes_plugin.pool", pool_package)
+
+    spec = importlib.util.spec_from_file_location(
+        "hermes_plugin.pool.tools", plugin_dir / "pool" / "tools.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, "hermes_plugin.pool.tools", mod)
+    spec.loader.exec_module(mod)
+    mod.PROFILES = agent_home / "profiles"
+    roster.PROFILES = mod.PROFILES
+    return mod
+
+
+def test_prune_rejects_absolute_path_without_deleting(mock_hermes, monkeypatch, tmp_path):
+    import json
+
+    tools = _import_pool_tools(monkeypatch, mock_hermes)
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    marker = victim / "marker.txt"
+    marker.write_text("keep", encoding="utf-8")
+
+    result = json.loads(tools.pool_prune_agent(str(victim), force=True))
+
+    assert result == {"ok": False, "error": "name must start with 'agency-'"}
+    assert marker.exists()
+
+
+def test_prune_rejects_traversal_without_deleting(mock_hermes, monkeypatch, tmp_path):
+    import json
+
+    tools = _import_pool_tools(monkeypatch, mock_hermes)
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    marker = victim / "marker.txt"
+    marker.write_text("keep", encoding="utf-8")
+
+    result = json.loads(tools.pool_prune_agent("agency-../../victim", force=True))
+
+    assert result == {"ok": False, "error": "name must be lowercase alphanumeric with hyphens"}
+    assert marker.exists()
+
+
+def test_disable_and_enable_reject_invalid_names(mock_hermes, monkeypatch):
+    import json
+
+    tools = _import_pool_tools(monkeypatch, mock_hermes)
+
+    disable_result = json.loads(tools.pool_disable_agent("../agency-target"))
+    enable_result = json.loads(tools.pool_enable_agent("Agency-Target"))
+
+    assert disable_result == {"ok": False, "error": "name must start with 'agency-'"}
+    assert enable_result == {"ok": False, "error": "name must start with 'agency-'"}
