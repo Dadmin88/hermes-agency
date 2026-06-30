@@ -939,6 +939,21 @@ def pool_reset_agents(args: dict[str, Any] | None = None, **_: Any) -> str:
     return _pool_reset_agents()
 
 
+def pool_department_roster(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_department_roster as _fn
+    return _fn(str((args or {}).get("department", "")))
+
+
+def pool_department_wake(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_department_wake as _fn
+    return _fn(str((args or {}).get("department", "")))
+
+
+def pool_department_sleep(args: dict[str, Any] | None = None, **_: Any) -> str:
+    from .pool.tools import pool_department_sleep as _fn
+    return _fn(str((args or {}).get("department", "")))
+
+
 def _pool_schema(name: str, description: str, parameters: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "function",
@@ -1080,6 +1095,54 @@ POOL_TOOLS = (
         ),
         pool_reset_agents,
         "🔄",
+    ),
+    (
+        "agency_department_roster",
+        _pool_schema(
+            "agency_department_roster",
+            "List all agents in a department with their status.",
+            {
+                "type": "object",
+                "properties": {
+                    "department": {"type": "string", "description": "Department name (Engineering, Design, Content, Marketing, Product, QA, Operations, Leadership)."},
+                },
+                "required": ["department"],
+            },
+        ),
+        pool_department_roster,
+        "🏢",
+    ),
+    (
+        "agency_department_wake",
+        _pool_schema(
+            "agency_department_wake",
+            "Wake all offline agents in a department.",
+            {
+                "type": "object",
+                "properties": {
+                    "department": {"type": "string", "description": "Department name."},
+                },
+                "required": ["department"],
+            },
+        ),
+        pool_department_wake,
+        "🏢⚡",
+    ),
+    (
+        "agency_department_sleep",
+        _pool_schema(
+            "agency_department_sleep",
+            "Sleep all online agents in a department.",
+            {
+                "type": "object",
+                "properties": {
+                    "department": {"type": "string", "description": "Department name."},
+                },
+                "required": ["department"],
+            },
+        ),
+        pool_department_sleep,
+        "🏢💤",
     ),
 )
 

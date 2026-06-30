@@ -686,6 +686,382 @@ def _lifecycle_tools_enabled() -> bool:
     return False
 
 
+# Department-specific starter skill templates
+_STARTER_SKILLS: dict[str, dict[str, str]] = {
+    "Engineering": {
+        "task-handling": """---
+name: task-handling
+description: Systematic approach to receiving, implementing, and delivering engineering tasks
+tags: [engineering, workflow, tasks, delivery]
+---
+
+# Task Handling
+
+## When to Use
+When receiving a task from the orchestrator, technical lead, or another agent.
+
+## Steps
+
+### 1. Understand the Task
+- Read the full task description and constraints
+- Identify the expected output and validation criteria
+- Check for dependencies on other agents' work
+
+### 2. Plan
+- Break the task into concrete steps
+- Identify files to modify
+- Check existing code for patterns to follow
+
+### 3. Implement
+- Make one change at a time
+- Follow existing code conventions
+- Write tests alongside implementation
+
+### 4. Validate
+- Run relevant tests
+- Check for regressions
+- Verify the expected output matches
+
+### 5. Hand Off
+- Report what was changed
+- List files modified
+- Note any risks or follow-up items
+- Use workspace at `~/.hermes/.agency/workspace/deliverables/` for artifacts
+
+## Pitfalls
+- Don't start coding before understanding the full task
+- Don't skip validation
+- Don't modify files outside your domain
+""",
+    },
+    "Design": {
+        "design-workflow": """---
+name: design-workflow
+description: Structured approach to design tasks from brief to delivery
+tags: [design, workflow, ui, ux]
+---
+
+# Design Workflow
+
+## When to Use
+When receiving a design task — UI mockups, component design, visual review.
+
+## Steps
+
+### 1. Understand the Brief
+- Read the full requirements
+- Identify the user problem being solved
+- Check existing design system for patterns
+
+### 2. Research & Reference
+- Review similar patterns in the codebase
+- Check accessibility requirements
+- Look at competitor approaches if relevant
+
+### 3. Design
+- Follow existing design system conventions
+- Consider responsive layouts
+- Ensure accessibility (contrast, keyboard nav, screen readers)
+
+### 4. Deliver
+- Provide specs with exact dimensions, colors, spacing
+- Include responsive breakpoints
+- Note any new patterns that should be added to the design system
+
+## Pitfalls
+- Don't invent new patterns when existing ones work
+- Don't ignore accessibility
+- Don't hand off specs without exact values
+""",
+    },
+    "Content": {
+        "content-workflow": """---
+name: content-workflow
+description: Structured approach to content creation and editing tasks
+tags: [content, writing, editing, workflow]
+---
+
+# Content Workflow
+
+## When to Use
+When receiving a writing, editing, or content task.
+
+## Steps
+
+### 1. Understand the Brief
+- Read the full requirements
+- Identify the target audience
+- Check tone and style guidelines
+
+### 2. Research
+- Review existing content for consistency
+- Check for SEO requirements if applicable
+- Gather source materials
+
+### 3. Draft
+- Follow the established style guide
+- Use clear, concise language
+- Structure with headers and sections
+
+### 4. Review & Deliver
+- Self-edit for clarity and accuracy
+- Check for consistency with existing content
+- Deliver in the requested format
+
+## Pitfalls
+- Don't deviate from the established voice without reason
+- Don't skip the review step
+- Don't publish without approval
+""",
+    },
+    "Marketing": {
+        "marketing-workflow": """---
+name: marketing-workflow
+description: Approach for marketing strategy and execution tasks
+tags: [marketing, strategy, campaigns, workflow]
+---
+
+# Marketing Workflow
+
+## When to Use
+When receiving marketing, growth, or campaign tasks.
+
+## Steps
+
+### 1. Understand the Goal
+- Read the brief and KPIs
+- Identify the target audience
+- Check existing brand guidelines
+
+### 2. Strategy
+- Research the market and competitors
+- Define the approach and channels
+- Set measurable targets
+
+### 3. Execute
+- Create content/copy per brand guidelines
+- Set up tracking and measurement
+- Coordinate with relevant agents
+
+### 4. Report
+- Measure against KPIs
+- Document learnings
+- Recommend next steps
+
+## Pitfalls
+- Don't launch without tracking
+- Don't ignore brand guidelines
+- Don't skip competitive research
+""",
+    },
+    "Product": {
+        "product-workflow": """---
+name: product-workflow
+description: Structured approach to product management and analysis tasks
+tags: [product, requirements, analysis, workflow]
+---
+
+# Product Workflow
+
+## When to Use
+When receiving product, requirements, or analysis tasks.
+
+## Steps
+
+### 1. Understand the Context
+- Read the full brief
+- Identify stakeholders and constraints
+- Check existing product roadmap
+
+### 2. Analyze
+- Review data and metrics
+- Identify user needs and pain points
+- Assess feasibility with engineering
+
+### 3. Define
+- Write clear requirements
+- Define acceptance criteria
+- Prioritize against roadmap
+
+### 4. Deliver
+- Document decisions and rationale
+- Hand off to engineering with clear specs
+- Track progress and blockers
+
+## Pitfalls
+- Don't define solutions before understanding problems
+- Don't skip stakeholder alignment
+- Don't hand off vague requirements
+""",
+    },
+    "QA": {
+        "testing-workflow": """---
+name: testing-workflow
+description: Systematic approach to testing and quality assurance
+tags: [qa, testing, quality, workflow]
+---
+
+# Testing Workflow
+
+## When to Use
+When receiving QA, testing, or review tasks.
+
+## Steps
+
+### 1. Understand the Scope
+- Read the task and affected areas
+- Identify test scenarios
+- Check existing test coverage
+
+### 2. Plan Tests
+- Define positive and negative test cases
+- Identify edge cases
+- Plan regression checks
+
+### 3. Execute
+- Run existing tests first
+- Test new changes systematically
+- Document any failures with reproduction steps
+
+### 4. Report
+- Summarize pass/fail results
+- Provide reproduction steps for failures
+- Recommend fixes or follow-up
+
+## Pitfalls
+- Don't skip regression testing
+- Don't report failures without reproduction steps
+- Don't approve changes you haven't tested
+""",
+    },
+    "Operations": {
+        "ops-workflow": """---
+name: ops-workflow
+description: Structured approach to operations and process tasks
+tags: [operations, process, workflow, efficiency]
+---
+
+# Operations Workflow
+
+## When to Use
+When receiving operations, process, or administrative tasks.
+
+## Steps
+
+### 1. Understand the Process
+- Read the current process documentation
+- Identify pain points and inefficiencies
+- Check compliance requirements
+
+### 2. Analyze
+- Map the current workflow
+- Identify bottlenecks
+- Assess risk and compliance
+
+### 3. Improve
+- Propose streamlined process
+- Document changes clearly
+- Coordinate with stakeholders
+
+### 4. Implement & Monitor
+- Roll out changes
+- Monitor for issues
+- Iterate based on feedback
+
+## Pitfalls
+- Don't change processes without stakeholder buy-in
+- Don't skip compliance checks
+- Don't implement without documentation
+""",
+    },
+    "Leadership": {
+        "orchestration-workflow": """---
+name: orchestration-workflow
+description: Approach for leadership, coordination, and orchestration tasks
+tags: [leadership, orchestration, coordination, workflow]
+---
+
+# Orchestration Workflow
+
+## When to Use
+When receiving coordination, planning, or leadership tasks.
+
+## Steps
+
+### 1. Understand the Objective
+- Read the full task and context
+- Identify all stakeholders
+- Check current team status via agency_roster()
+
+### 2. Plan
+- Break work into delegated tasks
+- Assign to appropriate specialists
+- Define timeline and dependencies
+
+### 3. Coordinate
+- Dispatch tasks via agency_pool_send()
+- Track progress on Kanban boards
+- Unblock agents as needed
+
+### 4. Synthesize
+- Collect results from all agents
+- Validate completeness
+- Report consolidated outcome
+
+## Pitfalls
+- Don't micromanage — trust specialists
+- Don't lose track of dependencies
+- Don't report partial results as complete
+""",
+    },
+}
+
+
+def _create_starter_skills(
+    profile_dir: Path, name: str, department: str, agent_skills: list[str]
+) -> None:
+    """Create department-appropriate starter skills for a new agent profile."""
+    skills_dir = profile_dir / "skills"
+    dept_skills = _STARTER_SKILLS.get(department, _STARTER_SKILLS["Operations"])
+
+    for skill_name, skill_content in dept_skills.items():
+        skill_dir = skills_dir / skill_name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_path = skill_dir / "SKILL.md"
+        skill_path.write_text(skill_content, encoding="utf-8")
+
+    # If agent has custom skills listed, create placeholder skill dirs
+    for custom_skill in agent_skills:
+        safe_name = custom_skill.lower().replace(" ", "-").replace("_", "-")
+        if safe_name not in dept_skills:
+            custom_dir = skills_dir / safe_name
+            custom_dir.mkdir(parents=True, exist_ok=True)
+            custom_path = custom_dir / "SKILL.md"
+            custom_path.write_text(
+                f"""---
+name: {safe_name}
+description: {custom_skill} skill for {name}
+tags: [{department.lower()}, {safe_name}]
+---
+
+# {custom_skill.title()}
+
+## When to Use
+When tasks require {custom_skill.lower()} expertise.
+
+## Steps
+1. Understand the specific {custom_skill.lower()} requirement
+2. Apply domain knowledge
+3. Deliver concrete artifacts
+
+## Pitfalls
+- Don't assume context — ask when unclear
+- Don't skip validation
+""",
+                encoding="utf-8",
+            )
+
+
 def pool_create_agent(
     name: str,
     department: str = "Operations",
@@ -748,26 +1124,170 @@ def pool_create_agent(
     except Exception as exc:
         return _json.dumps({"ok": False, "error": f"failed to create profile: {exc}"})
 
-    # Override SOUL.md with custom content
-    soul_path = profile_dir / "SOUL.md"
+    # Build complete profile files
+    display_name = name.removeprefix("agency-").replace("-", " ").title()
+    description = str(description or "").strip() or f"A {department} specialist agent"
     skill_lines = "\n".join(f"- {s}" for s in skills) if skills else "- general assistance"
-    description = str(description or "").strip() or f"A {department} agent"
-    soul_content = (
-        f"# SOUL.md — {department} Agent\n\n"
-        f"## Identity\n\n"
-        f"You are `{name}`, a Hermes Agency agent in the {department} department.\n\n"
-        f"## Skills\n\n"
-        f"{skill_lines}\n\n"
-        f"## Role Description\n\n"
-        f"{description}\n\n"
-        f"## Operating Principles\n\n"
-        f"- Stay inside your specialty unless the task explicitly asks otherwise.\n"
-        f"- Prefer concrete artifacts, verified results, and concise handoffs.\n"
-        f"- Escalate to the right specialist by creating Kanban follow-up cards when needed.\n"
-        f"- Do not deploy, publish, delete, or mutate production resources without explicit approval.\n"
-    )
+
+    # SOUL.md — full standard structure
+    soul_content = f"""# SOUL.md — {display_name}
+
+## Identity
+
+You are `{name}`, a Hermes Agency agent in the {department} department. {description}
+
+## Mission
+
+{description}
+
+## Operating Principles
+
+- Stay inside your specialty unless the task explicitly asks otherwise
+- Prefer concrete artifacts, verified results, and concise handoffs
+- Escalate to the right specialist by creating Kanban follow-up cards when needed
+- Do not deploy, publish, delete, or mutate production resources without explicit approval
+- Run tests before declaring work done
+
+## Primary Responsibilities
+
+{skill_lines}
+
+## Non-Responsibilities
+
+- Do not take work outside your department unless explicitly asked
+- Do not deploy to production without approval
+- Do not commit or push code without agency-git-steward
+
+## Collaboration Style
+
+You work with other agency agents through `agency_pool_send`. Use `agency_roster()` to find the right specialist. Escalate blockers to agency-orchestrator or agency-chief-of-staff.
+
+## Safety Boundaries
+
+Modify only code and configuration within your domain. Do not deploy to production without approval. Follow git discipline: prepare changes but do not commit or push without agency-git-steward. Run tests before declaring work done.
+
+## Output Expectations
+
+Concrete deliverables: code, documents, analysis, designs, or other artifacts appropriate to your role.
+
+## Delegation Behavior
+
+Delegate git operations to agency-git-steward. Delegate QA to agency-qa-tester. Delegate security review to agency-security-reviewer.
+
+## Escalation Behavior
+
+Escalate when: a change affects shared infrastructure, security concerns arise, architectural decisions are needed, or production deployment is required.
+
+## Definition of Done
+
+Done when: work is complete, tested/validated, documented where needed, and ready for review.
+
+## Shared Workspace Protocol
+
+Use the persistent shared workspace at `~/.hermes/.agency/workspace/` for cross-agent collaboration. Save final deliverables under `~/.hermes/.agency/workspace/deliverables/<board-id>/`. Use `~/.hermes/.agency/workspace/shared/` for handoff files another agent must read. Do not use `/tmp/` for durable Agency deliverables. Department Kanban tasks live on reusable department boards; use the board assigned by the dispatcher/orchestrator.
+
+## Specialist-to-Specialist Delegation Protocol
+
+Before delegating, call `agency_roster()` and choose an exact `agency-<role>` roster name. You may delegate only for review, cross-domain handoff, or git/release operations outside your ownership. Do not delegate to yourself or to `agency-orchestrator`; if orchestration is required, report the blocker instead. Use `agency_pool_send(name="agency-<role>", message="...")` with the workspace path, expected output, and validation criteria.
+"""
+
+    # profile.yaml
+    yaml_content = f"""name: {name}
+display_name: {display_name}
+category: {department.lower()}
+summary: {description}
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+{chr(10).join(f'  - {s}' for s in (skills or ['general assistance']))}
+  does_not_own:
+  - work outside {department} department
+routing:
+  delegates_to:
+  - agency-git-steward
+  - agency-qa-tester
+"""
+
+    # ROUTING.md
+    routing_content = f"""# ROUTING.md — {display_name}
+
+## Ownership
+
+### Owns
+
+{chr(10).join(f'- {s}' for s in (skills or ['general assistance']))}
+
+### Does Not Own
+
+- work outside {department} department
+
+## Typical Inputs
+
+- tasks assigned by orchestrator or technical lead
+- bug reports and feature requests
+
+## Typical Outputs
+
+- completed work artifacts appropriate to your role
+
+## Delegation
+
+### Should Delegate To
+
+- agency-git-steward
+- agency-qa-tester
+
+### Should Receive Work From
+
+- agency-orchestrator
+- agency-chief-of-staff
+
+## Escalation Triggers
+
+- cross-department dependency
+- security concern
+- architectural decision needed
+
+## Machine/File/Git Safety Rules
+
+Modify only files within your domain. Do not deploy. Do not push. Prepare changes for review by agency-git-steward.
+
+## Handoff Format
+
+When receiving work, expect:
+```
+Task: <what needs to be done>
+Context: <relevant background>
+Constraints: <limitations, deadlines, standards>
+Expected Output: <what "done" looks like>
+```
+
+When handing off, provide the same plus Validation criteria.
+"""
+
     try:
+        soul_path = profile_dir / "SOUL.md"
         soul_path.write_text(soul_content, encoding="utf-8")
+
+        yaml_path = profile_dir / "profile.yaml"
+        yaml_path.write_text(yaml_content, encoding="utf-8")
+
+        routing_path = profile_dir / "ROUTING.md"
+        routing_path.write_text(routing_content, encoding="utf-8")
+
+        nobundled_path = profile_dir / ".no-bundled-skills"
+        nobundled_path.write_text("", encoding="utf-8")
+
+        # Create department-appropriate starter skills
+        _create_starter_skills(profile_dir, name, department, skills)
     except Exception:
         pass
 
@@ -955,3 +1475,142 @@ def pool_reset_agents() -> str:
         return _json.dumps({"ok": True, **result})
     except Exception as exc:
         return _json.dumps({"ok": False, "error": str(exc)})
+
+
+def pool_department_roster(department: str) -> str:
+    """List all agents in a department with their status."""
+    import json as _json
+
+    from ..departments import DEPARTMENT_AGENTS, canonical_agent_name
+
+    department = str(department or "").strip()
+    if not department:
+        return _json.dumps({"ok": False, "error": "department is required"})
+
+    # Case-insensitive match
+    dept_key = None
+    for key in DEPARTMENT_AGENTS:
+        if key.lower() == department.lower():
+            dept_key = key
+            break
+    if not dept_key:
+        return _json.dumps({
+            "ok": False,
+            "error": f"unknown department: {department}. Valid: {', '.join(sorted(DEPARTMENT_AGENTS.keys()))}",
+        })
+
+    roster = load_roster()
+    profiles = roster.get("profiles", [])
+    dept_agents = DEPARTMENT_AGENTS[dept_key]
+
+    # Find matching profiles
+    matches = []
+    for p in profiles:
+        canon = canonical_agent_name(p["name"])
+        if canon in dept_agents:
+            matches.append({
+                "name": p["name"],
+                "online": p.get("online", False),
+                "skills": p.get("skills", [])[:5],
+                "description": p.get("description", ""),
+            })
+
+    return _json.dumps({
+        "ok": True,
+        "department": dept_key,
+        "total": len(dept_agents),
+        "installed": len(matches),
+        "agents": matches,
+    })
+
+
+def pool_department_wake(department: str) -> str:
+    """Wake all agents in a department."""
+    import json as _json
+
+    from ..departments import DEPARTMENT_AGENTS, canonical_agent_name
+
+    department = str(department or "").strip()
+    if not department:
+        return _json.dumps({"ok": False, "error": "department is required"})
+
+    dept_key = None
+    for key in DEPARTMENT_AGENTS:
+        if key.lower() == department.lower():
+            dept_key = key
+            break
+    if not dept_key:
+        return _json.dumps({
+            "ok": False,
+            "error": f"unknown department: {department}",
+        })
+
+    roster = load_roster()
+    profiles = roster.get("profiles", [])
+    dept_agents = set(DEPARTMENT_AGENTS[dept_key])
+
+    results = []
+    for p in profiles:
+        canon = canonical_agent_name(p["name"])
+        if canon in dept_agents and not p.get("online", False):
+            try:
+                wake_result = pool_wake(p["name"])
+                import json as __json
+                wake_data = __json.loads(wake_result)
+                results.append({"name": p["name"], "ok": wake_data.get("ok", False)})
+            except Exception as exc:
+                results.append({"name": p["name"], "ok": False, "error": str(exc)})
+
+    return _json.dumps({
+        "ok": True,
+        "department": dept_key,
+        "woken": sum(1 for r in results if r.get("ok")),
+        "failed": sum(1 for r in results if not r.get("ok")),
+        "results": results,
+    })
+
+
+def pool_department_sleep(department: str) -> str:
+    """Sleep all agents in a department."""
+    import json as _json
+
+    from ..departments import DEPARTMENT_AGENTS, canonical_agent_name
+
+    department = str(department or "").strip()
+    if not department:
+        return _json.dumps({"ok": False, "error": "department is required"})
+
+    dept_key = None
+    for key in DEPARTMENT_AGENTS:
+        if key.lower() == department.lower():
+            dept_key = key
+            break
+    if not dept_key:
+        return _json.dumps({
+            "ok": False,
+            "error": f"unknown department: {department}",
+        })
+
+    roster = load_roster()
+    profiles = roster.get("profiles", [])
+    dept_agents = set(DEPARTMENT_AGENTS[dept_key])
+
+    results = []
+    for p in profiles:
+        canon = canonical_agent_name(p["name"])
+        if canon in dept_agents and p.get("online", False):
+            try:
+                sleep_result = pool_sleep(p["name"])
+                import json as __json
+                sleep_data = __json.loads(sleep_result)
+                results.append({"name": p["name"], "ok": sleep_data.get("ok", False)})
+            except Exception as exc:
+                results.append({"name": p["name"], "ok": False, "error": str(exc)})
+
+    return _json.dumps({
+        "ok": True,
+        "department": dept_key,
+        "slept": sum(1 for r in results if r.get("ok")),
+        "failed": sum(1 for r in results if not r.get("ok")),
+        "results": results,
+    })

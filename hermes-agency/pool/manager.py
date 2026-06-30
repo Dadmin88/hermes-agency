@@ -109,6 +109,7 @@ class PoolManager:
         self.active = {}  # name -> {'peer_id': str, 'last_active': datetime, 'proc': Popen|None, 'persistent': bool}
         self.persistent_agents = {"agency-orchestrator"}
         self.lock = threading.RLock()
+        self._pending_restarts: list[str] = []
         self.memory_tracker = MemoryTracker() if MemoryTracker is not None else None
         self._last_memory_log = 0.0
         # Spin up agency-orchestrator as persistent A2A node only for standalone
@@ -650,6 +651,7 @@ class PoolManager:
             self.active[name] = {
                 "peer_id": peer_id,
                 "last_active": datetime.now(),
+                "woke_at": datetime.now(),
                 "proc": proc,
                 "persistent": persistent,
                 "rss_at_wake_mb": None,
@@ -795,6 +797,29 @@ class PoolManager:
                         for n in to_sleep:
                             self.sleep(n)
 
+                        # Health watchdog: detect crashed agents
+                        crashed = []
+                        for n, d in list(self.active.items()):
+                            proc = d.get("proc")
+                            if proc is not None and hasattr(proc, "pid"):
+                                if proc.poll() is not None:
+                                    crashed.append((n, d))
+                        for n, d in crashed:
+                            exit_code = d.get("proc").returncode if d.get("proc") else "?"
+                            print(
+                                f"[PoolManager] Health watchdog: {n} crashed "
+                                f"(exit={exit_code}), removing from active pool"
+                            )
+                            self.active.pop(n, None)
+                            # Mark for auto-restart (handled outside lock)
+                            woke_at = d.get("woke_at")
+                            if (
+                                woke_at is not None
+                                and not d.get("persistent")
+                                and (now - woke_at).total_seconds() < 600
+                            ):
+                                self._pending_restarts.append(n)
+
                         # Memory budget enforcement
                         rss_mb = self.memory_tracker.get_process_rss_mb()
                         budget_mb = self.config["pool"].get("memory_budget_mb", 1500)
@@ -809,6 +834,19 @@ class PoolManager:
                         self._log_memory_stats()
                 except Exception as exc:
                     print(f"[PoolManager] idle monitor error: {exc}")
+
+                # Auto-restart crashed agents (outside lock to avoid deadlock)
+                pending = list(self._pending_restarts)
+                self._pending_restarts.clear()
+                for agent_name in pending:
+                    try:
+                        print(f"[PoolManager] Health watchdog: auto-restarting {agent_name}")
+                        self.wake(agent_name)
+                    except Exception as restart_exc:
+                        print(
+                            f"[PoolManager] Health watchdog: restart of {agent_name} "
+                            f"failed: {restart_exc}"
+                        )
 
         t = threading.Thread(target=monitor, daemon=True)
         t.start()
