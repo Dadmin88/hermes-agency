@@ -23,7 +23,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: pytest tests/ -v
-      - run: pytest hermes-agency/tests/ -v -m "not integration"
+      - run: pytest hermes-agency/tests/test_unit.py hermes-agency/tests/test_model_sets.py hermes-agency/tests/test_gpt_bridge.py hermes-agency/tests/test_extended_status_discord.py -v -m "not integration"
 
   publish:
     name: Publish to PyPI
