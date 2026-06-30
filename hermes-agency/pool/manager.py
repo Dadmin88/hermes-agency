@@ -4,6 +4,8 @@ Hermes Agency Pool Manager
 Handles wake/sleep for agency-* profiles only. Direct NodeManager integration.
 """
 
+import ctypes
+import gc
 import importlib.util
 import json
 import os
@@ -16,10 +18,17 @@ from pathlib import Path
 
 import yaml
 
-import gc
-import ctypes
-
-from .memory_tracker import MemoryTracker
+try:
+    from .memory_tracker import MemoryTracker
+except ImportError:
+    _mt_path = Path(__file__).with_name("memory_tracker.py")
+    _mt_spec = importlib.util.spec_from_file_location("memory_tracker", _mt_path)
+    if _mt_spec and _mt_spec.loader:
+        _mt_mod = importlib.util.module_from_spec(_mt_spec)
+        _mt_spec.loader.exec_module(_mt_mod)
+        MemoryTracker = _mt_mod.MemoryTracker
+    else:
+        MemoryTracker = None  # type: ignore[assignment,misc]
 
 REGISTRY_DEF = Path(__file__).with_name("registry_definition.json")
 HOME = Path.home()
@@ -100,7 +109,7 @@ class PoolManager:
         self.active = {}  # name -> {'peer_id': str, 'last_active': datetime, 'proc': Popen|None, 'persistent': bool}
         self.persistent_agents = {"agency-orchestrator"}
         self.lock = threading.RLock()
-        self.memory_tracker = MemoryTracker()
+        self.memory_tracker = MemoryTracker() if MemoryTracker is not None else None
         self._last_memory_log = 0.0
         # Spin up agency-orchestrator as persistent A2A node only for standalone
         # pool-manager use. Inside `hermes gateway run`, the plugin's in-process
@@ -723,7 +732,9 @@ class PoolManager:
             to_sleep = [n for n, d in self.active.items() if not d.get("persistent")]
             for name in to_sleep:
                 self.sleep(name)
-            print(f"[PoolManager] CRITICAL memory: {current_rss_mb:.0f} MB RSS, {available_mb:.0f} MB avail — slept ALL non-persistent agents")
+            print(
+                f"[PoolManager] CRITICAL memory: {current_rss_mb:.0f} MB RSS, {available_mb:.0f} MB avail — slept ALL non-persistent agents"
+            )
             return
 
         # Over budget: sleep oldest idle agents one at a time
@@ -734,7 +745,9 @@ class PoolManager:
             del pool_agents[oldest[0]]
             self._release_memory()
             current_rss_mb = self.memory_tracker.get_process_rss_mb()
-            print(f"[PoolManager] Memory budget: slept {oldest[0]}, RSS now {current_rss_mb:.0f} MB")
+            print(
+                f"[PoolManager] Memory budget: slept {oldest[0]}, RSS now {current_rss_mb:.0f} MB"
+            )
 
     def _log_memory_stats(self):
         """Log memory stats every 5 minutes."""
