@@ -39,11 +39,14 @@ TimeoutStopSec=210
 
 # --- Resource limits ---
 # MemoryMax is a hard kill limit. MemoryHigh triggers reclaim before hitting it.
-# The gateway + agency node runners can spike during multi-agent dispatch.
-# Start with 5G/4G for a production orchestrator; lower for single-agent setups.
+# The gateway spikes to ~6 GB during startup (98 profiles + tool registration)
+# but settles to ~200 MB after the idle monitor's gc.collect() + malloc_trim() cycle.
+# MemoryMax must be high enough to survive the startup spike; MemoryHigh controls
+# the steady-state reclaim pressure.
+# Start with 8G/6G for a production orchestrator; lower for single-agent setups.
 # Override via drop-in: systemctl --user edit hermes-gateway
-MemoryMax=5G
-MemoryHigh=4G
+MemoryMax=8G
+MemoryHigh=6G
 TasksMax=512
 OOMPolicy=continue
 
