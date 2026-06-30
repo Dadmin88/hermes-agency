@@ -54,5 +54,13 @@ jobs:
             # performs the bootstrap pull before invoking the shared updater.
             FORCE_RESTART=1 bash scripts/auto-update.sh
             echo "--- Status ---"
+            for attempt in 1 2 3 4 5 6; do
+              state=$(systemctl --user is-active hermes-gateway.service || true)
+              echo "hermes-gateway.service state: $state (attempt $attempt/6)"
+              if [ "$state" = "active" ]; then
+                break
+              fi
+              sleep 5
+            done
             systemctl --user is-active hermes-gateway.service
             pgrep -af "hermes_cli.main gateway run|agentanycastd --config=.*/profiles/agency-orchestrator" | head -10 || true

@@ -319,7 +319,9 @@ def _resolve_runner_peer_id(agency_dir: Path, runner_log: Path) -> str | None:
     candidates = [runner_log, agency_dir / "logs" / "daemon.log"]
     for candidate in candidates:
         try:
-            peer_id = _extract_own_peer_id(candidate.read_text(encoding="utf-8", errors="ignore")[-20000:])
+            peer_id = _extract_own_peer_id(
+                candidate.read_text(encoding="utf-8", errors="ignore")[-20000:]
+            )
         except Exception:
             peer_id = None
         if peer_id:
@@ -449,7 +451,9 @@ def pool_wake(name: str) -> str:
         pass
     daemon_output = ""
     try:
-        daemon_output = (agency_dir / "logs" / "daemon.log").read_text(encoding="utf-8", errors="ignore")[-1000:]
+        daemon_output = (agency_dir / "logs" / "daemon.log").read_text(
+            encoding="utf-8", errors="ignore"
+        )[-1000:]
     except Exception:
         pass
     details = output or daemon_output or "no output"

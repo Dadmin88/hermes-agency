@@ -351,7 +351,9 @@ class IncomingQueueMixin:
         queued_ids = self._incoming_queued_task_ids()
         cfg = self._nm().get_config()
         now = time.time()
-        stale_processing_after = max(60.0, float(getattr(cfg, "incoming_handler_timeout_seconds", 300) or 300))
+        stale_processing_after = max(
+            60.0, float(getattr(cfg, "incoming_handler_timeout_seconds", 300) or 300)
+        )
         for record in self._load_persisted_incoming_records():
             self._incoming_records[record.task_id] = record
             if record.task_id not in self._incoming_order:

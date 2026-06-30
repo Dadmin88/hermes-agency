@@ -5,7 +5,7 @@ import grpc
 from agentanycast.v1 import registry_service_pb2 as agentanycast_dot_v1_dot_registry__service__pb2
 
 
-class RegistryServiceStub(object):
+class RegistryServiceStub:
     """RegistryService is the Skill Registry hosted on the Relay server.
     Agents register their skills upon connecting to the Relay, and other
     agents query the registry to discover peers by capability.
@@ -39,7 +39,7 @@ class RegistryServiceStub(object):
                 _registered_method=True)
 
 
-class RegistryServiceServicer(object):
+class RegistryServiceServicer:
     """RegistryService is the Skill Registry hosted on the Relay server.
     Agents register their skills upon connecting to the Relay, and other
     agents query the registry to discover peers by capability.
@@ -104,7 +104,7 @@ def add_RegistryServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class RegistryService(object):
+class RegistryService:
     """RegistryService is the Skill Registry hosted on the Relay server.
     Agents register their skills upon connecting to the Relay, and other
     agents query the registry to discover peers by capability.

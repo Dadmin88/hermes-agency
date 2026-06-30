@@ -34,8 +34,8 @@ jobs:
         run: |
           # Normalize protobuf version comments before comparing
           DIFF=$(diff -r \
-            <(find agentanycast-proto/gen/python/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort) \
-            <(find src/agentanycast/_generated/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort))
+            <(find agentanycast-proto/gen/python/agentanycast/ -name '*.py' ! -name '__init__.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort) \
+            <(find src/agentanycast/_generated/agentanycast/ -name '*.py' ! -name '__init__.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort))
           if [ -n "$DIFF" ]; then
             echo "::error::Generated stubs differ from committed files (beyond version comments)."
             echo "$DIFF"

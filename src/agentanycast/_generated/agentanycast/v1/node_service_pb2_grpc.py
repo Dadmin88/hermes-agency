@@ -5,7 +5,7 @@ import grpc
 from agentanycast.v1 import node_service_pb2 as agentanycast_dot_v1_dot_node__service__pb2
 
 
-class NodeServiceStub(object):
+class NodeServiceStub:
     """NodeService is the gRPC interface between the Python SDK and the Go Daemon.
     It runs over a Unix Domain Socket for local IPC.
     """
@@ -98,7 +98,7 @@ class NodeServiceStub(object):
                 _registered_method=True)
 
 
-class NodeServiceServicer(object):
+class NodeServiceServicer:
     """NodeService is the gRPC interface between the Python SDK and the Go Daemon.
     It runs over a Unix Domain Socket for local IPC.
     """
@@ -320,7 +320,7 @@ def add_NodeServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class NodeService(object):
+class NodeService:
     """NodeService is the gRPC interface between the Python SDK and the Go Daemon.
     It runs over a Unix Domain Socket for local IPC.
     """

@@ -5,7 +5,7 @@ import grpc
 from agentanycast.v1 import federation_pb2 as agentanycast_dot_v1_dot_federation__pb2
 
 
-class FederationServiceStub(object):
+class FederationServiceStub:
     """FederationService enables relay-to-relay skill registry synchronization.
     """
 
@@ -27,7 +27,7 @@ class FederationServiceStub(object):
                 _registered_method=True)
 
 
-class FederationServiceServicer(object):
+class FederationServiceServicer:
     """FederationService enables relay-to-relay skill registry synchronization.
     """
 
@@ -66,7 +66,7 @@ def add_FederationServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class FederationService(object):
+class FederationService:
     """FederationService enables relay-to-relay skill registry synchronization.
     """
 

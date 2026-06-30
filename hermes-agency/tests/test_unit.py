@@ -2822,7 +2822,7 @@ def test_pool_wake_resolves_peer_id_from_daemon_log(plugin_modules, tmp_path):
     runner_log = log_dir / "runner.log"
     runner_log.write_text("", encoding="utf-8")
     (log_dir / "daemon.log").write_text(
-        'noise\nPEER_ID=12D3KooWDaemonPeer\n',
+        "noise\nPEER_ID=12D3KooWDaemonPeer\n",
         encoding="utf-8",
     )
 
@@ -3321,9 +3321,7 @@ def test_incoming_recovery_fails_stale_processing_records(plugin_modules, monkey
         created_at=950.0,
         updated_at=950.0,
     )
-    cfg = cfg_mod.AgencyConfig(
-        incoming=cfg_mod.IncomingConfig(handler_timeout_seconds=300)
-    )
+    cfg = cfg_mod.AgencyConfig(incoming=cfg_mod.IncomingConfig(handler_timeout_seconds=300))
     monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
     monkeypatch.setattr(incoming_mod.time, "time", lambda: 1000.0)
     monkeypatch.setattr(
