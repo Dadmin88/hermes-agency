@@ -31,17 +31,16 @@ jobs:
           buf generate --template buf.gen.python.yaml
 
       - name: Check generated stubs match committed files
-        continue-on-error: true
         run: |
           # Normalize protobuf version comments before comparing
           DIFF=$(diff -r \
             <(find agentanycast-proto/gen/python/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort) \
-            <(find src/agentanycast/_generated/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort)) \
-            || true
+            <(find src/agentanycast/_generated/agentanycast/ -name '*.py' -exec sed 's/# Protobuf Python Version: [0-9.]*/# Protobuf Python Version: X/' {} + | sort))
           if [ -n "$DIFF" ]; then
-            echo "::warning::Generated stubs differ from committed files (beyond version comments)."
+            echo "::error::Generated stubs differ from committed files (beyond version comments)."
             echo "$DIFF"
             echo "Regenerate with: cd agentanycast-proto && buf generate --template buf.gen.python.yaml && cp -r gen/python/agentanycast/ ../src/agentanycast/_generated/agentanycast/"
+            exit 1
           fi
 
   lint:
@@ -80,7 +79,7 @@ jobs:
         run: mypy src/ --exclude '_generated'
 
   security:
-    name: Security Report
+    name: Security Report (advisory — does not block CI)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +91,9 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]" pip-audit
 
+      # Advisory only: pip-audit output is surfaced as annotations but does
+      # not fail the build.  To make it blocking, remove ``|| true`` and add
+      # explicit --ignore-entries for any known-accepted advisories.
       - name: Run pip-audit (advisory)
         run: pip-audit --skip-editable || true
 

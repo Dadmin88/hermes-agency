@@ -120,6 +120,12 @@ def pool_status():
 
 def run():
     port = pm.config["pool"]["port"]
+    if BIND_HOST not in ("127.0.0.1", "localhost", "::1") and not POOL_TOKEN:
+        raise SystemExit(
+            "FATAL: HERMES_POOL_BIND is set to a non-loopback address but "
+            "HERMES_POOL_TOKEN is empty. Refusing to start without authentication. "
+            "Set HERMES_POOL_TOKEN or bind to 127.0.0.1."
+        )
     print(f"Starting Pool Manager Service on {BIND_HOST}:{port}")
     app.run(host=BIND_HOST, port=port, threaded=True)
 

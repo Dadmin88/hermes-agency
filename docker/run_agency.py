@@ -120,7 +120,7 @@ def configure() -> None:
             "relay": os.environ.get("AGENTANYCAST_RELAY") or None,
             "incoming": {
                 "mode": os.environ.get("HERMES_AGENCY_INCOMING_MODE", "delegation"),
-                "tool_access": os.environ.get("HERMES_AGENCY_TOOL_ACCESS", "full"),
+                "tool_access": os.environ.get("HERMES_AGENCY_TOOL_ACCESS", "safe"),
                 "persist_queue": True,
             },
             "team": {

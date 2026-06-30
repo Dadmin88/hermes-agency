@@ -11,6 +11,7 @@ The AgentAnycast SDK under `src/agentanycast/` is the underlying transport layer
 - `hermes-agency/model_sets/` — packaged model-set strategies for installed staff profiles.
 - `src/agentanycast/` — P2P transport SDK used by Hermes Agency. Touch this only for transport tasks or security fixes that explicitly require it.
 - `docker/`, `Dockerfile`, `docker-compose.yml` — headless setup/node runtime. Current compose is not a dashboard service.
+- `apps/fabric/` — Hermes Fabric: a Paperclip-derived MIT frontend for Hermes Agency. Separate product with its own Node.js/React stack. See `apps/fabric/README.md` for the fork direction and product relationship. Do not treat Fabric code as part of the core Python plugin.
 - `scripts/` — operational helpers such as signed auto-update setup.
 - `docs/` — focused design, operations, and integration notes.
 

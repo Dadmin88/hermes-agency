@@ -531,15 +531,48 @@ def pool_send(name: str, message: str) -> str:
     )
 
 
+def _lifecycle_tools_enabled() -> bool:
+    """Check if destructive lifecycle tools are enabled in config."""
+    try:
+        import yaml
+
+        config_path = Path.home() / ".hermes" / "config.yaml"
+        if config_path.exists():
+            data = yaml.safe_load(config_path.read_text()) or {}
+            agency = data.get("agency", {})
+            if agency.get("lifecycle_tools_enabled") is True:
+                return True
+        # Also check profile-level config
+        profile_config = Path.home() / ".hermes" / "agency" / "config.yaml"
+        if profile_config.exists():
+            data = yaml.safe_load(profile_config.read_text()) or {}
+            if data.get("lifecycle_tools_enabled") is True:
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def pool_create_agent(
     name: str,
     department: str = "Operations",
     skills: list[str] | None = None,
     description: str = "",
 ) -> str:
-    """Create a new agency agent profile at runtime."""
+    """Create a new agency agent profile at runtime.
+
+    Requires agency.lifecycle_tools_enabled: true in config.
+    """
     import json as _json
     import re
+
+    if not _lifecycle_tools_enabled():
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
+            }
+        )
 
     name = str(name or "").strip()
     if not name:
@@ -622,8 +655,19 @@ def pool_create_agent(
 
 
 def pool_disable_agent(name: str) -> str:
-    """Mark an agent as disabled — won't be woken or receive tasks."""
+    """Mark an agent as disabled — won't be woken or receive tasks.
+
+    Requires agency.lifecycle_tools_enabled: true in config.
+    """
     import json as _json
+
+    if not _lifecycle_tools_enabled():
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
+            }
+        )
 
     name = str(name or "").strip()
     if not name:
@@ -656,8 +700,19 @@ def pool_disable_agent(name: str) -> str:
 
 
 def pool_enable_agent(name: str) -> str:
-    """Re-enable a disabled agent."""
+    """Re-enable a disabled agent.
+
+    Requires agency.lifecycle_tools_enabled: true in config.
+    """
     import json as _json
+
+    if not _lifecycle_tools_enabled():
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
+            }
+        )
 
     name = str(name or "").strip()
     if not name:
@@ -673,9 +728,21 @@ def pool_enable_agent(name: str) -> str:
 
 
 def pool_prune_agent(name: str, force: bool = False) -> str:
-    """Remove an agent entirely — delete profile dir and roster state."""
+    """Remove an agent entirely — delete profile dir and roster state.
+
+    Requires agency.lifecycle_tools_enabled: true in config.
+    Default staff agents require force=True.
+    """
     import json as _json
     import shutil
+
+    if not _lifecycle_tools_enabled():
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
+            }
+        )
 
     name = str(name or "").strip()
     if not name:
@@ -734,8 +801,19 @@ def pool_prune_agent(name: str, force: bool = False) -> str:
 
 
 def pool_reset_agents() -> str:
-    """Reinstall all default_staff profiles. Safety net for over-pruning."""
+    """Reinstall all default_staff profiles. Safety net for over-pruning.
+
+    Requires agency.lifecycle_tools_enabled: true in config.
+    """
     import json as _json
+
+    if not _lifecycle_tools_enabled():
+        return _json.dumps(
+            {
+                "ok": False,
+                "error": "Lifecycle tools are disabled. Set agency.lifecycle_tools_enabled: true in config.yaml to enable.",
+            }
+        )
 
     try:
         from ..default_staff import install_default_staff
