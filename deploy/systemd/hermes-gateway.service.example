@@ -23,9 +23,11 @@ Environment="VIRTUAL_ENV=/home/<user>/.hermes/hermes-agent/venv"
 Environment="HERMES_HOME=/home/<user>/.hermes"
 
 # --- Restart policy ---
-# on-failure restarts after crashes, OOM kills, and signal-induced exits.
-# Avoid Restart=no — the gateway will stay dead after any interruption.
-Restart=on-failure
+# always restarts after crashes, OOM kills, signal-induced exits, AND clean
+# exits.  The gateway must stay alive — a clean exit (status=0) from a
+# planned stop or stale-marker should still auto-restart.  Use
+# `systemctl --user stop --no-block` to actually stop it.
+Restart=always
 RestartSec=5
 RestartForceExitStatus=75
 
