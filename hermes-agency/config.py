@@ -226,11 +226,27 @@ class PoolConfig:
 
     max_online_agents: int = 3
     max_total_rss_mb: int = 2048
+    min_free_mem_mb: int = 2048
+    idle_sleep_after_seconds: int = 300
+    busy_recent_activity_seconds: int = 120
+    allow_discovery_wake: bool = False
+    allow_handshake_wake: bool = True
+    allow_sleep_for_wake: bool = True
+    allowed_wake_reasons: tuple[str, ...] = ("manual", "task", "handshake")
+    permanent_agents: tuple[str, ...] = ("agency-orchestrator",)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "max_online_agents": self.max_online_agents,
             "max_total_rss_mb": self.max_total_rss_mb,
+            "min_free_mem_mb": self.min_free_mem_mb,
+            "idle_sleep_after_seconds": self.idle_sleep_after_seconds,
+            "busy_recent_activity_seconds": self.busy_recent_activity_seconds,
+            "allow_discovery_wake": self.allow_discovery_wake,
+            "allow_handshake_wake": self.allow_handshake_wake,
+            "allow_sleep_for_wake": self.allow_sleep_for_wake,
+            "allowed_wake_reasons": list(self.allowed_wake_reasons),
+            "permanent_agents": list(self.permanent_agents),
         }
 
 
@@ -819,6 +835,71 @@ def _pool_config(config: dict[str, Any]) -> PoolConfig:
             default=2048,
             floor=0,
         ),
+        min_free_mem_mb=_int_cfg(
+            config,
+            "agency",
+            "pool",
+            "min_free_mem_mb",
+            default=2048,
+            floor=0,
+        ),
+        idle_sleep_after_seconds=_int_cfg(
+            config,
+            "agency",
+            "pool",
+            "idle_sleep_after_seconds",
+            default=300,
+            floor=0,
+        ),
+        busy_recent_activity_seconds=_int_cfg(
+            config,
+            "agency",
+            "pool",
+            "busy_recent_activity_seconds",
+            default=120,
+            floor=0,
+        ),
+        allow_discovery_wake=_bool_cfg(
+            config,
+            "agency",
+            "pool",
+            "allow_discovery_wake",
+            default=False,
+        ),
+        allow_handshake_wake=_bool_cfg(
+            config,
+            "agency",
+            "pool",
+            "allow_handshake_wake",
+            default=True,
+        ),
+        allow_sleep_for_wake=_bool_cfg(
+            config,
+            "agency",
+            "pool",
+            "allow_sleep_for_wake",
+            default=True,
+        ),
+        allowed_wake_reasons=_string_tuple(
+            _cfg_get(
+                config,
+                "agency",
+                "pool",
+                "allowed_wake_reasons",
+                default=("manual", "task", "handshake"),
+            )
+        )
+        or ("manual", "task", "handshake"),
+        permanent_agents=_string_tuple(
+            _cfg_get(
+                config,
+                "agency",
+                "pool",
+                "permanent_agents",
+                default=("agency-orchestrator",),
+            )
+        )
+        or ("agency-orchestrator",),
     )
 
 

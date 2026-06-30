@@ -2831,6 +2831,7 @@ def test_pool_wake_resolves_peer_id_from_daemon_log(plugin_modules, tmp_path):
 
 def test_pool_wake_block_reason_can_disable_all_wakes(plugin_modules, monkeypatch):
     pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    monkeypatch.setattr(pool_tools, "_pool_wake_decision", lambda name: None)
     monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (0, 512))
     monkeypatch.setattr(
         pool_tools,
@@ -2845,6 +2846,7 @@ def test_pool_wake_block_reason_can_disable_all_wakes(plugin_modules, monkeypatc
 
 def test_pool_wake_block_reason_enforces_runner_limit(plugin_modules, monkeypatch):
     pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    monkeypatch.setattr(pool_tools, "_pool_wake_decision", lambda name: None)
     monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (2, 0))
     monkeypatch.setattr(
         pool_tools,
@@ -2860,6 +2862,7 @@ def test_pool_wake_block_reason_enforces_runner_limit(plugin_modules, monkeypatc
 
 def test_pool_wake_block_reason_enforces_rss_limit(plugin_modules, monkeypatch):
     pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    monkeypatch.setattr(pool_tools, "_pool_wake_decision", lambda name: None)
     monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (99, 512))
     monkeypatch.setattr(
         pool_tools,
@@ -2871,6 +2874,62 @@ def test_pool_wake_block_reason_enforces_rss_limit(plugin_modules, monkeypatch):
 
     assert reason is not None
     assert "pool RSS 700.0 MiB" in reason
+
+
+def test_lifecycle_gate_blocks_discovery_wake_by_default(plugin_modules):
+    cfg_mod = plugin_modules.config
+    lifecycle = importlib.import_module("hermes_plugin.pool.lifecycle_gate")
+
+    decision = lifecycle.evaluate_wake_request(
+        lifecycle.WakeRequest(agent_name="agency-copywriter", reason="discovery"),
+        cfg_mod.AgencyConfig(),
+        slots=[],
+        snapshot=lifecycle.ResourceSnapshot(available_mem_mb=8192.0, total_rss_mb=0.0),
+    )
+
+    assert decision.allowed is False
+    assert decision.status == "denied"
+    assert "discovery" in decision.reason
+
+
+def test_lifecycle_gate_can_swap_only_idle_non_busy_agents(plugin_modules):
+    cfg_mod = plugin_modules.config
+    lifecycle = importlib.import_module("hermes_plugin.pool.lifecycle_gate")
+    cfg = cfg_mod.AgencyConfig(
+        pool=cfg_mod.PoolConfig(
+            max_online_agents=1,
+            max_total_rss_mb=0,
+            min_free_mem_mb=0,
+            idle_sleep_after_seconds=60,
+            busy_recent_activity_seconds=30,
+            allow_sleep_for_wake=True,
+        )
+    )
+    slots = [
+        lifecycle.AgentSlot(
+            name="agency-busy",
+            online=True,
+            last_activity_at=0.0,
+            incoming_processing_count=1,
+        ),
+        lifecycle.AgentSlot(
+            name="agency-idle",
+            online=True,
+            last_activity_at=0.0,
+        ),
+    ]
+
+    decision = lifecycle.evaluate_wake_request(
+        lifecycle.WakeRequest(agent_name="agency-copywriter", reason="task"),
+        cfg,
+        slots=slots,
+        snapshot=lifecycle.ResourceSnapshot(available_mem_mb=8192.0, total_rss_mb=0.0),
+        now=120.0,
+    )
+
+    assert decision.allowed is True
+    assert decision.sleep_candidate is not None
+    assert decision.sleep_candidate.name == "agency-idle"
 
 
 def test_register_auto_start_and_auto_discover_starts_once(plugin_modules, monkeypatch):

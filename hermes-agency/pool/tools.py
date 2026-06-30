@@ -336,7 +336,29 @@ def _pool_limits() -> tuple[int, int]:
         return 3, 2048
 
 
+def _pool_wake_decision(name: str, *, reason: str = "manual"):
+    """Evaluate whether a pool wake is safe under lifecycle/resource policy."""
+
+    try:
+        from ..config import get_config
+        from .lifecycle_gate import WakeRequest, build_agent_slots, evaluate_wake_request
+
+        cfg = get_config()
+        return evaluate_wake_request(
+            WakeRequest(agent_name=name, reason=reason),
+            cfg,
+            slots=build_agent_slots(cfg),
+        )
+    except Exception:
+        return None
+
+
 def _pool_wake_block_reason(name: str) -> str | None:
+    decision = _pool_wake_decision(name)
+    if decision is not None:
+        return None if decision.allowed else f"pool wake blocked for {name}: {decision.reason}"
+
+    # Compatibility fallback used when config/lifecycle policy cannot be loaded.
     max_online, max_rss_mb = _pool_limits()
     snapshot = _pool_resource_snapshot()
     if max_online == 0:
@@ -465,10 +487,19 @@ def pool_wake(name: str) -> str:
             suffix = f" — peer_id: {peer_id[:24]}..." if peer_id else ""
             return f"{name} is already online{suffix}"
 
-        blocked = _pool_wake_block_reason(name)
-        if blocked:
-            record_wake_attempt(name, success=False, error=blocked)
-            return f"Error: {blocked}"
+        decision = _pool_wake_decision(name)
+        if decision is not None:
+            if not decision.allowed:
+                blocked = f"pool wake blocked for {name}: {decision.reason}"
+                record_wake_attempt(name, success=False, error=blocked)
+                return f"Error: {blocked}"
+            if decision.sleep_candidate is not None:
+                pool_sleep(decision.sleep_candidate.name)
+        else:
+            blocked = _pool_wake_block_reason(name)
+            if blocked:
+                record_wake_attempt(name, success=False, error=blocked)
+                return f"Error: {blocked}"
 
         # Migrate older direct-daemon wakes to the long-lived runner. A bare daemon
         # can retain a card, but it has no Python task handler once the CLI exits.
