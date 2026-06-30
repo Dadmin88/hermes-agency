@@ -1376,13 +1376,20 @@ export function refreshPaperclipWorkspaceEnvForExecution(input: {
   return shapedWorkspaceEnv;
 }
 
-export function sanitizeInheritedPaperclipEnv(baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+const INHERITED_RUNTIME_ENV_ALLOWLIST = new Set([
+  "PAPERCLIP_RUNTIME_API_URL",
+  "PAPERCLIP_LISTEN_HOST",
+  "PAPERCLIP_LISTEN_PORT",
+  "FABRIC_RUNTIME_API_URL",
+  "FABRIC_LISTEN_HOST",
+  "FABRIC_LISTEN_PORT",
+]);
+
+export function sanitizeInheritedRuntimeEnv(baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...baseEnv };
   for (const key of Object.keys(env)) {
-    if (!key.startsWith("PAPERCLIP_")) continue;
-    if (key === "PAPERCLIP_RUNTIME_API_URL") continue;
-    if (key === "PAPERCLIP_LISTEN_HOST") continue;
-    if (key === "PAPERCLIP_LISTEN_PORT") continue;
+    if (!key.startsWith("PAPERCLIP_") && !key.startsWith("FABRIC_")) continue;
+    if (INHERITED_RUNTIME_ENV_ALLOWLIST.has(key)) continue;
     delete env[key];
   }
   return env;
@@ -2324,7 +2331,7 @@ export async function runChildProcess(
   const onLogError = opts.onLogError ?? ((err, id, msg) => console.warn({ err, runId: id }, msg));
   return new Promise<RunProcessResult>((resolve, reject) => {
     const rawMerged: NodeJS.ProcessEnv = {
-      ...sanitizeInheritedPaperclipEnv(process.env),
+      ...sanitizeInheritedRuntimeEnv(process.env),
       ...opts.env,
     };
 
