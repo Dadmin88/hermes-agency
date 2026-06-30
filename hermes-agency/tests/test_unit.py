@@ -824,10 +824,10 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.registry_allow_insecure_token_transport is False
     assert cfg.trust.store_path == plugin_modules.hermes_home / "agency" / "trust.json"
     assert cfg.trust.tofu is True
-    assert cfg.incoming.delegation_timeout == 120
+    assert cfg.incoming.delegation_timeout == 600
     assert cfg.incoming.max_queue_size == 100
-    assert cfg.incoming.handler_timeout_seconds == 300
-    assert cfg.incoming.idle_timeout_seconds == 300
+    assert cfg.incoming.handler_timeout_seconds == 900
+    assert cfg.incoming.idle_timeout_seconds == 120
     assert cfg.incoming.tool_access == "safe"
     assert cfg.incoming.max_iterations == 25
     assert cfg.incoming.subprocess_profile is None
@@ -837,7 +837,7 @@ def test_get_config_defaults(plugin_modules, monkeypatch):
     assert cfg.incoming.min_subprocess_trust == "full"
     assert cfg.incoming.allow_hooks_for_remote is False
     assert cfg.incoming_mode == "delegation"
-    assert cfg.delegation_timeout == 120
+    assert cfg.delegation_timeout == 600
     assert cfg.incoming.tool_access == "safe"
     assert cfg.incoming_max_iterations == 25
     assert cfg.incoming_subprocess_profile is None
@@ -1624,9 +1624,9 @@ def test_incoming_config_invalid_values_fall_back_to_safe_defaults(plugin_module
     cfg = cfg_mod.get_config()
 
     assert cfg.incoming.mode == "delegation"
-    assert cfg.incoming.delegation_timeout == 120
+    assert cfg.incoming.delegation_timeout == 600
     assert cfg.incoming.max_queue_size == 100
-    assert cfg.incoming.handler_timeout_seconds == 300
+    assert cfg.incoming.handler_timeout_seconds == 900
     assert cfg.incoming.tool_access == "safe"
     assert cfg.incoming.max_iterations == 1
     assert cfg.incoming.subprocess_profile is None
@@ -2814,6 +2814,21 @@ def test_pool_sleep_stops_stale_runner_not_in_pidfile(plugin_modules, monkeypatc
     assert not (agency_dir / "runner.pid").exists()
 
 
+def test_pool_wake_resolves_peer_id_from_daemon_log(plugin_modules, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    agency_dir = tmp_path / ".agency"
+    log_dir = agency_dir / "logs"
+    log_dir.mkdir(parents=True)
+    runner_log = log_dir / "runner.log"
+    runner_log.write_text("", encoding="utf-8")
+    (log_dir / "daemon.log").write_text(
+        'noise\nPEER_ID=12D3KooWDaemonPeer\n',
+        encoding="utf-8",
+    )
+
+    assert pool_tools._resolve_runner_peer_id(agency_dir, runner_log) == "12D3KooWDaemonPeer"
+
+
 def test_pool_wake_block_reason_can_disable_all_wakes(plugin_modules, monkeypatch):
     pool_tools = importlib.import_module("hermes_plugin.pool.tools")
     monkeypatch.setattr(pool_tools, "_pool_limits", lambda: (0, 512))
@@ -3276,6 +3291,54 @@ def test_incoming_task_record_as_dict_expected_keys(plugin_modules):
         "updated_at": 2.0,
         "completed_at": 3.0,
     }
+
+
+def test_incoming_recovery_fails_stale_processing_records(plugin_modules, monkeypatch):
+    asyncio = __import__("asyncio")
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    incoming_mod = importlib.import_module("hermes_plugin.incoming_queue")
+    manager = nm_mod.NodeManager()
+    manager._incoming_queue = asyncio.Queue()
+    manager._node = object()
+    stale = nm_mod.IncomingTaskRecord(
+        task_id="task-stale",
+        sender_peer_id="peer-a",
+        sender_card=None,
+        target_skill_id="",
+        message_text="stale task",
+        status="processing",
+        created_at=100.0,
+        updated_at=100.0,
+    )
+    fresh = nm_mod.IncomingTaskRecord(
+        task_id="task-fresh",
+        sender_peer_id="peer-a",
+        sender_card=None,
+        target_skill_id="",
+        message_text="fresh task",
+        status="processing",
+        created_at=950.0,
+        updated_at=950.0,
+    )
+    cfg = cfg_mod.AgencyConfig(
+        incoming=cfg_mod.IncomingConfig(handler_timeout_seconds=300)
+    )
+    monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
+    monkeypatch.setattr(incoming_mod.time, "time", lambda: 1000.0)
+    monkeypatch.setattr(
+        manager,
+        "_load_persisted_incoming_records",
+        lambda: [stale, fresh],
+    )
+
+    recovered = manager._requeue_persisted_incoming_tasks()
+
+    assert recovered == 1
+    assert stale.status == "failed"
+    assert "stale on startup" in (stale.error or "")
+    assert fresh.status == "queued"
+    assert manager._incoming_queue.qsize() == 1
 
 
 @pytest.mark.asyncio

@@ -308,6 +308,25 @@ def _extract_own_peer_id(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _resolve_runner_peer_id(agency_dir: Path, runner_log: Path) -> str | None:
+    """Resolve a just-started runner's own peer ID from all live startup logs.
+
+    The Python runner may keep runner.log empty while the child daemon writes
+    PEER_ID / agentanycastd-started lines to daemon.log. Treat both as startup
+    sources so a healthy runner is not marked failed and queued as offline.
+    """
+
+    candidates = [runner_log, agency_dir / "logs" / "daemon.log"]
+    for candidate in candidates:
+        try:
+            peer_id = _extract_own_peer_id(candidate.read_text(encoding="utf-8", errors="ignore")[-20000:])
+        except Exception:
+            peer_id = None
+        if peer_id:
+            return peer_id
+    return None
+
+
 def pool_roster(query: str = "", show_offline: bool = True) -> str:
     """Show the agency roster. Optionally filter by query."""
     roster = load_roster()
@@ -365,11 +384,14 @@ def pool_wake(name: str) -> str:
         runner_pid = _read_runner_pid(profile_dir)
         sock = agency_dir / "daemon.sock"
         if runner_pid and _pid_alive(runner_pid) and sock.exists():
-            save_roster(build_roster())
-            agent = find_agent(name)
-            peer_id = agent.get("peer_id") if agent else None
+            peer_id = _resolve_runner_peer_id(agency_dir, agency_dir / "logs" / "runner.log")
+            if not peer_id:
+                agent = find_agent(name)
+                peer_id = agent.get("peer_id") if agent else None
             update_agent_status(name, online=True, peer_id=peer_id)
-            return f"{name} is already online"
+            save_roster(build_roster())
+            suffix = f" — peer_id: {peer_id[:24]}..." if peer_id else ""
+            return f"{name} is already online{suffix}"
 
         blocked = _pool_wake_block_reason(name)
         if blocked:
@@ -406,7 +428,7 @@ def pool_wake(name: str) -> str:
         if proc.poll() is not None:
             break
         try:
-            peer_id = _extract_own_peer_id(log.read_text(encoding="utf-8", errors="ignore"))
+            peer_id = _resolve_runner_peer_id(agency_dir, log)
         except Exception:
             peer_id = None
         if peer_id and sock.exists():
@@ -425,7 +447,13 @@ def pool_wake(name: str) -> str:
         output = log.read_text(encoding="utf-8", errors="ignore")[-1000:]
     except Exception:
         pass
-    error = f"runner failed to start for {name}; pid={proc.pid}; output={output or 'no output'}"
+    daemon_output = ""
+    try:
+        daemon_output = (agency_dir / "logs" / "daemon.log").read_text(encoding="utf-8", errors="ignore")[-1000:]
+    except Exception:
+        pass
+    details = output or daemon_output or "no output"
+    error = f"runner failed to start for {name}; pid={proc.pid}; output={details}"
     record_wake_attempt(name, success=False, error=error)
     return f"Error: {error}"
 

@@ -10,11 +10,11 @@ Config schema and defaults::
       allow_remote_tasks: false   # false = safe stub; true = process according to incoming.mode
       incoming:
         mode: delegation          # template, delegation, subprocess
-        delegation_timeout: 120   # seconds before falling back to template
+        delegation_timeout: 600   # seconds allowed for delegated specialist reasoning
         max_queue_size: 100       # max queued inbound tasks before newest is rejected
         persist_queue: true       # persist incoming queue state across restarts
         queue_persistence_path: null # optional path (default: <agency.home>/incoming_queue.json)
-        handler_timeout_seconds: 300 # max seconds one incoming worker handler may run
+        handler_timeout_seconds: 900 # max seconds one incoming worker handler may run
         tool_access: safe         # safe, full, none
         max_iterations: 25        # max subagent turns
         subprocess_profile: null  # optional Hermes profile override for subprocess fallback
@@ -26,7 +26,7 @@ Config schema and defaults::
         send_progress: false      # true = send intermediate A2A progress artifacts
         conversation_ttl: 3600    # seconds to preserve A2A conversation continuity
         conversation_max_turns: 20 # max previous turns to include
-        idle_timeout_seconds: 300 # seconds a pool runner stays alive after last task
+        idle_timeout_seconds: 120 # seconds a pool runner stays alive after last task
       workspace:
         root: null                # shared workspace root (default: <root-hermes-home>/.agency/workspace)
       proactive:
@@ -283,11 +283,11 @@ class IncomingConfig:
     """Resolved incoming-task LLM processing configuration."""
 
     mode: str = "delegation"
-    delegation_timeout: int = 120
+    delegation_timeout: int = 600
     max_queue_size: int = 100
     persist_queue: bool = True
     queue_persistence_path: Path | None = None
-    handler_timeout_seconds: float = 300
+    handler_timeout_seconds: float = 900
     tool_access: str = "safe"
     max_iterations: int = 25
     subprocess_profile: str | None = None
@@ -299,7 +299,7 @@ class IncomingConfig:
     send_progress: bool = False
     conversation_ttl: int = 3600
     conversation_max_turns: int = 20
-    idle_timeout_seconds: float = 300
+    idle_timeout_seconds: float = 120
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -1235,7 +1235,7 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             "agency",
             "incoming",
             "delegation_timeout",
-            default=120,
+            default=600,
             floor=1,
         ),
         max_queue_size=_int_cfg(
@@ -1261,7 +1261,7 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             "agency",
             "incoming",
             "handler_timeout_seconds",
-            default=300,
+            default=900,
             floor=0.001,
         ),
         tool_access=tool_access,
@@ -1331,7 +1331,7 @@ def _incoming_config(config: dict[str, Any]) -> IncomingConfig:
             "agency",
             "incoming",
             "idle_timeout_seconds",
-            default=300,
+            default=120,
             floor=0,
         ),
     )

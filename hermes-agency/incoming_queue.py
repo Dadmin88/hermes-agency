@@ -349,17 +349,34 @@ class IncomingQueueMixin:
             return 0
         recovered = 0
         queued_ids = self._incoming_queued_task_ids()
+        cfg = self._nm().get_config()
+        now = time.time()
+        stale_processing_after = max(60.0, float(getattr(cfg, "incoming_handler_timeout_seconds", 300) or 300))
         for record in self._load_persisted_incoming_records():
             self._incoming_records[record.task_id] = record
             if record.task_id not in self._incoming_order:
                 self._incoming_order.append(record.task_id)
             if record.status not in _INCOMING_ACTIVE_STATUSES:
                 continue
+            interrupted_status = record.status
+            age = now - float(record.updated_at or record.created_at or now)
+            if interrupted_status == "processing" and age > stale_processing_after:
+                record.metadata = dict(record.metadata)
+                record.metadata["recovered"] = True
+                record.metadata.setdefault("interrupted_status", interrupted_status)
+                record.status = "failed"
+                record.error = (
+                    "Interrupted processing task was stale on startup "
+                    f"after {age:.0f}s; not requeued ahead of newer work"
+                )
+                record.updated_at = now
+                record.completed_at = now
+                continue
             record.metadata = dict(record.metadata)
             record.metadata["recovered"] = True
-            record.metadata.setdefault("interrupted_status", record.status)
+            record.metadata.setdefault("interrupted_status", interrupted_status)
             record.status = "queued"
-            record.updated_at = time.time()
+            record.updated_at = now
             if self._incoming_queue.full():
                 continue
             self._incoming_queue.put_nowait(
