@@ -38,6 +38,7 @@ NODE_RUNNER = Path(__file__).with_name("agency_node_runner.py")
 PLUGIN_PATH = Path(__file__).resolve().parents[1]
 STARTUP_WAIT = 90
 
+
 def _current_orchestrator_identity() -> dict[str, str] | None:
     """Return the configured local orchestrator identity, if this process is it.
 

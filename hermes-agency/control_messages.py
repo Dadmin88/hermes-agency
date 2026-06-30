@@ -24,7 +24,9 @@ async def handle_control_message(manager: Any, task: Any, message_text: str, cfg
 
     control_type = str(control_payload.get("type") or "").strip().lower()
     purpose = "handshake" if control_type == "handshake" else "control"
-    security = nm.verify_incoming_sender(task, cfg, purpose=purpose, control_payload=control_payload)
+    security = nm.verify_incoming_sender(
+        task, cfg, purpose=purpose, control_payload=control_payload
+    )
     if not security.allowed:
         try:
             await task.fail(security.reason)
