@@ -422,9 +422,7 @@ class TestAgentLifecycleE2E:
         assert result == {"ok": False, "error": expected_error}
         assert list(profiles_dir.iterdir()) == []
 
-    def test_create_agent_rejects_disabled_lifecycle(
-        self, plugin_env, tmp_path, monkeypatch
-    ):
+    def test_create_agent_rejects_disabled_lifecycle(self, plugin_env, tmp_path, monkeypatch):
         """pool_create_agent should reject when lifecycle tools are disabled."""
         pt = plugin_env.pool_tools
         monkeypatch.setattr(pt, "PROFILES", tmp_path / "profiles")
