@@ -309,6 +309,8 @@ pnpm dev
 
 This starts the API server at `http://localhost:3100`. An embedded PostgreSQL database is created automatically — no setup required.
 
+If you enable Hermes Kanban task projection in a multi-company deployment, set `FABRIC_HERMES_KANBAN_COMPANY_ID` (or the legacy alias `PAPERCLIP_HERMES_KANBAN_COMPANY_ID`) to the single company that should receive projected Hermes tasks. Without that explicit scope, Fabric leaves Hermes tasks unprojected and returns `X-Hermes-Kanban-Sync: unavailable` plus `X-Hermes-Kanban-Sync-Message` explaining that multi-company scoping is required.
+
 > **Requirements:** Node.js 20+, pnpm 9.15+
 
 <br/>

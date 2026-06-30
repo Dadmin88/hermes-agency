@@ -122,6 +122,7 @@ import { assertEnvironmentSelectionForCompany } from "./environment-selection.js
 import { executionWorkspaceService as executionWorkspaceServiceDirect } from "../services/execution-workspaces.js";
 import { feedbackService } from "../services/feedback.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
+import { hermesKanbanSyncHeaders, syncHermesKanbanIssues } from "../services/hermes-kanban-issues.js";
 import { readAcceptedPlanConfirmationTarget } from "../services/issues.js";
 import { environmentService } from "../services/environments.js";
 import { environmentRuntimeService } from "../services/environment-runtime.js";
@@ -3084,6 +3085,9 @@ export function issueRoutes(
     }
     const offset = parsedOffset ?? 0;
 
+    const hermesKanbanSync = await syncHermesKanbanIssues(db, companyId);
+    res.set(hermesKanbanSyncHeaders(hermesKanbanSync));
+
     const rawResult = await svc.list(companyId, {
       attention: attention === "blocked" ? "blocked" : undefined,
       status: req.query.status as string | string[] | undefined,
@@ -3167,6 +3171,9 @@ export function issueRoutes(
       res.status(400).json({ error: "hasPlanDocument must be true or false when provided" });
       return;
     }
+
+    const hermesKanbanSync = await syncHermesKanbanIssues(db, companyId);
+    res.set(hermesKanbanSyncHeaders(hermesKanbanSync));
 
     const blockedCountFilters = {
       attention: "blocked",
