@@ -15,6 +15,7 @@ import {
   renderPaperclipWakePrompt,
   runningProcesses,
   runChildProcess,
+  sanitizeInheritedPaperclipEnv,
   sanitizeSshRemoteEnv,
   shapePaperclipWorkspaceEnvForExecution,
   rewriteWorkspaceCwdEnvVarsForExecution,
@@ -65,6 +66,36 @@ describe("buildInvocationEnvForLogs", () => {
     expect(loggedEnv.PAPERCLIP_RESOLVED_COMMAND).toBe(
       "env OPENAI_API_KEY=***REDACTED*** PAPERCLIP_API_KEY='***REDACTED***' custom-acp --paperclip-api-key=***REDACTED*** --token ***REDACTED***",
     );
+  });
+});
+
+describe("sanitizeInheritedPaperclipEnv", () => {
+  it("drops inherited Paperclip and Fabric secrets while preserving runtime connection variables", () => {
+    expect(
+      sanitizeInheritedPaperclipEnv({
+        SAFE_VALUE: "visible",
+        PAPERCLIP_AGENT_JWT_SECRET: "paperclip-jwt-secret",
+        PAPERCLIP_SECRETS_MASTER_KEY: "paperclip-master-key",
+        PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN: "paperclip-cloud-token",
+        PAPERCLIP_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
+        PAPERCLIP_LISTEN_HOST: "127.0.0.1",
+        PAPERCLIP_LISTEN_PORT: "3100",
+        FABRIC_AGENT_JWT_SECRET: "fabric-jwt-secret",
+        FABRIC_SECRETS_MASTER_KEY: "fabric-master-key",
+        FABRIC_CLOUD_TENANT_SERVER_TOKEN: "fabric-cloud-token",
+        FABRIC_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
+        FABRIC_LISTEN_HOST: "127.0.0.1",
+        FABRIC_LISTEN_PORT: "3100",
+      }),
+    ).toEqual({
+      SAFE_VALUE: "visible",
+      PAPERCLIP_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
+      PAPERCLIP_LISTEN_HOST: "127.0.0.1",
+      PAPERCLIP_LISTEN_PORT: "3100",
+      FABRIC_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
+      FABRIC_LISTEN_HOST: "127.0.0.1",
+      FABRIC_LISTEN_PORT: "3100",
+    });
   });
 });
 
