@@ -50,15 +50,24 @@ jobs:
               echo "Pulled $(git rev-parse --short HEAD)"
             fi
 
-            # Use the freshly pulled script and force a restart because this workflow
-            # performs the bootstrap pull before invoking the shared updater.
-            FORCE_RESTART=1 bash scripts/auto-update.sh
+            echo "--- Restart gateway ---"
+            if systemctl --user list-unit-files hermes-gateway.service --no-pager | grep -q '^hermes-gateway.service'; then
+              systemctl --user --no-block restart hermes-gateway.service
+            else
+              echo "ERROR: hermes-gateway.service is not installed" >&2
+              exit 1
+            fi
+
             echo "--- Status ---"
-            for attempt in 1 2 3 4 5 6; do
+            for attempt in $(seq 1 72); do
               state=$(systemctl --user is-active hermes-gateway.service || true)
-              echo "hermes-gateway.service state: $state (attempt $attempt/6)"
+              echo "hermes-gateway.service state: $state (attempt $attempt/72)"
               if [ "$state" = "active" ]; then
                 break
+              fi
+              if [ "$state" = "failed" ]; then
+                systemctl --user status hermes-gateway.service --no-pager -l || true
+                exit 1
               fi
               sleep 5
             done
