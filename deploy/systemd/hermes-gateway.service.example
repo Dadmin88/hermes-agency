@@ -32,10 +32,11 @@ RestartForceExitStatus=75
 # --- Shutdown ---
 # KillMode=mixed sends SIGTERM to the main process and SIGKILL to children
 # (daemons, node runners). TimeoutStopSec must exceed the longest drain time;
-# active sessions can take ~50s to flush, so 210s gives comfortable headroom.
+# restart_drain_timeout defaults to 60s, so 90s gives comfortable headroom
+# for post-drain cleanup (adapter disconnect, session DB close, tool kill).
 KillMode=mixed
 KillSignal=SIGTERM
-TimeoutStopSec=210
+TimeoutStopSec=90
 
 # --- Resource limits ---
 # MemoryMax is a hard kill limit. MemoryHigh triggers reclaim before hitting it.
