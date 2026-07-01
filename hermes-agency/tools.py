@@ -978,6 +978,10 @@ POOL_TOOLS = (
         pool_roster,
         "📋",
     ),
+)
+
+
+POOL_CONTROL_TOOLS = (
     (
         "agency_wake",
         _pool_schema(

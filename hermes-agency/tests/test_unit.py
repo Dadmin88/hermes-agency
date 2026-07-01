@@ -2448,6 +2448,60 @@ def test_registered_tools_include_agency_primary_and_deprecated_a2a_aliases(
     assert "Hermes Agency" in send_schema["function"]["description"]
 
 
+def test_pool_lifecycle_tools_are_not_registered_for_non_orchestrator(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            orchestrator=cfg_mod.OrchestratorConfig(enabled=False),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: None)
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    tool_names = {tool["name"] for tool in ctx.tools}
+    assert "agency_roster" in tool_names
+    assert "agency_wake" not in tool_names
+    assert "agency_sleep" not in tool_names
+    assert "agency_pool_send" not in tool_names
+
+
+def test_pool_lifecycle_tools_are_registered_for_orchestrator(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    monkeypatch.setattr(
+        init_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(
+            enabled=True,
+            auto_start=False,
+            orchestrator=cfg_mod.OrchestratorConfig(enabled=True),
+        ),
+    )
+    monkeypatch.setattr(init_mod, "check_agency_available", lambda: True)
+    monkeypatch.setattr(init_mod.manager, "start_background", lambda: None)
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+
+    tool_names = {tool["name"] for tool in ctx.tools}
+    assert "agency_wake" in tool_names
+    assert "agency_sleep" in tool_names
+    assert "agency_pool_send" in tool_names
+    assert all(
+        tool["check_fn"] is init_mod.check_orchestrator_enabled
+        for tool in ctx.tools
+        if tool["name"] in {"agency_wake", "agency_sleep", "agency_pool_send"}
+    )
+
+
 def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
     doctor = plugin_modules.doctor
     cfg_mod = plugin_modules.config
