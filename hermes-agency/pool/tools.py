@@ -414,9 +414,25 @@ class _WakeLock:
         return False
 
 
+OWN_PEER_ID_LINE_RE = re.compile(
+    r'(?:^PEER_ID=|agentanycastd started.*"peer_id"\s*:\s*")'
+    r"(12D3KooW[0-9A-Za-z]+)",
+    re.MULTILINE,
+)
+
+
 def _extract_own_peer_id(text: str) -> str | None:
-    match = re.search(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z]+)', text, re.M)
-    return match.group(1) if match else None
+    """Extract the latest local-node startup peer ID from runner/daemon logs.
+
+    Daemon logs are append-only and may contain remote ``peer_id`` values from
+    task or discovery events. Only trust explicit own-node startup markers: the
+    plain ``PEER_ID=...`` line emitted at startup, or a JSON ``peer_id`` on an
+    ``agentanycastd started`` line. Prefer the latest marker in the checked
+    window so stale IDs earlier in the log do not poison the roster.
+    """
+
+    matches = OWN_PEER_ID_LINE_RE.findall(text)
+    return matches[-1] if matches else None
 
 
 def _resolve_runner_peer_id(agency_dir: Path, runner_log: Path) -> str | None:
