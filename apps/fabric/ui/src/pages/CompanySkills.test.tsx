@@ -3,9 +3,9 @@
 import type { ComponentProps, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import type { CompanySkillDetail, CompanySkillVersion } from "@paperclipai/shared";
+import type { CatalogSkill, CompanySkillDetail, CompanySkillListItem, CompanySkillVersion } from "@paperclipai/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SkillDetailPage, getSkillVersionDiffSelection } from "./CompanySkills";
+import { SkillDetailPage, buildDiscoveryCards, getSkillVersionDiffSelection, sourceMeta } from "./CompanySkills";
 
 vi.mock("@/lib/router", () => ({
   Link: ({ children, to, ...props }: { children: ReactNode; to: string }) => (
@@ -103,6 +103,74 @@ afterEach(() => {
   container?.remove();
   container = null;
 });
+
+
+function makeListItem(overrides: Partial<CompanySkillListItem> = {}): CompanySkillListItem {
+  return {
+    id: "skill-1",
+    companyId: "company-1",
+    key: "demo-skill",
+    slug: "demo-skill",
+    name: "Demo Skill",
+    description: "A demo skill.",
+    sourceType: "github",
+    sourceLocator: null,
+    sourceRef: null,
+    trustLevel: "markdown_only",
+    compatibility: "compatible",
+    fileInventory: [],
+    iconUrl: null,
+    color: null,
+    tagline: null,
+    authorName: null,
+    homepageUrl: null,
+    categories: [],
+    sharingScope: "private",
+    publicShareToken: null,
+    forkedFromSkillId: null,
+    forkedFromCompanyId: null,
+    starCount: 0,
+    installCount: 0,
+    forkCount: 0,
+    currentVersionId: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-02T00:00:00Z"),
+    attachedAgentCount: 0,
+    editable: false,
+    editableReason: null,
+    sourceLabel: null,
+    sourceBadge: "github",
+    sourcePath: null,
+    catalogKind: null,
+    originHash: null,
+    packageName: null,
+    packageVersion: null,
+    ...overrides,
+  };
+}
+
+function makeCatalogSkill(overrides: Partial<CatalogSkill> = {}): CatalogSkill {
+  return {
+    id: "catalog-1",
+    key: "catalog-skill",
+    kind: "optional",
+    category: "engineering",
+    slug: "catalog-skill",
+    name: "Catalog Skill",
+    description: "A catalog skill.",
+    path: "catalog/skill/SKILL.md",
+    entrypoint: "SKILL.md",
+    trustLevel: "markdown_only",
+    compatibility: "compatible",
+    defaultInstall: false,
+    recommendedForRoles: [],
+    requires: [],
+    tags: [],
+    files: [],
+    contentHash: "hash",
+    ...overrides,
+  };
+}
 
 function makeVersion(revisionNumber: number, content: string): CompanySkillVersion {
   return {
@@ -250,6 +318,47 @@ async function selectValue(select: HTMLSelectElement, value: string) {
     select.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
+
+
+describe("CompanySkills legacy provenance labels", () => {
+  it("does not rewrite external GitHub skill provenance to Hermes Agency", () => {
+    const [card] = buildDiscoveryCards([makeListItem({
+      name: "paperclip-deploy-bot",
+      authorName: "Paperclip Security Team",
+      sourceLabel: "paperclip-evil/deploy-bot",
+      sourceBadge: "github",
+    })], []);
+
+    expect(card?.name).toBe("paperclip-deploy-bot");
+    expect(card?.author).toBe("Paperclip Security Team");
+    expect(card?.sourceLabel).toBe("paperclip-evil/deploy-bot");
+    expect(sourceMeta("github", card?.sourceLabel ?? null).label).toBe("paperclip-evil/deploy-bot");
+  });
+
+  it("does not rewrite optional catalog package provenance to Hermes Agency", () => {
+    const [card] = buildDiscoveryCards([], [makeCatalogSkill({
+      name: "paperclip-capsules-plus",
+      packageName: "paperclip-capsules-plus",
+      kind: "optional",
+    })]);
+
+    expect(card?.name).toBe("paperclip-capsules-plus");
+    expect(card?.author).toBe("paperclip-capsules-plus");
+    expect(card?.sourceLabel).toBe("paperclip-capsules-plus");
+  });
+
+  it("keeps legacy branding migration for bundled catalog skills", () => {
+    const [card] = buildDiscoveryCards([], [makeCatalogSkill({
+      name: "paperclip-capsules",
+      packageName: "paperclip bundled",
+      kind: "bundled",
+    })]);
+
+    expect(card?.name).toBe("Hermes Agency capsules");
+    expect(card?.author).toBe("Hermes Agency bundled");
+    expect(card?.sourceLabel).toBe("Hermes Agency bundled");
+  });
+});
 
 describe("getSkillVersionDiffSelection", () => {
   it("selects the previous saved revision or the initial baseline for row diffs", () => {

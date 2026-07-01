@@ -203,7 +203,7 @@ function buildTree(entries: CompanySkillFileInventoryEntry[]) {
   return root.children;
 }
 
-function legacyProductLabel(value: string | null | undefined) {
+export function legacyProductLabel(value: string | null | undefined) {
   if (!value) return value ?? null;
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
@@ -227,30 +227,35 @@ function legacyProductLabel(value: string | null | undefined) {
     .replace(new RegExp(legacyTitle, "g"), "Hermes Agency");
 }
 
-function legacyProductSkillName(value: string) {
-  return legacyProductLabel(value) ?? value;
+function legacyProductSkillName(value: string, trusted = false) {
+  return trusted ? legacyProductLabel(value) ?? value : value;
 }
 
-function sourceMeta(sourceBadge: CompanySkillSourceBadge, sourceLabel: string | null) {
+function trustedLegacyProductLabel(value: string | null | undefined, trusted: boolean) {
+  if (!value) return value ?? null;
+  return trusted ? legacyProductLabel(value) : value.trim();
+}
+
+export function sourceMeta(sourceBadge: CompanySkillSourceBadge, sourceLabel: string | null) {
   const normalizedLabel = sourceLabel?.toLowerCase() ?? "";
   const isSkillsShManaged =
     normalizedLabel.includes("skills.sh") || normalizedLabel.includes("vercel-labs/skills");
 
   switch (sourceBadge) {
     case "skills_sh":
-      return { icon: VercelMark, label: legacyProductLabel(sourceLabel) ?? "skills.sh", managedLabel: "skills.sh managed" };
+      return { icon: VercelMark, label: sourceLabel?.trim() || "skills.sh", managedLabel: "skills.sh managed" };
     case "github":
       return isSkillsShManaged
-        ? { icon: VercelMark, label: legacyProductLabel(sourceLabel) ?? "skills.sh", managedLabel: "skills.sh managed" }
-        : { icon: Github, label: legacyProductLabel(sourceLabel) ?? "GitHub", managedLabel: "GitHub managed" };
+        ? { icon: VercelMark, label: sourceLabel?.trim() || "skills.sh", managedLabel: "skills.sh managed" }
+        : { icon: Github, label: sourceLabel?.trim() || "GitHub", managedLabel: "GitHub managed" };
     case "url":
-      return { icon: Link2, label: legacyProductLabel(sourceLabel) ?? "URL", managedLabel: "URL managed" };
+      return { icon: Link2, label: sourceLabel?.trim() || "URL", managedLabel: "URL managed" };
     case "local":
-      return { icon: Folder, label: legacyProductLabel(sourceLabel) ?? "Folder", managedLabel: "Folder managed" };
+      return { icon: Folder, label: sourceLabel?.trim() || "Folder", managedLabel: "Folder managed" };
     case "paperclip":
       return { icon: Boxes, label: legacyProductLabel(sourceLabel) ?? "Hermes Agency", managedLabel: "Hermes Agency managed" };
     default:
-      return { icon: Boxes, label: legacyProductLabel(sourceLabel) ?? "Catalog", managedLabel: "Catalog managed" };
+      return { icon: Boxes, label: sourceLabel?.trim() || "Catalog", managedLabel: "Catalog managed" };
   }
 }
 
@@ -689,7 +694,7 @@ function defaultSkillMarkdown(name: string, tagline: string) {
 // Merge installed company skills and the install catalog into one card model.
 // Installed skills win on dedup (they carry the richer social-proof metadata);
 // catalog-only skills fill in the rest of the discoverable surface.
-function buildDiscoveryCards(
+export function buildDiscoveryCards(
   installed: CompanySkillListItem[],
   catalog: CatalogSkill[],
 ): DiscoveryCard[] {
@@ -701,13 +706,14 @@ function buildDiscoveryCards(
     installedKeys.add(skill.key);
     const catalogMatch = catalogByKey.get(skill.key) ?? null;
     const required = skill.catalogKind === "bundled" || catalogMatch?.kind === "bundled";
+    const trustedLegacyBrand = skill.sourceBadge === "paperclip" || required;
     cards.push({
       key: skill.key,
       skillId: skill.id,
       catalogRef: catalogMatch ? catalogMatch.id : null,
-      name: legacyProductSkillName(skill.name),
+      name: legacyProductSkillName(skill.name, trustedLegacyBrand),
       slug: skill.slug,
-      author: legacyProductLabel(skill.authorName ?? skill.sourceLabel) ?? "you",
+      author: trustedLegacyProductLabel(skill.authorName ?? skill.sourceLabel, trustedLegacyBrand) ?? "you",
       version: discoveryVersionLabel(skill, required),
       tagline: skill.tagline ?? null,
       description: skill.description ?? null,
@@ -722,20 +728,21 @@ function buildDiscoveryCards(
       forkedFrom: Boolean(skill.forkedFromSkillId),
       updatedAt: new Date(skill.updatedAt).getTime() || 0,
       sourceBadge: skill.sourceBadge,
-      sourceLabel: legacyProductLabel(skill.sourceLabel),
+      sourceLabel: trustedLegacyProductLabel(skill.sourceLabel, trustedLegacyBrand),
     });
   }
 
   for (const entry of catalog) {
     if (installedKeys.has(entry.key)) continue;
     const required = entry.kind === "bundled";
+    const trustedLegacyBrand = required;
     cards.push({
       key: entry.key,
       skillId: null,
       catalogRef: entry.id,
-      name: legacyProductSkillName(entry.name),
+      name: legacyProductSkillName(entry.name, trustedLegacyBrand),
       slug: entry.slug,
-      author: legacyProductLabel(entry.packageName) ?? "Hermes Agency",
+      author: trustedLegacyProductLabel(entry.packageName, trustedLegacyBrand) ?? "Hermes Agency",
       version: discoveryVersionLabel({ packageVersion: entry.packageVersion ?? null, sourceRef: null }, required),
       tagline: null,
       description: entry.description,
@@ -750,7 +757,7 @@ function buildDiscoveryCards(
       forkedFrom: false,
       updatedAt: 0,
       sourceBadge: "catalog",
-      sourceLabel: legacyProductLabel(entry.packageName) ?? "Catalog",
+      sourceLabel: trustedLegacyProductLabel(entry.packageName, trustedLegacyBrand) ?? "Catalog",
     });
   }
 
