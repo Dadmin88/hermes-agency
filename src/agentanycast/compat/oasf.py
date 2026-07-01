@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from agentanycast.card import AgentCard, Skill
-from agentanycast.compat.a2a_v1 import card_to_a2a_json
+from agentanycast.compat.a2a_v1 import card_from_a2a_json, card_to_a2a_json
 
 # OASF module ID for A2A protocol data.
 _A2A_MODULE_ID = 3
@@ -150,8 +150,8 @@ def card_from_oasf_record(record: dict[str, Any]) -> AgentCard:
     Reconstruction strategy:
 
     1. Look for an ``a2a`` module (``id == 3`` or ``name == "a2a"``).  If
-       found, deserialize the embedded ``card_data`` via
-       :meth:`AgentCard.from_dict`.
+       found, deserialize the embedded standard A2A ``card_data`` via
+       :func:`agentanycast.compat.a2a_v1.card_from_a2a_json`.
     2. If no A2A module is present, build a card from record-level fields
        (``name``, ``description``, ``skills``, locators).
 
@@ -163,8 +163,8 @@ def card_from_oasf_record(record: dict[str, Any]) -> AgentCard:
         if module.get("name") == _A2A_MODULE_NAME or module.get("id") == _A2A_MODULE_ID:
             card_data = module.get("data", {}).get("card_data")
             if card_data and isinstance(card_data, dict):
-                card = AgentCard.from_dict(card_data)
-                # Supplement with locator info if the card_data lacked it.
+                card = card_from_a2a_json(card_data)
+                # Supplement with authoritative OASF locator routing info.
                 _apply_locators(card, record.get("locators", []))
                 return card
 
