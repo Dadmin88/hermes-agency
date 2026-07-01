@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+from typing import Any
 
 import click
 
@@ -46,9 +47,30 @@ def demo(ctx: click.Context, relay: str | None, home: str | None) -> None:
     asyncio.run(_demo(relay, home, verbose=verbose))
 
 
+def _safe_terminal_text(value: Any) -> str:
+    """Return text safe to render in a terminal.
+
+    Remote peers, registries, and HTTP bridges can control CLI output fields.
+    Strip terminal control characters so ANSI/OSC sequences are displayed as
+    inert text instead of being interpreted by the user's terminal.
+    """
+    text = str(value)
+    return "".join(
+        char
+        for char in text
+        if char in {"\n", "\t"} or (ord(char) >= 32 and not 0x80 <= ord(char) <= 0x9F)
+    )
+
+
+def _demo_terminal_echo_lines(input_text: str) -> tuple[str, str]:
+    """Format remote demo input for terminal-safe echo logging."""
+    safe_input = _safe_terminal_text(input_text)
+    return f"    Input:  {safe_input!r}", f"    Reply:  Echo: {safe_input}"
+
+
 def _cli_status(msg: str) -> None:
     """Print a status message with cyan styling."""
-    click.echo(click.style(f"  {msg}", fg="cyan"))
+    click.echo(click.style(f"  {_safe_terminal_text(msg)}", fg="cyan"))
 
 
 def _setup_verbose() -> None:
@@ -117,8 +139,9 @@ async def _demo(relay: str | None, home: str | None, *, verbose: bool = False) -
                 + f"[{task_short}...] "
                 + click.style(f"{elapsed_ms:.0f}ms", fg="green")
             )
-            click.echo(f"    Input:  {input_text!r}")
-            click.echo(click.style(f"    Reply:  Echo: {input_text}", fg="green"))
+            input_line, reply_line = _demo_terminal_echo_lines(input_text)
+            click.echo(input_line)
+            click.echo(click.style(reply_line, fg="green"))
             click.echo()
 
         try:
@@ -171,9 +194,9 @@ async def _discover(
 
         click.echo(f"Found {len(agents)} agent(s) with skill '{skill}':")
         for agent in agents:
-            click.echo(f"  PeerID: {agent['peer_id']}")
-            click.echo(f"    Name: {agent['agent_name']}")
-            click.echo(f"    Desc: {agent['agent_description']}")
+            click.echo(f"  PeerID: {_safe_terminal_text(agent['peer_id'])}")
+            click.echo(f"    Name: {_safe_terminal_text(agent['agent_name'])}")
+            click.echo(f"    Desc: {_safe_terminal_text(agent['agent_description'])}")
             click.echo()
 
 
@@ -249,7 +272,9 @@ async def _send(
         for artifact in result.artifacts:
             for part in artifact.parts:
                 if part.text:
-                    click.echo(f"  Response: {click.style(part.text, bold=True)}")
+                    click.echo(
+                        f"  Response: {click.style(_safe_terminal_text(part.text), bold=True)}"
+                    )
         click.echo()
 
 
