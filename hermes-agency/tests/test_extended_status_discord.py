@@ -25,7 +25,11 @@ def _install_stubs(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "hermes_plugin.doctor", doctor)
 
     kanban = types.ModuleType("hermes_plugin.kanban_bridge")
-    kanban.list_tasks = lambda filters=None: {"available": True, "ok": True, "tasks": []}
+    kanban.list_tasks = lambda filters=None: {
+        "available": True,
+        "ok": True,
+        "tasks": [],
+    }
     kanban.create_task = lambda **kwargs: {
         "available": True,
         "ok": True,
@@ -102,7 +106,10 @@ def test_extended_status_renderer_minimal(monkeypatch):
                     "failed": 0,
                 },
             },
-            "doctor": {"exit_code": 0, "summary": {"pass": 17, "warn": 0, "fail": 0, "na": 0}},
+            "doctor": {
+                "exit_code": 0,
+                "summary": {"pass": 17, "warn": 0, "fail": 0, "na": 0},
+            },
             "models": {
                 "ok": True,
                 "active_set": "economic",
@@ -111,12 +118,22 @@ def test_extended_status_renderer_minimal(monkeypatch):
                 "missing": 0,
             },
             "gpt_bridge": {"total": 0, "counts": {}},
-            "roster": {"ok": True, "online": 1, "total": 84, "offline": 83, "recently_seen_24h": 1},
+            "roster": {
+                "ok": True,
+                "online": 1,
+                "total": 84,
+                "offline": 83,
+                "recently_seen_24h": 1,
+            },
             "kanban": {
                 "ok": True,
                 "task_count": 1,
                 "status_counts": {"done": 1},
-                "throughput_24h": {"created": 1, "completed": 1, "failed_or_blocked_completed": 0},
+                "throughput_24h": {
+                    "created": 1,
+                    "completed": 1,
+                    "failed_or_blocked_completed": 0,
+                },
                 "departments": {
                     "Engineering": {
                         "board": "agency-engineering",
@@ -133,3 +150,76 @@ def test_extended_status_renderer_minimal(monkeypatch):
     assert "models: active=economic" in rendered
     assert "department boards" in rendered
     assert "Engineering" in rendered
+
+
+def test_discord_poll_requires_sender_allowlist(monkeypatch, tmp_path):
+    discord_intake = _load_agency_module(monkeypatch, "discord_intake")
+    monkeypatch.delenv("HERMES_AGENCY_DISCORD_ALLOWED_USER_IDS", raising=False)
+    monkeypatch.delenv("HERMES_AGENCY_DISCORD_ALLOWED_ROLE_IDS", raising=False)
+    monkeypatch.setenv("HERMES_AGENCY_DISCORD_INTAKE_STATE", str(tmp_path / "discord_state.json"))
+    monkeypatch.setattr(
+        discord_intake,
+        "fetch_recent_messages",
+        lambda limit=25: [
+            {
+                "id": "msg-1",
+                "content": "!agency task do unauthorized work",
+                "author": {"id": "user-1", "username": "mallory", "bot": False},
+            }
+        ],
+    )
+
+    result = discord_intake.poll_discord_tasks(dry_run=True)
+
+    assert result["authorization_required"] is True
+    assert result["allowed_user_count"] == 0
+    assert result["allowed_role_count"] == 0
+    assert result["queued_count"] == 0
+    assert result["skipped_count"] == 1
+
+
+def test_discord_poll_accepts_allowed_user(monkeypatch, tmp_path):
+    discord_intake = _load_agency_module(monkeypatch, "discord_intake")
+    monkeypatch.setenv("HERMES_AGENCY_DISCORD_ALLOWED_USER_IDS", "user-1")
+    monkeypatch.setenv("HERMES_AGENCY_DISCORD_INTAKE_STATE", str(tmp_path / "discord_state.json"))
+    monkeypatch.setattr(
+        discord_intake,
+        "fetch_recent_messages",
+        lambda limit=25: [
+            {
+                "id": "msg-1",
+                "content": "!agency task do authorized work",
+                "author": {"id": "user-1", "username": "alice", "bot": False},
+            }
+        ],
+    )
+
+    result = discord_intake.poll_discord_tasks(dry_run=True)
+
+    assert result["allowed_user_count"] == 1
+    assert result["queued_count"] == 1
+    assert result["queued"][0]["task_text"] == "do authorized work"
+
+
+def test_discord_poll_accepts_allowed_role(monkeypatch, tmp_path):
+    discord_intake = _load_agency_module(monkeypatch, "discord_intake")
+    monkeypatch.setenv("HERMES_AGENCY_DISCORD_ALLOWED_ROLE_IDS", "role-1")
+    monkeypatch.setenv("HERMES_AGENCY_DISCORD_INTAKE_STATE", str(tmp_path / "discord_state.json"))
+    monkeypatch.setattr(
+        discord_intake,
+        "fetch_recent_messages",
+        lambda limit=25: [
+            {
+                "id": "msg-1",
+                "content": "!agency task do role-authorized work",
+                "author": {"id": "user-2", "username": "bob", "bot": False},
+                "member": {"roles": ["role-1"]},
+            }
+        ],
+    )
+
+    result = discord_intake.poll_discord_tasks(dry_run=True)
+
+    assert result["allowed_role_count"] == 1
+    assert result["queued_count"] == 1
+    assert result["queued"][0]["task_text"] == "do role-authorized work"

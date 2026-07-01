@@ -20,6 +20,23 @@ agency:
   discord_channel_id: "123456789012345678"
 ```
 
+Required sender allowlist (at least one Discord user ID or role ID must be configured before prefixed messages are queued):
+
+```bash
+HERMES_AGENCY_DISCORD_ALLOWED_USER_IDS=<discord-user-id>[,<discord-user-id>...]
+HERMES_AGENCY_DISCORD_ALLOWED_ROLE_IDS=<discord-role-id>[,<discord-role-id>...]
+```
+
+or:
+
+```yaml
+agency:
+  discord_allowed_user_ids:
+    - "<discord-user-id>"
+  discord_allowed_role_ids:
+    - "<discord-role-id>"
+```
+
 Optional task prefix:
 
 ```bash
@@ -77,4 +94,4 @@ The bot replies to Discord with a queued task acknowledgement unless `--no-ack` 
 
 ## Notes
 
-Only messages beginning with the configured prefix are processed. Messages from bots are skipped to avoid loops. Processed message IDs are retained to prevent duplicate task creation.
+Only messages beginning with the configured prefix from an allowed Discord user ID or role ID are processed. Messages from bots are skipped to avoid loops. Treat allowed users and roles as a trusted command surface because accepted text is queued for the local orchestrator. Processed message IDs are retained to prevent duplicate task creation.

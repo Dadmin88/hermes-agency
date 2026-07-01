@@ -168,7 +168,7 @@ Discord channel intake:
 hermes-agency discord poll
 ```
 
-Discord messages beginning with `!agency` are queued for `agency-orchestrator` when intake is configured. See `docs/agency-discord-intake.md` for setup and operations.
+Discord messages beginning with `!agency` are queued for `agency-orchestrator` only from configured Discord user or role allowlists. See `docs/agency-discord-intake.md` for setup and operations.
 
 ## Model tools
 

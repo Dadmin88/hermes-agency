@@ -27,6 +27,38 @@ from .node_manager import manager
 
 STATE_FILENAME = "discord_intake_state.json"
 DEFAULT_PREFIX = "!agency"
+_ALLOWED_USER_IDS_ENV = "HERMES_AGENCY_DISCORD_ALLOWED_USER_IDS"
+_ALLOWED_ROLE_IDS_ENV = "HERMES_AGENCY_DISCORD_ALLOWED_ROLE_IDS"
+
+
+def _split_config_ids(value: Any) -> set[str]:
+    if value is None:
+        return set()
+    if isinstance(value, (list, tuple, set)):
+        items = value
+    else:
+        items = str(value).replace(";", ",").split(",")
+    return {str(item).strip() for item in items if str(item).strip()}
+
+
+def _agency_config_value(key: str) -> Any:
+    try:
+        config = __import__("hermes_cli.config", fromlist=["cfg_get", "load_config"])
+        return config.cfg_get(config.load_config(), "agency", key, default="")
+    except Exception:
+        return ""
+
+
+def discord_allowed_user_ids() -> set[str]:
+    return _split_config_ids(os.getenv(_ALLOWED_USER_IDS_ENV, "")) or _split_config_ids(
+        _agency_config_value("discord_allowed_user_ids")
+    )
+
+
+def discord_allowed_role_ids() -> set[str]:
+    return _split_config_ids(os.getenv(_ALLOWED_ROLE_IDS_ENV, "")) or _split_config_ids(
+        _agency_config_value("discord_allowed_role_ids")
+    )
 
 
 def _root_hermes_home() -> Path:
@@ -116,6 +148,23 @@ def _message_author(message: dict[str, Any]) -> str:
     return username or str(author.get("id") or "unknown")
 
 
+def _message_role_ids(message: dict[str, Any]) -> set[str]:
+    member = message.get("member") if isinstance(message.get("member"), dict) else {}
+    return _split_config_ids(member.get("roles") if isinstance(member, dict) else None)
+
+
+def _sender_authorized(
+    message: dict[str, Any], *, allowed_user_ids: set[str], allowed_role_ids: set[str]
+) -> bool:
+    if not allowed_user_ids and not allowed_role_ids:
+        return False
+    author = message.get("author") if isinstance(message.get("author"), dict) else {}
+    author_id = str(author.get("id") or "").strip()
+    if author_id and author_id in allowed_user_ids:
+        return True
+    return bool(_message_role_ids(message) & allowed_role_ids)
+
+
 def _parse_task_message(message: dict[str, Any], *, prefix: str) -> str | None:
     content = str(message.get("content") or "").strip()
     if not content.lower().startswith(prefix.lower()):
@@ -154,7 +203,7 @@ def _create_orchestrator_task(task_text: str, message: dict[str, Any]) -> dict[s
         status="active",
         metadata={
             **metadata,
-            "kanban_task_id": kanban.get("task_id") if isinstance(kanban, dict) else None,
+            "kanban_task_id": (kanban.get("task_id") if isinstance(kanban, dict) else None),
         },
     )
     return {
@@ -170,6 +219,8 @@ def poll_discord_tasks(
     *, limit: int = 25, dry_run: bool = False, ack: bool = True
 ) -> dict[str, Any]:
     prefix = discord_task_prefix()
+    allowed_user_ids = discord_allowed_user_ids()
+    allowed_role_ids = discord_allowed_role_ids()
     state = _load_state()
     processed_ids = set(str(item) for item in state.get("processed_message_ids") or [])
     try:
@@ -180,6 +231,9 @@ def poll_discord_tasks(
             "error": f"{type(exc).__name__}: {exc}",
             "dry_run": dry_run,
             "prefix": prefix,
+            "authorization_required": True,
+            "allowed_user_count": len(allowed_user_ids),
+            "allowed_role_count": len(allowed_role_ids),
             "queued_count": 0,
             "skipped_count": 0,
             "queued": [],
@@ -196,6 +250,13 @@ def poll_discord_tasks(
         author = message.get("author") if isinstance(message.get("author"), dict) else {}
         if bool(author.get("bot")):
             processed_ids.add(message_id)
+            skipped += 1
+            continue
+        if not _sender_authorized(
+            message,
+            allowed_user_ids=allowed_user_ids,
+            allowed_role_ids=allowed_role_ids,
+        ):
             skipped += 1
             continue
         task_text = _parse_task_message(message, prefix=prefix)
@@ -231,6 +292,9 @@ def poll_discord_tasks(
         "ok": True,
         "dry_run": dry_run,
         "prefix": prefix,
+        "authorization_required": True,
+        "allowed_user_count": len(allowed_user_ids),
+        "allowed_role_count": len(allowed_role_ids),
         "queued_count": len(queued),
         "skipped_count": skipped,
         "queued": queued,
@@ -243,6 +307,7 @@ def render_poll_result(payload: dict[str, Any]) -> str:
         "Discord intake poll",
         f"  ok: {payload.get('ok')}",
         f"  prefix: {payload.get('prefix')}",
+        f"  authorized users: {payload.get('allowed_user_count', 0)}; roles: {payload.get('allowed_role_count', 0)}",
         f"  queued: {payload.get('queued_count', 0)}",
         f"  skipped: {payload.get('skipped_count', 0)}",
         f"  dry_run: {payload.get('dry_run')}",
