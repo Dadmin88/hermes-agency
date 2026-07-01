@@ -56,7 +56,9 @@ def peer_id_to_did_key(peer_id: str) -> str:
 
     # Read varint length (single byte is safe: Ed25519 protobuf is 36 bytes, always < 128).
     length = raw[1]
-    proto_bytes = raw[2 : 2 + length]
+    if len(raw) != 2 + length:
+        raise ValueError("invalid PeerID identity multihash length")
+    proto_bytes = raw[2:]
 
     # Parse the minimal protobuf: field 1 (type) = Ed25519 (1), field 2 (data) = raw key.
     pubkey = _parse_libp2p_pubkey_proto(proto_bytes)
@@ -84,8 +86,11 @@ def did_key_to_peer_id(did_key: str) -> str:
     encoded = did_key[len("did:key:z") :]
     decoded = base58.b58decode(encoded)
 
-    if len(decoded) < len(_ED25519_MULTICODEC_PREFIX) + 32:
+    expected_length = len(_ED25519_MULTICODEC_PREFIX) + 32
+    if len(decoded) < expected_length:
         raise ValueError("did:key payload too short")
+    if len(decoded) > expected_length:
+        raise ValueError("invalid did:key Ed25519 public key length")
 
     prefix = decoded[: len(_ED25519_MULTICODEC_PREFIX)]
     if prefix != _ED25519_MULTICODEC_PREFIX:
@@ -129,11 +134,16 @@ def _parse_libp2p_pubkey_proto(data: bytes) -> bytes:
             if field_number == 1:
                 key_type = val
         elif wire_type == 2:  # length-delimited
+            if idx >= len(data):
+                raise ValueError("truncated protobuf length-delimited field")
             length = data[idx]
             idx += 1
+            end = idx + length
+            if end > len(data):
+                raise ValueError("truncated protobuf length-delimited field")
             if field_number == 2:
-                key_data = data[idx : idx + length]
-            idx += length
+                key_data = data[idx:end]
+            idx = end
 
     if key_type != _PROTOBUF_ED25519_TYPE:
         raise ValueError(f"unsupported key type {key_type} (expected Ed25519=1)")
@@ -145,6 +155,9 @@ def _parse_libp2p_pubkey_proto(data: bytes) -> bytes:
 
 def _encode_libp2p_pubkey_proto(pubkey: bytes) -> bytes:
     """Encode a raw Ed25519 public key as libp2p crypto.pb.PublicKey protobuf."""
+    if len(pubkey) != 32:
+        raise ValueError("invalid Ed25519 public key data")
+
     # Field 1 (KeyType=Ed25519=1): tag=0x08, value=0x01
     # Field 2 (Data): tag=0x12, length, data
     return bytes([0x08, 0x01, 0x12, len(pubkey)]) + pubkey
