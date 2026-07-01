@@ -134,3 +134,38 @@ class TestValidateAgentName:
         for name in bad_names:
             with pytest.raises((ValueError, KeyError)):
                 pool_manager._validate_agent_name(name)
+
+
+# ---------------------------------------------------------------------------
+# runner process cleanup
+# ---------------------------------------------------------------------------
+
+
+class FakeRunnerProc:
+    def __init__(self):
+        self.terminated = False
+        self.killed = False
+        self.wait_timeouts = []
+
+    def poll(self):
+        return None if not self.terminated and not self.killed else 0
+
+    def terminate(self):
+        self.terminated = True
+
+    def kill(self):
+        self.killed = True
+
+    def wait(self, timeout=None):
+        self.wait_timeouts.append(timeout)
+        return 0
+
+
+def test_terminate_runner_proc_stops_live_process(pool_manager):
+    proc = FakeRunnerProc()
+
+    pool_manager._terminate_runner_proc(proc)
+
+    assert proc.terminated is True
+    assert proc.killed is False
+    assert proc.wait_timeouts == [20]
