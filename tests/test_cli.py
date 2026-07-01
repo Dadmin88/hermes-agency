@@ -5,7 +5,7 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from agentanycast import __version__
-from agentanycast.cli.main import cli
+from agentanycast.cli.main import _safe_terminal_text, cli
 
 
 def test_cli_version() -> None:
@@ -85,3 +85,19 @@ def test_demo_help() -> None:
     result = runner.invoke(cli, ["demo", "--help"])
     assert result.exit_code == 0
     assert "echo agent" in result.output.lower()
+
+
+def test_safe_terminal_text_strips_ansi_and_osc_controls() -> None:
+    """Remote-originated terminal controls should be rendered inert."""
+    value = "agent \x1b[31mRED\x1b[0m \x1b]52;c;SGVsbG8=\x07 done"
+
+    safe = _safe_terminal_text(value)
+
+    assert "\x1b" not in safe
+    assert "\x07" not in safe
+    assert safe == "agent [31mRED[0m ]52;c;SGVsbG8= done"
+
+
+def test_safe_terminal_text_preserves_newlines_and_tabs() -> None:
+    """Legitimate multiline text remains readable after sanitization."""
+    assert _safe_terminal_text("line 1\n\tline 2") == "line 1\n\tline 2"

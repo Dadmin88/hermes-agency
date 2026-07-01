@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+from typing import Any
 
 import click
 
@@ -44,6 +45,21 @@ def demo(ctx: click.Context, relay: str | None, home: str | None) -> None:
     """Start a demo echo agent that responds to any incoming task."""
     verbose = ctx.obj.get("verbose", False)
     asyncio.run(_demo(relay, home, verbose=verbose))
+
+
+def _safe_terminal_text(value: Any) -> str:
+    """Return text safe to render in a terminal.
+
+    Remote peers, registries, and HTTP bridges can control CLI output fields.
+    Strip terminal control characters so ANSI/OSC sequences are displayed as
+    inert text instead of being interpreted by the user's terminal.
+    """
+    text = str(value)
+    return "".join(
+        char
+        for char in text
+        if char in {"\n", "\t"} or (ord(char) >= 32 and not 0x80 <= ord(char) <= 0x9F)
+    )
 
 
 def _cli_status(msg: str) -> None:
@@ -171,9 +187,9 @@ async def _discover(
 
         click.echo(f"Found {len(agents)} agent(s) with skill '{skill}':")
         for agent in agents:
-            click.echo(f"  PeerID: {agent['peer_id']}")
-            click.echo(f"    Name: {agent['agent_name']}")
-            click.echo(f"    Desc: {agent['agent_description']}")
+            click.echo(f"  PeerID: {_safe_terminal_text(agent['peer_id'])}")
+            click.echo(f"    Name: {_safe_terminal_text(agent['agent_name'])}")
+            click.echo(f"    Desc: {_safe_terminal_text(agent['agent_description'])}")
             click.echo()
 
 
@@ -249,7 +265,9 @@ async def _send(
         for artifact in result.artifacts:
             for part in artifact.parts:
                 if part.text:
-                    click.echo(f"  Response: {click.style(part.text, bold=True)}")
+                    click.echo(
+                        f"  Response: {click.style(_safe_terminal_text(part.text), bold=True)}"
+                    )
         click.echo()
 
 
