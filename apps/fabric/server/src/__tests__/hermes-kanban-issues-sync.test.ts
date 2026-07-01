@@ -21,16 +21,29 @@ const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
 const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
 
 describe("resolveHermesKanbanDbPath", () => {
-  const previous = process.env.FABRIC_HERMES_KANBAN_DB;
+  const previousFabric = process.env.FABRIC_HERMES_KANBAN_DB;
+  const previousLegacy = process.env.PAPERCLIP_HERMES_KANBAN_DB;
+  const previousUnprefixed = process.env.HERMES_KANBAN_DB;
 
   afterEach(() => {
-    if (previous === undefined) delete process.env.FABRIC_HERMES_KANBAN_DB;
-    else process.env.FABRIC_HERMES_KANBAN_DB = previous;
+    if (previousFabric === undefined) delete process.env.FABRIC_HERMES_KANBAN_DB;
+    else process.env.FABRIC_HERMES_KANBAN_DB = previousFabric;
+    if (previousLegacy === undefined) delete process.env.PAPERCLIP_HERMES_KANBAN_DB;
+    else process.env.PAPERCLIP_HERMES_KANBAN_DB = previousLegacy;
+    if (previousUnprefixed === undefined) delete process.env.HERMES_KANBAN_DB;
+    else process.env.HERMES_KANBAN_DB = previousUnprefixed;
   });
 
   it("prefers FABRIC_HERMES_KANBAN_DB when set", () => {
     process.env.FABRIC_HERMES_KANBAN_DB = "/tmp/fabric-kanban.db";
     expect(resolveHermesKanbanDbPath()).toBe("/tmp/fabric-kanban.db");
+  });
+
+  it("does not fall back to the default home-directory Hermes Kanban DB", () => {
+    delete process.env.FABRIC_HERMES_KANBAN_DB;
+    delete process.env.PAPERCLIP_HERMES_KANBAN_DB;
+    delete process.env.HERMES_KANBAN_DB;
+    expect(resolveHermesKanbanDbPath()).toBeNull();
   });
 });
 
@@ -186,6 +199,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
   let previousDbEnv: string | undefined;
   let previousCompanyEnv: string | undefined;
   let previousLegacyCompanyEnv: string | undefined;
+  let previousIncludeDetailsEnv: string | undefined;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
@@ -199,6 +213,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     previousDbEnv = process.env.FABRIC_HERMES_KANBAN_DB;
     previousCompanyEnv = process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
     previousLegacyCompanyEnv = process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
+    previousIncludeDetailsEnv = process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
   });
 
   afterEach(async () => {
@@ -208,6 +223,8 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     else process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = previousCompanyEnv;
     if (previousLegacyCompanyEnv === undefined) delete process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
     else process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID = previousLegacyCompanyEnv;
+    if (previousIncludeDetailsEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
+    else process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS = previousIncludeDetailsEnv;
     await db.delete(issueRelations);
     await db.delete(issues);
     await db.delete(companies);
@@ -273,6 +290,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     });
     tempDirs.push(dir);
     process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
 
     const sync = await syncHermesKanbanIssues(db, companyId);
     expect(sync.status).toBe("ok");
@@ -295,8 +313,10 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(projectedParent?.executionAgentNameKey).toBe("agency-fullstack-engineer");
     expect(projectedParent?.description).toContain("Hermes Kanban task: t_parent");
     expect(projectedParent?.description).toContain("Assignee: agency-fullstack-engineer");
-    expect(projectedParent?.description).toContain("Latest run summary");
-    expect(projectedChild?.description).toContain("Waiting for review");
+    expect(projectedParent?.description).not.toContain("Parent body");
+    expect(projectedParent?.description).not.toContain("/tmp/projected-parent");
+    expect(projectedParent?.description).not.toContain("Latest run summary");
+    expect(projectedChild?.description).not.toContain("Waiting for review");
     expect(projectedChild?.blockedBy?.map((entry) => entry.title)).toEqual(["Projected parent task"]);
 
     const projectedRows = await db
@@ -319,6 +339,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     });
     tempDirs.push(dir);
     process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
 
     const first = await syncHermesKanbanIssues(db, companyId);
     const second = await syncHermesKanbanIssues(db, companyId);
@@ -383,7 +404,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(unrelatedIssueList.map((issue) => issue.title)).not.toContain("Scoped task");
   });
 
-  it("reports unavailable and leaves native issues alone when multiple companies exist without projection scope", async () => {
+  it("reports unavailable and leaves native issues alone without explicit projection scope", async () => {
     const firstCompanyId = await seedCompany("First");
     const secondCompanyId = await seedCompany("Second");
     await svc.create(firstCompanyId, {
@@ -412,8 +433,8 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(sync.status).toBe("unavailable");
     expect(sync.projectedCount).toBe(0);
     expect(sync.syncedCount).toBe(0);
+    expect(sync.message).toContain("FABRIC_HERMES_KANBAN_DB");
     expect(sync.message).toContain("FABRIC_HERMES_KANBAN_COMPANY_ID");
-    expect(sync.message).toContain("PAPERCLIP_HERMES_KANBAN_COMPANY_ID");
 
     const firstProjectedRows = await db
       .select({ originId: issues.originId })
@@ -433,9 +454,38 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(secondIssueList.map((issue) => issue.title)).not.toContain("Unscoped task");
   });
 
+  it("does not project for a single company without explicit projection scope", async () => {
+    const companyId = await seedCompany();
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_single_unscoped",
+        title: "Single unscoped task",
+        status: "running",
+        priority: 95,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    delete process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
+    delete process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
+
+    const sync = await syncHermesKanbanIssues(db, companyId);
+    expect(sync.status).toBe("unavailable");
+    expect(sync.projectedCount).toBe(0);
+    expect(sync.syncedCount).toBe(0);
+
+    const projectedRows = await db
+      .select({ originId: issues.originId })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND)));
+    expect(projectedRows).toHaveLength(0);
+  });
+
   it("reports unavailable when the configured Hermes Kanban DB is missing", async () => {
     const companyId = await seedCompany();
     process.env.FABRIC_HERMES_KANBAN_DB = join(tmpdir(), `missing-${randomUUID()}.db`);
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
 
     const sync = await syncHermesKanbanIssues(db, companyId);
     expect(sync.status).toBe("unavailable");

@@ -11,8 +11,8 @@ export const HERMES_KANBAN_TASK_ORIGIN_KIND = "hermes_kanban_task";
 const HERMES_KANBAN_SYNC_HEADER = "X-Hermes-Kanban-Sync";
 const HERMES_KANBAN_SYNC_MESSAGE_HEADER = "X-Hermes-Kanban-Sync-Message";
 
-const MULTI_COMPANY_SCOPE_MESSAGE =
-  "Hermes Kanban projection requires FABRIC_HERMES_KANBAN_COMPANY_ID (or PAPERCLIP_HERMES_KANBAN_COMPANY_ID) when multiple companies exist.";
+const HERMES_KANBAN_OPT_IN_MESSAGE =
+  "Hermes Kanban projection requires explicit FABRIC_HERMES_KANBAN_DB and FABRIC_HERMES_KANBAN_COMPANY_ID (or PAPERCLIP_ aliases).";
 
 type HermesKanbanTaskRow = {
   id: string;
@@ -119,10 +119,9 @@ export function readHermesKanbanSyncStatus(headers: Headers | Pick<Headers, "get
   };
 }
 
-export function resolveHermesKanbanDbPath(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = fabricEnv("HERMES_KANBAN_DB")
-    ?? env.HERMES_KANBAN_DB
-    ?? `${homedir()}/.hermes/kanban.db`;
+export function resolveHermesKanbanDbPath(env: NodeJS.ProcessEnv = process.env): string | null {
+  const configured = fabricEnv("HERMES_KANBAN_DB") ?? env.HERMES_KANBAN_DB;
+  if (!configured) return null;
   return configured.startsWith("~/") ? `${homedir()}/${configured.slice(2)}` : configured;
 }
 
@@ -139,6 +138,16 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
   }
 
   const dbPath = resolveHermesKanbanDbPath();
+  if (!dbPath) {
+    return {
+      status: "unavailable",
+      message: HERMES_KANBAN_OPT_IN_MESSAGE,
+      syncedCount: 0,
+      projectedCount: 0,
+      dbPath: null,
+    };
+  }
+
   if (!existsSync(dbPath)) {
     return {
       status: "unavailable",
@@ -227,19 +236,13 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
   }
 }
 
-async function resolveHermesKanbanProjectionScope(db: Db, companyId: string): Promise<HermesKanbanProjectionScope> {
+async function resolveHermesKanbanProjectionScope(_db: Db, companyId: string): Promise<HermesKanbanProjectionScope> {
   const configuredCompanyId = asString(fabricEnv("HERMES_KANBAN_COMPANY_ID") ?? process.env.HERMES_KANBAN_COMPANY_ID);
-  if (configuredCompanyId) {
-    if (configuredCompanyId === companyId) return { allowed: true };
-    return { allowed: false, status: "ok", message: null };
+  if (!configuredCompanyId) {
+    return { allowed: false, status: "unavailable", message: HERMES_KANBAN_OPT_IN_MESSAGE };
   }
-
-  const companyRows = await db.select({ id: companies.id }).from(companies).limit(2);
-  if (companyRows.length === 1 && companyRows[0]?.id === companyId) {
-    return { allowed: true };
-  }
-
-  return { allowed: false, status: "unavailable", message: MULTI_COMPANY_SCOPE_MESSAGE };
+  if (configuredCompanyId === companyId) return { allowed: true };
+  return { allowed: false, status: "ok", message: null };
 }
 
 function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
@@ -474,30 +477,31 @@ async function syncProjectedIssueBlockedBy(db: Db, companyId: string, issueId: s
 
 function buildHermesKanbanIssueDescription(task: HermesKanbanSnapshotTask) {
   const sections: string[] = [];
+  const includeDetails = isHermesKanbanSensitiveProjectionEnabled();
   const body = task.body.trim();
-  if (body.length > 0) sections.push(body);
+  if (includeDetails && body.length > 0) sections.push(body);
 
   const metadataLines = [
     `Hermes Kanban task: ${task.id}`,
     `Status: ${task.status}`,
     `Priority: ${task.priority}`,
     task.assignee ? `Assignee: ${task.assignee}` : null,
-    task.workspacePath ? `Workspace: ${task.workspacePath}` : null,
-    task.tenant ? `Tenant: ${task.tenant}` : null,
+    includeDetails && task.workspacePath ? `Workspace: ${task.workspacePath}` : null,
+    includeDetails && task.tenant ? `Tenant: ${task.tenant}` : null,
     task.blockKind ? `Block kind: ${task.blockKind}` : null,
   ].filter((value): value is string => Boolean(value));
   sections.push(metadataLines.join("\n"));
 
-  if (task.blockedReason) {
+  if (includeDetails && task.blockedReason) {
     sections.push(`Latest block reason:\n${task.blockedReason}`);
   }
-  if (task.latestRunSummary) {
+  if (includeDetails && task.latestRunSummary) {
     sections.push(`Latest run summary:\n${task.latestRunSummary}`);
   }
-  if (task.latestRunError) {
+  if (includeDetails && task.latestRunError) {
     sections.push(`Latest run error:\n${task.latestRunError}`);
   }
-  if (task.result) {
+  if (includeDetails && task.result) {
     sections.push(`Task result:\n${task.result}`);
   }
 
@@ -506,6 +510,11 @@ function buildHermesKanbanIssueDescription(task: HermesKanbanSnapshotTask) {
     .filter((section) => section.length > 0)
     .join("\n\n");
   return compact.length > 0 ? compact : null;
+}
+
+function isHermesKanbanSensitiveProjectionEnabled() {
+  const configured = fabricEnv("HERMES_KANBAN_INCLUDE_DETAILS") ?? process.env.HERMES_KANBAN_INCLUDE_DETAILS;
+  return configured === "1" || configured?.toLowerCase() === "true";
 }
 
 function mapHermesKanbanTaskStatus(status: string): typeof issues.$inferInsert.status {
