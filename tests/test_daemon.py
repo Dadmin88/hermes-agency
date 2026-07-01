@@ -1,10 +1,13 @@
 """Tests for DaemonManager — pure logic only, no subprocess or network."""
 
+import asyncio
 import hashlib
 import importlib
+import os
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 import pytest
 
 from agentanycast.daemon import (
@@ -384,6 +387,43 @@ class TestStorePath:
 
 
 class TestDownloadChecksumVerification:
+    class _FakeStreamResponse:
+        def __init__(self, payload: bytes, *, status_code: int = 200):
+            self._payload = payload
+            self.status_code = status_code
+            self.headers = {"content-length": str(len(payload))}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                request = httpx.Request("GET", "https://example.invalid/daemon")
+                response = httpx.Response(self.status_code, request=request)
+                raise httpx.HTTPStatusError("download failed", request=request, response=response)
+
+        async def aiter_bytes(self, chunk_size=65536):
+            yield self._payload
+
+    class _FakeAsyncClient:
+        def __init__(self, payload: bytes, *, status_code: int = 200, **_kwargs):
+            self._payload = payload
+            self._status_code = status_code
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def stream(self, _method, _url):
+            return TestDownloadChecksumVerification._FakeStreamResponse(
+                self._payload, status_code=self._status_code
+            )
+
     def test_verify_binary_checksum_accepts_matching_sha256(self, tmp_path):
         binary = tmp_path / "agentanycastd"
         payload = b"trusted daemon binary"
@@ -433,3 +473,52 @@ class TestDownloadChecksumVerification:
         dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
         with pytest.raises(DaemonNotFoundError, match="No pinned SHA-256 checksum"):
             dm._expected_binary_checksum("linux", "amd64")
+
+    def test_download_verifies_temp_file_before_replacing_existing_binary(
+        self, tmp_path, monkeypatch
+    ):
+        existing_payload = b"existing trusted daemon"
+        malicious_payload = b"tampered daemon binary"
+        dest = tmp_path / "bin" / "agentanycastd"
+        dest.parent.mkdir()
+        dest.write_bytes(existing_payload)
+        dest.chmod(0o755)
+
+        dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
+        monkeypatch.setattr(daemon_module, "_detect_platform", lambda: ("linux", "amd64"))
+        monkeypatch.setattr(
+            daemon_module.httpx,
+            "AsyncClient",
+            lambda **kwargs: self._FakeAsyncClient(malicious_payload, **kwargs),
+        )
+
+        with patch.dict(_DAEMON_SHA256, {("9.9.9", "linux", "amd64"): "0" * 64}):
+            with pytest.raises(DaemonNotFoundError, match="checksum mismatch"):
+                asyncio.run(dm.download_binary())
+
+        assert dest.read_bytes() == existing_payload
+        assert oct(dest.stat().st_mode & 0o777) == "0o755"
+        assert not list(dest.parent.glob(".*.tmp"))
+
+    def test_download_replaces_binary_only_after_checksum_match(self, tmp_path, monkeypatch):
+        payload = b"trusted replacement daemon"
+        expected = hashlib.sha256(payload).hexdigest()
+        dest = tmp_path / "bin" / "agentanycastd"
+        dest.parent.mkdir()
+        dest.write_bytes(b"old daemon")
+
+        dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
+        monkeypatch.setattr(daemon_module, "_detect_platform", lambda: ("linux", "amd64"))
+        monkeypatch.setattr(
+            daemon_module.httpx,
+            "AsyncClient",
+            lambda **kwargs: self._FakeAsyncClient(payload, **kwargs),
+        )
+
+        with patch.dict(_DAEMON_SHA256, {("9.9.9", "linux", "amd64"): expected}):
+            result = asyncio.run(dm.download_binary())
+
+        assert result == dest
+        assert dest.read_bytes() == payload
+        assert os.access(dest, os.X_OK)
+        assert not list(dest.parent.glob(".*.tmp"))
