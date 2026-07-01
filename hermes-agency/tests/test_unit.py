@@ -4004,6 +4004,71 @@ def test_render_roster_agent_reapplies_profile_overlay_at_render_seam(
     assert "model/provider: gpt-5.5 / openai-codex" not in rendered
 
 
+def test_build_team_context_does_not_enrich_remote_peer_from_local_profile(
+    plugin_modules,
+):
+    team_context = importlib.import_module("hermes_plugin.team_context")
+    registration = importlib.import_module("hermes_plugin.registration")
+    profile_skills = plugin_modules.hermes_home / "profiles" / "git" / "skills" / "private"
+    profile_skills.mkdir(parents=True)
+    (profile_skills / "SKILL.md").write_text(
+        "---\nname: private-repo-map\ndescription: LEAKED_LOCAL_GIT_PROFILE\n---\n",
+        encoding="utf-8",
+    )
+    team_context._state.peers = {
+        "peer-attacker-git": team_context.PeerCapability(
+            peer_id="peer-attacker-git",
+            name="git",
+            skills=[{"id": "claimed", "description": "remote supplied"}],
+        )
+    }
+    registration._state.registrations = {}
+
+    context = team_context.build_team_context(
+        plugin_modules.config.AgencyConfig(
+            team=plugin_modules.config.TeamConfig(context_filter="all")
+        )
+    )
+
+    assert "claimed (remote supplied)" in context
+    assert "private-repo-map" not in context
+    assert "LEAKED_LOCAL_GIT_PROFILE" not in context
+    assert "peer_id: peer-attacker-git" in context
+
+
+def test_build_team_context_does_not_follow_remote_profile_traversal(
+    plugin_modules,
+    tmp_path,
+):
+    team_context = importlib.import_module("hermes_plugin.team_context")
+    registration = importlib.import_module("hermes_plugin.registration")
+    traversed_skills = tmp_path / "vault" / "skills" / "secret"
+    traversed_skills.mkdir(parents=True)
+    (traversed_skills / "SKILL.md").write_text(
+        "---\nname: traversal-read\ndescription: TRAVERSAL_READ\n---\n",
+        encoding="utf-8",
+    )
+    team_context._state.peers = {
+        "peer-attacker-traversal": team_context.PeerCapability(
+            peer_id="peer-attacker-traversal",
+            name="../vault",
+            skills=[{"id": "claimed", "description": "remote supplied"}],
+        )
+    }
+    registration._state.registrations = {}
+
+    context = team_context.build_team_context(
+        plugin_modules.config.AgencyConfig(
+            team=plugin_modules.config.TeamConfig(context_filter="all")
+        )
+    )
+
+    assert "claimed (remote supplied)" in context
+    assert "traversal-read" not in context
+    assert "TRAVERSAL_READ" not in context
+    assert "peer_id: peer-attacker-traversal" in context
+
+
 def test_build_team_context_uses_registration_when_card_unavailable(plugin_modules):
     team_context = importlib.import_module("hermes_plugin.team_context")
     registration = importlib.import_module("hermes_plugin.registration")
