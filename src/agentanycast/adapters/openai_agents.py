@@ -70,10 +70,10 @@ class OpenAIAgentsAdapter(BaseAdapter):
             return None
         agent = framework_obj
         name = getattr(agent, "name", None) or "OpenAI Agent"
-        instructions = getattr(agent, "instructions", None) or ""
-        # Use first sentence of instructions as skill description.
-        description = instructions.split(".")[0].strip() if instructions else name
-        skills = [Skill(id=name.lower().replace(" ", "_"), description=description)]
+        # Agent instructions often contain private system prompt material. Do not
+        # derive public discovery metadata from instructions when auto-generating
+        # a card.
+        skills = [Skill(id=name.lower().replace(" ", "_"), description=name)]
         return AgentCard(name=name, skills=skills)
 
 

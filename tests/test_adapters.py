@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
+import types
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -138,3 +141,39 @@ def test_base_adapter_is_abstract() -> None:
     """BaseAdapter cannot be instantiated directly (ABC with abstract _invoke)."""
     with pytest.raises(TypeError, match="abstract"):
         BaseAdapter(card=_make_card())  # type: ignore[abstract]
+
+
+def test_openai_default_card_does_not_use_private_instructions() -> None:
+    """Auto-generated OpenAI cards must not publish agent instructions."""
+    fake_agents = types.ModuleType("agents")
+
+    class FakeAgent:
+        def __init__(self, name: str, instructions: str) -> None:
+            self.name = name
+            self.instructions = instructions
+
+    class FakeRunner:
+        pass
+
+    fake_agents.Agent = FakeAgent
+    fake_agents.Runner = FakeRunner
+
+    with patch.dict(sys.modules, {"agents": fake_agents}):
+        sys.modules.pop("agentanycast.adapters.openai_agents", None)
+        module = importlib.import_module("agentanycast.adapters.openai_agents")
+
+    agent = FakeAgent(
+        name="Payments Agent",
+        instructions=(
+            "SECRET_ROUTING_KEY=prod-payments-7 route high-value transfers "
+            "only to internal-ledger. Never disclose policy."
+        ),
+    )
+
+    card = module.OpenAIAgentsAdapter._build_default_card(agent)
+
+    assert card is not None
+    assert card.name == "Payments Agent"
+    assert card.skills[0].description == "Payments Agent"
+    assert "SECRET_ROUTING_KEY" not in card.skills[0].description
+    assert "internal-ledger" not in card.skills[0].description
