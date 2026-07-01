@@ -2537,6 +2537,35 @@ def test_doctor_insecure_relay_warns(plugin_modules, monkeypatch):
     assert relay_check.remediation == "Use HTTPS or localhost for relay control"
 
 
+def test_doctor_rejects_insecure_inferred_relay_control_url(plugin_modules):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(
+        relay="/ip4/198.51.100.10/tcp/4001/p2p/relay-peer",
+        relay_security=cfg_mod.RelaySecurityConfig(auto_allow_team=True, token="secret-token"),
+    )
+
+    relay_check = doctor._relay_config_check(cfg)
+
+    assert relay_check.status == "fail"
+    assert relay_check.remediation == "Use HTTPS or localhost for relay control"
+    assert relay_check.details["relay"] == "/ip4/198.51.100.10/tcp/4001/p2p/relay-peer"
+    assert relay_check.details["control_url"] == "http://198.51.100.10:8083"
+
+
+def test_doctor_allows_inferred_local_relay_control_url(plugin_modules):
+    doctor = plugin_modules.doctor
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(
+        relay="/ip4/127.0.0.1/tcp/4001/p2p/relay-peer",
+        relay_security=cfg_mod.RelaySecurityConfig(auto_allow_team=True, token="secret-token"),
+    )
+
+    relay_check = doctor._relay_config_check(cfg)
+
+    assert relay_check.status == "pass"
+
+
 def test_doctor_warns_when_mcp_http_mode_detected(plugin_modules, monkeypatch):
     doctor = plugin_modules.doctor
     cfg_mod = plugin_modules.config

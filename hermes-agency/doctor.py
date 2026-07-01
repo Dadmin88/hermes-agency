@@ -23,7 +23,7 @@ from .card_builder import build_card, card_to_dict
 from .config import AgencyConfig, get_config
 from .node_manager import _registry_addresses, manager
 from .tools import check_agency_available
-from .trust import store_for_config
+from .trust import relay_control_url, store_for_config
 
 PASS = "pass"
 WARN = "warn"
@@ -250,14 +250,18 @@ def _relay_config_check(cfg: AgencyConfig) -> DoctorCheck:
             WARN,
             "No relay is configured; discovery may be limited to local/LAN transports",
         )
-    if relay.startswith(("http://", "https://")) and not _is_local_or_https(relay):
+    control_url = relay if relay.startswith(("http://", "https://")) else None
+    if cfg.relay_security.auto_allow_team and cfg.relay_security.token:
+        control_url = relay_control_url(cfg) or control_url
+    if control_url and not _is_local_or_https(control_url):
         return _check(
             "relay_config",
             "Relay config",
             FAIL,
-            f"Relay/control URL is not safe for token-bearing control traffic: {relay}",
+            f"Relay/control URL is not safe for token-bearing control traffic: {control_url}",
             "Use HTTPS or localhost for relay control",
             relay=relay,
+            control_url=control_url,
         )
     return _check(
         "relay_config", "Relay config", PASS, "Relay is configured with a safe address", relay=relay
