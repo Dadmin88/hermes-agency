@@ -5,7 +5,7 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from agentanycast import __version__
-from agentanycast.cli.main import _safe_terminal_text, cli
+from agentanycast.cli.main import _demo_terminal_echo_lines, _safe_terminal_text, cli
 
 
 def test_cli_version() -> None:
@@ -101,3 +101,17 @@ def test_safe_terminal_text_strips_ansi_and_osc_controls() -> None:
 def test_safe_terminal_text_preserves_newlines_and_tabs() -> None:
     """Legitimate multiline text remains readable after sanitization."""
     assert _safe_terminal_text("line 1\n\tline 2") == "line 1\n\tline 2"
+
+
+def test_demo_terminal_echo_lines_sanitize_remote_input() -> None:
+    """Demo task logging should not emit terminal controls from remote input."""
+    payload = "hello \x1b[31mRED\x1b[0m \x1b]52;c;SGVsbG8=\x07"
+
+    input_line, reply_line = _demo_terminal_echo_lines(payload)
+
+    assert "\x1b" not in input_line
+    assert "\x07" not in input_line
+    assert "\x1b" not in reply_line
+    assert "\x07" not in reply_line
+    assert input_line == "    Input:  'hello [31mRED[0m ]52;c;SGVsbG8='"
+    assert reply_line == "    Reply:  Echo: hello [31mRED[0m ]52;c;SGVsbG8="
