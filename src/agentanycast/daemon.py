@@ -10,6 +10,7 @@ import os
 import platform
 import shutil
 import subprocess
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
@@ -230,6 +231,7 @@ class DaemonManager:
 
         dest = self._bin_dir / f"agentanycastd{suffix}"
         self._bin_dir.mkdir(parents=True, exist_ok=True)
+        tmp_dest = dest.with_name(f".{dest.name}.{uuid.uuid4().hex}.tmp")
 
         self._emit(f"Downloading daemon (v{self._daemon_version})...")
         logger.info("Downloading daemon binary from %s", url)
@@ -240,7 +242,7 @@ class DaemonManager:
                     total = int(resp.headers.get("content-length", 0))
                     downloaded = 0
                     last_pct = -1
-                    with open(dest, "wb") as f:
+                    with open(tmp_dest, "wb") as f:
                         async for chunk in resp.aiter_bytes(chunk_size=65536):
                             f.write(chunk)
                             downloaded += len(chunk)
@@ -253,14 +255,16 @@ class DaemonManager:
                                     if milestone < 100:
                                         self._emit(f"Downloading daemon... {milestone}%")
                 if expected_sha256 is not None:
-                    self._verify_binary_checksum(dest, expected_sha256)
+                    self._verify_binary_checksum(tmp_dest, expected_sha256)
                 else:
                     logger.warning(
                         "Skipping daemon binary checksum verification for %s because "
                         "verify_checksum=False; only use this for trusted legacy releases.",
-                        dest,
+                        tmp_dest,
                     )
+                os.replace(tmp_dest, dest)
         except httpx.HTTPStatusError as e:
+            tmp_dest.unlink(missing_ok=True)
             if e.response.status_code == 404:
                 raise DaemonNotFoundError(
                     f"Daemon binary not found at {url} (HTTP 404).\n"
@@ -276,6 +280,9 @@ class DaemonManager:
             raise DaemonNotFoundError(
                 f"Failed to download daemon binary from {url}: HTTP {e.response.status_code}"
             ) from e
+        except Exception:
+            tmp_dest.unlink(missing_ok=True)
+            raise
 
         dest.chmod(0o755)
         self._emit("Daemon binary ready.")
