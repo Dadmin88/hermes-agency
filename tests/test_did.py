@@ -136,6 +136,22 @@ class TestDIDWebToUrl:
         with pytest.raises(ValueError, match="invalid did:web format"):
             did_web_to_url("did:key:zSomething")
 
+    @pytest.mark.parametrize(
+        "did",
+        [
+            "did:web:example.com%40evil.com",
+            "did:web:example.com%2Fevil.com",
+            "did:web:example.com%3Fevil.com",
+            "did:web:example.com%23evil.com",
+            "did:web:example.com:agents%2Fadmin",
+            "did:web:example.com:agents%3Fadmin",
+            "did:web:example.com:agents%23admin",
+        ],
+    )
+    def test_rejects_decoded_url_delimiters(self, did):
+        with pytest.raises(ValueError, match="invalid URL delimiter"):
+            did_web_to_url(did)
+
 
 class TestUrlToDidWeb:
     def test_domain_only(self):
@@ -157,6 +173,21 @@ class TestUrlToDidWeb:
     def test_bad_path_raises(self):
         with pytest.raises(ValueError, match="did.json"):
             url_to_did_web("https://example.com/some/random/path")
+
+    def test_rejects_userinfo(self):
+        with pytest.raises(ValueError, match="userinfo"):
+            url_to_did_web("https://example.com@evil.com/.well-known/did.json")
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://example.com/.well-known/did.json?x=1",
+            "https://example.com/.well-known/did.json#frag",
+        ],
+    )
+    def test_rejects_query_and_fragment(self, url):
+        with pytest.raises(ValueError, match="query or fragment"):
+            url_to_did_web(url)
 
 
 class TestDIDWebRoundTrip:
