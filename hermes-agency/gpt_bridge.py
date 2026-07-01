@@ -123,16 +123,51 @@ def _task_path(task_id: str) -> Path:
     return tasks_dir() / f"{safe}.json"
 
 
+def _ensure_private_dir(path: Path) -> None:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        path.chmod(0o700)
+    except OSError:
+        pass
+
+
+def _ensure_private_task_dirs(path: Path) -> None:
+    bridge = bridge_dir()
+    if path == bridge or bridge in path.parents:
+        _ensure_private_dir(bridge)
+    _ensure_private_dir(path.parent)
+
+
+def _ensure_private_file(path: Path) -> None:
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+
+
 def _atomic_write(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_private_task_dirs(path)
     tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    content = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        tmp.chmod(0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
     tmp.replace(path)
+    _ensure_private_file(path)
 
 
 def _read_task(path: Path) -> dict[str, Any]:
+    if path.exists():
+        _ensure_private_task_dirs(path)
+        _ensure_private_file(path)
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"GPT bridge task file must contain an object: {path}")
