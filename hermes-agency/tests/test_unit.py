@@ -2879,6 +2879,47 @@ def test_pool_wake_resolves_peer_id_from_daemon_log(plugin_modules, tmp_path):
     assert pool_tools._resolve_runner_peer_id(agency_dir, runner_log) == "12D3KooWDaemonPeer"
 
 
+def test_pool_wake_ignores_remote_peer_ids_in_daemon_log(plugin_modules, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    agency_dir = tmp_path / ".agency"
+    log_dir = agency_dir / "logs"
+    log_dir.mkdir(parents=True)
+    runner_log = log_dir / "runner.log"
+    runner_log.write_text("", encoding="utf-8")
+    (log_dir / "daemon.log").write_text(
+        "\n".join(
+            [
+                '{"event":"task_received","peer_id":"12D3KooWRemotePeer"}',
+                '{"event":"agentanycastd started","peer_id":"12D3KooWLocalPeer"}',
+                '{"event":"discovered","peer_id":"12D3KooWOtherRemote"}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert pool_tools._resolve_runner_peer_id(agency_dir, runner_log) == "12D3KooWLocalPeer"
+
+
+def test_pool_wake_prefers_latest_startup_peer_id(plugin_modules, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    agency_dir = tmp_path / ".agency"
+    log_dir = agency_dir / "logs"
+    log_dir.mkdir(parents=True)
+    runner_log = log_dir / "runner.log"
+    runner_log.write_text("", encoding="utf-8")
+    (log_dir / "daemon.log").write_text(
+        "\n".join(
+            [
+                "PEER_ID=12D3KooWStalePeer",
+                '{"event":"agentanycastd started","peer_id":"12D3KooWCurrentPeer"}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert pool_tools._resolve_runner_peer_id(agency_dir, runner_log) == "12D3KooWCurrentPeer"
+
+
 def test_pool_wake_block_reason_can_disable_all_wakes(plugin_modules, monkeypatch):
     pool_tools = importlib.import_module("hermes_plugin.pool.tools")
     monkeypatch.setattr(pool_tools, "_pool_wake_decision", lambda name: None)
