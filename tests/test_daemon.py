@@ -232,6 +232,77 @@ class TestExistingSocketStartup:
         assert "Daemon already running." in emitted
 
     @pytest.mark.asyncio
+    async def test_start_refuses_existing_socket_with_unknown_identity_for_requested_isolation(
+        self, tmp_path
+    ):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        dm = DaemonManager(home=tmp_path, transport="libp2p", namespace="tenant-b")
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        dm._grpc_health_check = healthy
+
+        with pytest.raises(DaemonConnectionError, match="identity is unknown") as excinfo:
+            await dm.start()
+
+        message = str(excinfo.value)
+        assert "transport='libp2p'" in message
+        assert "namespace='tenant-b'" in message
+
+    @pytest.mark.asyncio
+    async def test_start_refuses_existing_socket_with_mismatched_identity(self, tmp_path):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        (tmp_path / "daemon.identity.json").write_text(
+            '{"namespace": "tenant-a", "transport": "nats://broker:4222"}\n',
+            encoding="utf-8",
+        )
+        dm = DaemonManager(home=tmp_path, transport="libp2p", namespace="tenant-b")
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        dm._grpc_health_check = healthy
+
+        with pytest.raises(DaemonConnectionError, match="does not match") as excinfo:
+            await dm.start()
+
+        message = str(excinfo.value)
+        assert "namespace: requested 'tenant-b', existing 'tenant-a'" in message
+        assert "transport: requested 'libp2p', existing 'nats://broker:4222'" in message
+
+    @pytest.mark.asyncio
+    async def test_start_reuses_existing_socket_with_matching_identity(self, tmp_path):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        (tmp_path / "daemon.identity.json").write_text(
+            '{"namespace": "tenant-b", "transport": "libp2p"}\n', encoding="utf-8"
+        )
+        emitted = []
+        dm = DaemonManager(
+            home=tmp_path,
+            transport="libp2p",
+            namespace="tenant-b",
+            status_callback=emitted.append,
+        )
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        async def ensure_binary():  # pragma: no cover - must not be called
+            raise AssertionError("matching existing daemon should not resolve/start a binary")
+
+        dm._grpc_health_check = healthy
+        dm.ensure_binary = ensure_binary
+
+        await dm.start()
+
+        assert dm._managed is False
+        assert "Daemon already running." in emitted
+
+    @pytest.mark.asyncio
     async def test_start_removes_stale_socket_and_starts_daemon(
         self, tmp_path, monkeypatch, caplog
     ):
@@ -326,6 +397,47 @@ class TestExistingSocketStartup:
 
         cmd = popen_calls[0][0][0]
         assert f"--bootstrap-peers={relay}" in cmd
+
+    @pytest.mark.asyncio
+    async def test_start_writes_identity_for_requested_transport_and_namespace(
+        self, tmp_path, monkeypatch
+    ):
+        dm = DaemonManager(home=tmp_path, transport="libp2p", namespace="tenant-b")
+        binary = tmp_path / "agentanycastd"
+        binary.write_text("#!/bin/sh\n")
+
+        class FakeProcess:
+            returncode = None
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                return None
+
+            def wait(self, timeout=None):
+                return 0
+
+            def kill(self):
+                return None
+
+        async def ensure_binary():
+            return binary
+
+        async def wait_ready(timeout):
+            return None
+
+        dm.ensure_binary = ensure_binary
+        dm._wait_ready = wait_ready
+        monkeypatch.setattr(
+            daemon_module.subprocess, "Popen", lambda *args, **kwargs: FakeProcess()
+        )
+
+        await dm.start()
+
+        assert (tmp_path / "daemon.identity.json").read_text(encoding="utf-8") == (
+            '{"namespace": "tenant-b", "transport": "libp2p"}\n'
+        )
 
     @pytest.mark.asyncio
     async def test_permission_error_removing_stale_socket_is_actionable(
