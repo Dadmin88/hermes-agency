@@ -50,6 +50,25 @@ class TestPeerIDToDIDKey:
         with pytest.raises(ValueError):
             peer_id_to_did_key("not-a-valid-peer-id!!!")
 
+    def test_trailing_peer_id_bytes_raise(self):
+        import base58
+
+        pubkey = bytes(range(32))
+        peer_id = _make_peer_id(pubkey)
+        raw = base58.b58decode(peer_id) + b"trailing"
+        malformed = base58.b58encode(raw).decode("ascii")
+        with pytest.raises(ValueError, match="multihash length"):
+            peer_id_to_did_key(malformed)
+
+    def test_truncated_protobuf_field_raises_value_error(self):
+        import base58
+
+        # Identity multihash payload ends immediately after field 2's tag.
+        raw = bytes([0x00, 0x03, 0x08, 0x01, 0x12])
+        malformed = base58.b58encode(raw).decode("ascii")
+        with pytest.raises(ValueError, match="truncated protobuf"):
+            peer_id_to_did_key(malformed)
+
 
 class TestDIDKeyToPeerID:
     def test_valid_did_key(self):
@@ -75,6 +94,14 @@ class TestDIDKeyToPeerID:
         wrong = bytes([0x00, 0x01]) + bytes(32)
         encoded = base58.b58encode(wrong).decode("ascii")
         with pytest.raises(ValueError, match="unsupported multicodec"):
+            did_key_to_peer_id(f"did:key:z{encoded}")
+
+    def test_overlong_ed25519_key_raises(self):
+        import base58
+
+        overlong = bytes([0xED, 0x01]) + bytes(33)
+        encoded = base58.b58encode(overlong).decode("ascii")
+        with pytest.raises(ValueError, match="public key length"):
             did_key_to_peer_id(f"did:key:z{encoded}")
 
 
