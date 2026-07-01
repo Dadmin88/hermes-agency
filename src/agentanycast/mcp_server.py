@@ -52,6 +52,9 @@ _node_lock = asyncio.Lock()
 _relay: str | None = None
 _home: str | None = None
 _allow_http_bridge: bool = False
+_SEND_TASK_TIMEOUT_DEFAULT = 30.0
+_SEND_TASK_TIMEOUT_MIN = 0.1
+_SEND_TASK_TIMEOUT_MAX = 30.0
 
 
 def configure(
@@ -134,6 +137,17 @@ def _card_to_dict(card: AgentCard) -> dict[str, Any]:
     return card_dict
 
 
+def _normalize_send_task_timeout(timeout: float) -> float:
+    """Return a bounded MCP send_task wait timeout in seconds."""
+    try:
+        normalized = float(timeout)
+    except (TypeError, ValueError):
+        return _SEND_TASK_TIMEOUT_DEFAULT
+    if normalized != normalized:  # NaN
+        return _SEND_TASK_TIMEOUT_DEFAULT
+    return max(_SEND_TASK_TIMEOUT_MIN, min(normalized, _SEND_TASK_TIMEOUT_MAX))
+
+
 def _extract_text(artifacts: list[Any]) -> str:
     """Extract all text content from artifacts for the response."""
     texts = []
@@ -212,7 +226,7 @@ async def send_task(target: str, message: str, timeout: float = 30.0) -> str:
     Args:
         target: PeerID, skill name, or HTTP URL of the target agent.
         message: The message or instruction to send to the agent.
-        timeout: Maximum seconds to wait for a response (default: 30).
+        timeout: Maximum seconds to wait for a response, capped at 30 seconds.
     """
     try:
         node = await _get_node()
@@ -229,7 +243,7 @@ async def send_task(target: str, message: str, timeout: float = 30.0) -> str:
             mode = "anycast"
 
         handle = await node.send_task({"role": "user", "parts": [{"text": message}]}, **kwargs)
-        task = await handle.wait(timeout=timeout)
+        task = await handle.wait(timeout=_normalize_send_task_timeout(timeout))
 
         result: dict[str, Any] = {
             "task_id": task.task_id,
