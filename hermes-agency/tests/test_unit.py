@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import json
 import os
+import stat
 import sys
 import types
 from contextlib import contextmanager
@@ -893,9 +894,24 @@ def test_ensure_workspace_creates_shared_directories(plugin_modules, tmp_path):
     workspace = cfg_mod.ensure_workspace(cfg)
 
     assert workspace.root == workspace_root
-    assert workspace.deliverables.is_dir()
-    assert workspace.scratch.is_dir()
-    assert workspace.shared.is_dir()
+    for path in (workspace.root, workspace.deliverables, workspace.scratch, workspace.shared):
+        assert path.is_dir()
+        assert stat.S_IMODE(path.stat(follow_symlinks=False).st_mode) == 0o700
+
+
+def test_ensure_workspace_rejects_linked_workspace_paths(plugin_modules, tmp_path):
+    cfg_mod = plugin_modules.config
+    workspace_root = tmp_path / "agency-workspace"
+    target = tmp_path / "target"
+    target.mkdir()
+    workspace_root.mkdir()
+    (workspace_root / "shared").symlink_to(target, target_is_directory=True)
+    cfg = cfg_mod.AgencyConfig(workspace=cfg_mod.WorkspaceConfig(workspace_root))
+
+    with pytest.raises(OSError, match="must not be a link"):
+        cfg_mod.ensure_workspace(cfg)
+
+    assert stat.S_IMODE(target.stat(follow_symlinks=False).st_mode) != 0o700
 
 
 def test_kanban_workspace_patch_preserves_scratch_workspace_by_default(

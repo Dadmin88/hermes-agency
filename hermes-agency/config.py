@@ -93,6 +93,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
+import stat
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,6 +104,7 @@ from hermes_constants import get_hermes_home
 
 logger = logging.getLogger(__name__)
 _WARNED_EMPTY_ALLOWLIST_MIGRATION = False
+_WORKSPACE_DIR_MODE = 0o700
 
 
 @dataclass(frozen=True)
@@ -558,16 +560,40 @@ def _default_workspace_root() -> Path:
     return root_home / ".agency" / "workspace"
 
 
+def _is_link_path(path: Path) -> bool:
+    """Return True when path is a symlink or platform-specific link."""
+
+    is_junction = getattr(path, "is_junction", lambda: False)
+    return path.is_symlink() or is_junction()
+
+
+def _ensure_private_workspace_dir(path: Path) -> None:
+    """Create a workspace directory without following or chmodding links."""
+
+    if _is_link_path(path):
+        raise OSError(f"Agency workspace path must not be a link: {path}")
+
+    path.mkdir(parents=True, exist_ok=True)
+
+    if _is_link_path(path):
+        raise OSError(f"Agency workspace path must not be a link: {path}")
+
+    path.chmod(_WORKSPACE_DIR_MODE)
+    mode = stat.S_IMODE(path.stat(follow_symlinks=False).st_mode)
+    if mode != _WORKSPACE_DIR_MODE:
+        logger.debug("Agency workspace path %s mode is %s", path, oct(mode))
+
+
 def ensure_workspace(config: AgencyConfig | None = None) -> WorkspaceConfig:
     """Create and return the shared Agency workspace directories."""
 
     workspace = (config or get_config()).workspace
     for path in (workspace.root, workspace.deliverables, workspace.scratch, workspace.shared):
-        path.mkdir(parents=True, exist_ok=True)
         try:
-            path.chmod(0o775)
+            _ensure_private_workspace_dir(path)
         except OSError:
-            logger.debug("Unable to chmod Agency workspace path %s", path, exc_info=True)
+            logger.debug("Unable to secure Agency workspace path %s", path, exc_info=True)
+            raise
     return workspace
 
 
