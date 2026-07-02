@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { companies, issueRelations, issues } from "@paperclipai/db";
 import { logger } from "../middleware/logger.js";
@@ -161,10 +161,6 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
   try {
     const snapshot = readHermesKanbanSnapshot(dbPath);
     const projectedCount = snapshot.tasks.length;
-    if (snapshot.tasks.length === 0) {
-      return { status: "ok", message: null, syncedCount: 0, projectedCount, dbPath };
-    }
-
     const taskIds = snapshot.tasks.map((task) => task.id);
     const existingRows = await db
       .select({
@@ -179,6 +175,7 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
         completedAt: issues.completedAt,
         createdAt: issues.createdAt,
         updatedAt: issues.updatedAt,
+        hiddenAt: issues.hiddenAt,
         originFingerprint: issues.originFingerprint,
       })
       .from(issues)
@@ -186,12 +183,14 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
         and(
           eq(issues.companyId, companyId),
           eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND),
-          inArray(issues.originId, taskIds),
-          isNull(issues.hiddenAt),
         ),
       );
     const existingByTaskId = new Map(existingRows.map((row) => [row.originId ?? "", row]));
     const issueIdByTaskId = new Map<string, string>();
+    const currentTaskIds = new Set(taskIds);
+    const staleProjectedIssueIds = existingRows
+      .filter((row) => row.originId && !currentTaskIds.has(row.originId) && row.hiddenAt === null)
+      .map((row) => row.id);
 
     let syncedCount = 0;
     for (const task of snapshot.tasks) {
@@ -209,18 +208,24 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
       if (changed) syncedCount += 1;
     }
 
-    const childTaskIds = [...new Set(snapshot.links.map((link) => link.child_id))];
-    for (const childTaskId of childTaskIds) {
-      const childIssueId = issueIdByTaskId.get(childTaskId);
+    for (const task of snapshot.tasks) {
+      const childIssueId = issueIdByTaskId.get(task.id);
       if (!childIssueId) continue;
       const blockerIssueIds = [...new Set(
         snapshot.links
-          .filter((link) => link.child_id === childTaskId)
+          .filter((link) => link.child_id === task.id)
           .map((link) => issueIdByTaskId.get(link.parent_id) ?? null)
           .filter((value): value is string => Boolean(value)),
       )];
       const relationsChanged = await syncProjectedIssueBlockedBy(db, companyId, childIssueId, blockerIssueIds);
       if (relationsChanged) syncedCount += 1;
+    }
+
+    if (staleProjectedIssueIds.length > 0) {
+      const staleRelationsDeleted = await deleteProjectedIssueRelations(db, companyId, staleProjectedIssueIds);
+      if (staleRelationsDeleted) syncedCount += 1;
+      const staleHidden = await hideProjectedIssues(db, staleProjectedIssueIds);
+      if (staleHidden) syncedCount += 1;
     }
 
     return { status: "ok", message: null, syncedCount, projectedCount, dbPath };
@@ -416,6 +421,7 @@ async function updateProjectedIssueIfNeeded(
     completedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    hiddenAt: Date | null;
     originFingerprint: string;
   },
   seed: HermesKanbanIssueSeed,
@@ -433,6 +439,7 @@ async function updateProjectedIssueIfNeeded(
   if (existing.originFingerprint !== seed.originFingerprint) patch.originFingerprint = seed.originFingerprint;
   if (dateMs(existing.createdAt) !== dateMs(seed.createdAt)) patch.createdAt = seed.createdAt;
   if (dateMs(existing.updatedAt) !== dateMs(seed.updatedAt)) patch.updatedAt = seed.updatedAt;
+  if (existing.hiddenAt !== null) patch.hiddenAt = null;
   if (Object.keys(patch).length === 0) return false;
   await db.update(issues).set(patch).where(eq(issues.id, issueId));
   return true;
@@ -472,6 +479,38 @@ async function syncProjectedIssueBlockedBy(db: Db, companyId: string, issueId: s
       createdByUserId: null,
     })));
   }
+  return true;
+}
+
+async function deleteProjectedIssueRelations(db: Db, companyId: string, issueIds: string[]) {
+  if (issueIds.length === 0) return false;
+  const rows = await db
+    .select({ id: issueRelations.id })
+    .from(issueRelations)
+    .where(
+      and(
+        eq(issueRelations.companyId, companyId),
+        or(inArray(issueRelations.issueId, issueIds), inArray(issueRelations.relatedIssueId, issueIds)),
+      ),
+    );
+  if (rows.length === 0) return false;
+  await db.delete(issueRelations).where(
+    and(
+      eq(issueRelations.companyId, companyId),
+      or(inArray(issueRelations.issueId, issueIds), inArray(issueRelations.relatedIssueId, issueIds)),
+    ),
+  );
+  return true;
+}
+
+async function hideProjectedIssues(db: Db, issueIds: string[]) {
+  if (issueIds.length === 0) return false;
+  const rows = await db.select({ id: issues.id }).from(issues).where(and(inArray(issues.id, issueIds), isNull(issues.hiddenAt)));
+  if (rows.length === 0) return false;
+  const hiddenAt = new Date();
+  await db.update(issues)
+    .set({ hiddenAt, updatedAt: hiddenAt })
+    .where(and(inArray(issues.id, issueIds), isNull(issues.hiddenAt)));
   return true;
 }
 
