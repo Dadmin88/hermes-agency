@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from urllib.parse import quote as _pct_encode
 from urllib.parse import unquote as _pct_decode
+from urllib.parse import urlsplit as _urlsplit
 
 import base58
 
@@ -56,7 +57,9 @@ def peer_id_to_did_key(peer_id: str) -> str:
 
     # Read varint length (single byte is safe: Ed25519 protobuf is 36 bytes, always < 128).
     length = raw[1]
-    proto_bytes = raw[2 : 2 + length]
+    if len(raw) != 2 + length:
+        raise ValueError("invalid PeerID identity multihash length")
+    proto_bytes = raw[2:]
 
     # Parse the minimal protobuf: field 1 (type) = Ed25519 (1), field 2 (data) = raw key.
     pubkey = _parse_libp2p_pubkey_proto(proto_bytes)
@@ -84,8 +87,11 @@ def did_key_to_peer_id(did_key: str) -> str:
     encoded = did_key[len("did:key:z") :]
     decoded = base58.b58decode(encoded)
 
-    if len(decoded) < len(_ED25519_MULTICODEC_PREFIX) + 32:
+    expected_length = len(_ED25519_MULTICODEC_PREFIX) + 32
+    if len(decoded) < expected_length:
         raise ValueError("did:key payload too short")
+    if len(decoded) > expected_length:
+        raise ValueError("invalid did:key Ed25519 public key length")
 
     prefix = decoded[: len(_ED25519_MULTICODEC_PREFIX)]
     if prefix != _ED25519_MULTICODEC_PREFIX:
@@ -129,11 +135,16 @@ def _parse_libp2p_pubkey_proto(data: bytes) -> bytes:
             if field_number == 1:
                 key_type = val
         elif wire_type == 2:  # length-delimited
+            if idx >= len(data):
+                raise ValueError("truncated protobuf length-delimited field")
             length = data[idx]
             idx += 1
+            end = idx + length
+            if end > len(data):
+                raise ValueError("truncated protobuf length-delimited field")
             if field_number == 2:
-                key_data = data[idx : idx + length]
-            idx += length
+                key_data = data[idx:end]
+            idx = end
 
     if key_type != _PROTOBUF_ED25519_TYPE:
         raise ValueError(f"unsupported key type {key_type} (expected Ed25519=1)")
@@ -145,9 +156,20 @@ def _parse_libp2p_pubkey_proto(data: bytes) -> bytes:
 
 def _encode_libp2p_pubkey_proto(pubkey: bytes) -> bytes:
     """Encode a raw Ed25519 public key as libp2p crypto.pb.PublicKey protobuf."""
+    if len(pubkey) != 32:
+        raise ValueError("invalid Ed25519 public key data")
+
     # Field 1 (KeyType=Ed25519=1): tag=0x08, value=0x01
     # Field 2 (Data): tag=0x12, length, data
     return bytes([0x08, 0x01, 0x12, len(pubkey)]) + pubkey
+
+
+def _reject_decoded_delimiters(value: str, delimiters: str, *, component: str) -> None:
+    """Reject decoded URL delimiters that would change URL structure."""
+    if any(ch in value for ch in delimiters):
+        raise ValueError(f"did:web {component} contains invalid URL delimiter")
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        raise ValueError(f"did:web {component} contains invalid control character")
 
 
 # ── did:web helpers ──────────────────────────────────────────────────
@@ -187,13 +209,17 @@ def did_web_to_url(did_web: str) -> str:
     domain = _pct_decode(parts[0])
     if not domain:
         raise ValueError("did:web identifier has empty domain")
+    _reject_decoded_delimiters(domain, "/?#@", component="domain")
 
     if len(parts) == 1:
         # Domain-only → /.well-known/did.json
         return f"https://{domain}/.well-known/did.json"
 
     # Additional segments form the path, each percent-decoded.
-    path = "/".join(_pct_decode(p) for p in parts[1:])
+    decoded_segments = [_pct_decode(p) for p in parts[1:]]
+    for segment in decoded_segments:
+        _reject_decoded_delimiters(segment, "/?#", component="path segment")
+    path = "/".join(decoded_segments)
     return f"https://{domain}/{path}/did.json"
 
 
@@ -213,19 +239,18 @@ def url_to_did_web(url: str) -> str:
     Raises:
         ValueError: If the URL is not a valid ``did:web`` resolution URL.
     """
-    if not url.startswith("https://"):
+    parsed = _urlsplit(url)
+    if parsed.scheme != "https":
         raise ValueError(f"did:web URLs must use HTTPS: {url}")
-
-    # Strip scheme.
-    rest = url[len("https://") :]
-
-    # Split domain and path.
-    slash_idx = rest.find("/")
-    if slash_idx == -1:
+    if not parsed.netloc or not parsed.path:
         raise ValueError(f"URL missing path component: {url}")
+    if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc:
+        raise ValueError(f"did:web URLs must not include userinfo: {url}")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"did:web URLs must not include query or fragment: {url}")
 
-    domain = rest[:slash_idx]
-    path = rest[slash_idx + 1 :]
+    domain = parsed.netloc
+    path = parsed.path[1:]
 
     # Percent-encode the domain (colons in port become %3A).
     encoded_domain = _pct_encode(domain, safe="")

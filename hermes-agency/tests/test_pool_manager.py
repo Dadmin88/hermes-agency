@@ -12,6 +12,10 @@ POOL_DIR = str(Path(__file__).resolve().parents[1] / "pool")
 if POOL_DIR not in sys.path:
     sys.path.insert(0, POOL_DIR)
 
+from manager import PoolManager  # noqa: E402
+
+ORIGINAL_WAKE = PoolManager.wake
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -134,6 +138,37 @@ class TestValidateAgentName:
         for name in bad_names:
             with pytest.raises((ValueError, KeyError)):
                 pool_manager._validate_agent_name(name)
+
+
+# ---------------------------------------------------------------------------
+# wake
+# ---------------------------------------------------------------------------
+
+
+class TestWake:
+    def test_wake_preserves_registry_entries(self, pool_manager):
+        """Waking an agent must not remove it from pool discovery metadata."""
+        target = "agency-backend-engineer"
+        before_agents = list(pool_manager.registry["agents"])
+
+        with (
+            patch.object(pool_manager, "_is_agent_disabled", return_value=False),
+            patch.object(pool_manager, "_effective_max_agents", return_value=10),
+            patch.object(pool_manager, "_ensure_profile"),
+            patch.object(pool_manager, "_start_cli_node", return_value=(None, "", False)),
+            patch.object(
+                pool_manager,
+                "_start_runner_node",
+                return_value=("12D3KooWfakebackendengineer", None, ""),
+            ),
+            patch.object(pool_manager, "_record_roster_wake"),
+        ):
+            peer_id = ORIGINAL_WAKE(pool_manager, target)
+
+        assert peer_id == "12D3KooWfakebackendengineer"
+        assert pool_manager.registry["agents"] == before_agents
+        assert any(agent.get("name") == target for agent in pool_manager.registry["agents"])
+        assert target in pool_manager.active
 
 
 # ---------------------------------------------------------------------------

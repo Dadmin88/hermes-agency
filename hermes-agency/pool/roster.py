@@ -493,18 +493,19 @@ def _read_peer_id(name: str) -> str | None:
             continue
         try:
             text = log.read_text(encoding="utf-8", errors="ignore")[-50000:]
-            matches: list[str] = []
-            for pattern in (
-                r'"peer_id"\s*:\s*"(12D3KooW[^"]+)"',
-                r"^PEER_ID=(12D3KooW\S+)",
-            ):
-                matches.extend(re.findall(pattern, text, re.MULTILINE))
+            matches = list(
+                re.finditer(
+                    r'"peer_id"\s*:\s*"(12D3KooW[^"]+)"|^PEER_ID=(12D3KooW\S+)',
+                    text,
+                    re.MULTILINE,
+                )
+            )
             if matches:
                 # Daemon logs are append-only across restarts.  Use the latest
                 # observed peer id, not the first historical one, or roster
                 # overlays can assign stale peer ids to profiles after keys are
                 # regenerated or runners are restarted.
-                return matches[-1]
+                return next(group for group in matches[-1].groups() if group)
         except Exception:
             pass
     return None

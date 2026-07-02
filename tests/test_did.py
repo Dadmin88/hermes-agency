@@ -50,6 +50,25 @@ class TestPeerIDToDIDKey:
         with pytest.raises(ValueError):
             peer_id_to_did_key("not-a-valid-peer-id!!!")
 
+    def test_trailing_peer_id_bytes_raise(self):
+        import base58
+
+        pubkey = bytes(range(32))
+        peer_id = _make_peer_id(pubkey)
+        raw = base58.b58decode(peer_id) + b"trailing"
+        malformed = base58.b58encode(raw).decode("ascii")
+        with pytest.raises(ValueError, match="multihash length"):
+            peer_id_to_did_key(malformed)
+
+    def test_truncated_protobuf_field_raises_value_error(self):
+        import base58
+
+        # Identity multihash payload ends immediately after field 2's tag.
+        raw = bytes([0x00, 0x03, 0x08, 0x01, 0x12])
+        malformed = base58.b58encode(raw).decode("ascii")
+        with pytest.raises(ValueError, match="truncated protobuf"):
+            peer_id_to_did_key(malformed)
+
 
 class TestDIDKeyToPeerID:
     def test_valid_did_key(self):
@@ -75,6 +94,14 @@ class TestDIDKeyToPeerID:
         wrong = bytes([0x00, 0x01]) + bytes(32)
         encoded = base58.b58encode(wrong).decode("ascii")
         with pytest.raises(ValueError, match="unsupported multicodec"):
+            did_key_to_peer_id(f"did:key:z{encoded}")
+
+    def test_overlong_ed25519_key_raises(self):
+        import base58
+
+        overlong = bytes([0xED, 0x01]) + bytes(33)
+        encoded = base58.b58encode(overlong).decode("ascii")
+        with pytest.raises(ValueError, match="public key length"):
             did_key_to_peer_id(f"did:key:z{encoded}")
 
 
@@ -136,6 +163,22 @@ class TestDIDWebToUrl:
         with pytest.raises(ValueError, match="invalid did:web format"):
             did_web_to_url("did:key:zSomething")
 
+    @pytest.mark.parametrize(
+        "did",
+        [
+            "did:web:example.com%40evil.com",
+            "did:web:example.com%2Fevil.com",
+            "did:web:example.com%3Fevil.com",
+            "did:web:example.com%23evil.com",
+            "did:web:example.com:agents%2Fadmin",
+            "did:web:example.com:agents%3Fadmin",
+            "did:web:example.com:agents%23admin",
+        ],
+    )
+    def test_rejects_decoded_url_delimiters(self, did):
+        with pytest.raises(ValueError, match="invalid URL delimiter"):
+            did_web_to_url(did)
+
 
 class TestUrlToDidWeb:
     def test_domain_only(self):
@@ -157,6 +200,21 @@ class TestUrlToDidWeb:
     def test_bad_path_raises(self):
         with pytest.raises(ValueError, match="did.json"):
             url_to_did_web("https://example.com/some/random/path")
+
+    def test_rejects_userinfo(self):
+        with pytest.raises(ValueError, match="userinfo"):
+            url_to_did_web("https://example.com@evil.com/.well-known/did.json")
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://example.com/.well-known/did.json?x=1",
+            "https://example.com/.well-known/did.json#frag",
+        ],
+    )
+    def test_rejects_query_and_fragment(self, url):
+        with pytest.raises(ValueError, match="query or fragment"):
+            url_to_did_web(url)
 
 
 class TestDIDWebRoundTrip:

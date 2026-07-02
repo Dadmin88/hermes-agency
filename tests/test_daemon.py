@@ -1,10 +1,13 @@
 """Tests for DaemonManager — pure logic only, no subprocess or network."""
 
+import asyncio
 import hashlib
 import importlib
+import os
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 import pytest
 
 from agentanycast.daemon import (
@@ -229,6 +232,77 @@ class TestExistingSocketStartup:
         assert "Daemon already running." in emitted
 
     @pytest.mark.asyncio
+    async def test_start_refuses_existing_socket_with_unknown_identity_for_requested_isolation(
+        self, tmp_path
+    ):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        dm = DaemonManager(home=tmp_path, transport="libp2p", namespace="tenant-b")
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        dm._grpc_health_check = healthy
+
+        with pytest.raises(DaemonConnectionError, match="identity is unknown") as excinfo:
+            await dm.start()
+
+        message = str(excinfo.value)
+        assert "transport='libp2p'" in message
+        assert "namespace='tenant-b'" in message
+
+    @pytest.mark.asyncio
+    async def test_start_refuses_existing_socket_with_mismatched_identity(self, tmp_path):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        (tmp_path / "daemon.identity.json").write_text(
+            '{"namespace": "tenant-a", "transport": "nats://broker:4222"}\n',
+            encoding="utf-8",
+        )
+        dm = DaemonManager(home=tmp_path, transport="libp2p", namespace="tenant-b")
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        dm._grpc_health_check = healthy
+
+        with pytest.raises(DaemonConnectionError, match="does not match") as excinfo:
+            await dm.start()
+
+        message = str(excinfo.value)
+        assert "namespace: requested 'tenant-b', existing 'tenant-a'" in message
+        assert "transport: requested 'libp2p', existing 'nats://broker:4222'" in message
+
+    @pytest.mark.asyncio
+    async def test_start_reuses_existing_socket_with_matching_identity(self, tmp_path):
+        sock = tmp_path / "daemon.sock"
+        sock.touch()
+        (tmp_path / "daemon.identity.json").write_text(
+            '{"namespace": "tenant-b", "transport": "libp2p"}\n', encoding="utf-8"
+        )
+        emitted = []
+        dm = DaemonManager(
+            home=tmp_path,
+            transport="libp2p",
+            namespace="tenant-b",
+            status_callback=emitted.append,
+        )
+
+        async def healthy(*, timeout=2.0, raise_on_timeout=False):
+            return True
+
+        async def ensure_binary():  # pragma: no cover - must not be called
+            raise AssertionError("matching existing daemon should not resolve/start a binary")
+
+        dm._grpc_health_check = healthy
+        dm.ensure_binary = ensure_binary
+
+        await dm.start()
+
+        assert dm._managed is False
+        assert "Daemon already running." in emitted
+
+    @pytest.mark.asyncio
     async def test_start_removes_stale_socket_and_starts_daemon(
         self, tmp_path, monkeypatch, caplog
     ):
@@ -325,6 +399,47 @@ class TestExistingSocketStartup:
         assert f"--bootstrap-peers={relay}" in cmd
 
     @pytest.mark.asyncio
+    async def test_start_writes_identity_for_requested_transport_and_namespace(
+        self, tmp_path, monkeypatch
+    ):
+        dm = DaemonManager(home=tmp_path, transport="libp2p", namespace="tenant-b")
+        binary = tmp_path / "agentanycastd"
+        binary.write_text("#!/bin/sh\n")
+
+        class FakeProcess:
+            returncode = None
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                return None
+
+            def wait(self, timeout=None):
+                return 0
+
+            def kill(self):
+                return None
+
+        async def ensure_binary():
+            return binary
+
+        async def wait_ready(timeout):
+            return None
+
+        dm.ensure_binary = ensure_binary
+        dm._wait_ready = wait_ready
+        monkeypatch.setattr(
+            daemon_module.subprocess, "Popen", lambda *args, **kwargs: FakeProcess()
+        )
+
+        await dm.start()
+
+        assert (tmp_path / "daemon.identity.json").read_text(encoding="utf-8") == (
+            '{"namespace": "tenant-b", "transport": "libp2p"}\n'
+        )
+
+    @pytest.mark.asyncio
     async def test_permission_error_removing_stale_socket_is_actionable(
         self, tmp_path, monkeypatch
     ):
@@ -384,6 +499,43 @@ class TestStorePath:
 
 
 class TestDownloadChecksumVerification:
+    class _FakeStreamResponse:
+        def __init__(self, payload: bytes, *, status_code: int = 200):
+            self._payload = payload
+            self.status_code = status_code
+            self.headers = {"content-length": str(len(payload))}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                request = httpx.Request("GET", "https://example.invalid/daemon")
+                response = httpx.Response(self.status_code, request=request)
+                raise httpx.HTTPStatusError("download failed", request=request, response=response)
+
+        async def aiter_bytes(self, chunk_size=65536):
+            yield self._payload
+
+    class _FakeAsyncClient:
+        def __init__(self, payload: bytes, *, status_code: int = 200, **_kwargs):
+            self._payload = payload
+            self._status_code = status_code
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def stream(self, _method, _url):
+            return TestDownloadChecksumVerification._FakeStreamResponse(
+                self._payload, status_code=self._status_code
+            )
+
     def test_verify_binary_checksum_accepts_matching_sha256(self, tmp_path):
         binary = tmp_path / "agentanycastd"
         payload = b"trusted daemon binary"
@@ -433,3 +585,52 @@ class TestDownloadChecksumVerification:
         dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
         with pytest.raises(DaemonNotFoundError, match="No pinned SHA-256 checksum"):
             dm._expected_binary_checksum("linux", "amd64")
+
+    def test_download_verifies_temp_file_before_replacing_existing_binary(
+        self, tmp_path, monkeypatch
+    ):
+        existing_payload = b"existing trusted daemon"
+        malicious_payload = b"tampered daemon binary"
+        dest = tmp_path / "bin" / "agentanycastd"
+        dest.parent.mkdir()
+        dest.write_bytes(existing_payload)
+        dest.chmod(0o755)
+
+        dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
+        monkeypatch.setattr(daemon_module, "_detect_platform", lambda: ("linux", "amd64"))
+        monkeypatch.setattr(
+            daemon_module.httpx,
+            "AsyncClient",
+            lambda **kwargs: self._FakeAsyncClient(malicious_payload, **kwargs),
+        )
+
+        with patch.dict(_DAEMON_SHA256, {("9.9.9", "linux", "amd64"): "0" * 64}):
+            with pytest.raises(DaemonNotFoundError, match="checksum mismatch"):
+                asyncio.run(dm.download_binary())
+
+        assert dest.read_bytes() == existing_payload
+        assert oct(dest.stat().st_mode & 0o777) == "0o755"
+        assert not list(dest.parent.glob(".*.tmp"))
+
+    def test_download_replaces_binary_only_after_checksum_match(self, tmp_path, monkeypatch):
+        payload = b"trusted replacement daemon"
+        expected = hashlib.sha256(payload).hexdigest()
+        dest = tmp_path / "bin" / "agentanycastd"
+        dest.parent.mkdir()
+        dest.write_bytes(b"old daemon")
+
+        dm = DaemonManager(home=tmp_path, daemon_version="9.9.9")
+        monkeypatch.setattr(daemon_module, "_detect_platform", lambda: ("linux", "amd64"))
+        monkeypatch.setattr(
+            daemon_module.httpx,
+            "AsyncClient",
+            lambda **kwargs: self._FakeAsyncClient(payload, **kwargs),
+        )
+
+        with patch.dict(_DAEMON_SHA256, {("9.9.9", "linux", "amd64"): expected}):
+            result = asyncio.run(dm.download_binary())
+
+        assert result == dest
+        assert dest.read_bytes() == payload
+        assert os.access(dest, os.X_OK)
+        assert not list(dest.parent.glob(".*.tmp"))

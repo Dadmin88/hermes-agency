@@ -197,3 +197,41 @@ def test_create_starter_skills_includes_custom_skills():
         )
         assert (profile_dir / "skills" / "kubernetes" / "SKILL.md").exists()
         assert (profile_dir / "skills" / "terraform" / "SKILL.md").exists()
+
+
+def test_create_starter_skills_rejects_path_traversal_custom_skills():
+    """_create_starter_skills should keep custom skill writes inside profile skills."""
+    import importlib.util
+    import tempfile
+    from pathlib import Path
+
+    plugin_dir = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "pool_tools_custom_security", plugin_dir / "pool" / "tools.py"
+    )
+    assert spec is not None
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return
+
+    if not hasattr(mod, "_create_starter_skills"):
+        return
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        profile_dir = root / "profiles" / "agency-attacker"
+        victim_dir = root / "profiles" / "agency-victim" / "skills" / "injected"
+        absolute_target = root / "absolute-target"
+
+        mod._create_starter_skills(
+            profile_dir,
+            "agency-attacker",
+            "Engineering",
+            ["../../agency-victim/skills/injected", str(absolute_target)],
+        )
+
+        assert not (victim_dir / "SKILL.md").exists()
+        assert not (absolute_target / "SKILL.md").exists()

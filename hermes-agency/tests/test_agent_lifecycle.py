@@ -89,6 +89,22 @@ def test_agent_created_by_default(mock_hermes, monkeypatch):
     assert roster.agent_created_by("agency-unknown") == "default_staff"
 
 
+def test_read_peer_id_uses_latest_log_position_for_mixed_formats(mock_hermes, monkeypatch):
+    roster = _import_roster(monkeypatch, mock_hermes)
+    profile = mock_hermes / "profiles" / "agency-test-agent"
+    log_dir = profile / ".agency" / "logs"
+    log_dir.mkdir(parents=True)
+    old_peer = "12D3KooWOLDSTALE111111111111111111111111"
+    new_peer = "12D3KooWNEWCURRENT2222222222222222222222"
+    (log_dir / "daemon.log").write_text(
+        f"starting old daemon\nPEER_ID={old_peer}\n"
+        f'restarted current daemon\n{{"peer_id":"{new_peer}"}}\n',
+        encoding="utf-8",
+    )
+
+    assert roster._read_peer_id("agency-test-agent") == new_peer
+
+
 def test_set_agent_created_by(mock_hermes, monkeypatch):
     roster = _import_roster(monkeypatch, mock_hermes)
     roster.set_agent_created_by("agency-custom", "lifecycle")

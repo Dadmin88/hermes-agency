@@ -112,3 +112,52 @@ class TestHTTPBridgeExplicitAllow:
         result = asyncio.run(mcp_server.send_task("http://example.com/a2a", "hello"))
         # Should NOT contain the "disabled" error
         assert "HTTP bridge targets are disabled" not in result
+
+
+class _RecordingHandle:
+    def __init__(self):
+        self.wait_timeout = None
+
+    async def wait(self, timeout=None):
+        self.wait_timeout = timeout
+        raise RuntimeError("stop after recording timeout")
+
+
+class _FakeNode:
+    def __init__(self):
+        self.handle = _RecordingHandle()
+
+    async def send_task(self, *args, **kwargs):
+        return self.handle
+
+
+class TestSendTaskTimeoutBounds:
+    def test_send_task_caps_large_client_timeout(self, monkeypatch):
+        """Client-provided timeouts must not exceed the server-side cap."""
+        node = _FakeNode()
+
+        async def fake_get_node():
+            return node
+
+        monkeypatch.setattr(mcp_server, "_get_node", fake_get_node)
+
+        import asyncio
+
+        asyncio.run(mcp_server.send_task("translate", "hello", timeout=999999.0))
+
+        assert node.handle.wait_timeout == 30.0
+
+    def test_send_task_normalizes_invalid_timeout_to_default(self, monkeypatch):
+        """Invalid numeric values fall back to the default bounded timeout."""
+        node = _FakeNode()
+
+        async def fake_get_node():
+            return node
+
+        monkeypatch.setattr(mcp_server, "_get_node", fake_get_node)
+
+        import asyncio
+
+        asyncio.run(mcp_server.send_task("translate", "hello", timeout=float("nan")))
+
+        assert node.handle.wait_timeout == 30.0

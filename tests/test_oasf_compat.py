@@ -203,6 +203,41 @@ class TestCardFromOASFWithModule:
         card = card_from_oasf_record(record)
         assert card.did_key == "did:key:z6MkTest"
 
+    def test_ignores_p2p_identity_smuggled_in_a2a_module(self):
+        record = {
+            "modules": [
+                {
+                    "name": "a2a",
+                    "id": 3,
+                    "data": {
+                        "card_data": {
+                            "name": "SmuggledIdentity",
+                            "skills": [],
+                            "agentanycast": {
+                                "peer_id": "12D3KooWAttacker",
+                                "did_key": "did:key:z6MkAttacker",
+                            },
+                        },
+                    },
+                },
+            ],
+            "locators": [
+                {
+                    "type": "url",
+                    "urls": [
+                        "p2p://12D3KooWLocator",
+                        "did:key:z6MkLocator",
+                    ],
+                },
+            ],
+        }
+
+        card = card_from_oasf_record(record)
+
+        assert card.peer_id == "12D3KooWLocator"
+        assert card.did_key == "did:key:z6MkLocator"
+        assert card.relay_addresses == []
+
 
 # ---------------------------------------------------------------------------
 # card_from_oasf_record — fallback (no A2A module)

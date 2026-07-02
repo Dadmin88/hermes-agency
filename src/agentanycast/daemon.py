@@ -5,11 +5,13 @@ from __future__ import annotations
 import asyncio
 import atexit
 import hashlib
+import json
 import logging
 import os
 import platform
 import shutil
 import subprocess
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
@@ -119,6 +121,7 @@ class DaemonManager:
         self._namespace = namespace
         self._store_path = str(self._base / "data")
         self._config_path = self._base / "daemon.toml" if self._uses_custom_home else None
+        self._identity_path = self._base / "daemon.identity.json"
         self._process: subprocess.Popen[bytes] | None = None
         self._managed = False  # True if we started the daemon
         self._status_callback = status_callback
@@ -230,6 +233,7 @@ class DaemonManager:
 
         dest = self._bin_dir / f"agentanycastd{suffix}"
         self._bin_dir.mkdir(parents=True, exist_ok=True)
+        tmp_dest = dest.with_name(f".{dest.name}.{uuid.uuid4().hex}.tmp")
 
         self._emit(f"Downloading daemon (v{self._daemon_version})...")
         logger.info("Downloading daemon binary from %s", url)
@@ -240,7 +244,7 @@ class DaemonManager:
                     total = int(resp.headers.get("content-length", 0))
                     downloaded = 0
                     last_pct = -1
-                    with open(dest, "wb") as f:
+                    with open(tmp_dest, "wb") as f:
                         async for chunk in resp.aiter_bytes(chunk_size=65536):
                             f.write(chunk)
                             downloaded += len(chunk)
@@ -253,14 +257,16 @@ class DaemonManager:
                                     if milestone < 100:
                                         self._emit(f"Downloading daemon... {milestone}%")
                 if expected_sha256 is not None:
-                    self._verify_binary_checksum(dest, expected_sha256)
+                    self._verify_binary_checksum(tmp_dest, expected_sha256)
                 else:
                     logger.warning(
                         "Skipping daemon binary checksum verification for %s because "
                         "verify_checksum=False; only use this for trusted legacy releases.",
-                        dest,
+                        tmp_dest,
                     )
+                os.replace(tmp_dest, dest)
         except httpx.HTTPStatusError as e:
+            tmp_dest.unlink(missing_ok=True)
             if e.response.status_code == 404:
                 raise DaemonNotFoundError(
                     f"Daemon binary not found at {url} (HTTP 404).\n"
@@ -276,6 +282,9 @@ class DaemonManager:
             raise DaemonNotFoundError(
                 f"Failed to download daemon binary from {url}: HTTP {e.response.status_code}"
             ) from e
+        except Exception:
+            tmp_dest.unlink(missing_ok=True)
+            raise
 
         dest.chmod(0o755)
         self._emit("Daemon binary ready.")
@@ -294,6 +303,60 @@ class DaemonManager:
         sock = self.sock_path
         return sock.exists()
 
+    def _requested_identity(self) -> dict[str, str]:
+        """Return daemon identity fields explicitly requested by this caller."""
+        identity = {}
+        if self._transport:
+            identity["transport"] = self._transport
+        if self._namespace:
+            identity["namespace"] = self._namespace
+        return identity
+
+    def _write_identity_file(self) -> None:
+        """Persist the daemon isolation identity used for safe socket reuse."""
+        identity = self._requested_identity()
+        if not identity:
+            return
+        self._identity_path.parent.mkdir(parents=True, exist_ok=True)
+        self._identity_path.write_text(
+            json.dumps(identity, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    def _validate_existing_daemon_identity(self) -> None:
+        """Refuse to reuse a daemon with unknown or mismatched isolation settings."""
+        requested = self._requested_identity()
+        if not requested:
+            return
+
+        try:
+            existing = json.loads(self._identity_path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            requested_desc = ", ".join(f"{k}={v!r}" for k, v in sorted(requested.items()))
+            raise DaemonConnectionError(
+                "Existing daemon identity is unknown; refusing to reuse daemon at "
+                f"{self._grpc_listen} for requested {requested_desc}. "
+                "Stop the existing daemon or use a separate home directory for this "
+                "transport/namespace."
+            ) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise DaemonConnectionError(
+                "Existing daemon identity could not be read; refusing to reuse daemon at "
+                f"{self._grpc_listen}. Stop the existing daemon or use a separate home directory."
+            ) from exc
+
+        mismatches = [
+            f"{key}: requested {value!r}, existing {existing.get(key)!r}"
+            for key, value in sorted(requested.items())
+            if existing.get(key) != value
+        ]
+        if mismatches:
+            raise DaemonConnectionError(
+                "Existing daemon identity does not match requested isolation settings; "
+                f"refusing to reuse daemon at {self._grpc_listen}. "
+                + "; ".join(mismatches)
+                + ". Stop the existing daemon or use a separate home directory."
+            )
+
     async def _reuse_or_cleanup_existing_socket(self) -> bool:
         """Return True for a healthy existing daemon; clean stale UDS files.
 
@@ -311,6 +374,7 @@ class DaemonManager:
 
         try:
             if await self._grpc_health_check(timeout=2.0, raise_on_timeout=True):
+                self._validate_existing_daemon_identity()
                 return True
         except TimeoutError as exc:
             raise DaemonConnectionError(
@@ -399,6 +463,7 @@ class DaemonManager:
 
         # Wait for daemon to be ready (health check)
         await self._wait_ready(timeout=10.0)
+        self._write_identity_file()
         self._emit("Daemon ready.")
 
     def _read_recent_logs(self, max_lines: int = 20) -> str:

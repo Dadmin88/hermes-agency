@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { companies, issueRelations, issues } from "@paperclipai/db";
 import { logger } from "../middleware/logger.js";
@@ -11,8 +11,8 @@ export const HERMES_KANBAN_TASK_ORIGIN_KIND = "hermes_kanban_task";
 const HERMES_KANBAN_SYNC_HEADER = "X-Hermes-Kanban-Sync";
 const HERMES_KANBAN_SYNC_MESSAGE_HEADER = "X-Hermes-Kanban-Sync-Message";
 
-const MULTI_COMPANY_SCOPE_MESSAGE =
-  "Hermes Kanban projection requires FABRIC_HERMES_KANBAN_COMPANY_ID (or PAPERCLIP_HERMES_KANBAN_COMPANY_ID) when multiple companies exist.";
+const HERMES_KANBAN_OPT_IN_MESSAGE =
+  "Hermes Kanban projection requires explicit FABRIC_HERMES_KANBAN_DB and FABRIC_HERMES_KANBAN_COMPANY_ID (or PAPERCLIP_ aliases).";
 
 type HermesKanbanTaskRow = {
   id: string;
@@ -119,10 +119,9 @@ export function readHermesKanbanSyncStatus(headers: Headers | Pick<Headers, "get
   };
 }
 
-export function resolveHermesKanbanDbPath(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = fabricEnv("HERMES_KANBAN_DB")
-    ?? env.HERMES_KANBAN_DB
-    ?? `${homedir()}/.hermes/kanban.db`;
+export function resolveHermesKanbanDbPath(env: NodeJS.ProcessEnv = process.env): string | null {
+  const configured = fabricEnv("HERMES_KANBAN_DB") ?? env.HERMES_KANBAN_DB;
+  if (!configured) return null;
   return configured.startsWith("~/") ? `${homedir()}/${configured.slice(2)}` : configured;
 }
 
@@ -139,6 +138,16 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
   }
 
   const dbPath = resolveHermesKanbanDbPath();
+  if (!dbPath) {
+    return {
+      status: "unavailable",
+      message: HERMES_KANBAN_OPT_IN_MESSAGE,
+      syncedCount: 0,
+      projectedCount: 0,
+      dbPath: null,
+    };
+  }
+
   if (!existsSync(dbPath)) {
     return {
       status: "unavailable",
@@ -152,10 +161,6 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
   try {
     const snapshot = readHermesKanbanSnapshot(dbPath);
     const projectedCount = snapshot.tasks.length;
-    if (snapshot.tasks.length === 0) {
-      return { status: "ok", message: null, syncedCount: 0, projectedCount, dbPath };
-    }
-
     const taskIds = snapshot.tasks.map((task) => task.id);
     const existingRows = await db
       .select({
@@ -170,6 +175,7 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
         completedAt: issues.completedAt,
         createdAt: issues.createdAt,
         updatedAt: issues.updatedAt,
+        hiddenAt: issues.hiddenAt,
         originFingerprint: issues.originFingerprint,
       })
       .from(issues)
@@ -177,12 +183,14 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
         and(
           eq(issues.companyId, companyId),
           eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND),
-          inArray(issues.originId, taskIds),
-          isNull(issues.hiddenAt),
         ),
       );
     const existingByTaskId = new Map(existingRows.map((row) => [row.originId ?? "", row]));
     const issueIdByTaskId = new Map<string, string>();
+    const currentTaskIds = new Set(taskIds);
+    const staleProjectedIssueIds = existingRows
+      .filter((row) => row.originId && !currentTaskIds.has(row.originId) && row.hiddenAt === null)
+      .map((row) => row.id);
 
     let syncedCount = 0;
     for (const task of snapshot.tasks) {
@@ -200,18 +208,24 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
       if (changed) syncedCount += 1;
     }
 
-    const childTaskIds = [...new Set(snapshot.links.map((link) => link.child_id))];
-    for (const childTaskId of childTaskIds) {
-      const childIssueId = issueIdByTaskId.get(childTaskId);
+    for (const task of snapshot.tasks) {
+      const childIssueId = issueIdByTaskId.get(task.id);
       if (!childIssueId) continue;
       const blockerIssueIds = [...new Set(
         snapshot.links
-          .filter((link) => link.child_id === childTaskId)
+          .filter((link) => link.child_id === task.id)
           .map((link) => issueIdByTaskId.get(link.parent_id) ?? null)
           .filter((value): value is string => Boolean(value)),
       )];
       const relationsChanged = await syncProjectedIssueBlockedBy(db, companyId, childIssueId, blockerIssueIds);
       if (relationsChanged) syncedCount += 1;
+    }
+
+    if (staleProjectedIssueIds.length > 0) {
+      const staleRelationsDeleted = await deleteProjectedIssueRelations(db, companyId, staleProjectedIssueIds);
+      if (staleRelationsDeleted) syncedCount += 1;
+      const staleHidden = await hideProjectedIssues(db, staleProjectedIssueIds);
+      if (staleHidden) syncedCount += 1;
     }
 
     return { status: "ok", message: null, syncedCount, projectedCount, dbPath };
@@ -227,19 +241,13 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
   }
 }
 
-async function resolveHermesKanbanProjectionScope(db: Db, companyId: string): Promise<HermesKanbanProjectionScope> {
+async function resolveHermesKanbanProjectionScope(_db: Db, companyId: string): Promise<HermesKanbanProjectionScope> {
   const configuredCompanyId = asString(fabricEnv("HERMES_KANBAN_COMPANY_ID") ?? process.env.HERMES_KANBAN_COMPANY_ID);
-  if (configuredCompanyId) {
-    if (configuredCompanyId === companyId) return { allowed: true };
-    return { allowed: false, status: "ok", message: null };
+  if (!configuredCompanyId) {
+    return { allowed: false, status: "unavailable", message: HERMES_KANBAN_OPT_IN_MESSAGE };
   }
-
-  const companyRows = await db.select({ id: companies.id }).from(companies).limit(2);
-  if (companyRows.length === 1 && companyRows[0]?.id === companyId) {
-    return { allowed: true };
-  }
-
-  return { allowed: false, status: "unavailable", message: MULTI_COMPANY_SCOPE_MESSAGE };
+  if (configuredCompanyId === companyId) return { allowed: true };
+  return { allowed: false, status: "ok", message: null };
 }
 
 function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
@@ -413,6 +421,7 @@ async function updateProjectedIssueIfNeeded(
     completedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    hiddenAt: Date | null;
     originFingerprint: string;
   },
   seed: HermesKanbanIssueSeed,
@@ -430,6 +439,7 @@ async function updateProjectedIssueIfNeeded(
   if (existing.originFingerprint !== seed.originFingerprint) patch.originFingerprint = seed.originFingerprint;
   if (dateMs(existing.createdAt) !== dateMs(seed.createdAt)) patch.createdAt = seed.createdAt;
   if (dateMs(existing.updatedAt) !== dateMs(seed.updatedAt)) patch.updatedAt = seed.updatedAt;
+  if (existing.hiddenAt !== null) patch.hiddenAt = null;
   if (Object.keys(patch).length === 0) return false;
   await db.update(issues).set(patch).where(eq(issues.id, issueId));
   return true;
@@ -472,32 +482,65 @@ async function syncProjectedIssueBlockedBy(db: Db, companyId: string, issueId: s
   return true;
 }
 
+async function deleteProjectedIssueRelations(db: Db, companyId: string, issueIds: string[]) {
+  if (issueIds.length === 0) return false;
+  const rows = await db
+    .select({ id: issueRelations.id })
+    .from(issueRelations)
+    .where(
+      and(
+        eq(issueRelations.companyId, companyId),
+        or(inArray(issueRelations.issueId, issueIds), inArray(issueRelations.relatedIssueId, issueIds)),
+      ),
+    );
+  if (rows.length === 0) return false;
+  await db.delete(issueRelations).where(
+    and(
+      eq(issueRelations.companyId, companyId),
+      or(inArray(issueRelations.issueId, issueIds), inArray(issueRelations.relatedIssueId, issueIds)),
+    ),
+  );
+  return true;
+}
+
+async function hideProjectedIssues(db: Db, issueIds: string[]) {
+  if (issueIds.length === 0) return false;
+  const rows = await db.select({ id: issues.id }).from(issues).where(and(inArray(issues.id, issueIds), isNull(issues.hiddenAt)));
+  if (rows.length === 0) return false;
+  const hiddenAt = new Date();
+  await db.update(issues)
+    .set({ hiddenAt, updatedAt: hiddenAt })
+    .where(and(inArray(issues.id, issueIds), isNull(issues.hiddenAt)));
+  return true;
+}
+
 function buildHermesKanbanIssueDescription(task: HermesKanbanSnapshotTask) {
   const sections: string[] = [];
+  const includeDetails = isHermesKanbanSensitiveProjectionEnabled();
   const body = task.body.trim();
-  if (body.length > 0) sections.push(body);
+  if (includeDetails && body.length > 0) sections.push(body);
 
   const metadataLines = [
     `Hermes Kanban task: ${task.id}`,
     `Status: ${task.status}`,
     `Priority: ${task.priority}`,
     task.assignee ? `Assignee: ${task.assignee}` : null,
-    task.workspacePath ? `Workspace: ${task.workspacePath}` : null,
-    task.tenant ? `Tenant: ${task.tenant}` : null,
+    includeDetails && task.workspacePath ? `Workspace: ${task.workspacePath}` : null,
+    includeDetails && task.tenant ? `Tenant: ${task.tenant}` : null,
     task.blockKind ? `Block kind: ${task.blockKind}` : null,
   ].filter((value): value is string => Boolean(value));
   sections.push(metadataLines.join("\n"));
 
-  if (task.blockedReason) {
+  if (includeDetails && task.blockedReason) {
     sections.push(`Latest block reason:\n${task.blockedReason}`);
   }
-  if (task.latestRunSummary) {
+  if (includeDetails && task.latestRunSummary) {
     sections.push(`Latest run summary:\n${task.latestRunSummary}`);
   }
-  if (task.latestRunError) {
+  if (includeDetails && task.latestRunError) {
     sections.push(`Latest run error:\n${task.latestRunError}`);
   }
-  if (task.result) {
+  if (includeDetails && task.result) {
     sections.push(`Task result:\n${task.result}`);
   }
 
@@ -506,6 +549,11 @@ function buildHermesKanbanIssueDescription(task: HermesKanbanSnapshotTask) {
     .filter((section) => section.length > 0)
     .join("\n\n");
   return compact.length > 0 ? compact : null;
+}
+
+function isHermesKanbanSensitiveProjectionEnabled() {
+  const configured = fabricEnv("HERMES_KANBAN_INCLUDE_DETAILS") ?? process.env.HERMES_KANBAN_INCLUDE_DETAILS;
+  return configured === "1" || configured?.toLowerCase() === "true";
 }
 
 function mapHermesKanbanTaskStatus(status: string): typeof issues.$inferInsert.status {

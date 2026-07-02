@@ -414,9 +414,25 @@ class _WakeLock:
         return False
 
 
+OWN_PEER_ID_LINE_RE = re.compile(
+    r'(?:^PEER_ID=|agentanycastd started.*"peer_id"\s*:\s*")'
+    r"(12D3KooW[0-9A-Za-z]+)",
+    re.MULTILINE,
+)
+
+
 def _extract_own_peer_id(text: str) -> str | None:
-    match = re.search(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z]+)', text, re.M)
-    return match.group(1) if match else None
+    """Extract the latest local-node startup peer ID from runner/daemon logs.
+
+    Daemon logs are append-only and may contain remote ``peer_id`` values from
+    task or discovery events. Only trust explicit own-node startup markers: the
+    plain ``PEER_ID=...`` line emitted at startup, or a JSON ``peer_id`` on an
+    ``agentanycastd started`` line. Prefer the latest marker in the checked
+    window so stale IDs earlier in the log do not poison the roster.
+    """
+
+    matches = OWN_PEER_ID_LINE_RE.findall(text)
+    return matches[-1] if matches else None
 
 
 def _resolve_runner_peer_id(agency_dir: Path, runner_log: Path) -> str | None:
@@ -1052,7 +1068,9 @@ def _create_starter_skills(
 
     # If agent has custom skills listed, create placeholder skill dirs
     for custom_skill in agent_skills:
-        safe_name = custom_skill.lower().replace(" ", "-").replace("_", "-")
+        safe_name = _normalise_custom_skill_name(custom_skill)
+        if safe_name is None:
+            continue
         if safe_name not in dept_skills:
             custom_dir = skills_dir / safe_name
             custom_dir.mkdir(parents=True, exist_ok=True)
@@ -1080,6 +1098,14 @@ When tasks require {custom_skill.lower()} expertise.
 """,
                 encoding="utf-8",
             )
+
+
+def _normalise_custom_skill_name(skill: Any) -> str | None:
+    """Return a filesystem-safe skill directory name, or None when invalid."""
+    safe_name = str(skill).strip().lower().replace(" ", "-").replace("_", "-")
+    if not safe_name or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", safe_name):
+        return None
+    return safe_name
 
 
 def pool_create_agent(
@@ -1128,7 +1154,20 @@ def pool_create_agent(
     if profile_dir.exists():
         return _json.dumps({"ok": False, "error": f"profile {name} already exists"})
 
-    skills = [str(s).strip().lower().replace("_", "-") for s in (skills or []) if str(s).strip()]
+    normalised_skills: list[str] = []
+    for skill in skills or []:
+        if not str(skill).strip():
+            continue
+        safe_skill = _normalise_custom_skill_name(skill)
+        if safe_skill is None:
+            return _json.dumps(
+                {
+                    "ok": False,
+                    "error": "skills must contain only letters, numbers, spaces, underscores, or hyphens",
+                }
+            )
+        normalised_skills.append(safe_skill)
+    skills = normalised_skills
 
     try:
         from ..pool.manager import PoolManager

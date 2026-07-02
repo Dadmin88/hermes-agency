@@ -309,7 +309,7 @@ pnpm dev
 
 This starts the API server at `http://localhost:3100`. An embedded PostgreSQL database is created automatically — no setup required.
 
-If you enable Hermes Kanban task projection in a multi-company deployment, set `FABRIC_HERMES_KANBAN_COMPANY_ID` (or the legacy alias `PAPERCLIP_HERMES_KANBAN_COMPANY_ID`) to the single company that should receive projected Hermes tasks. Without that explicit scope, Fabric leaves Hermes tasks unprojected and returns `X-Hermes-Kanban-Sync: unavailable` plus `X-Hermes-Kanban-Sync-Message` explaining that multi-company scoping is required.
+Hermes Kanban task projection is disabled unless explicitly configured. To enable it, set both `FABRIC_HERMES_KANBAN_DB` and `FABRIC_HERMES_KANBAN_COMPANY_ID` (or the legacy `PAPERCLIP_` aliases) so Fabric knows which local Kanban database to read and which single company should receive projected tasks. Without that explicit opt-in and scope, Fabric leaves Hermes tasks unprojected and returns `X-Hermes-Kanban-Sync: unavailable` plus `X-Hermes-Kanban-Sync-Message`. Projected issue descriptions include only task IDs, status, priority, assignee, and block kind by default; set `FABRIC_HERMES_KANBAN_INCLUDE_DETAILS=true` only if the operator intentionally wants task bodies, workspace paths, tenant labels, run summaries/errors, block reasons, and task results copied into Fabric issues.
 
 > **Requirements:** Node.js 20+, pnpm 9.15+
 

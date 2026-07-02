@@ -188,6 +188,15 @@ class PoolManager:
         except Exception as exc:
             print(f"[PoolManager] roster status update warning for {name}: {exc}")
 
+    def _is_agent_disabled(self, name: str) -> bool:
+        """Return whether the roster marks an agent as disabled."""
+
+        try:
+            return bool(self._roster_module().is_agent_disabled(name))
+        except Exception as exc:
+            print(f"[PoolManager] roster disabled check warning for {name}: {exc}")
+            return False
+
     def _get_model(self, name):
         models = self.config.get("models", {})
         if name in models.get("overrides", {}):
@@ -578,9 +587,7 @@ class PoolManager:
                 proc.wait(timeout=10)
 
     def wake(self, name, persistent=False):
-        from .roster import is_agent_disabled
-
-        if is_agent_disabled(name):
+        if self._is_agent_disabled(name):
             raise ValueError(
                 f"Agent {name} is disabled. Use pool_enable_agent to re-enable it first."
             )
@@ -666,9 +673,6 @@ class PoolManager:
                 "persistent": persistent,
                 "rss_at_wake_mb": None,
             }
-            self.registry["agents"] = [
-                a for a in self.registry.get("agents", []) if a["name"] != name
-            ]
             print(f"[PoolManager] Woke {name} with peer_id {peer_id} (persistent={persistent})")
             self._record_roster_wake(name, success=True, peer_id=peer_id)
             return peer_id
