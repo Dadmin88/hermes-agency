@@ -12,7 +12,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from .config import AgencyConfig, get_config
@@ -573,63 +572,22 @@ def refresh_capability_map_sync(
     )
 
 
-def _is_pool_agent(name: str) -> bool:
-    """Return True if the peer name indicates a pool-managed agent (agency-*)."""
-    return name.startswith("agency-")
-
-
-def _local_profile_skills(profile_name: str) -> list[dict[str, str]]:
-    """Read skills from a local Hermes profile's skills directory.
-
-    Returns an empty list when the profile doesn't exist locally or has no
-    skills.  This is used to enrich discovered peers whose AgentCard or
-    registration data is sparse (e.g. the daemon had no card set at startup).
-    """
-
-    try:
-        from hermes_constants import get_hermes_home
-
-        active_home = Path(get_hermes_home()).expanduser()
-        if active_home.parent.name == "profiles":
-            profiles_dir = active_home.parent
-        else:
-            profiles_dir = active_home / "profiles"
-        skills_dir = profiles_dir / profile_name / "skills"
-        if not skills_dir.exists():
-            return []
-
-        # Lazy import of the card-builder helpers to avoid circular deps.
-        from .card_builder import read_profile_skills
-
-        return read_profile_skills(profiles_dir / profile_name)
-    except Exception:
-        return []
-
-
 def _enriched_skills(
     peer: PeerCapability,
     registration: dict[str, Any] | None = None,
     *,
     sparse_threshold: int = 5,
 ) -> list[dict[str, str]]:
-    """Return display skills, enriching from local disk when sparse.
+    """Return display skills without trusting remote names for local disk lookup.
 
-    When a peer has fewer than *sparse_threshold* skills (common when the
-    daemon was started without a card), try reading from the local profile
-    directory.  Only works on machines where the profile exists locally.
+    Peer display names can originate from remote AgentCards, discovery records,
+    or registration messages.  Do not use those names to load local profile
+    skills, because doing so could leak local skill descriptions or attribute a
+    trusted local profile's capabilities to an untrusted remote peer.
     """
 
-    skills = _display_skills(peer, registration)
-    if len(skills) >= sparse_threshold:
-        return skills
-
-    # Derive the profile name from the display label (card_name or peer name).
-    profile_name = peer.card_name or peer.name
-    if not profile_name:
-        return skills
-
-    local = _local_profile_skills(profile_name)
-    return local if len(local) > len(skills) else skills
+    del sparse_threshold
+    return _display_skills(peer, registration)
 
 
 def _render_peer(
