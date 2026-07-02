@@ -18,7 +18,7 @@ if __package__:
     from .kanban_workspace import install_workspace_preservation_patch
     from .node_manager import manager
     from .orchestrator import ORCHESTRATOR_TOOLS, check_orchestrator_enabled
-    from .tools import TOOLS, TOOLSET, check_agency_available
+    from .tools import POOL_CONTROL_TOOLS, TOOLS, TOOLSET, check_agency_available
 
     def _stop_stale_pool_runner_for_in_process_node(cfg) -> None:
         """Prevent stale pool runners from racing the gateway-owned node.
@@ -105,7 +105,10 @@ if __package__:
                 )
 
             if is_current_orchestrator(cfg):
-                for name, schema, handler, emoji in ORCHESTRATOR_TOOLS:
+                for name, schema, handler, emoji in (
+                    *ORCHESTRATOR_TOOLS,
+                    *POOL_CONTROL_TOOLS,
+                ):
                     ctx.register_tool(
                         name=name,
                         toolset=TOOLSET,
