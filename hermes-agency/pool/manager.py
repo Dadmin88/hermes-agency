@@ -577,6 +577,15 @@ class PoolManager:
         # healthy and registered.
         return peer_id, proc, "\n".join(output_lines)
 
+    def _terminate_runner_proc(self, proc):
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=10)
+
     def wake(self, name, persistent=False):
         if self._is_agent_disabled(name):
             raise ValueError(
@@ -653,6 +662,7 @@ class PoolManager:
                             f"log_path={log_path}; output={details[:1000]}"
                         )
                         self._record_roster_wake(name, success=False, error=error)
+                        self._terminate_runner_proc(proc)
                         raise RuntimeError(error)
 
             self.active[name] = {
@@ -677,12 +687,7 @@ class PoolManager:
                 return False
             proc = data.get("proc")
             if proc is not None and proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=20)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait(timeout=10)
+                self._terminate_runner_proc(proc)
             else:
                 stopped, stop_output = self._stop_cli_node(name)
                 if stop_output:
