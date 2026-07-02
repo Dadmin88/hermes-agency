@@ -85,15 +85,6 @@ def _model_status() -> dict[str, Any]:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
-def _gpt_bridge_status() -> dict[str, Any]:
-    try:
-        from .gpt_bridge import summary
-
-        return summary()
-    except Exception as exc:
-        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-
-
 def _roster_status(now: float) -> dict[str, Any]:
     try:
         from .pool.roster import load_roster
@@ -218,7 +209,6 @@ def extended_status() -> dict[str, Any]:
         },
         "doctor": {"exit_code": doctor.exit_code, "summary": doctor.summary},
         "models": _model_status(),
-        "gpt_bridge": _gpt_bridge_status(),
         "roster": _roster_status(now),
         "kanban": _kanban_status(now),
     }
@@ -228,7 +218,6 @@ def render_extended_status(payload: dict[str, Any]) -> str:
     node = payload.get("node") or {}
     doctor = payload.get("doctor") or {}
     models = payload.get("models") or {}
-    bridge = payload.get("gpt_bridge") or {}
     roster = payload.get("roster") or {}
     kanban = payload.get("kanban") or {}
     lines = ["Hermes Agency extended status"]
@@ -260,8 +249,6 @@ def render_extended_status(payload: dict[str, Any]) -> str:
         )
     else:
         lines.append(f"  models: unavailable ({models.get('error')})")
-    bridge_counts = bridge.get("counts") or {}
-    lines.append(f"  gpt_bridge: total={bridge.get('total', 0)} counts={bridge_counts or {}}")
     if roster.get("ok"):
         lines.append(
             f"  roster: online={roster.get('online', 0)}/{roster.get('total', 0)} offline={roster.get('offline', 0)} recently_seen_24h={roster.get('recently_seen_24h', 0)}"

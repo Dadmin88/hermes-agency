@@ -1,12 +1,12 @@
 # Hermes Agency — Agent Instructions
 
-Hermes Agency is the primary product in this repository. It is a Hermes Agent plugin and local operations layer for running a managed multi-agent team: packaged specialist profiles, skill-based routing, Kanban-backed work tracking, model-set controls, orchestration helpers, GPT escalation, Discord intake, and P2P delegation.
+Hermes Agency is the primary product in this repository. It is a Hermes Agent plugin and local operations layer for running a managed multi-agent team: packaged specialist profiles, skill-based routing, Kanban-backed work tracking, model-set controls, orchestration helpers, and P2P delegation.
 
 The AgentAnycast SDK under `src/agentanycast/` is the underlying transport layer. Do not present this repository as primarily an AgentAnycast SDK repo in public docs, issue summaries, PR summaries, or generated handoff notes.
 
 ## Repository map
 
-- `hermes-agency/` — main product area: plugin registration, CLI/slash commands, model tools, config, staff install, node manager, orchestration, Kanban bridges, pool delegation, GPT bridge, Discord intake, and plugin-specific tests.
+- `hermes-agency/` — main product area: plugin registration, CLI/slash commands, model tools, config, staff install, node manager, orchestration, Kanban bridges, pool delegation, and plugin-specific tests.
 - `hermes-agency/default_staff/` — packaged `agency-*` staff profiles and their role definitions.
 - `hermes-agency/model_sets/` — packaged model-set strategies for installed staff profiles.
 - `src/agentanycast/` — P2P transport SDK used by Hermes Agency. Touch this only for transport tasks or security fixes that explicitly require it.

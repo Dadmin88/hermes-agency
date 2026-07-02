@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "description": "Default Hermes Agency staff profiles — a built-in roster of AI agency teammates.",
   "namespace": "agency-",
-  "total_profiles": 84,
+  "total_profiles": 83,
   "categories": [
     "content",
     "design",
@@ -613,25 +613,6 @@
         "godot",
         "gamedev",
         "gdscript"
-      ]
-    },
-    {
-      "name": "agency-gpt-bridge",
-      "display_name": "GPT Bridge",
-      "category": "support",
-      "summary": "Pull-based bridge profile that queues blocked or high-leverage work for a live ChatGPT session to claim and complete.",
-      "profile_path": "profiles/agency-gpt-bridge",
-      "primary_role": "Queues blocked or high-leverage work for a live ChatGPT session to claim and complete",
-      "delegates_to": [
-        "agency-orchestrator",
-        "agency-security-reviewer",
-        "agency-software-architect"
-      ],
-      "tags": [
-        "support",
-        "gpt-bridge",
-        "chatgpt",
-        "escalation"
       ]
     },
     {

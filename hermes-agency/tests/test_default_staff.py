@@ -107,9 +107,7 @@ class TestProfileStructure:
         registry_path = _HERE.parent / "pool" / "registry_definition.json"
         with open(registry_path, encoding="utf-8") as f:
             registry = json.load(f)
-        expected_names = {
-            p["name"] for p in manifest["profiles"] if p["name"] != "agency-gpt-bridge"
-        }
+        expected_names = {p["name"] for p in manifest["profiles"]}
         registry_names = {p["name"] for p in registry["agents"]}
         assert registry_names == expected_names
 

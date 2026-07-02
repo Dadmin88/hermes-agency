@@ -108,7 +108,6 @@ Risk escalation is exposed through the resolver API but does not automatically s
 - `premium`: quality-first without pretending cost does not matter.
 - `go-plan`: only OpenCode Go provider models.
 - `openai-codex-only`: only OpenAI Codex provider models. Routine roles use cheaper OpenAI models, coding roles use Codex-focused models, and orchestration/senior review use GPT-5.5.
-- `chatgpt-bridge-only`: only Nous Portal MiMo models. This also stamps a managed `agency.gpt_bridge` block so profiles know to package substantive work for `agency-gpt-bridge` via `orch_escalate_to_gpt`.
 - `local-only`: intentionally fails validation until a real local provider/model exists.
 
 ## Examples

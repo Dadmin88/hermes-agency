@@ -92,7 +92,6 @@ profiles:
   agency-user-researcher: analysis_worker
   agency-analytics-specialist: analysis_worker
   agency-competitive-analyst: analysis_worker
-  agency-gpt-bridge: lightweight_worker
 
 escalation:
   default_family: senior_review

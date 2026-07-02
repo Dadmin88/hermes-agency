@@ -2,7 +2,7 @@
 
 **A Hermes Agent plugin and local operations layer for running a managed multi-agent team.**
 
-Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, GPT escalation, Discord intake, and safe P2P delegation. The AgentAnycast SDK in `src/agentanycast/` is the bundled transport foundation that provides the daemon, AgentCard/skill model, A2A-compatible task messages, discovery, and encrypted P2P networking.
+Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, and safe P2P delegation. The AgentAnycast SDK in `src/agentanycast/` is the bundled transport foundation that provides the daemon, AgentCard/skill model, A2A-compatible task messages, discovery, and encrypted P2P networking.
 
 Hermes Agency is the product in this repository. AgentAnycast is the transport layer it uses.
 
@@ -15,7 +15,7 @@ Hermes Agency is the product in this repository. AgentAnycast is the transport l
 
 | Area | Purpose |
 |---|---|
-| `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, GPT bridge, Discord intake, and pool delegation. |
+| `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, and pool delegation. |
 | `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
 | `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
 | `src/agentanycast/` | The underlying P2P transport SDK used by Hermes Agency. Work here only when changing the transport itself. |
@@ -151,7 +151,7 @@ Hermes Agency
 ├── reconciles work with Hermes Kanban when available
 ├── injects compact team/orchestrator context into Hermes calls
 ├── applies model-set strategies across installed staff profiles
-└── escalates blocked work through the GPT bridge when requested
+└── coordinates optional private escalation paths when configured
 ```
 
 AgentAnycast supplies the lower-level P2P machinery: `agentanycastd`, libp2p/relay connectivity, AgentCards, skills, DID/peer identity, A2A-style task messages, and encrypted peer transport. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly.
@@ -164,8 +164,6 @@ AgentAnycast supplies the lower-level P2P machinery: `agentanycastd`, libp2p/rel
 - **Team context injection** — bounded summaries of known teammates and orchestrator state can be injected into Hermes calls.
 - **Model sets** — choose a provider/model strategy once and apply it across installed staff profiles.
 - **Orchestrator promotion** — expose `orch_*` tools only for the configured orchestrator profile.
-- **GPT bridge** — pull-based inbox for routing blocked or high-leverage work to a live ChatGPT session.
-- **Discord intake** — queue `!agency` messages into agency work when configured.
 - **P2P transport** — encrypted local/WAN agent communication through the bundled AgentAnycast layer.
 
 ## Model sets

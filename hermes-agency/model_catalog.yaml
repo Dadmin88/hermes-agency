@@ -119,6 +119,54 @@ providers:
         capabilities: [text, creative, reasoning]
         last_verified: "2026-06-26"
         source_url: "https://docs.x.ai/"
+  xai-oauth:
+    label: "xAI Grok OAuth (SuperGrok)"
+    models:
+      grok-composer-2.5-fast:
+        label: "Grok Composer 2.5 Fast"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-07-02"
+        source_url: "hermes model xai-oauth picker"
+      grok-build-0.1:
+        label: "Grok Build 0.1"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, code, tools]
+        last_verified: "2026-07-02"
+        source_url: "hermes model xai-oauth picker"
+      grok-4.20-0309-reasoning:
+        label: "Grok 4.20 Reasoning"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, reasoning, tools]
+        last_verified: "2026-07-02"
+        source_url: "hermes model xai-oauth picker"
+      grok-4.20-0309-non-reasoning:
+        label: "Grok 4.20 Non-Reasoning"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, tools]
+        last_verified: "2026-07-02"
+        source_url: "hermes model xai-oauth picker"
+      grok-4.20-multi-agent-0309:
+        label: "Grok 4.20 Multi-Agent"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: subscription_or_plan_metered
+        capabilities: [text, reasoning, tools]
+        last_verified: "2026-07-02"
+        source_url: "hermes model xai-oauth picker"
   xiaomi:
     label: "Xiaomi"
     models:

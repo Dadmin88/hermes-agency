@@ -24,7 +24,6 @@ from .bidding import choose_best_bid
 from .config import AgencyConfig, current_profile_name, get_config, is_current_orchestrator
 from .context_packet import build_context_packet
 from .departments import get_department, get_department_board_slug
-from .gpt_bridge_orchestrator import ORCH_ESCALATE_TO_GPT_SCHEMA, orch_escalate_to_gpt
 from .kanban_bridge import (
     create_task as kanban_create_task,
 )
@@ -1197,5 +1196,4 @@ ORCHESTRATOR_TOOLS = (
     ("orch_status", ORCH_STATUS_SCHEMA, orch_status, "📊"),
     ("orch_list_tasks", ORCH_LIST_TASKS_SCHEMA, orch_list_tasks, "📚"),
     ("orch_escalate", ORCH_ESCALATE_SCHEMA, orch_escalate, "🚨"),
-    ("orch_escalate_to_gpt", ORCH_ESCALATE_TO_GPT_SCHEMA, orch_escalate_to_gpt, "🤖"),
 )

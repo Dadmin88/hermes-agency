@@ -43,3 +43,4 @@ logs/
 
 # Local compatibility symlinks
 agentanycast_plugin
+.worktrees/

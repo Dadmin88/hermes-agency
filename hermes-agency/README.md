@@ -15,9 +15,7 @@ Hermes Agency is the product layer. AgentAnycast is the transport layer beneath 
 - **Team context** — compact teammate/orchestrator context can be injected through Hermes plugin hooks within configured budgets.
 - **Autonomous helpers** — registry, bidding, workflow, proactive task, autonomy, and routing-correction helpers live behind Agency tools.
 - **Model sets** — applies provider/model strategies across installed `agency-*` staff profiles without hand-editing each profile.
-- **GPT bridge** — queues blocked or high-leverage work for a live ChatGPT session to claim and complete.
-- **Discord intake** — polls configured Discord channels for `!agency` tasks when enabled.
-- **CLI and slash command** — registers `hermes agency ...` and `/agency ...` for status, start/stop, discovery, staff, model sets, doctor, bridge, and intake operations.
+- **CLI and slash command** — registers `hermes agency ...` and `/agency ...` for status, start/stop, discovery, staff, model sets, and doctor operations.
 
 ## Requirements
 
@@ -141,34 +139,13 @@ Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.h
 
 See `docs/agency-model-sets.md` for implementation details and rollout procedure.
 
-## GPT bridge
-
-The GPT bridge is a pull-based escalation inbox for routing blocked or high-leverage agency work to a live ChatGPT session.
-
-```bash
-hermes-agency gpt-bridge status
-hermes-agency gpt-bridge inbox
-hermes-agency gpt-bridge claim <task-id>
-hermes-agency gpt-bridge complete <task-id> "Result text"
-```
-
-Agents can queue work with `orch_escalate_to_gpt`. See `docs/gpt-bridge.md` for the full flow.
-
-## Monitoring and Discord intake
+## Monitoring
 
 Extended status:
 
 ```bash
 hermes-agency status --extended
 ```
-
-Discord channel intake:
-
-```bash
-hermes-agency discord poll
-```
-
-Discord messages beginning with `!agency` are queued for `agency-orchestrator` when intake is configured. See `docs/agency-discord-intake.md` for setup and operations.
 
 ## Model tools
 

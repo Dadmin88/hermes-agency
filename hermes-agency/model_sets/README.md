@@ -11,7 +11,6 @@ Packaged presets:
 - `premium`: quality-first; GPT-5.5 broadly, Grok for creative/worldbuilding roles.
 - `go-plan`: only `opencode-go` provider models.
 - `openai-codex-only`: only `openai-codex` provider models, with role-specific OpenAI routing.
-- `chatgpt-bridge-only`: only `nous` provider MiMo routing, with managed GPT bridge-first behavior.
 - `local-only`: intentionally fails until real local provider/model support is configured.
 
 Definitions:
