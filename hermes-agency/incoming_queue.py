@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 _INCOMING_ACTIVE_STATUSES = {"received", "queued", "processing"}
 _INCOMING_TERMINAL_STATUSES = {"completed", "failed"}
 _INCOMING_PERSISTENCE_MAX_RECORDS = 200
+_INCOMING_PERSISTENCE_MAX_BYTES = 1_000_000
+_INCOMING_PERSISTENCE_MAX_STRING_CHARS = 1024
+_INCOMING_PERSISTENCE_MAX_CONTAINER_ITEMS = 5
+_INCOMING_PERSISTENCE_MAX_DEPTH = 4
 
 
 class RecoveredIncomingTask:
@@ -82,6 +86,32 @@ class RecoveredIncomingTask:
         del artifacts
 
 
+def _bounded_persistence_value(value: Any, *, depth: int = 0) -> Any:
+    """Return a JSON-safe, size-bounded copy of attacker-influenced task data."""
+
+    if value is None or isinstance(value, bool | int | float):
+        return value
+    if isinstance(value, str):
+        if len(value) <= _INCOMING_PERSISTENCE_MAX_STRING_CHARS:
+            return value
+        return value[:_INCOMING_PERSISTENCE_MAX_STRING_CHARS] + "…[truncated]"
+    if depth >= _INCOMING_PERSISTENCE_MAX_DEPTH:
+        return "[truncated]"
+    if isinstance(value, dict):
+        return {
+            str(key)[:_INCOMING_PERSISTENCE_MAX_STRING_CHARS]: _bounded_persistence_value(
+                item, depth=depth + 1
+            )
+            for key, item in list(value.items())[:_INCOMING_PERSISTENCE_MAX_CONTAINER_ITEMS]
+        }
+    if isinstance(value, list | tuple):
+        return [
+            _bounded_persistence_value(item, depth=depth + 1)
+            for item in list(value)[:_INCOMING_PERSISTENCE_MAX_CONTAINER_ITEMS]
+        ]
+    return _bounded_persistence_value(str(value), depth=depth)
+
+
 @dataclass
 class IncomingTaskRecord:
     """Serializable local queue/registry record for an incoming A2A task."""
@@ -122,6 +152,11 @@ class IncomingTaskRecord:
             "updated_at": self.updated_at,
             "completed_at": self.completed_at,
         }
+
+    def as_persistence_dict(self) -> dict[str, Any]:
+        """Return a bounded representation safe for durable queue persistence."""
+
+        return {key: _bounded_persistence_value(value) for key, value in self.as_dict().items()}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> IncomingTaskRecord:
@@ -286,12 +321,55 @@ class IncomingQueueMixin:
         if path is None:
             return
         self._prune_incoming_records_for_persistence()
-        records = [
-            self._incoming_records[task_id].as_dict()
-            for task_id in self._incoming_order
-            if task_id in self._incoming_records
-        ]
-        payload = {"version": 1, "updated_at": time.time(), "records": records}
+        records: list[dict[str, Any]] = []
+        updated_at = time.time()
+        payload: dict[str, Any] = {"version": 1, "updated_at": updated_at, "records": records}
+        encoded_size = len(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        for task_id in self._incoming_order:
+            record = self._incoming_records.get(task_id)
+            if record is None:
+                continue
+            candidate = record.as_persistence_dict()
+            candidate_payload = {
+                "version": 1,
+                "updated_at": updated_at,
+                "records": [*records, candidate],
+            }
+            candidate_size = len(json.dumps(candidate_payload, ensure_ascii=False, sort_keys=True))
+            if candidate_size > _INCOMING_PERSISTENCE_MAX_BYTES:
+                candidate = {
+                    "task_id": _bounded_persistence_value(record.task_id),
+                    "sender_peer_id": _bounded_persistence_value(record.sender_peer_id),
+                    "sender_card": "[truncated]",
+                    "target_skill_id": _bounded_persistence_value(record.target_skill_id),
+                    "message_text": _bounded_persistence_value(record.message_text),
+                    "context_id": _bounded_persistence_value(record.context_id),
+                    "context_packet": "[truncated]",
+                    "metadata": "[truncated]",
+                    "kanban_task_id": _bounded_persistence_value(record.kanban_task_id),
+                    "progress_updates": "[truncated]",
+                    "status": record.status,
+                    "result_text": _bounded_persistence_value(record.result_text),
+                    "error": _bounded_persistence_value(record.error),
+                    "created_at": record.created_at,
+                    "updated_at": record.updated_at,
+                    "completed_at": record.completed_at,
+                }
+                candidate_payload = {
+                    "version": 1,
+                    "updated_at": updated_at,
+                    "records": [*records, candidate],
+                }
+                candidate_size = len(
+                    json.dumps(candidate_payload, ensure_ascii=False, sort_keys=True)
+                )
+            if candidate_size > _INCOMING_PERSISTENCE_MAX_BYTES and records:
+                continue
+            records.append(candidate)
+            encoded_size = candidate_size
+            payload = candidate_payload
+            if encoded_size >= _INCOMING_PERSISTENCE_MAX_BYTES:
+                break
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_name: str | None = None
         try:

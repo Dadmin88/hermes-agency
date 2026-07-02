@@ -3526,6 +3526,62 @@ def test_incoming_task_record_as_dict_expected_keys(plugin_modules):
     }
 
 
+def test_incoming_record_persistence_truncates_remote_controlled_fields(plugin_modules):
+    rec = plugin_modules.node_manager.IncomingTaskRecord(
+        task_id="task-large",
+        sender_peer_id="peer-1",
+        sender_card={"description": "card" * 5000},
+        target_skill_id="skill-1",
+        message_text="m" * 10000,
+        context_packet={"history": [{"text": "ctx" * 5000} for _ in range(50)]},
+        metadata={"payload": "meta" * 5000},
+        progress_updates=[{"text": "progress" * 5000} for _ in range(50)],
+        result_text="r" * 10000,
+    )
+
+    persisted = rec.as_persistence_dict()
+
+    assert rec.message_text == "m" * 10000
+    assert persisted["message_text"].endswith("…[truncated]")
+    assert persisted["result_text"].endswith("…[truncated]")
+    assert len(json.dumps(persisted, ensure_ascii=False)) < 100_000
+
+
+def test_incoming_queue_persistence_has_total_byte_cap(plugin_modules, monkeypatch, tmp_path):
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    incoming_mod = importlib.import_module("hermes_plugin.incoming_queue")
+    manager = nm_mod.NodeManager()
+    path = tmp_path / "incoming_queue.json"
+    cfg = cfg_mod.AgencyConfig(
+        incoming=cfg_mod.IncomingConfig(queue_persistence_path=path),
+    )
+    monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
+    monkeypatch.setattr(incoming_mod, "_INCOMING_PERSISTENCE_MAX_BYTES", 20_000)
+    for index in range(20):
+        record = nm_mod.IncomingTaskRecord(
+            task_id=f"task-{index}",
+            sender_peer_id="peer-1",
+            sender_card={"description": "card" * 5000},
+            target_skill_id="skill-1",
+            message_text="m" * 10000,
+            context_packet={"history": [{"text": "ctx" * 5000} for _ in range(50)]},
+            metadata={"payload": "meta" * 5000},
+            progress_updates=[{"text": "progress" * 5000} for _ in range(50)],
+            result_text="r" * 10000,
+        )
+        manager._incoming_records[record.task_id] = record
+        manager._incoming_order.append(record.task_id)
+
+    manager._persist_incoming_records()
+
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    assert path.stat().st_size <= 20_001
+    assert persisted["records"]
+    assert len(persisted["records"]) < 20
+    assert persisted["records"][0]["message_text"].endswith("…[truncated]")
+
+
 def test_incoming_recovery_fails_stale_processing_records(plugin_modules, monkeypatch):
     asyncio = __import__("asyncio")
     nm_mod = plugin_modules.node_manager
