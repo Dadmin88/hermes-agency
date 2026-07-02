@@ -81,7 +81,7 @@ jobs:
         run: mypy src/ --exclude '_generated'
 
   security:
-    name: Security Report (advisory — does not block CI)
+    name: Security Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,14 +90,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install -e ".[dev]" pip-audit
+      - name: Install pip-audit
+        run: pip install pip-audit
 
-      # Advisory only: pip-audit output is surfaced as annotations but does
-      # not fail the build.  To make it blocking, remove ``|| true`` and add
-      # explicit --ignore-entries for any known-accepted advisories.
-      - name: Run pip-audit (advisory)
-        run: pip-audit --skip-editable || true
+      - name: Run pip-audit
+        run: |
+          # Audit the project metadata directly instead of the editable CI
+          # environment so the check fails on real advisories rather than
+          # on local editable install mechanics.
+          # TODO: remove this ignore once hermes-agent stops pinning
+          # cryptography==46.0.7 and ships a release on cryptography>=48.0.1.
+          pip-audit --strict . --ignore-vuln GHSA-537c-gmf6-5ccf
 
   test:
     name: Test (Python ${{ matrix.python-version }})
