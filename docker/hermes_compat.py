@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -33,6 +34,7 @@ except Exception:  # pragma: no cover
 
 _CURRENT_BOARD: ContextVar[str | None] = ContextVar("hermes_agency_container_board", default=None)
 DEFAULT_BOARD = "default"
+_BOARD_SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 
 
 def _hermes_home() -> Path:
@@ -85,19 +87,29 @@ def _board_root() -> Path:
 
 
 def _normalise_board(board: str | None = None) -> str:
-    board = (board or _CURRENT_BOARD.get() or DEFAULT_BOARD).strip() or DEFAULT_BOARD
-    return board.lower()
+    slug = (board or _CURRENT_BOARD.get() or DEFAULT_BOARD).strip().lower() or DEFAULT_BOARD
+    if not _BOARD_SLUG_RE.fullmatch(slug):
+        raise ValueError(f"invalid Kanban board slug: {slug!r}")
+    return slug
+
+
+def _board_path(*parts: str) -> Path:
+    root = _board_root().resolve()
+    path = root.joinpath(*parts).resolve()
+    if not path.is_relative_to(root):
+        raise ValueError("Kanban board path escapes board root")
+    return path
 
 
 def _db_path(board: str | None = None) -> Path:
     slug = _normalise_board(board)
     if slug == DEFAULT_BOARD:
         return _hermes_home() / "kanban.db"
-    return _board_root() / slug / "kanban.db"
+    return _board_path(slug, "kanban.db")
 
 
 def _board_dir(board: str | None = None) -> Path:
-    return _board_root() / _normalise_board(board)
+    return _board_path(_normalise_board(board))
 
 
 def _now() -> int:
