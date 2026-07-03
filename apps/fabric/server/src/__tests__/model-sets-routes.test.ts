@@ -188,7 +188,10 @@ describe("model set routes", () => {
     expect(mockModelSetService.applyModelSet).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
       "balanced",
-      "user-1",
+      {
+        appliedBy: "user-1",
+        restartIdleGateways: false,
+      },
     );
   });
 

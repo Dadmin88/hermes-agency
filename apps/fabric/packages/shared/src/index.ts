@@ -1514,6 +1514,16 @@ export {
   type ListPluginState,
 } from "./validators/index.js";
 
+export type {
+  ModelSetListItem,
+  ModelSetDetail,
+  ModelCostEstimateMethod,
+  ModelCostEstimateItem,
+  ModelCostEstimateResponse,
+  ModelPricingRow,
+  ModelPricingAutoDetectResult,
+} from "./types/model-set-api.js";
+
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey, hasNonAsciiContent } from "./project-url-key.js";

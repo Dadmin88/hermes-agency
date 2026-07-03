@@ -9,6 +9,7 @@ import {
 } from "../api/agents";
 import { companySkillsApi } from "../api/companySkills";
 import { budgetsApi } from "../api/budgets";
+import { modelSetsApi } from "../api/model-sets";
 import { heartbeatsApi } from "../api/heartbeats";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { ApiError } from "../api/client";
@@ -718,6 +719,18 @@ export function AgentDetail() {
     staleTime: 5_000,
   });
 
+  const { data: modelCostEstimate } = useQuery({
+    queryKey: queryKeys.modelSets.costEstimate(resolvedCompanyId ?? "__none__"),
+    queryFn: () => modelSetsApi.getCostEstimate(resolvedCompanyId!),
+    enabled: !!resolvedCompanyId,
+    staleTime: 30_000,
+  });
+
+  const agentModelCostRow = useMemo(() => {
+    if (!agent || !modelCostEstimate) return null;
+    return modelCostEstimate.items.find((item) => item.agentId === agent.id) ?? null;
+  }, [agent, modelCostEstimate]);
+
   const assignedIssues = (allIssues ?? [])
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const reportsToAgent = (allAgents ?? []).find((a) => a.id === agent?.reportsTo);
@@ -1171,13 +1184,49 @@ export function AgentDetail() {
       )}
 
       {activeView === "budget" && resolvedCompanyId ? (
-        <div className="max-w-3xl">
+        <div className="max-w-3xl space-y-4">
           <BudgetPolicyCard
             summary={agentBudgetSummary}
             isSaving={budgetMutation.isPending}
             onSave={(amount) => budgetMutation.mutate(amount)}
             variant="plain"
           />
+          {agentModelCostRow ? (
+            <div className="rounded-lg border border-border p-4 text-sm">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Model cost estimate
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <span className="text-muted-foreground">Model</span>
+                  <div className="font-mono text-xs">
+                    {agentModelCostRow.provider}/{agentModelCostRow.model}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Monthly estimate</span>
+                  <div className="font-semibold tabular-nums">
+                    {agentModelCostRow.monthlyEstimateLabel ??
+                      (agentModelCostRow.monthlyEstimate != null
+                        ? `$${agentModelCostRow.monthlyEstimate.toFixed(2)}`
+                        : "N/A")}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Actual spend (30d)</span>
+                  <div className="tabular-nums">
+                    {agentModelCostRow.actualSpendLast30Days != null
+                      ? `$${agentModelCostRow.actualSpendLast30Days.toFixed(2)}`
+                      : "—"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Pricing type</span>
+                  <div>{agentModelCostRow.pricingType ?? "—"}</div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

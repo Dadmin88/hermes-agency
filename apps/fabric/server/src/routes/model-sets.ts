@@ -125,11 +125,10 @@ export function modelSetRoutes(db: Db) {
     const body = applyModelSetSchema.parse(req.body);
     assertCompanyAccess(req, body.companyId);
     const actor = getActorInfo(req);
-    const result = await svc.applyModelSet(
-      body.companyId,
-      name,
-      body.appliedBy ?? actor.actorId,
-    );
+    const result = await svc.applyModelSet(body.companyId, name, {
+      appliedBy: body.appliedBy ?? actor.actorId,
+      restartIdleGateways: body.restartIdleGateways,
+    });
     await logActivity(db, {
       companyId: body.companyId,
       actorType: actor.actorType,
@@ -139,7 +138,14 @@ export function modelSetRoutes(db: Db) {
       action: "model_set.applied",
       entityType: "model_set",
       entityId: name,
-      details: { changedAgents: result.changedAgents, name: result.name },
+      details: {
+        changedAgents: result.changedAgents,
+        name: result.name,
+        profileConfigs: result.profileConfigs,
+        agentChanges: result.agentChanges,
+        gatewayRestart: result.gatewayRestart,
+        restartIdleGateways: body.restartIdleGateways,
+      },
     });
     res.json(result);
   });
@@ -243,6 +249,29 @@ export function modelSetRoutes(db: Db) {
           entityType: "model_pricing",
           entityId: "global",
           details: { count: body.items.length },
+        }),
+      ),
+    );
+    res.json(result);
+  });
+
+  router.post("/model-pricing/auto-detect", async (req, res) => {
+    assertBoardOrgAccess(req);
+    const actor = getActorInfo(req);
+    const result = await svc.autoDetectOpenRouterPricing();
+    const companyIds = req.actor.companyIds ?? [];
+    await Promise.all(
+      companyIds.map((companyId) =>
+        logActivity(db, {
+          companyId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          agentId: actor.agentId,
+          runId: actor.runId,
+          action: "model_pricing.auto_detected",
+          entityType: "model_pricing",
+          entityId: "openrouter",
+          details: { discovered: result.discovered, upserted: result.upserted },
         }),
       ),
     );

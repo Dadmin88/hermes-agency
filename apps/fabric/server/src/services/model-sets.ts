@@ -19,6 +19,17 @@ import {
   type ModelSetDefinitionPatch,
 } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
+import {
+  buildCostEstimateItems,
+  discoverOpenRouterPricing,
+  formatMonthlyEstimateLabel,
+  loadHistoricalSpendByAgentModel,
+} from "./model-set-cost.js";
+import { restartIdleGateways } from "./hermes-gateway-restart.js";
+import {
+  resolveHermesProfileName,
+  writeModelToProfileConfig,
+} from "./hermes-profile-config.js";
 import YAML from "yaml";
 
 type PackagedModelSetMap = Map<string, ModelSetRecord>;
@@ -54,6 +65,31 @@ type ModelSetPreferences = {
   activeByCompany: Record<string, string>;
   globalDefaultName: string | null;
 };
+
+type ApplyModelSetInput = {
+  appliedBy?: string | null;
+  restartIdleGateways?: boolean;
+};
+
+function normalizeApplyModelSetInput(
+  appliedByOrOptions?: string | null | ApplyModelSetInput,
+): ApplyModelSetInput {
+  if (appliedByOrOptions === null || appliedByOrOptions === undefined || typeof appliedByOrOptions === "string") {
+    return { appliedBy: appliedByOrOptions ?? undefined };
+  }
+  return appliedByOrOptions;
+}
+
+type ProfileConfigApplySummary = {
+  updated: Array<{ profile: string; provider: string; model: string }>;
+  unchanged: string[];
+  skipped: Array<{ profile: string; reason: string }>;
+  errors: Array<{ profile: string; error: string }>;
+};
+
+function emptyProfileConfigSummary(): ProfileConfigApplySummary {
+  return { updated: [], unchanged: [], skipped: [], errors: [] };
+}
 
 type SettingsDb = Pick<Db, "select" | "update" | "insert">;
 
@@ -317,15 +353,13 @@ export function modelSetService(db: Db) {
     return new Map(rows.map((row) => [row.agentId, row]));
   }
 
-  async function resolveAgentModel(
-    companyId: string,
+  function resolveAgentModelFromContext(
     agent: typeof agents.$inferSelect,
     activeSet: ModelSetRecord | null,
-    departmentOverrideMap?: Map<string, typeof modelDepartmentOverrides.$inferSelect>,
-    profileOverrideMap?: Map<string, typeof modelProfileOverrides.$inferSelect>,
-  ): Promise<ModelResolution> {
-    const profileOverrides = profileOverrideMap ?? (await getProfileOverrideMap(companyId));
-    const profileOverride = profileOverrides.get(agent.id);
+    departmentOverrideMap: Map<string, typeof modelDepartmentOverrides.$inferSelect>,
+    profileOverrideMap: Map<string, typeof modelProfileOverrides.$inferSelect>,
+  ): ModelResolution {
+    const profileOverride = profileOverrideMap.get(agent.id);
     if (profileOverride) {
       return {
         provider: profileOverride.provider,
@@ -337,9 +371,7 @@ export function modelSetService(db: Db) {
       };
     }
 
-    const departmentOverrides =
-      departmentOverrideMap ?? (await getDepartmentOverrideMap(companyId));
-    const departmentOverride = departmentOverrides.get(agent.role);
+    const departmentOverride = departmentOverrideMap.get(agent.role);
     if (departmentOverride) {
       return {
         provider: departmentOverride.provider,
@@ -360,7 +392,8 @@ export function modelSetService(db: Db) {
             provider: family.provider,
             model: family.model,
             source:
-              activeSet.definition.profiles[agent.name] && activeSet.definition.profiles[agent.name] === familyName
+              activeSet.definition.profiles[agent.name] &&
+              activeSet.definition.profiles[agent.name] === familyName
                 ? "model_set_profile"
                 : "model_set_default",
             setName: activeSet.name,
@@ -409,17 +442,53 @@ export function modelSetService(db: Db) {
     };
   }
 
+  async function resolveAgentModel(
+    companyId: string,
+    agent: typeof agents.$inferSelect,
+    activeSet: ModelSetRecord | null,
+    departmentOverrideMap?: Map<string, typeof modelDepartmentOverrides.$inferSelect>,
+    profileOverrideMap?: Map<string, typeof modelProfileOverrides.$inferSelect>,
+  ): Promise<ModelResolution> {
+    const profileOverrides = profileOverrideMap ?? (await getProfileOverrideMap(companyId));
+    const departmentOverrides =
+      departmentOverrideMap ?? (await getDepartmentOverrideMap(companyId));
+    return resolveAgentModelFromContext(agent, activeSet, departmentOverrides, profileOverrides);
+  }
+
   return {
     listModelSets: async (companyId: string) => {
-      const [packaged, custom, activeName] = await Promise.all([
+      const [packaged, custom, activeName, agentRows, pricingRows, departmentOverrideMap, profileOverrideMap, historicalByKey] =
+        await Promise.all([
         loadPackagedModelSets(),
         listCustomModelSets(companyId),
         getActiveModelSetName(companyId),
+        db.select().from(agents).where(eq(agents.companyId, companyId)).orderBy(asc(agents.name)),
+        db.select().from(modelPricing),
+        getDepartmentOverrideMap(companyId),
+        getProfileOverrideMap(companyId),
+        loadHistoricalSpendByAgentModel(db, companyId),
       ]);
+      const pricingByKey = new Map(
+        pricingRows.map((row) => [`${row.provider}/${row.model}`, row] as const),
+      );
       const records = [...Array.from(packaged.values()), ...custom].sort((a, b) =>
         a.name.localeCompare(b.name),
       );
-      return records.map((record) => ({
+      const summaries = records.map((record) => {
+        const { monthlyEstimateTotal, unknownPricingCount } = buildCostEstimateItems({
+          agentRows,
+          pricingByKey,
+          historicalByKey,
+          resolve: (agentRow) =>
+            resolveAgentModelFromContext(agentRow, record, departmentOverrideMap, profileOverrideMap),
+        });
+        return {
+          monthlyEstimateTotal,
+          monthlyEstimateLabel: formatMonthlyEstimateLabel(monthlyEstimateTotal),
+          unknownPricingCount,
+        };
+      });
+      return records.map((record, index) => ({
         id: record.id,
         companyId: record.companyId,
         name: record.name,
@@ -431,14 +500,31 @@ export function modelSetService(db: Db) {
         createdBy: record.createdBy,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
+        ...summaries[index]!,
       }));
     },
 
     getModelSet: async (companyId: string, name: string) => {
-      const [record, activeName] = await Promise.all([
+      const [record, activeName, agentRows, pricingRows, departmentOverrideMap, profileOverrideMap, historicalByKey] =
+        await Promise.all([
         getModelSetRecord(companyId, name),
         getActiveModelSetName(companyId),
+        db.select().from(agents).where(eq(agents.companyId, companyId)).orderBy(asc(agents.name)),
+        db.select().from(modelPricing),
+        getDepartmentOverrideMap(companyId),
+        getProfileOverrideMap(companyId),
+        loadHistoricalSpendByAgentModel(db, companyId),
       ]);
+      const pricingByKey = new Map(
+        pricingRows.map((row) => [`${row.provider}/${row.model}`, row] as const),
+      );
+      const breakdown = buildCostEstimateItems({
+        agentRows,
+        pricingByKey,
+        historicalByKey,
+        resolve: (agentRow) =>
+          resolveAgentModelFromContext(agentRow, record, departmentOverrideMap, profileOverrideMap),
+      });
       return {
         id: record.id,
         companyId: record.companyId,
@@ -450,6 +536,10 @@ export function modelSetService(db: Db) {
         createdBy: record.createdBy,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
+        monthlyEstimateTotal: breakdown.monthlyEstimateTotal,
+        monthlyEstimateLabel: formatMonthlyEstimateLabel(breakdown.monthlyEstimateTotal),
+        unknownPricingCount: breakdown.unknownPricingCount,
+        agentCostBreakdown: breakdown.items,
       };
     },
 
@@ -666,7 +756,12 @@ export function modelSetService(db: Db) {
       };
     },
 
-    applyModelSet: async (companyId: string, name: string, _appliedBy?: string | null) => {
+    applyModelSet: async (
+      companyId: string,
+      name: string,
+      appliedByOrOptions?: string | null | ApplyModelSetInput,
+    ) => {
+      const options = normalizeApplyModelSetInput(appliedByOrOptions);
       const record = await getModelSetRecord(companyId, name);
       const [settingsRow, agentRows, departmentOverrideMap, profileOverrideMap] = await Promise.all([
         getInstanceSettingsRow(db),
@@ -676,6 +771,17 @@ export function modelSetService(db: Db) {
       ]);
 
       let changedAgents = 0;
+      const profileSummary = emptyProfileConfigSummary();
+      const agentChangeLog: Array<{
+        agentId: string;
+        agentName: string;
+        adapterType: string;
+        provider: string;
+        model: string;
+        source: ModelResolution["source"];
+        profile: string | null;
+      }> = [];
+
       for (const agentRow of agentRows) {
         const resolution = await resolveAgentModel(
           companyId,
@@ -685,6 +791,7 @@ export function modelSetService(db: Db) {
           profileOverrideMap,
         );
         if (resolution.source === "none") continue;
+
         const nextAdapterConfig = buildResolvedAdapterConfig(
           agentRow.adapterType,
           asRecord(agentRow.adapterConfig),
@@ -692,15 +799,66 @@ export function modelSetService(db: Db) {
           resolution.model,
         );
         const changed = JSON.stringify(nextAdapterConfig) !== JSON.stringify(asRecord(agentRow.adapterConfig));
-        if (!changed) continue;
-        changedAgents += 1;
-        await db
-          .update(agents)
-          .set({
-            adapterConfig: nextAdapterConfig,
-            updatedAt: new Date(),
-          })
-          .where(eq(agents.id, agentRow.id));
+        if (changed) {
+          changedAgents += 1;
+          await db
+            .update(agents)
+            .set({
+              adapterConfig: nextAdapterConfig,
+              updatedAt: new Date(),
+            })
+            .where(eq(agents.id, agentRow.id));
+        }
+
+        const profileName = resolveHermesProfileName(agentRow);
+        if (!profileName) {
+          profileSummary.skipped.push({
+            profile: agentRow.name,
+            reason: "no_hermes_profile_mapping",
+          });
+          continue;
+        }
+        if (resolution.source === "profile_override") {
+          profileSummary.skipped.push({
+            profile: profileName,
+            reason: "profile_level_override",
+          });
+          continue;
+        }
+
+        const writeResult = await writeModelToProfileConfig({
+          profileName,
+          provider: resolution.provider,
+          model: resolution.model,
+          modelSetName: record.name,
+          family: resolution.family,
+        });
+
+        if (writeResult.status === "updated") {
+          profileSummary.updated.push({
+            profile: writeResult.profile,
+            provider: writeResult.provider,
+            model: writeResult.model,
+          });
+        } else if (writeResult.status === "unchanged") {
+          profileSummary.unchanged.push(writeResult.profile);
+        } else if (writeResult.status === "skipped") {
+          profileSummary.skipped.push({ profile: writeResult.profile, reason: writeResult.reason });
+        } else {
+          profileSummary.errors.push({ profile: writeResult.profile, error: writeResult.error });
+        }
+
+        if (changed || writeResult.status === "updated") {
+          agentChangeLog.push({
+            agentId: agentRow.id,
+            agentName: agentRow.name,
+            adapterType: agentRow.adapterType,
+            provider: resolution.provider,
+            model: resolution.model,
+            source: resolution.source,
+            profile: profileName,
+          });
+        }
       }
 
       const preferences = buildModelSetPreferences(settingsRow?.experimental ?? {});
@@ -710,14 +868,24 @@ export function modelSetService(db: Db) {
         buildExperimentalWithPreferences(settingsRow?.experimental ?? {}, preferences),
       );
 
+      const gatewayRestart = options.restartIdleGateways
+        ? await restartIdleGateways(db, companyId)
+        : undefined;
+
       return {
         applied: true,
         companyId,
         name: record.name,
         source: record.source,
         changedAgents,
+        profileConfigs: profileSummary,
+        agentChanges: agentChangeLog,
+        gatewayRestart,
+        appliedBy: options.appliedBy ?? null,
       };
     },
+
+    restartIdleGateways: async (companyId: string) => restartIdleGateways(db, companyId),
 
     listDepartmentOverrides: async (companyId: string) => {
       return db
@@ -861,69 +1029,77 @@ export function modelSetService(db: Db) {
       );
     },
 
+    autoDetectOpenRouterPricing: async () => {
+      const discovered = await discoverOpenRouterPricing();
+      const upserted = await (async () => {
+        const now = new Date();
+        for (const item of discovered) {
+          await db
+            .insert(modelPricing)
+            .values({
+              provider: item.provider,
+              model: item.model,
+              inputCostPer1m: item.inputCostPer1m,
+              outputCostPer1m: item.outputCostPer1m,
+              pricingType: item.pricingType,
+              monthlyEstimate: item.monthlyEstimate,
+              updatedAt: now,
+            })
+            .onConflictDoUpdate({
+              target: [modelPricing.provider, modelPricing.model],
+              set: {
+                inputCostPer1m: item.inputCostPer1m,
+                outputCostPer1m: item.outputCostPer1m,
+                pricingType: item.pricingType,
+                updatedAt: now,
+              },
+            });
+        }
+        return discovered.length;
+      })();
+      const rows = await db
+        .select()
+        .from(modelPricing)
+        .where(eq(modelPricing.provider, "openrouter"))
+        .orderBy(asc(modelPricing.model));
+      return {
+        provider: "openrouter",
+        discovered: discovered.length,
+        upserted,
+        items: rows,
+      };
+    },
+
     costEstimate: async (companyId: string) => {
-      const [agentRows, pricingRows, activeName, departmentOverrideMap, profileOverrideMap] =
+      const [agentRows, pricingRows, activeName, departmentOverrideMap, profileOverrideMap, historicalByKey] =
         await Promise.all([
           db.select().from(agents).where(eq(agents.companyId, companyId)).orderBy(asc(agents.name)),
           db.select().from(modelPricing),
           getActiveModelSetName(companyId),
           getDepartmentOverrideMap(companyId),
           getProfileOverrideMap(companyId),
+          loadHistoricalSpendByAgentModel(db, companyId),
         ]);
       const activeSet = activeName ? await getModelSetRecord(companyId, activeName).catch(() => null) : null;
       const pricingByKey = new Map(
         pricingRows.map((row) => [`${row.provider}/${row.model}`, row] as const),
       );
-      const items = [] as Array<{
-        agentId: string;
-        agentName: string;
-        provider: string | null;
-        model: string | null;
-        source: ModelResolution["source"];
-        setName: string | null;
-        family: string | null;
-        pricingType: string | null;
-        monthlyEstimate: number | null;
-        inputCostPer1m: number | null;
-        outputCostPer1m: number | null;
-      }>;
-      let monthlyEstimateTotal = 0;
-      for (const agentRow of agentRows) {
-        const resolution = await resolveAgentModel(
-          companyId,
-          agentRow,
-          activeSet,
-          departmentOverrideMap,
-          profileOverrideMap,
-        );
-        const pricing =
-          resolution.provider && resolution.model
-            ? pricingByKey.get(`${resolution.provider}/${resolution.model}`)
-            : undefined;
-        const monthlyEstimate = pricing?.monthlyEstimate ?? null;
-        if (monthlyEstimate != null) {
-          monthlyEstimateTotal += monthlyEstimate;
-        }
-        items.push({
-          agentId: agentRow.id,
-          agentName: agentRow.name,
-          provider: resolution.provider || null,
-          model: resolution.model || null,
-          source: resolution.source,
-          setName: resolution.setName,
-          family: resolution.family,
-          pricingType: pricing?.pricingType ?? null,
-          monthlyEstimate,
-          inputCostPer1m: pricing?.inputCostPer1m ?? null,
-          outputCostPer1m: pricing?.outputCostPer1m ?? null,
-        });
-      }
+      const breakdown = buildCostEstimateItems({
+        agentRows,
+        pricingByKey,
+        historicalByKey,
+        resolve: (agentRow) =>
+          resolveAgentModelFromContext(agentRow, activeSet, departmentOverrideMap, profileOverrideMap),
+      });
       return {
         companyId,
         activeModelSetName: activeSet?.name ?? activeName,
-        itemCount: items.length,
-        monthlyEstimateTotal,
-        items,
+        itemCount: breakdown.items.length,
+        monthlyEstimateTotal: breakdown.monthlyEstimateTotal,
+        monthlyEstimateLabel: formatMonthlyEstimateLabel(breakdown.monthlyEstimateTotal),
+        unknownPricingCount: breakdown.unknownPricingCount,
+        actualSpendLast30DaysTotal: breakdown.actualSpendLast30DaysTotal,
+        items: breakdown.items,
       };
     },
   };
