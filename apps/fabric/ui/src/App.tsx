@@ -58,6 +58,9 @@ import { PluginSettings } from "./pages/PluginSettings";
 import { AdapterManager } from "./pages/AdapterManager";
 import { PluginPage } from "./pages/PluginPage";
 import { OrgChart } from "./pages/OrgChart";
+import { ModelSets } from "./pages/ModelSets";
+import { ModelSetDetail } from "./pages/ModelSetDetail";
+import { ModelPricing } from "./pages/ModelPricing";
 import { NewAgent } from "./pages/NewAgent";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
@@ -104,6 +107,9 @@ function boardRoutes() {
       <Route path="company/settings/instance/adapters" element={<AdapterManager />} />
       <Route path="company/settings/:settingsRoutePath/*" element={<CompanySettingsPluginPage />} />
       <Route path="skills/*" element={<CompanySkills />} />
+      <Route path="settings/model-sets" element={<ModelSets />} />
+      <Route path="settings/model-sets/:setName" element={<ModelSetDetail />} />
+      <Route path="settings/model-pricing" element={<ModelPricing />} />
       <Route path="settings" element={<LegacySettingsRedirect />} />
       <Route path="settings/*" element={<LegacySettingsRedirect />} />
       <Route path="plugins/:pluginId" element={<PluginPage />} />

@@ -298,4 +298,12 @@ export const queryKeys = {
   adapters: {
     all: ["adapters"] as const,
   },
+  modelSets: {
+    list: (companyId: string) => ["model-sets", companyId] as const,
+    detail: (companyId: string, name: string) => ["model-sets", companyId, name] as const,
+    departmentOverrides: (companyId: string) => ["model-sets", companyId, "department-overrides"] as const,
+    profileOverrides: (companyId: string) => ["model-sets", companyId, "profile-overrides"] as const,
+    pricing: ["model-sets", "pricing"] as const,
+    costEstimate: (companyId: string) => ["model-sets", companyId, "cost-estimate"] as const,
+  },
 };

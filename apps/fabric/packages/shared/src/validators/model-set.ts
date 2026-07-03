@@ -69,6 +69,7 @@ export const updateModelSetSchema = z.object({
 export const applyModelSetSchema = z.object({
   companyId: z.string().uuid(),
   appliedBy: z.string().trim().min(1).max(255).optional(),
+  restartIdleGateways: z.boolean().optional().default(false),
 });
 
 export const modelDepartmentOverrideSchema = z.object({
