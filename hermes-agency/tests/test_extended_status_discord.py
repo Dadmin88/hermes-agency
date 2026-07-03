@@ -62,27 +62,6 @@ def _load_agency_module(monkeypatch, module_name: str):
     return module
 
 
-def test_discord_parse_task_message(monkeypatch):
-    discord_intake = _load_agency_module(monkeypatch, "discord_intake")
-
-    assert (
-        discord_intake._parse_task_message(
-            {"content": "!agency build the dashboard"}, prefix="!agency"
-        )
-        == "build the dashboard"
-    )
-    assert (
-        discord_intake._parse_task_message(
-            {"content": "!agency task wire discord"}, prefix="!agency"
-        )
-        == "wire discord"
-    )
-    assert discord_intake._parse_task_message({"content": "hello"}, prefix="!agency") is None
-    assert (
-        discord_intake._parse_task_message({"content": "!agency status"}, prefix="!agency") is None
-    )
-
-
 def test_extended_status_renderer_minimal(monkeypatch):
     extended_status = _load_agency_module(monkeypatch, "extended_status")
     rendered = extended_status.render_extended_status(
@@ -110,7 +89,6 @@ def test_extended_status_renderer_minimal(monkeypatch):
                 "drift": 0,
                 "missing": 0,
             },
-            "gpt_bridge": {"total": 0, "counts": {}},
             "roster": {"ok": True, "online": 1, "total": 84, "offline": 83, "recently_seen_24h": 1},
             "kanban": {
                 "ok": True,

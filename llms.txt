@@ -15,8 +15,6 @@ Hermes Agency is the product in this repository. AgentAnycast is the underlying 
 - Team/orchestrator context injection through Hermes plugin hooks
 - Model-set management for bulk provider/model strategy changes
 - Orchestrator-only `orch_*` tools for promoted agency coordinators
-- GPT bridge inbox for live ChatGPT escalation
-- Discord intake for `!agency` task messages when configured
 - Headless Docker setup/node runtime
 
 ## Important command surfaces

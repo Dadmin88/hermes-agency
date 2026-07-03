@@ -97,34 +97,6 @@ def render_target_model(resolved: ResolvedProfileModel) -> dict[str, str]:
     return {"provider": resolved.provider, "default": resolved.model}
 
 
-def render_target_gpt_bridge(model_set: ModelSet) -> dict[str, Any] | None:
-    """Render optional GPT bridge behavior managed by a model set.
-
-    This is intentionally metadata-driven so existing presets remain pure model
-    routing.  Presets that want a bridge-first operating mode can opt in with
-    ``metadata.gpt_bridge``.
-    """
-
-    bridge = model_set.metadata.get("gpt_bridge")
-    if not isinstance(bridge, dict) or not bridge:
-        return None
-    target = {
-        "managed_by": "hermes-agency-model-set",
-        "active_set": model_set.name,
-        "mode": str(bridge.get("mode") or "route_all_work_to_chatgpt_bridge"),
-        "enabled": bool(bridge.get("enabled", True)),
-        "target_profile": str(bridge.get("target_profile") or "agency-gpt-bridge"),
-        "tool": str(bridge.get("tool") or "orch_escalate_to_gpt"),
-        "route_all_work": bool(bridge.get("route_all_work", True)),
-        "reason": str(
-            bridge.get("reason") or "Route substantive work to the pull-based ChatGPT bridge."
-        ),
-    }
-    if bridge.get("expected_output"):
-        target["expected_output"] = str(bridge["expected_output"])
-    return target
-
-
 def profile_plan(
     profile: str, model_set: ModelSet, *, base: Path | None = None
 ) -> ProfileWriteResult:
@@ -132,7 +104,6 @@ def profile_plan(
     config_path = root / profile / "config.yaml"
     resolved = resolve_profile_model(profile, model_set)
     target_model = render_target_model(resolved)
-    target_bridge = render_target_gpt_bridge(model_set)
     target_label = f"{resolved.provider}/{resolved.model}"
     current_label = None
     status = "missing"
@@ -145,17 +116,12 @@ def profile_plan(
         current_label = (
             f"{current_provider}/{current_model}" if current_provider or current_model else None
         )
-        agency = data.get("agency") if isinstance(data.get("agency"), dict) else {}
-        current_bridge = agency.get("gpt_bridge") if isinstance(agency, dict) else None
         model_matches = current == target_model
-        bridge_matches = target_bridge is None or current_bridge == target_bridge
-        status = "unchanged" if model_matches and bridge_matches else "drift"
+        status = "unchanged" if model_matches else "drift"
         if status == "unchanged":
             message = "Already matches target model"
-        elif not model_matches:
-            message = "Model block differs from target"
         else:
-            message = "Managed GPT bridge behavior differs from target"
+            message = "Model block differs from target"
     return ProfileWriteResult(
         profile=profile,
         config_path=str(config_path),
@@ -241,14 +207,6 @@ def apply_model_set(
                 "managed_by": "hermes-agency",
             }
         )
-        target_bridge = render_target_gpt_bridge(model_set)
-        if target_bridge is not None:
-            agency["gpt_bridge"] = dict(target_bridge)
-        elif (
-            isinstance(agency.get("gpt_bridge"), dict)
-            and agency["gpt_bridge"].get("managed_by") == "hermes-agency-model-set"
-        ):
-            agency.pop("gpt_bridge", None)
         _atomic_yaml_write(config_path, data)
         results.append(
             ProfileWriteResult(

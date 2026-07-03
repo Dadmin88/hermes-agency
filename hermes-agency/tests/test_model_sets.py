@@ -82,37 +82,3 @@ def test_openai_codex_only_uses_only_openai_codex(monkeypatch, tmp_path):
     assert {family.provider for family in model_set.families.values()} == {"openai-codex"}
     assert model_sets.resolve_profile_model("agency-backend-engineer", model_set).model == "gpt-5.4"
     assert model_sets.resolve_profile_model("agency-orchestrator", model_set).model == "gpt-5.5"
-
-
-def test_chatgpt_bridge_only_writes_bridge_behavior(monkeypatch, tmp_path):
-    hermes_home = tmp_path / "hermes_home"
-    profile_dir = hermes_home / "profiles" / "agency-orchestrator"
-    profile_dir.mkdir(parents=True)
-    config_path = profile_dir / "config.yaml"
-    config_path.write_text(
-        "plugins:\n  enabled:\n    - agency\nmodel:\n  provider: openai-codex\n  default: gpt-5.5\n",
-        encoding="utf-8",
-    )
-
-    hermes_constants = types.ModuleType("hermes_constants")
-    setattr(hermes_constants, "get_hermes_home", lambda: hermes_home)
-    monkeypatch.setitem(sys.modules, "hermes_constants", hermes_constants)
-
-    model_sets = _load_agency_module(monkeypatch, "model_sets")
-    writer = _load_agency_module(monkeypatch, "profile_config_writer")
-    model_set = model_sets.load_model_set("chatgpt-bridge-only")
-    validation = model_sets.validate_model_set(model_set, strict=True)
-    assert validation.ok, validation.as_dict()
-
-    result = writer.apply_model_set(model_set, dry_run=False, yes=True, backup=False)
-    assert result["ok"] is True
-    assert result["results"][0]["status"] == "updated"
-
-    import yaml
-
-    written = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    assert written["model"] == {"provider": "nous", "default": "xiaomi/mimo-v2.5-pro"}
-    assert written["agency"]["models"]["active_set"] == "chatgpt-bridge-only"
-    assert written["agency"]["gpt_bridge"]["route_all_work"] is True
-    assert written["agency"]["gpt_bridge"]["target_profile"] == "agency-gpt-bridge"
-    assert writer.profile_plan("agency-orchestrator", model_set).status == "unchanged"

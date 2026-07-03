@@ -1,13 +1,13 @@
 # Hermes Agency Plugin — Contributor Notes
 
-This directory contains the Hermes Agency Hermes Agent plugin. It is the main product area of the repository and should be treated as the operator-facing layer for specialist staff profiles, skill routing, Kanban-backed delegation, model sets, orchestration helpers, GPT bridge, Discord intake, and P2P task exchange.
+This directory contains the Hermes Agency Hermes Agent plugin. It is the main product area of the repository and should be treated as the operator-facing layer for specialist staff profiles, skill routing, Kanban-backed delegation, model sets, orchestration helpers, and P2P task exchange.
 
 AgentAnycast is the transport foundation used by this plugin. Keep transport-specific work in `src/agentanycast/` unless a plugin change explicitly requires a transport change.
 
 ## Current status
 
 - This plugin is usable as a local Hermes Agent plugin and as the `hermes-agency` package command surface.
-- Some integrations remain environment-dependent, especially live relay/registry discovery, full Kanban profile workflows, and Discord intake.
+- Some integrations remain environment-dependent, especially live relay/registry discovery and full Kanban profile workflows.
 - Keep changes profile-safe: CI tests must not depend on real Hermes homes, real peer IDs, private relays, messaging channels, local daemon sockets, private hostnames, or machine-specific paths.
 
 ## Plugin shape
