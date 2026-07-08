@@ -100,7 +100,7 @@ jobs:
           # on local editable install mechanics.
           # TODO: remove this ignore once hermes-agent stops pinning
           # cryptography==46.0.7 and ships a release on cryptography>=48.0.1.
-          pip-audit --strict . --ignore-vuln GHSA-537c-gmf6-5ccf --skip-editable keryx
+          pip-audit --strict . --ignore-vuln GHSA-537c-gmf6-5ccf 
 
   test:
     name: Test (Python ${{ matrix.python-version }})
