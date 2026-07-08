@@ -242,7 +242,7 @@ def _resolve_transport_node_class(cfg: AgencyConfig) -> tuple[type[Any], str]:
                 exc_info=True,
             )
 
-    from agentanycast import Node
+    from keryx import KeryxNode as Node
 
     return Node, "agentanycast"
 
@@ -607,7 +607,7 @@ class NodeManager(
             if _transport_backend_for_config() == "keryx":
                 from keryx import peer_id_to_did_key
             else:
-                from agentanycast import peer_id_to_did_key
+                from keryx import peer_id_to_did_key
 
             return peer_id_to_did_key(peer_id)
         except Exception:

@@ -98,18 +98,7 @@ def _configure_keryx_environment() -> None:
         os.environ.setdefault(env_name, str(value))
 
 
-def _install_keryx_agentanycast_adapter() -> bool:
-    """Install Keryx's agentanycast compatibility adapter for lazy SDK imports."""
 
-    try:
-        adapter = importlib.import_module("keryx.compat.agentanycast")
-    except Exception:
-        logger.debug("Failed to import Keryx agentanycast adapter", exc_info=True)
-        return False
-    # node_lifecycle imports `agentanycast` lazily.  When Keryx is selected,
-    # route that import through Keryx's compatibility adapter.
-    sys.modules["agentanycast"] = adapter
-    return True
 
 
 def get_effective_transport_backend() -> str:
@@ -119,8 +108,7 @@ def get_effective_transport_backend() -> str:
     if backend == "keryx":
         if check_keryx_available():
             _configure_keryx_environment()
-            if _install_keryx_agentanycast_adapter():
-                return "keryx"
+            return "keryx"
         logger.warning("Keryx transport requested but SDK unavailable; falling back to agentanycast")
     return "agentanycast"
 

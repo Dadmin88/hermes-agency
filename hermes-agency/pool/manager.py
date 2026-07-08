@@ -88,11 +88,7 @@ def _transport_backend() -> str:
     return "agentanycast"
 
 
-def _install_keryx_agentanycast_adapter() -> None:
-    """Install Keryx's AgentAnycast compatibility module for this process."""
 
-    module = __import__("keryx.compat.agentanycast", fromlist=["Node"])
-    sys.modules["agentanycast"] = module
 
 
 def send_task_via_transport(
@@ -109,9 +105,6 @@ def send_task_via_transport(
     singleton NodeManager so ``send_task_sync`` delivers via Keryx's daemon/relay
     path instead of the legacy AgentAnycast daemon.
     """
-
-    if _transport_backend() == "keryx":
-        _install_keryx_agentanycast_adapter()
 
     from ..node_manager import manager
 

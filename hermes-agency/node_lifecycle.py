@@ -130,7 +130,7 @@ class NodeLifecycleMixin:
             cfg.home.mkdir(parents=True, exist_ok=True)
 
         try:
-            from agentanycast import Node
+            from keryx import KeryxNode as Node
 
             card = self._nm().build_card(lazy=True)
             self._record_card_state(card)
@@ -263,7 +263,7 @@ class NodeLifecycleMixin:
     @staticmethod
     def _peer_id_to_did_key(peer_id: str) -> str | None:
         try:
-            from agentanycast import peer_id_to_did_key
+            from keryx import peer_id_to_did_key
 
             return peer_id_to_did_key(peer_id)
         except Exception:

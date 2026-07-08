@@ -387,7 +387,7 @@ def build_card(profile_home: str | Path | None = None, *, lazy: bool = False) ->
     start.  This avoids the 22K-file glob during gateway startup.
     """
 
-    from agentanycast import AgentCard, Skill
+    from keryx import AgentCard, Skill
 
     profile_dir = resolve_profile_home(profile_home)
     metadata = read_profile_metadata(profile_dir)
