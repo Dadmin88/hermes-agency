@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -66,6 +67,60 @@ IDENTITY_MULTIHASH_CODE = 0x00
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_PROVIDER = "openai-codex"
 KANBAN_SOUL_MARKER = "<!-- hermes-agency-kanban-worker -->"
+
+
+def _transport_backend() -> str:
+    """Return the configured pool transport backend, defaulting to AgentAnycast."""
+
+    try:
+        from ..config import get_config
+
+        backend = str(getattr(get_config(), "transport_backend", "agentanycast") or "agentanycast")
+    except Exception:
+        backend = str(
+            os.environ.get("HERMES_AGENCY_TRANSPORT_BACKEND")
+            or os.environ.get("AGENCY_TRANSPORT_BACKEND")
+            or "agentanycast"
+        )
+    backend = backend.strip().lower().replace("_", "-")
+    if backend in {"keryx", "hermes-keryx"}:
+        return "keryx"
+    return "agentanycast"
+
+
+def _install_keryx_agentanycast_adapter() -> None:
+    """Install Keryx's AgentAnycast compatibility module for this process."""
+
+    module = __import__("keryx.compat.agentanycast", fromlist=["Node"])
+    sys.modules["agentanycast"] = module
+
+
+def send_task_via_transport(
+    *,
+    message: str,
+    peer_id: str,
+    wait_seconds: float = 0,
+    metadata: dict[str, str] | None = None,
+) -> dict[str, object]:
+    """Route an outbound pool task through the configured transport.
+
+    AgentAnycast remains the default/fallback.  When ``transport_backend=keryx``
+    is configured, install Keryx's compatibility transport before touching the
+    singleton NodeManager so ``send_task_sync`` delivers via Keryx's daemon/relay
+    path instead of the legacy AgentAnycast daemon.
+    """
+
+    if _transport_backend() == "keryx":
+        _install_keryx_agentanycast_adapter()
+
+    from ..node_manager import manager
+
+    return manager.send_task_sync(
+        message=message,
+        peer_id=peer_id,
+        wait_seconds=wait_seconds,
+        metadata=metadata,
+    )
 
 
 def _base58_encode(data: bytes) -> str:

@@ -7,9 +7,11 @@ adds the volatile transport overlay: peer_id, online, and last_seen.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,126 @@ DEFAULT_PROVIDER = "openai-codex"
 # below so profile-scoped gateway sessions still see the shared root roster.
 PROFILES: Path | None = None
 LEGACY_ROSTER_PATH: Path | None = None
+
+
+def _transport_backend() -> str:
+    """Return the configured pool transport backend."""
+
+    try:
+        from ..config import get_config
+
+        backend = str(getattr(get_config(), "transport_backend", "agentanycast") or "agentanycast")
+    except Exception:
+        backend = str(
+            os.environ.get("HERMES_AGENCY_TRANSPORT_BACKEND")
+            or os.environ.get("AGENCY_TRANSPORT_BACKEND")
+            or "agentanycast"
+        )
+    backend = backend.strip().lower().replace("_", "-")
+    if backend in {"keryx", "hermes-keryx"}:
+        return "keryx"
+    return "agentanycast"
+
+
+def _keryx_config_kwargs() -> dict[str, str | None]:
+    try:
+        from ..config import get_config
+
+        keryx_cfg = getattr(get_config(), "keryx", None)
+    except Exception:
+        keryx_cfg = None
+    return {
+        "daemon_endpoint": os.environ.get("HERMES_KERYX_DAEMON_ENDPOINT")
+        or str(getattr(keryx_cfg, "daemon_endpoint", "") or "")
+        or None,
+        "registry_endpoint": os.environ.get("HERMES_KERYX_REGISTRY_ENDPOINT")
+        or str(getattr(keryx_cfg, "registry_endpoint", "") or "")
+        or None,
+    }
+
+
+def _run_async_sync(coro):
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    result: dict[str, Any] = {}
+
+    def _runner() -> None:
+        try:
+            result["value"] = asyncio.run(coro)
+        except Exception as exc:  # pragma: no cover - re-raised in caller thread
+            result["error"] = exc
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
+
+
+def _discover_keryx_live_peers() -> dict[str, dict[str, Any]]:
+    """Query the Keryx registry for peers matching skills in the static roster."""
+
+    if _transport_backend() != "keryx":
+        return {}
+
+    try:
+        skills = sorted(
+            {
+                str(skill).strip()
+                for agent in _registry_agents()
+                for skill in agent.get("skills", [])
+                if str(skill).strip()
+            }
+        )
+    except Exception:
+        skills = []
+    if not skills:
+        return {}
+
+    async def _discover() -> dict[str, dict[str, Any]]:
+        from keryx.client import DaemonClient
+
+        kwargs = _keryx_config_kwargs()
+        client = DaemonClient(
+            daemon_endpoint=kwargs.get("daemon_endpoint"),
+            registry_endpoint=kwargs.get("registry_endpoint"),
+        )
+        await client.connect()
+        try:
+            discovered: dict[str, dict[str, Any]] = {}
+            for skill in skills:
+                for registration in await client.discover(skill, limit=100):
+                    peer_id = str(registration.get("peer_id") or "").strip()
+                    if not peer_id:
+                        continue
+                    current = discovered.setdefault(
+                        peer_id,
+                        {
+                            "peer_id": peer_id,
+                            "agent_name": registration.get("agent_name") or "",
+                            "agent_description": registration.get("agent_description") or "",
+                            "skills": [],
+                        },
+                    )
+                    merged_skills = set(current.get("skills", []))
+                    merged_skills.update(str(s) for s in registration.get("skills", []) if str(s))
+                    current["skills"] = sorted(merged_skills)
+                    if registration.get("agent_name"):
+                        current["agent_name"] = registration["agent_name"]
+                    if registration.get("agent_description"):
+                        current["agent_description"] = registration["agent_description"]
+            return discovered
+        finally:
+            await client.close()
+
+    try:
+        return _run_async_sync(_discover()) or {}
+    except Exception:
+        return {}
 
 
 def _root_hermes_home() -> Path:
@@ -732,6 +854,8 @@ def build_roster(
         raw_live_items = list(live_peers.values())
     elif isinstance(live_peers, list):
         raw_live_items = live_peers
+    elif live_peers is None and _transport_backend() == "keryx":
+        raw_live_items = list(_discover_keryx_live_peers().values())
     else:
         raw_live_items = []
 

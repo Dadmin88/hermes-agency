@@ -2,7 +2,7 @@
 
 Phase 3 owns the runtime lifecycle:
 
-- create an Hermes Agency ``Node`` from the generated profile AgentCard
+- create an Hermes Agency transport node from the generated profile AgentCard
 - use ``$HERMES_HOME/.agency`` as the per-profile daemon home by default
 - start the SDK node and store its peer ID / DID
 - keep ``serve_forever()`` running as a background task for incoming events
@@ -150,6 +150,101 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
+
+
+_TRANSPORT_BACKEND_ALIASES = {
+    "agent-anycast": "agentanycast",
+    "agent_anycast": "agentanycast",
+    "anycast": "agentanycast",
+}
+
+
+def _normalize_transport_backend(value: Any) -> str:
+    """Normalize configured transport backend with AgentAnycast fallback."""
+
+    backend = str(value or "agentanycast").strip().lower()
+    backend = _TRANSPORT_BACKEND_ALIASES.get(backend, backend)
+    if backend not in {"agentanycast", "keryx"}:
+        logger.warning(
+            "Unsupported agency.transport_backend=%r; falling back to agentanycast", value
+        )
+        return "agentanycast"
+    return backend
+
+
+def _transport_backend_for_config(cfg: AgencyConfig | None = None) -> str:
+    """Return the configured transport backend for ``cfg`` or current config."""
+
+    try:
+        active_cfg = cfg or get_config()
+        return _normalize_transport_backend(getattr(active_cfg, "transport_backend", "agentanycast"))
+    except Exception:
+        logger.debug("Failed to load Agency transport backend from config", exc_info=True)
+        return "agentanycast"
+
+
+def _configure_keryx_environment(cfg: AgencyConfig) -> None:
+    """Expose Agency Keryx config through the env vars expected by the SDK."""
+
+    keryx_cfg = getattr(cfg, "keryx", None)
+    mappings = {
+        "daemon_endpoint": "HERMES_KERYX_DAEMON_ENDPOINT",
+        "registry_endpoint": "HERMES_KERYX_REGISTRY_ENDPOINT",
+        "relay_endpoint": "HERMES_KERYX_RELAY_ENDPOINT",
+        "worker_id": "HERMES_KERYX_WORKER_ID",
+        "default_lease_duration_ms": "HERMES_KERYX_DEFAULT_LEASE_DURATION_MS",
+        "request_timeout_ms": "HERMES_KERYX_REQUEST_TIMEOUT_MS",
+    }
+    for attr, env_name in mappings.items():
+        value = getattr(keryx_cfg, attr, None)
+        if value is None or value == "":
+            continue
+        os.environ.setdefault(env_name, str(value))
+
+
+def _build_card_for_transport(backend: str) -> Any:
+    """Build the profile card using the classes for the selected transport."""
+
+    if backend != "keryx":
+        return build_card(lazy=True)
+
+    # card_builder imports AgentCard/Skill from agentanycast locally.  Under
+    # Keryx, expose the AgentAnycast-compatible Keryx package only while the
+    # card is constructed so existing AgentAnycast installs are not globally
+    # overwritten after startup.
+    import keryx
+
+    had_previous = "agentanycast" in sys.modules
+    previous = sys.modules.get("agentanycast")
+    sys.modules["agentanycast"] = keryx
+    try:
+        return build_card(lazy=True)
+    finally:
+        if not had_previous:
+            sys.modules.pop("agentanycast", None)
+        elif previous is not None:
+            sys.modules["agentanycast"] = previous
+
+
+def _resolve_transport_node_class(cfg: AgencyConfig) -> tuple[type[Any], str]:
+    """Return the configured SDK node class and effective backend name."""
+
+    backend = _transport_backend_for_config(cfg)
+    if backend == "keryx":
+        try:
+            _configure_keryx_environment(cfg)
+            from keryx.node import KeryxNode
+
+            return KeryxNode, "keryx"
+        except Exception:
+            logger.warning(
+                "Keryx transport requested but SDK unavailable; falling back to agentanycast",
+                exc_info=True,
+            )
+
+    from agentanycast import Node
+
+    return Node, "agentanycast"
 
 
 def _resolve_daemon_bin() -> Any | None:
@@ -314,6 +409,209 @@ class NodeManager(
         state = super().stop_sync(timeout=timeout)
         self._update_pool_roster_status(online=False, error=getattr(state, "error", None))
         return state
+
+    def _build_transport_node_kwargs(
+        self,
+        *,
+        cfg: AgencyConfig,
+        backend: str,
+        card: Any,
+    ) -> dict[str, Any]:
+        """Build constructor kwargs for the configured transport backend."""
+
+        kwargs: dict[str, Any] = {
+            "card": card,
+            "home": cfg.home,
+            "status_callback": self._status_callback,
+        }
+        if backend == "keryx":
+            keryx_cfg = getattr(cfg, "keryx", None)
+            daemon_addr = getattr(keryx_cfg, "daemon_endpoint", None)
+            relay = getattr(keryx_cfg, "relay_endpoint", None) or cfg.relay
+            if relay:
+                kwargs["relay"] = relay
+            if daemon_addr:
+                kwargs["daemon_addr"] = daemon_addr
+            kwargs["transport"] = "keryx"
+            kwargs["namespace"] = cfg.team.tenant
+            endpoint_label = daemon_addr or "default daemon endpoint"
+            self._status_callback(f"Using Hermes Agency Keryx transport: {endpoint_label}")
+            return kwargs
+
+        daemon_bin = self._nm()._resolve_daemon_bin()
+        if daemon_bin is not None:
+            self._status_callback(f"Using Hermes Agency daemon binary: {daemon_bin}")
+        if cfg.relay_security.token:
+            # Current protected daemon builds do not expose a token flag, but
+            # exporting this keeps plugin configuration forward-compatible with
+            # token-aware daemon builds without touching SDK source.
+            os.environ["AGENTANYCAST_RELAY_TOKEN"] = cfg.relay_security.token
+        kwargs.update(
+            {
+                "relay": cfg.relay,
+                "daemon_bin": daemon_bin,
+            }
+        )
+        return kwargs
+
+    async def _start_impl(self) -> Any:
+        """Start the configured Agency transport node on the lifecycle loop."""
+
+        if self._node is not None and self.state.started:
+            self._register_incoming_handler(self._node)
+            self._ensure_incoming_runtime(self._nm().get_config())
+            if self._serve_task is None or self._serve_task.done():
+                self._serve_task = asyncio.create_task(self._node.serve_forever())
+                self._serve_task.add_done_callback(self._serve_done)
+                self.state.serve_task_running = True
+            return self.state
+
+        cfg = self._nm().get_config()
+        self.state.config = cfg
+        self.state.error = None
+        self.state.last_status = None
+
+        if cfg.home:
+            cfg.home.mkdir(parents=True, exist_ok=True)
+
+        try:
+            NodeCls, backend = _resolve_transport_node_class(cfg)
+            card = _build_card_for_transport(backend)
+            self._record_card_state(card)
+            node = NodeCls(**self._build_transport_node_kwargs(cfg=cfg, backend=backend, card=card))
+            await node.start()
+            self._register_incoming_handler(node)
+
+            self._node = node
+            self.state.started = True
+            self.state.peer_id = node.peer_id
+            self.state.last_peer_id = node.peer_id
+            self.state.did_key = self._peer_id_to_did_key(node.peer_id)
+            self.state.started_at = time.time()
+            self.state.stopped_at = None
+            self.state.error = None
+
+            self._ensure_incoming_runtime(cfg)
+            self._requeue_persisted_incoming_tasks()
+            self._serve_task = asyncio.create_task(node.serve_forever())
+            self._serve_task.add_done_callback(self._serve_done)
+            self.state.serve_task_running = True
+            if cfg.team.auto_register:
+                await self._nm().register_agent(node, card, current_load=self._current_load())
+                if backend == "keryx" and hasattr(node, "register_skills"):
+                    try:
+                        await node.register_skills(card, current_load=self._current_load())
+                        self.state.last_status = "Keryx skills registered"
+                    except Exception as exc:
+                        self.state.last_status = (
+                            f"Keryx skill registration failed: {type(exc).__name__}: {exc}"
+                        )
+                else:
+                    registration_result = await self._register_skills_with_registries(card)
+                    self._handle_registry_registration_result(
+                        registration_result,
+                        retry_in_seconds=float(
+                            self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS
+                        ),
+                    )
+                self._nm().announce_registration(
+                    self.state.card_name or self._nm().current_profile_name(),
+                    "registered",
+                    peer_id=self.state.peer_id,
+                )
+            await self._refresh_team_context_impl(force=True)
+            if cfg.team.auto_discover and self._team_refresh_task is None:
+                self._team_refresh_task = asyncio.create_task(self._team_refresh_loop())
+            if (
+                backend == "agentanycast"
+                and cfg.team.auto_register
+                and self._registry_reregister_task is None
+            ):
+                self.state.registry_reregister_loop_exited = False
+                self._registry_reregister_task = asyncio.create_task(
+                    self._registry_reregister_loop()
+                )
+                self._registry_reregister_task.add_done_callback(self._registry_reregister_done)
+        except Exception as exc:
+            self._node = None
+            self._serve_task = None
+            self.state.started = False
+            self.state.peer_id = None
+            self.state.serve_task_running = False
+            self.state.error = f"{type(exc).__name__}: {exc}"
+        return self.state
+
+    async def _stop_impl(self) -> Any:
+        """Stop whichever transport node is active and tear down runtime tasks."""
+
+        try:
+            if self._serve_task is not None and not self._serve_task.done():
+                self._serve_task.cancel()
+                await asyncio.gather(self._serve_task, return_exceptions=True)
+
+            if self._incoming_worker_task is not None and not self._incoming_worker_task.done():
+                self._incoming_worker_task.cancel()
+                await asyncio.gather(self._incoming_worker_task, return_exceptions=True)
+
+            if self._team_refresh_task is not None and not self._team_refresh_task.done():
+                self._team_refresh_task.cancel()
+                await asyncio.gather(self._team_refresh_task, return_exceptions=True)
+
+            if (
+                self._registry_reregister_task is not None
+                and not self._registry_reregister_task.done()
+            ):
+                self._registry_reregister_task.cancel()
+                await asyncio.gather(self._registry_reregister_task, return_exceptions=True)
+
+            if self._node is not None:
+                try:
+                    if self._nm().get_config().team.auto_register:
+                        card = getattr(self._node, "card", None)
+                        if _transport_backend_for_config(self.state.config) == "keryx" and hasattr(
+                            self._node, "deregister_skills"
+                        ):
+                            await self._node.deregister_skills(card)
+                        await self._nm().deregister_agent(self._node, card=card)
+                        self._nm().announce_registration(
+                            self.state.card_name or self._nm().current_profile_name(),
+                            "deregistered",
+                            peer_id=self.state.peer_id,
+                        )
+                except Exception:
+                    pass
+                await self._node.stop()
+        except Exception as exc:
+            self.state.error = f"{type(exc).__name__}: {exc}"
+        finally:
+            self._serve_task = None
+            self._incoming_worker_task = None
+            self._team_refresh_task = None
+            self._registry_reregister_task = None
+            self._incoming_queue = None
+            self._queued_incoming_task_ids.clear()
+            self._node = None
+            self._task_handles.clear()
+            self.state.started = False
+            self.state.peer_id = None
+            self.state.serve_task_running = False
+            self.state.next_retry_at = None
+            self._refresh_registration_health()
+            self.state.stopped_at = time.time()
+            self._refresh_incoming_state()
+        return self.state
+
+    @staticmethod
+    def _peer_id_to_did_key(peer_id: str) -> str | None:
+        try:
+            if _transport_backend_for_config() == "keryx":
+                from keryx import peer_id_to_did_key
+            else:
+                from agentanycast import peer_id_to_did_key
+
+            return peer_id_to_did_key(peer_id)
+        except Exception:
+            return None
 
     # ------------------------------------------------------------------
     # Dedicated event loop plumbing
