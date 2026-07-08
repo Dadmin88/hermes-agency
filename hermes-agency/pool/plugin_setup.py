@@ -1,9 +1,9 @@
-"""Install the Hermes Agency plugin symlink into Hermes profile plugin dirs.
+"""Install the Hermes Agency plugin symlink into Agency profile plugin dirs.
 
-The pool manager wakes arbitrary Hermes profiles as Agency nodes. For that to work,
-every profile needs the user-plugin present at ``plugins/hermes-agency``. These
-helpers are intentionally idempotent so roster refreshes and setup commands can
-run them repeatedly without changing an already-correct install.
+The pool manager wakes Hermes Agency-managed profiles as Agency nodes. For that
+to work, those profiles need the user-plugin present at ``plugins/hermes-agency``.
+These helpers are intentionally idempotent so roster refreshes and setup commands
+can run them repeatedly without changing an already-correct install.
 """
 
 from __future__ import annotations
@@ -128,7 +128,7 @@ def setup_all_profile_plugins(
     root: Path | None = None,
     source: Path | None = None,
 ) -> dict[str, Any]:
-    """Symlink Hermes Agency into every Hermes profile plugin directory.
+    """Symlink Hermes Agency into Agency-managed profile plugin directories.
 
     Returns a summary designed for both CLI rendering and compact roster metadata.
     """
@@ -140,6 +140,8 @@ def setup_all_profile_plugins(
 
     if base.is_dir():
         for profile_dir in sorted(p for p in base.iterdir() if p.is_dir()):
+            if not profile_dir.name.startswith("agency-"):
+                continue
             profile_results.append(ensure_plugin_symlink(profile_dir, source=source))
 
     main_result = ensure_main_plugin_symlink(source=source, root=root) if include_main else None

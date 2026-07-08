@@ -271,7 +271,7 @@ def _staff_install_text(names: list[str], *, dry_run: bool = False, force: bool 
 
 
 def _setup_plugins_text() -> str:
-    """Symlink Hermes Agency into every Hermes profile's plugins directory."""
+    """Symlink Hermes Agency into Agency-managed profile plugin directories."""
     from .pool.plugin_setup import setup_all_profile_plugins
 
     summary = setup_all_profile_plugins(include_main=True)
