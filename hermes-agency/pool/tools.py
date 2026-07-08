@@ -1,4 +1,3 @@
-import sys
 """Pool tools for Hermes Agency — simple protocol any agent can use.
 
 Tools:
@@ -9,6 +8,7 @@ Tools:
 """
 
 from __future__ import annotations
+import sys
 
 import fcntl
 import os

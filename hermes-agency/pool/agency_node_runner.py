@@ -1,8 +1,8 @@
-import sys
 #!/usr/bin/env python3
 """Long-lived per-profile Hermes Agency node runner used by the pool manager."""
 
 from __future__ import annotations
+import sys
 
 import importlib.util
 import json
