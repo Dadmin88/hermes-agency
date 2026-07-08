@@ -438,6 +438,8 @@ class IncomingQueueMixin:
                 self._incoming_order.append(record.task_id)
             if record.status not in _INCOMING_ACTIVE_STATUSES:
                 continue
+            if record.task_id in queued_ids:
+                continue
             interrupted_status = record.status
             age = now - float(record.updated_at or record.created_at or now)
             if interrupted_status == "processing" and age > stale_processing_after:
