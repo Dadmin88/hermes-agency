@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """Long-lived per-profile Hermes Agency node runner used by the pool manager."""
 

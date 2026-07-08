@@ -1,3 +1,4 @@
+import sys
 """Pool tools for Hermes Agency — simple protocol any agent can use.
 
 Tools:
