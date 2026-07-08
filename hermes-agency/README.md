@@ -1,14 +1,14 @@
 # Hermes Agency Plugin
 
-This directory contains the Hermes Agency Hermes Agent plugin. The plugin turns a Hermes profile into a participant in a managed multi-agent agency: it builds a public AgentCard, starts a per-profile P2P node, exposes `agency_*` model tools, registers `hermes agency ...` and `/agency ...` commands, injects bounded team context, routes work through Kanban-aware delegation, and uses the bundled AgentAnycast transport layer for peer discovery and encrypted task exchange.
+This directory contains the Hermes Agency Hermes Agent plugin. The plugin turns a Hermes profile into a participant in a managed multi-agent agency: it builds a public AgentCard, starts a per-profile P2P node, exposes `agency_*` model tools, registers `hermes agency ...` and `/agency ...` commands, injects bounded team context, routes work through Kanban-aware delegation, and uses Keryx for peer discovery and encrypted task exchange.
 
-Hermes Agency is the product layer. AgentAnycast is the transport layer beneath it.
+Hermes Agency is the product layer. Keryx is the primary transport. AgentAnycast remains available as a legacy/fallback transport for older deployments.
 
 ## What this plugin does
 
 - **Profile AgentCards** — builds profile-safe AgentCards from `SOUL.md`, installed skills, and a strict non-secret config allowlist.
 - **Node lifecycle** — starts/stops per-profile P2P nodes with persistent Ed25519 identity and daemon state under the profile’s `.agency/` directory.
-- **Peer discovery** — discovers agents by skill through LAN discovery plus relay/registry-backed anycast routing when configured.
+- **Peer discovery** — discovers agents by skill through Keryx relay/registry-backed routing when configured.
 - **Task send/receive** — sends tasks to peers by `peer_id` or skill, receives incoming tasks, and returns artifacts/status to the sender.
 - **Safe incoming handler** — remote task execution is disabled/safe by default and requires explicit configuration before dangerous tool access is available.
 - **Kanban tracking** — outbound/inbound work can reconcile with Hermes Kanban when the bridge is available.
@@ -22,12 +22,21 @@ Hermes Agency is the product layer. AgentAnycast is the transport layer beneath 
 - Python 3.11+
 - Hermes Agent with user-plugin support
 - `hermes-agent>=0.17.0` through the package dependency
-- AgentAnycast transport package/bundle available when actually starting nodes or sending tasks
-- Optional relay and registry services for cross-network discovery
+- Keryx Python SDK (`keryx-py`, import name `keryx`) available when actually starting nodes or sending tasks
+- Optional Keryx daemon, relay, and registry services for cross-network discovery
+- Legacy AgentAnycast package/bundle only when using `agency.transport_backend: agentanycast`
 
-The transport SDK is optional at plugin load time. If it is absent, plugin discovery must still succeed and Agency tools should report unavailable rather than crashing Hermes.
+The transport SDK is optional at plugin load time. If it is absent, plugin discovery must still succeed and Agency tools should report unavailable rather than crashing Hermes. When `transport_backend: keryx` is configured but the Keryx SDK is not importable, the plugin falls back to AgentAnycast compatibility when available.
 
 ## Install into a Hermes profile
+
+Install the plugin and the Keryx SDK in the same Python environment used by Hermes:
+
+```bash
+python -m pip install -e <path-to-Hermes_Keryx>/sdk/python
+cd <workspace>/Hermes_Agency
+python -m pip install -e ".[dev]"
+```
 
 Development symlink:
 
@@ -62,14 +71,22 @@ plugins:
 
 agency:
   enabled: true                 # runtime gate after the plugin itself is loaded
+  transport_backend: keryx      # primary; use agentanycast only for legacy fallback
   auto_start: false             # true = start node on session/plugin load
-  relay: null                   # libp2p relay multiaddr for cross-network transport
   skills_from_profile: true     # generate AgentCard skills from installed Hermes skills
   allow_remote_tasks: false     # false = safe stub / no real execution
   trusted_peers: []             # peer_id allowlist, reserved for stricter policies
   incoming_queue_limit: 100
   card_name: null               # optional public display name override
-  daemon_bin: null              # optional explicit daemon path
+  daemon_bin: null              # legacy AgentAnycast daemon path; unused by Keryx
+  keryx:
+    daemon_endpoint: null       # e.g. 127.0.0.1:50051 or unix:///tmp/keryx-daemon.sock
+    registry_endpoint: null     # optional registry endpoint; SDK default is relay-derived/local
+    relay_endpoint: null        # optional relay endpoint, e.g. 127.0.0.1:50053
+    relay_config: {}            # relay-specific options passed through for Keryx runtimes
+    worker_id: null             # optional worker identity for daemon task leasing
+    default_lease_duration_ms: 0 # 0 = SDK/runtime default
+    request_timeout_ms: null    # null = SDK/runtime default
   incoming:
     mode: delegation            # template, delegation, subprocess
     delegation_timeout: 120
@@ -101,13 +118,51 @@ agency:
   routing: {}
 ```
 
-For relay-backed skill discovery, configure the registry separately:
+### Keryx transport
+
+Use Keryx for new deployments:
+
+```yaml
+agency:
+  transport_backend: keryx
+  keryx:
+    daemon_endpoint: 127.0.0.1:50051
+    relay_endpoint: 127.0.0.1:50053
+    registry_endpoint: 127.0.0.1:50053
+    relay_config: {}
+    worker_id: null
+    default_lease_duration_ms: 0
+    request_timeout_ms: 30000
+```
+
+The plugin maps these settings to the Keryx SDK environment variables (`HERMES_KERYX_DAEMON_ENDPOINT`, `HERMES_KERYX_REGISTRY_ENDPOINT`, `HERMES_KERYX_RELAY_ENDPOINT`, `HERMES_KERYX_WORKER_ID`, `HERMES_KERYX_DEFAULT_LEASE_DURATION_MS`, and `HERMES_KERYX_REQUEST_TIMEOUT_MS`) before starting the node. Keep endpoints generic in committed docs/config examples and store secrets outside AgentCards and logs.
+
+### AgentAnycast legacy/fallback
+
+Use AgentAnycast only for older deployments or temporary rollback:
+
+```yaml
+agency:
+  transport_backend: agentanycast
+  relay: <relay-multiaddr>
+```
+
+For AgentAnycast relay-backed skill discovery, configure the registry separately:
 
 ```bash
 export AGENTANYCAST_REGISTRY_ADDRS=<registry-address>
 ```
 
-Relay/bootstrap and skill registry are separate: `agency.relay` connects libp2p peers; `AGENTANYCAST_REGISTRY_ADDRS` enables anycast skill discovery.
+Relay/bootstrap and skill registry are separate in the legacy path: `agency.relay` connects libp2p peers; `AGENTANYCAST_REGISTRY_ADDRS` enables anycast skill discovery.
+
+### Migrate from AgentAnycast to Keryx
+
+1. Install the Keryx SDK next to Hermes Agency: `python -m pip install -e <path-to-Hermes_Keryx>/sdk/python`.
+2. Start or point at a Keryx daemon/relay/registry and record their endpoints.
+3. Change `agency.transport_backend` from `agentanycast` to `keryx` and add the `agency.keryx.*` endpoints shown above.
+4. Leave `agency.relay` and `AGENTANYCAST_REGISTRY_ADDRS` in place only during rollback testing; Keryx uses `agency.keryx.relay_endpoint` and `agency.keryx.registry_endpoint`.
+5. Verify with `hermes-agency status --extended`, `hermes-agency start`, and a small `hermes-agency discover <skill>` check.
+6. If Keryx is not ready, set `agency.transport_backend: agentanycast` to return to the legacy transport.
 
 ## Staff profiles
 
@@ -155,7 +210,7 @@ hermes-agency status --extended
 | `agency_start_node` | Start this profile’s P2P node. |
 | `agency_stop_node` | Stop the node cleanly. |
 | `agency_list_peers` | List connected P2P peers. |
-| `agency_discover` | Find agents by skill through anycast routing. |
+| `agency_discover` | Find agents by skill through the configured Agency transport. |
 | `agency_send` | Send a task to a `peer_id` or skill and optionally wait for completion. |
 | `agency_status` | Check latest tracked status/artifacts for a sent task. |
 | `agency_inbox` | Inspect recent incoming tasks. |
@@ -279,4 +334,4 @@ make integration-agency
 make integration-agency-full
 ```
 
-`test_e2e.py` starts real SDK nodes with isolated temporary daemon homes and does not use a registry/relay unless `AGENTANYCAST_E2E_REGISTRY` or `AGENTANYCAST_E2E_RELAY` are explicitly set. Full live profile/Kanban/relay validation should remain explicit/manual until those assumptions are converted into fixtures or skips.
+`test_e2e.py` starts real SDK nodes with isolated temporary daemon homes. Keryx checks should use `agency.keryx.*` endpoints; legacy AgentAnycast checks still honor `AGENTANYCAST_E2E_REGISTRY` or `AGENTANYCAST_E2E_RELAY` when explicitly set. Full live profile/Kanban/relay validation should remain explicit/manual until those assumptions are converted into fixtures or skips.

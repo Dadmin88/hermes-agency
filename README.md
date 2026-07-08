@@ -2,9 +2,9 @@
 
 **A Hermes Agent plugin and local operations layer for running a managed multi-agent team.**
 
-Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, and safe P2P delegation. The AgentAnycast SDK in `src/agentanycast/` is the bundled transport foundation that provides the daemon, AgentCard/skill model, A2A-compatible task messages, discovery, and encrypted P2P networking.
+Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, and safe P2P delegation. Keryx is the recommended transport for AgentCards, skill discovery, task messages, and encrypted P2P networking; AgentAnycast remains available for legacy/fallback deployments.
 
-Hermes Agency is the product in this repository. AgentAnycast is the transport layer it uses.
+Hermes Agency is the product in this repository. Keryx is the primary transport; AgentAnycast is the legacy compatibility path.
 
 [![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/hermes-agency?color=3776AB)](https://pypi.org/project/hermes-agency/)
@@ -18,7 +18,7 @@ Hermes Agency is the product in this repository. AgentAnycast is the transport l
 | `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, and pool delegation. |
 | `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
 | `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
-| `src/agentanycast/` | The underlying P2P transport SDK used by Hermes Agency. Work here only when changing the transport itself. |
+| `src/agentanycast/` | Legacy AgentAnycast compatibility transport. Use Keryx for new deployments. |
 | `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
 | `scripts/` | Operational helpers such as batch agent wake scripts. |
 | `docs/` | Focused implementation and operations notes. |
@@ -37,6 +37,7 @@ For development from this repository:
 python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
+python -m pip install -e <path-to-Hermes_Keryx>/sdk/python
 python -m pip install -e ".[dev]"
 ```
 
@@ -75,7 +76,7 @@ The current Docker setup is a headless agency runtime. It prepares a Hermes home
 docker compose up --build
 ```
 
-Common overrides:
+Common overrides (current compose wiring still exposes the legacy AgentAnycast relay/registry variables for fallback runs):
 
 ```bash
 HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
@@ -146,7 +147,7 @@ Hermes Agency
 ├── installs specialist agency-* profiles
 ├── builds profile-safe AgentCards
 ├── starts/stops per-profile P2P nodes
-├── discovers peers by skill through AgentAnycast transport
+├── discovers peers by skill through Keryx transport
 ├── sends, receives, queues, and tracks tasks
 ├── reconciles work with Hermes Kanban when available
 ├── injects compact team/orchestrator context into Hermes calls
@@ -154,7 +155,7 @@ Hermes Agency
 └── coordinates optional private escalation paths when configured
 ```
 
-AgentAnycast supplies the lower-level P2P machinery: `agentanycastd`, libp2p/relay connectivity, AgentCards, skills, DID/peer identity, A2A-style task messages, and encrypted peer transport. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly.
+Keryx supplies the recommended lower-level P2P machinery: daemon/relay connectivity, AgentCards, skills, identity, A2A-style task messages, and encrypted peer transport. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly. Set `agency.transport_backend: agentanycast` only for legacy rollback.
 
 ## Core capabilities
 
@@ -164,7 +165,7 @@ AgentAnycast supplies the lower-level P2P machinery: `agentanycastd`, libp2p/rel
 - **Team context injection** — bounded summaries of known teammates and orchestrator state can be injected into Hermes calls.
 - **Model sets** — choose a provider/model strategy once and apply it across installed staff profiles.
 - **Orchestrator promotion** — expose `orch_*` tools only for the configured orchestrator profile.
-- **P2P transport** — encrypted local/WAN agent communication through the bundled AgentAnycast layer.
+- **P2P transport** — encrypted local/WAN agent communication through Keryx, with AgentAnycast retained as a legacy fallback.
 
 ## Model sets
 
@@ -199,7 +200,7 @@ Hermes Agency should be safe by default:
 - Remote task execution defaults to disabled: `allow_remote_tasks: false`.
 - Tool access for incoming remote tasks should default to `safe`, not `full`.
 - AgentCards must expose only non-secret metadata: no API keys, raw environment variables, private relay addresses, local paths, peer IDs that should remain private, Discord channel IDs, or maintainer-local details.
-- Relay/bootstrap config and anycast registry config are separate: the relay connects peers; `AGENTANYCAST_REGISTRY_ADDRS=<host>:50052` enables skill discovery.
+- Keryx relay/registry endpoints live under `agency.keryx.*`; legacy AgentAnycast relay/bootstrap and `AGENTANYCAST_REGISTRY_ADDRS` remain separate fallback settings.
 
 ## Development checks
 
@@ -227,8 +228,9 @@ The default pytest configuration skips tests marked `integration`.
 
 - Python 3.11+
 - Hermes Agent 0.17.0+
-- Optional relay/registry services for cross-network discovery
-- `agentanycastd` daemon, auto-managed by the bundled AgentAnycast SDK unless explicitly configured otherwise
+- Keryx Python SDK (`keryx-py`, import name `keryx`) for node startup and task transport
+- Optional Keryx daemon/relay/registry services for cross-network discovery
+- AgentAnycast package/daemon only for `agency.transport_backend: agentanycast` legacy fallback
 
 ## License
 
