@@ -29,7 +29,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    "keryx @ git+https://github.com/DeployFaith/hermes-keryx.git@main#subdirectory=sdk/python",
+    "keryx @ git+https://github.com/DeployFaith/hermes-keryx.git@main#subdirectory=sdk/python",  # keryx package,
     "hermes-agent>=0.17.0",
     "grpcio>=1.60",
     "protobuf>=7.34.1",
