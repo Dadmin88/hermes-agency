@@ -22,7 +22,7 @@ Hermes Agency is the product layer. Keryx is the primary transport. AgentAnycast
 - Python 3.11+
 - Hermes Agent with user-plugin support
 - `hermes-agent>=0.17.0` through the package dependency
-- Keryx Python SDK (`keryx-py`, import name `keryx`) available when actually starting nodes or sending tasks
+- Keryx Python SDK (package/import name `keryx`, vendored at repo `src/keryx/`) available when starting nodes or sending tasks
 - Optional Keryx daemon, relay, and registry services for cross-network discovery
 - Legacy AgentAnycast package/bundle only when using `agency.transport_backend: agentanycast`
 
@@ -33,10 +33,13 @@ The transport SDK is optional at plugin load time. If it is absent, plugin disco
 Install the plugin and the Keryx SDK in the same Python environment used by Hermes:
 
 ```bash
-python -m pip install -e <path-to-Hermes_Keryx>/sdk/python
 cd <workspace>/Hermes_Agency
 python -m pip install -e ".[dev]"
 ```
+
+This installs the vendored Keryx SDK from `../src/keryx/`. For live daemon/relay
+binaries and migration scripts, use the separate `hermes-keryx` repository
+(`scripts/migrate-to-keryx.sh`, `scripts/keryx-dual-run.sh`).
 
 Development symlink:
 
@@ -81,8 +84,8 @@ agency:
   daemon_bin: null              # legacy AgentAnycast daemon path; unused by Keryx
   keryx:
     daemon_endpoint: null       # e.g. 127.0.0.1:50051 or unix:///tmp/keryx-daemon.sock
-    registry_endpoint: null     # optional registry endpoint; SDK default is relay-derived/local
-    relay_endpoint: null        # optional relay endpoint, e.g. 127.0.0.1:50053
+    registry_endpoint: null     # optional registry endpoint; dual-run default often 127.0.0.1:51053
+    relay_endpoint: null        # optional relay endpoint/health; dual-run often 51052/51053
     relay_config: {}            # relay-specific options passed through for Keryx runtimes
     worker_id: null             # optional worker identity for daemon task leasing
     default_lease_duration_ms: 0 # 0 = SDK/runtime default
@@ -157,12 +160,13 @@ Relay/bootstrap and skill registry are separate in the legacy path: `agency.rela
 
 ### Migrate from AgentAnycast to Keryx
 
-1. Install the Keryx SDK next to Hermes Agency: `python -m pip install -e <path-to-Hermes_Keryx>/sdk/python`.
-2. Start or point at a Keryx daemon/relay/registry and record their endpoints.
-3. Change `agency.transport_backend` from `agentanycast` to `keryx` and add the `agency.keryx.*` endpoints shown above.
-4. Leave `agency.relay` and `AGENTANYCAST_REGISTRY_ADDRS` in place only during rollback testing; Keryx uses `agency.keryx.relay_endpoint` and `agency.keryx.registry_endpoint`.
-5. Verify with `hermes-agency status --extended`, `hermes-agency start`, and a small `hermes-agency discover <skill>` check.
-6. If Keryx is not ready, set `agency.transport_backend: agentanycast` to return to the legacy transport.
+1. Ensure Hermes Agency is installed so the vendored Keryx SDK at `src/keryx/` is available (`pip install -e ".[dev]"`).
+2. Build/start Keryx binaries from the separate `hermes-keryx` repo (`keryxd`, `keryx-relay`), preferably via `./scripts/keryx-dual-run.sh --start`.
+3. Run config migration from hermes-keryx: `./scripts/migrate-to-keryx.sh --dry-run` then `./scripts/migrate-to-keryx.sh`.
+4. Confirm `agency.transport_backend: keryx` and endpoints such as daemon `127.0.0.1:50051` and dual-run registry `127.0.0.1:51053`.
+5. Leave legacy `agency.relay` / `AGENTANYCAST_*` settings only for rollback testing.
+6. Verify with `hermes-agency status --extended`, `hermes-agency start`, and a small `hermes-agency discover <skill>` check.
+7. Rollback: hermes-keryx `./scripts/migrate-to-keryx.sh --revert` and/or set `agency.transport_backend: agentanycast`.
 
 ## Staff profiles
 

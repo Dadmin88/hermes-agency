@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Keryx primary transport integration (`agency.transport_backend: keryx`)
+- Vendored Keryx Python SDK at `src/keryx/`
+- Transport selection helpers and Keryx-aware node/pool paths
+- `hermes-agency/tests/test_keryx_transport.py` smoke suite
+
+### Changed
+
+- Public docs, AGENTS guides, llms.txt, and CONTRIBUTING now describe Keryx as primary transport
+- AgentAnycast retained under `src/agentanycast/` as legacy/fallback only
+- Development install no longer requires a separate git URL for the Keryx Python package
+
+### Notes
+
+- External Keryx binaries (`keryxd`, `keryx-relay`) and migration/dual-run scripts live in the separate `hermes-keryx` repository
+
 ## [0.7.0] - 2026-03-21
 
 ### Added

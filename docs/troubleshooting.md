@@ -5,92 +5,126 @@ Start with the built-in diagnostics:
 ```bash
 hermes agency doctor
 hermes agency doctor --json
+hermes-agency status --extended
 ```
 
-The doctor command checks plugin load, profile/config paths, SDK and daemon state, relay/registry configuration, trust/allowlist policy, AgentCard generation, Kanban availability, and development install state.
+Doctor checks plugin load, profile/config paths, transport SDK availability, daemon/relay state, trust/allowlist policy, AgentCard generation, Kanban availability, and development install state.
 
-## Missing daemon / daemon not found
+## Confirm transport backend
 
-**Symptom:** `agentanycastd binary not found`, node start fails, or doctor reports `daemon_binary` failed.
+```yaml
+agency:
+  transport_backend: keryx   # primary
+  # agentanycast = legacy fallback only
+```
 
-**Cause:** No daemon binary is configured, present on `PATH`, or available under the profile's Agency home.
+Compact status/info should include `transport_backend` and `effective_transport_backend`.
 
-**Fix:** Install the daemon, add it to `PATH`, or set `agency.daemon_bin` to an executable binary path. Then run `hermes agency start` again.
+## Missing Keryx daemon / daemon not found
 
-## `agentanycast` not importable / SDK missing
+**Symptom:** Node start fails, doctor reports missing Keryx daemon, or no listener on the daemon endpoint.
 
-**Symptom:** Agency tools are gated off, doctor reports `agentanycast SDK is not importable`, or imports fail during plugin startup.
+**Cause:** `keryxd` is not running, not on `PATH`, or `agency.keryx.daemon_endpoint` / `HERMES_KERYX_DAEMON_ENDPOINT` points at the wrong place.
 
-**Cause:** The active Hermes runtime does not have the AgentAnycast Python SDK installed.
-
-**Fix:** Install the package into the same Python environment used by Hermes, for example with an editable checkout during development:
+**Fix:**
 
 ```bash
+# from hermes-keryx checkout
+./scripts/keryx-dual-run.sh --start
+./scripts/keryx-dual-run.sh --status
+```
+
+Typical daemon endpoint: `127.0.0.1:50051`.
+
+## Keryx SDK not importable
+
+**Symptom:** Agency tools gated off, doctor reports Keryx/SDK unavailable, `from keryx import KeryxNode` fails.
+
+**Cause:** Hermes is using a Python environment without the Agency package (and vendored `src/keryx/`) installed.
+
+**Fix:**
+
+```bash
+cd <workspace>/Hermes_Agency
 python -m pip install -e ".[dev]"
 ```
 
-Then restart the Hermes CLI/gateway/desktop session so tools are reloaded.
+Restart the Hermes CLI/gateway session so tools reload.
 
 ## No peers found / discovery empty
 
-**Symptom:** `agency_discover` returns no agents even though other nodes are expected online.
+**Symptom:** `agency_discover` returns no agents.
 
-**Cause:** The local node is not running, the relay/registry is not configured, the target peer has not registered skills, or discovery is limited to LAN only.
+**Cause:** Local node not running, Keryx registry/relay not configured, peer has not registered skills, or still pointing at legacy AgentAnycast registry vars only.
 
-**Fix:** Run `hermes agency doctor`, verify `hermes agency start`, set `agency.relay` for cross-network transport, and set `AGENTANYCAST_REGISTRY_ADDRS=<registry-host>:50052` for skill discovery.
+**Fix:**
+
+1. `hermes agency doctor` + `hermes agency start`
+2. Confirm Keryx registry endpoint (dual-run default `127.0.0.1:51053`)
+3. Confirm relay health (dual-run default `127.0.0.1:51052`) and libp2p (`4101` dual-run)
+4. Ensure target peer registered skills
+
+Legacy fallback only:
+
+```bash
+export AGENTANYCAST_REGISTRY_ADDRS=<registry-host>:50052
+```
 
 ## Registry unhealthy / TTL expired
 
-**Symptom:** The node is running but disappears from discovery after a short time, or compact status shows registration failures.
+**Symptom:** Node runs but drops from discovery; compact status shows registration failures.
 
-**Cause:** Relay skill-registry refresh is failing or the registry address is missing/unreachable.
+**Cause:** Registry endpoint missing/unreachable, or relay not healthy.
 
-**Fix:** Check `AGENTANYCAST_REGISTRY_ADDRS`, relay reachability, and node logs. Restart with `hermes agency stop && hermes agency start` after fixing the registry address.
+**Fix:** Check `agency.keryx.registry_endpoint` / `HERMES_KERYX_REGISTRY_ENDPOINT`, dual-run status, and node logs. Restart after correcting endpoints:
+
+```bash
+hermes agency stop && hermes agency start
+```
 
 ## Relay not connected
 
-**Symptom:** LAN discovery works but cross-network peers cannot connect.
+**Symptom:** Same-host works but multi-host peers cannot connect.
 
-**Cause:** `agency.relay` is missing, malformed, unreachable, or blocked by relay allowlist policy.
+**Cause:** Relay config missing/malformed/unreachable, or peer blocked by allowlist.
 
-**Fix:** Set a valid relay address, verify relay service health, and ensure the peer ID is allowed by relay policy. If using a relay control URL, use HTTPS or localhost only.
+**Fix:** Validate `HERMES_KERYX_RELAY_CONFIG` / relay.toml/json, relay process health, and allowlist policy. Prefer loopback-only dual-run for single-host installs.
 
 ## Remote task rejected / trust check failed
 
-**Symptom:** Incoming tasks fail before processing, or logs mention blocked, missing, mismatched, or insufficient trust.
+**Symptom:** Incoming tasks fail before processing; trust/allowlist errors in logs.
 
-**Cause:** The sender is not trusted, is blocked, is outside the effective allowlist, or TOFU/name checks detected a mismatch.
+**Cause:** Sender not trusted, blocked, outside allowlist, or identity mismatch.
 
-**Fix:** Inspect the trust store, add or promote the trusted peer, remove stale/mismatched records only after verifying identity, and retry.
+**Fix:** Inspect trust store and allowlist policy; add/promote trusted peers only after verifying identity.
 
 ## Stale socket / daemon already running
 
-**Symptom:** Start reports an existing daemon socket, connection refused, or a daemon already running with stale state.
+**Symptom:** Start reports existing daemon socket, connection refused, or stale daemon home ownership.
 
-**Cause:** A previous process left a socket file behind, or another Hermes/profile process owns the same daemon home.
+**Cause:** Previous process left state behind, or another profile owns the same daemon home/socket.
 
-**Fix:** Stop the owning process if it is still running. If the socket is stale, remove it only after confirming no daemon owns it, then run `hermes agency start`.
+**Fix:** Stop the owning process. Remove stale sockets only after confirming no process owns them, then restart.
 
-## Trust mismatch / peer not in allowlist
+## Fallback to AgentAnycast
 
-**Symptom:** Relay reservation or incoming task handling rejects a peer that appears discoverable.
+If Keryx is intentionally unavailable:
 
-**Cause:** Discovery is not trust. Empty allowlists deny by default unless `agency.relay.allow_all: true`; blocked peers override allow-all.
+```yaml
+agency:
+  transport_backend: agentanycast
+```
 
-**Fix:** Add the peer to `agency.relay.allowlist` and/or the trust store. Use `allow_all` only on trusted development networks.
+Then ensure legacy AgentAnycast package/daemon/relay are installed and configured. Prefer returning to Keryx once dual-run validation passes (`hermes-keryx` migration + dual-run scripts).
 
-## MCP HTTP endpoint exposed to network
+## Migration / rollback
 
-**Symptom:** MCP HTTP endpoint is reachable from other hosts, or doctor reports `mcp_http_exposure` as a warning.
+From the hermes-keryx repo:
 
-**Cause:** MCP HTTP mode serves tools without built-in authentication. If bound beyond localhost, any network client that can reach the endpoint may be able to invoke tools.
+```bash
+./scripts/migrate-to-keryx.sh --dry-run
+./scripts/migrate-to-keryx.sh
+./scripts/migrate-to-keryx.sh --revert
+```
 
-**Fix:** Bind MCP HTTP mode to localhost only, put it behind a reverse proxy with authentication and network restrictions, or disable MCP HTTP mode when it is not explicitly needed.
-
-## `auto_start` not working
-
-**Symptom:** The node does not start automatically when Hermes starts.
-
-**Cause:** `agency.auto_start` is false, the plugin is disabled, the SDK is missing, or the current process loaded tools before the config change.
-
-**Fix:** Enable the plugin and set `agency.auto_start: true`, install the SDK, then restart the Hermes CLI/gateway/desktop process. You can always start manually with `hermes agency start` or `/agency start`.
+Keep a known-good config backup before cutover.

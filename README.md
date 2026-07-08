@@ -18,7 +18,8 @@ Hermes Agency is the product in this repository. Keryx is the primary transport;
 | `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, and pool delegation. |
 | `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
 | `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
-| `src/agentanycast/` | Legacy AgentAnycast compatibility transport. Use Keryx for new deployments. |
+| `src/keryx/` | Vendored Keryx Python SDK (primary transport). |
+| `src/agentanycast/` | Legacy AgentAnycast compatibility transport (fallback only). |
 | `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
 | `scripts/` | Operational helpers such as batch agent wake scripts. |
 | `docs/` | Focused implementation and operations notes. |
@@ -37,9 +38,12 @@ For development from this repository:
 python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e <path-to-Hermes_Keryx>/sdk/python
 python -m pip install -e ".[dev]"
 ```
+
+This installs the plugin and the vendored Keryx Python SDK from `src/keryx/`.
+External Keryx binaries (`keryxd`, `keryx-relay`) still come from the separate
+[`hermes-keryx`](https://github.com/DeployFaith/hermes-keryx) repository.
 
 ## Command surfaces
 
@@ -228,7 +232,7 @@ The default pytest configuration skips tests marked `integration`.
 
 - Python 3.11+
 - Hermes Agent 0.17.0+
-- Keryx Python SDK (`keryx-py`, import name `keryx`) for node startup and task transport
+- Vendored Keryx Python SDK at `src/keryx/` (package/import name `keryx`) for node startup and task transport
 - Optional Keryx daemon/relay/registry services for cross-network discovery
 - AgentAnycast package/daemon only for `agency.transport_backend: agentanycast` legacy fallback
 
