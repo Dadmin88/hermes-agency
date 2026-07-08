@@ -73,6 +73,9 @@ dev = [
 [project.scripts]
 hermes-agency = "hermes_agency.cli:main"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentanycast", "hermes-agency"]
 sources = { "hermes-agency" = "hermes_agency" }
