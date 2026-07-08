@@ -658,6 +658,37 @@ def test_pool_roster_uses_profile_config_model_over_static_registry(tmp_path, mo
     ]
 
 
+def test_plugin_setup_skips_non_agency_profiles(tmp_path, monkeypatch):
+    module_name = "agency_plugin_setup_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "plugin_setup.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    setup_mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, setup_mod)
+    spec.loader.exec_module(setup_mod)
+
+    root = tmp_path / ".hermes"
+    agency_profile = root / "profiles" / "agency-worker"
+    unrelated_profile = root / "profiles" / "ordinary-user"
+    agency_profile.mkdir(parents=True)
+    unrelated_profile.mkdir(parents=True)
+
+    summary = setup_mod.setup_all_profile_plugins(
+        include_main=False,
+        root=root,
+        source=PLUGIN_DIR,
+    )
+
+    assert summary["profiles_total"] == 1
+    assert summary["profiles_updated"] == 1
+    assert (agency_profile / "plugins" / "hermes-agency").is_symlink()
+    assert not (unrelated_profile / "plugins" / "hermes-agency").exists()
+
+
 def test_pool_roster_keeps_profile_config_when_live_discovery_has_stale_card(tmp_path, monkeypatch):
     module_name = "agency_pool_roster_live_under_test"
     sys.modules.pop(module_name, None)
