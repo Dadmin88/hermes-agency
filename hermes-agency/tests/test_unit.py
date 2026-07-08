@@ -425,7 +425,7 @@ def test_build_card_merges_profile_and_registry_skills_for_agency_profiles(
     fake_sdk = types.ModuleType("agentanycast")
     fake_sdk.Skill = Skill
     fake_sdk.AgentCard = AgentCard
-    monkeypatch.setitem(sys.modules, "agentanycast", fake_sdk)
+    monkeypatch.setitem(sys.modules, "keryx", fake_sdk)
 
     profile = tmp_path / "agency-orchestrator"
     (profile / "skills" / "custom").mkdir(parents=True)
@@ -471,7 +471,7 @@ def test_build_card_uses_mocked_agency_and_profile_files(plugin_modules, tmp_pat
     fake_sdk = types.ModuleType("agentanycast")
     fake_sdk.Skill = Skill
     fake_sdk.AgentCard = AgentCard
-    monkeypatch.setitem(sys.modules, "agentanycast", fake_sdk)
+    monkeypatch.setitem(sys.modules, "keryx", fake_sdk)
 
     profile = tmp_path / "agent_profile"
     (profile / "skills" / "chat").mkdir(parents=True)
@@ -526,7 +526,7 @@ def test_build_card_metadata_excludes_secret_values(plugin_modules, tmp_path, mo
     fake_sdk = types.ModuleType("agentanycast")
     fake_sdk.Skill = Skill
     fake_sdk.AgentCard = AgentCard
-    monkeypatch.setitem(sys.modules, "agentanycast", fake_sdk)
+    monkeypatch.setitem(sys.modules, "keryx", fake_sdk)
 
     profile = tmp_path / "secret_profile"
     (profile / "skills" / "safe").mkdir(parents=True)
