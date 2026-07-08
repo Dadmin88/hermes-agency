@@ -4,6 +4,7 @@ Config schema and defaults::
 
     agency:
       enabled: true               # plugin-level runtime gate; plugin loading remains opt-in
+      transport_backend: agentanycast # agentanycast (default) or keryx
       relay: null                 # relay multiaddr for cross-network
       auto_start: false           # true = start node on session start
       skills_from_profile: true   # auto-generate AgentCard skills from installed Hermes skills
@@ -37,6 +38,14 @@ Config schema and defaults::
       card_name: null             # optional display name for this node's AgentCard
       home: null                  # override daemon home dir (default: $HERMES_HOME/.agency)
       daemon_bin: null            # explicit daemon binary path; prevents SDK auto-download/overwrite
+      keryx:
+        daemon_endpoint: null     # e.g. unix:///tmp/keryx-daemon.sock or 127.0.0.1:50051
+        registry_endpoint: null   # optional Keryx registry endpoint
+        relay_endpoint: null      # optional Keryx relay endpoint
+        relay_config: {}          # Keryx relay-specific config payload
+        worker_id: null           # optional worker identity for daemon task leasing
+        default_lease_duration_ms: 0
+        request_timeout_ms: null
       relay:
         allowlist: []           # peer_ids allowed to reserve relay slots; empty = deny unless allow_all
         auto_allow_team: false  # auto-add discovered teammates only after local trust verification
@@ -123,6 +132,30 @@ class RelaySecurityConfig:
             "allow_all": self.allow_all,
             "mode": "allow_all" if self.allow_all else "allowlist",
             "token_configured": bool(self.token),
+        }
+
+
+@dataclass(frozen=True)
+class KeryxTransportConfig:
+    """Resolved Keryx transport/runtime configuration."""
+
+    daemon_endpoint: str | None = None
+    registry_endpoint: str | None = None
+    relay_endpoint: str | None = None
+    relay_config: dict[str, Any] = field(default_factory=dict)
+    worker_id: str | None = None
+    default_lease_duration_ms: int = 0
+    request_timeout_ms: int | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "daemon_endpoint": self.daemon_endpoint,
+            "registry_endpoint": self.registry_endpoint,
+            "relay_endpoint": self.relay_endpoint,
+            "relay_config": dict(self.relay_config),
+            "worker_id": self.worker_id,
+            "default_lease_duration_ms": self.default_lease_duration_ms,
+            "request_timeout_ms": self.request_timeout_ms,
         }
 
 
@@ -363,6 +396,7 @@ class AgencyConfig:
     """Resolved Hermes Agency plugin configuration."""
 
     enabled: bool = True
+    transport_backend: str = "agentanycast"
     relay: str | None = None
     auto_start: bool = False
     skills_from_profile: bool = True
@@ -373,6 +407,7 @@ class AgencyConfig:
     home: Path | None = None
     daemon_bin: Path | None = None
     incoming: IncomingConfig = field(default_factory=IncomingConfig)
+    keryx: KeryxTransportConfig = field(default_factory=KeryxTransportConfig)
     relay_security: RelaySecurityConfig = field(default_factory=RelaySecurityConfig)
     registry_allow_insecure_token_transport: bool = False
     outbound: OutboundConfig = field(default_factory=OutboundConfig)
@@ -393,6 +428,7 @@ class AgencyConfig:
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
+            "transport_backend": self.transport_backend,
             "relay": self.relay,
             "auto_start": self.auto_start,
             "skills_from_profile": self.skills_from_profile,
@@ -403,6 +439,7 @@ class AgencyConfig:
             "home": str(self.home) if self.home else None,
             "daemon_bin": str(self.daemon_bin) if self.daemon_bin else None,
             "incoming": self.incoming.as_dict(),
+            "keryx": self.keryx.as_dict(),
             "relay_security": self.relay_security.as_dict(),
             "registry_allow_insecure_token_transport": self.registry_allow_insecure_token_transport,
             "outbound": self.outbound.as_dict(),
@@ -622,7 +659,6 @@ def _merge_relay_config(profile_relay: Any, root_relay: Any) -> Any:
     root_address = _relay_address_from(root_relay)
     if _value_missing(root_address):
         return profile_relay
-
     if isinstance(profile_relay, dict):
         merged = dict(profile_relay)
         if _value_missing(_relay_address_from(profile_relay)):
@@ -633,15 +669,88 @@ def _merge_relay_config(profile_relay: Any, root_relay: Any) -> Any:
     return profile_relay
 
 
+def _merge_missing_mapping(profile_value: Any, root_value: Any) -> Any:
+    """Merge root mapping keys when the profile mapping omits them."""
+
+    if not isinstance(root_value, dict):
+        return profile_value
+    if not isinstance(profile_value, dict):
+        return copy.deepcopy(root_value)
+    merged = copy.deepcopy(profile_value)
+    for key, value in root_value.items():
+        if key not in merged or _value_missing(merged.get(key)):
+            merged[key] = copy.deepcopy(value)
+    return merged
+
+
+def _transport_backend_config(config: dict[str, Any]) -> str:
+    """Return the configured Agency transport backend with backward-compatible defaults."""
+
+    raw_backend = str(
+        _cfg_get(config, "agency", "transport_backend", default="agentanycast")
+        or "agentanycast"
+    ).strip().lower()
+    aliases = {
+        "agent-anycast": "agentanycast",
+        "agent_anycast": "agentanycast",
+        "anycast": "agentanycast",
+    }
+    backend = aliases.get(raw_backend, raw_backend)
+    if backend not in {"agentanycast", "keryx"}:
+        logger.warning(
+            "Unsupported agency.transport_backend=%r; falling back to agentanycast", raw_backend
+        )
+        return "agentanycast"
+    return backend
+
+
+def _clean_optional_str(value: Any) -> str | None:
+    cleaned = str(value or "").strip()
+    return cleaned or None
+
+
+def _optional_int_value(value: Any, *, floor: int = 0) -> int | None:
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    try:
+        return max(floor, int(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _keryx_transport_config(config: dict[str, Any]) -> KeryxTransportConfig:
+    raw = _cfg_get(config, "agency", "keryx", default={}) or {}
+    raw_map = raw if isinstance(raw, dict) else {}
+    maybe_raw_relay = raw_map.get("relay")
+    raw_relay: dict[str, Any] = maybe_raw_relay if isinstance(maybe_raw_relay, dict) else {}
+    relay_config = raw_map.get("relay_config") or raw_relay.get("config") or {}
+    if not isinstance(relay_config, dict):
+        relay_config = {}
+    return KeryxTransportConfig(
+        daemon_endpoint=_clean_optional_str(raw_map.get("daemon_endpoint")),
+        registry_endpoint=_clean_optional_str(raw_map.get("registry_endpoint")),
+        relay_endpoint=_clean_optional_str(
+            raw_map.get("relay_endpoint") or raw_relay.get("endpoint") or raw_relay.get("url")
+        ),
+        relay_config=copy.deepcopy(relay_config),
+        worker_id=_clean_optional_str(raw_map.get("worker_id")),
+        default_lease_duration_ms=_optional_int_value(
+            raw_map.get("default_lease_duration_ms"), floor=0
+        )
+        or 0,
+        request_timeout_ms=_optional_int_value(raw_map.get("request_timeout_ms"), floor=1),
+    )
+
+
 def _merge_profile_root_agency_config(
     config: dict[str, Any], root_config: dict[str, Any]
 ) -> dict[str, Any]:
     """Apply root ``agency`` fallbacks that should be shared by all profiles.
 
     Pool-managed ``agency-*`` profiles carry profile-local identity/runtime
-    settings, but the daemon binary and relay connection are installation-level
-    settings. Inherit only those shared fields so per-profile safety gates such
-    as ``allow_remote_tasks`` and ``auto_start`` remain isolated.
+    settings, but the daemon binary, relay connection, and transport backend are
+    installation-level settings. Inherit only those shared fields so per-profile
+    safety gates such as ``allow_remote_tasks`` and ``auto_start`` remain isolated.
     """
 
     root_agency = root_config.get("agency") if isinstance(root_config, dict) else None
@@ -654,6 +763,10 @@ def _merge_profile_root_agency_config(
         profile_agency = {}
         merged_config["agency"] = profile_agency
 
+    root_backend = root_agency.get("transport_backend")
+    if _value_missing(profile_agency.get("transport_backend")) and not _value_missing(root_backend):
+        profile_agency["transport_backend"] = root_backend
+
     root_daemon_bin = root_agency.get("daemon_bin")
     if _value_missing(profile_agency.get("daemon_bin")) and not _value_missing(root_daemon_bin):
         profile_agency["daemon_bin"] = root_daemon_bin
@@ -663,6 +776,12 @@ def _merge_profile_root_agency_config(
     inherited_relay = _merge_relay_config(profile_relay, root_relay)
     if inherited_relay is not profile_relay:
         profile_agency["relay"] = inherited_relay
+
+    root_keryx = root_agency.get("keryx")
+    profile_keryx = profile_agency.get("keryx")
+    inherited_keryx = _merge_missing_mapping(profile_keryx, root_keryx)
+    if inherited_keryx is not profile_keryx:
+        profile_agency["keryx"] = inherited_keryx
 
     return merged_config
 
@@ -1535,6 +1654,7 @@ def get_config() -> AgencyConfig:
     card_name = str(_cfg_get(config, "agency", "card_name", default="") or "").strip()
     return AgencyConfig(
         enabled=_bool_cfg(config, "agency", "enabled", default=True),
+        transport_backend=_transport_backend_config(config),
         relay=relay,
         auto_start=_bool_cfg(config, "agency", "auto_start", default=False),
         skills_from_profile=_bool_cfg(
@@ -1555,6 +1675,7 @@ def get_config() -> AgencyConfig:
         home=home,
         daemon_bin=daemon_bin,
         incoming=_incoming_config(config),
+        keryx=_keryx_transport_config(config),
         relay_security=_relay_security_config(config),
         registry_allow_insecure_token_transport=_bool_cfg(
             config,

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import copy
+import importlib
 import importlib.util
 import json
 import logging
 import os
+import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -39,9 +41,96 @@ def _tool_args(args: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, A
     return merged
 
 
-def check_agency_available() -> bool:
-    """Return True when the Hermes Agency Python SDK is importable."""
+def check_keryx_available() -> bool:
+    """Return True when the Keryx Python SDK is importable."""
 
+    return importlib.util.find_spec("keryx") is not None
+
+
+def get_transport_backend() -> str:
+    """Return configured Agency transport backend, defaulting to agentanycast."""
+
+    try:
+        from .config import get_config
+
+        backend = getattr(get_config(), "transport_backend", "agentanycast")
+    except Exception:
+        logger.debug("Failed to load Agency transport backend from config", exc_info=True)
+        backend = "agentanycast"
+    normalized = str(backend or "agentanycast").strip().lower()
+    aliases = {
+        "agent-anycast": "agentanycast",
+        "agent_anycast": "agentanycast",
+        "anycast": "agentanycast",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in {"agentanycast", "keryx"}:
+        logger.warning(
+            "Unsupported agency.transport_backend=%r; falling back to agentanycast", backend
+        )
+        return "agentanycast"
+    return normalized
+
+
+def _configure_keryx_environment() -> None:
+    """Expose Hermes Agency Keryx config through Keryx SDK env vars."""
+
+    try:
+        from .config import get_config
+
+        keryx_cfg = getattr(get_config(), "keryx", None)
+    except Exception:
+        logger.debug("Failed to load Keryx transport config", exc_info=True)
+        return
+
+    mappings = {
+        "daemon_endpoint": "HERMES_KERYX_DAEMON_ENDPOINT",
+        "registry_endpoint": "HERMES_KERYX_REGISTRY_ENDPOINT",
+        "relay_endpoint": "HERMES_KERYX_RELAY_ENDPOINT",
+        "worker_id": "HERMES_KERYX_WORKER_ID",
+        "default_lease_duration_ms": "HERMES_KERYX_DEFAULT_LEASE_DURATION_MS",
+        "request_timeout_ms": "HERMES_KERYX_REQUEST_TIMEOUT_MS",
+    }
+    for attr, env_name in mappings.items():
+        value = getattr(keryx_cfg, attr, None)
+        if value is None or value == "":
+            continue
+        os.environ.setdefault(env_name, str(value))
+
+
+def _install_keryx_agentanycast_adapter() -> bool:
+    """Install Keryx's agentanycast compatibility adapter for lazy SDK imports."""
+
+    try:
+        adapter = importlib.import_module("keryx.compat.agentanycast")
+    except Exception:
+        logger.debug("Failed to import Keryx agentanycast adapter", exc_info=True)
+        return False
+    # node_lifecycle imports `agentanycast` lazily.  When Keryx is selected,
+    # route that import through Keryx's compatibility adapter.
+    sys.modules["agentanycast"] = adapter
+    return True
+
+
+def get_effective_transport_backend() -> str:
+    """Return the transport backend this process will actually use."""
+
+    backend = get_transport_backend()
+    if backend == "keryx":
+        if check_keryx_available():
+            _configure_keryx_environment()
+            if _install_keryx_agentanycast_adapter():
+                return "keryx"
+        logger.warning("Keryx transport requested but SDK unavailable; falling back to agentanycast")
+    return "agentanycast"
+
+
+def check_agency_available() -> bool:
+    """Return True when the selected Hermes Agency transport SDK is importable."""
+
+    effective_backend = get_effective_transport_backend()
+    if effective_backend == "keryx":
+        return True
     return importlib.util.find_spec("agentanycast") is not None
 
 
@@ -89,6 +178,8 @@ def a2a_info(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
     """Return local Hermes Agency plugin/SDK status and generated AgentCard."""
 
     args = _tool_args(args, **kwargs)
+    configured_backend = get_transport_backend()
+    effective_backend = get_effective_transport_backend()
     sdk_available = check_agency_available()
     if bool(args.get("compact")):
         node = manager.compact_info()
@@ -96,6 +187,8 @@ def a2a_info(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
             {
                 "ok": bool(node.get("ok")) and sdk_available,
                 "sdk_available": sdk_available,
+                "transport_backend": configured_backend,
+                "effective_transport_backend": effective_backend,
                 "compact": True,
                 "node": node,
             }
@@ -113,6 +206,8 @@ def a2a_info(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         {
             "ok": error is None,
             "sdk_available": sdk_available,
+            "transport_backend": configured_backend,
+            "effective_transport_backend": effective_backend,
             "card": card,
             "card_error": error,
             "node": manager.info(),
