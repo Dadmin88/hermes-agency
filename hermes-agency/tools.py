@@ -8,7 +8,6 @@ import importlib.util
 import json
 import logging
 import os
-import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -98,9 +97,6 @@ def _configure_keryx_environment() -> None:
         os.environ.setdefault(env_name, str(value))
 
 
-
-
-
 def get_effective_transport_backend() -> str:
     """Return the transport backend this process will actually use."""
 
@@ -109,7 +105,9 @@ def get_effective_transport_backend() -> str:
         if check_keryx_available():
             _configure_keryx_environment()
             return "keryx"
-        logger.warning("Keryx transport requested but SDK unavailable; falling back to agentanycast")
+        logger.warning(
+            "Keryx transport requested but SDK unavailable; falling back to agentanycast"
+        )
     return "agentanycast"
 
 

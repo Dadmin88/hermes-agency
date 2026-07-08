@@ -686,10 +686,14 @@ def _merge_missing_mapping(profile_value: Any, root_value: Any) -> Any:
 def _transport_backend_config(config: dict[str, Any]) -> str:
     """Return the configured Agency transport backend with backward-compatible defaults."""
 
-    raw_backend = str(
-        _cfg_get(config, "agency", "transport_backend", default="agentanycast")
-        or "agentanycast"
-    ).strip().lower()
+    raw_backend = (
+        str(
+            _cfg_get(config, "agency", "transport_backend", default="agentanycast")
+            or "agentanycast"
+        )
+        .strip()
+        .lower()
+    )
     aliases = {
         "agent-anycast": "agentanycast",
         "agent_anycast": "agentanycast",

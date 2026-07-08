@@ -177,7 +177,9 @@ def _transport_backend_for_config(cfg: AgencyConfig | None = None) -> str:
 
     try:
         active_cfg = cfg or get_config()
-        return _normalize_transport_backend(getattr(active_cfg, "transport_backend", "agentanycast"))
+        return _normalize_transport_backend(
+            getattr(active_cfg, "transport_backend", "agentanycast")
+        )
     except Exception:
         logger.debug("Failed to load Agency transport backend from config", exc_info=True)
         return "agentanycast"
@@ -475,10 +477,12 @@ class NodeManager(
             cfg.home.mkdir(parents=True, exist_ok=True)
 
         try:
-            NodeCls, backend = _resolve_transport_node_class(cfg)
+            node_cls, backend = _resolve_transport_node_class(cfg)
             card = _build_card_for_transport(backend)
             self._record_card_state(card)
-            node = NodeCls(**self._build_transport_node_kwargs(cfg=cfg, backend=backend, card=card))
+            node = node_cls(
+                **self._build_transport_node_kwargs(cfg=cfg, backend=backend, card=card)
+            )
             await node.start()
             self._register_incoming_handler(node)
 

@@ -8,13 +8,13 @@ Tools:
 """
 
 from __future__ import annotations
-import sys
 
 import fcntl
 import os
 import re
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any

@@ -87,9 +87,6 @@ def _transport_backend() -> str:
     return "agentanycast"
 
 
-
-
-
 def send_task_via_transport(
     *,
     message: str,

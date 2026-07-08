@@ -2,12 +2,12 @@
 """Long-lived per-profile Hermes Agency node runner used by the pool manager."""
 
 from __future__ import annotations
-import sys
 
 import importlib.util
 import json
 import os
 import signal
+import sys
 import time
 from collections.abc import Callable
 from pathlib import Path

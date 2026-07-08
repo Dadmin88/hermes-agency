@@ -96,9 +96,7 @@ def fake_keryx_sdk(monkeypatch):
             self.stopped = True
 
     keryx_module = types.ModuleType("keryx")
-    keryx_module.__spec__ = importlib.machinery.ModuleSpec(
-        "keryx", loader=None, is_package=True
-    )
+    keryx_module.__spec__ = importlib.machinery.ModuleSpec("keryx", loader=None, is_package=True)
     keryx_module.__path__ = []
     setattr(keryx_module, "KeryxNode", KeryxNode)
     setattr(keryx_module, "AgentCard", AgentCard)

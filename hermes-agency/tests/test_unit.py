@@ -4811,7 +4811,14 @@ def test_a2a_info_compact_uses_compact_node_payload(plugin_modules, monkeypatch)
     monkeypatch.setattr(tools, "check_agency_available", lambda: True)
     result = json.loads(tools.a2a_info({"compact": True}))
 
-    assert result == {"ok": True, "sdk_available": True, "compact": True, "node": compact}
+    assert result == {
+        "ok": True,
+        "sdk_available": True,
+        "compact": True,
+        "transport_backend": "agentanycast",
+        "effective_transport_backend": "agentanycast",
+        "node": compact,
+    }
     assert "card" not in result
 
 
