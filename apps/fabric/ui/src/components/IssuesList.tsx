@@ -1,5 +1,5 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accessApi } from "../api/access";
 import { useDialogActions } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
@@ -61,8 +61,17 @@ import { PageSkeleton } from "./PageSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, Columns3, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse } from "lucide-react";
+import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, Columns3, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse, MoreHorizontal } from "lucide-react";
 import {
   KanbanBoard,
   KANBAN_BOARD_HIGH_VOLUME_THRESHOLD,
@@ -422,9 +431,13 @@ interface IssuesListProps {
 function IssueSearchInput({
   value,
   onDebouncedChange,
+  className,
+  inputClassName,
 }: {
   value: string;
   onDebouncedChange?: (search: string) => void;
+  className?: string;
+  inputClassName?: string;
 }) {
   const [draftValue, setDraftValue] = useState(value);
   const lastCommittedValueRef = useRef(value);
@@ -448,7 +461,7 @@ function IssueSearchInput({
   }, [draftValue, onDebouncedChange]);
 
   return (
-    <div className="relative w-48 sm:w-64 md:w-80">
+    <div className={cn("relative w-48 sm:w-64 md:w-80", className)}>
       <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         value={draftValue}
@@ -473,7 +486,7 @@ function IssueSearchInput({
           }
         }}
         placeholder="Search tasks..."
-        className="pl-7 text-xs sm:text-sm"
+        className={cn("pl-7 text-xs sm:text-sm", inputClassName)}
         aria-label="Search tasks"
         data-page-search-target="true"
       />
@@ -627,6 +640,7 @@ export function IssuesList({
 }: IssuesListProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { selectedCompanyId } = useCompany();
+  const queryClient = useQueryClient();
   const { openNewIssue } = useDialogActions();
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
@@ -1371,7 +1385,215 @@ export function IssuesList({
       ) : null}
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-2 sm:gap-3">
+      <div className="space-y-2 sm:hidden" data-testid="issues-mobile-toolbar">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-11 w-11 shrink-0"
+            onClick={() => openCreateIssueDialog()}
+            title={createButtonLabel}
+            aria-label={createButtonLabel}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <IssueSearchInput
+            value={issueSearch}
+            className="min-w-0 flex-1 sm:w-auto"
+            inputClassName="h-11 text-sm"
+            onDebouncedChange={(nextSearch) => {
+              setIssueSearch(nextSearch);
+              onSearchChange?.(nextSearch);
+            }}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <IssueFiltersPopover
+            state={viewState}
+            onChange={updateView}
+            activeFilterCount={activeFilterCount}
+            agents={agents}
+            creators={creatorOptions}
+            projects={projects?.map((project) => ({ id: project.id, name: project.name }))}
+            labels={labels?.map((label) => ({ id: label.id, name: label.name, color: label.color }))}
+            currentUserId={currentUserId}
+            enableExternalObjectFilters={externalObjectsEnabled}
+            enableRoutineVisibilityFilter={enableRoutineVisibilityFilter}
+            buttonVariant="outline"
+            iconOnly
+            buttonClassName="h-11 w-11"
+            workspaces={isolatedWorkspacesEnabled ? workspaceOptions : undefined}
+          />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0"
+                title="More task controls"
+                aria-label="More task controls"
+                data-testid="issues-mobile-overflow"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-[min(82vh,34rem)] w-[min(320px,calc(100vw-1rem))] overflow-y-auto p-1.5">
+              <DropdownMenuLabel>Task controls</DropdownMenuLabel>
+              <DropdownMenuItem
+                onSelect={() => queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId!) })}
+                className="min-h-11"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Refresh tasks
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>View</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => updateView({ viewMode: "list" })} className="min-h-11">
+                <List className="h-4 w-4" />
+                List view
+                {viewState.viewMode === "list" && <Check className="ml-auto h-4 w-4" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => updateView({ viewMode: "board" })} className="min-h-11">
+                <Columns3 className="h-4 w-4" />
+                Board view
+                {viewState.viewMode === "board" && <Check className="ml-auto h-4 w-4" />}
+              </DropdownMenuItem>
+
+              {viewState.viewMode === "list" ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={viewState.nestingEnabled}
+                    onCheckedChange={(checked) => updateView({ nestingEnabled: checked === true })}
+                    className="min-h-11"
+                  >
+                    Nest subtasks
+                  </DropdownMenuCheckboxItem>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Sort</DropdownMenuLabel>
+                  {([
+                    ["workflow", "Workflow"],
+                    ["status", "Status"],
+                    ["priority", "Priority"],
+                    ["title", "Title"],
+                    ["created", "Created"],
+                    ["updated", "Updated"],
+                  ] as const).map(([field, label]) => (
+                    <DropdownMenuItem
+                      key={field}
+                      onSelect={() => {
+                        if (viewState.sortField === field) {
+                          updateView({ sortDir: viewState.sortDir === "asc" ? "desc" : "asc" });
+                        } else {
+                          updateView({ sortField: field, sortDir: "asc" });
+                        }
+                      }}
+                      className="min-h-11"
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                      {label}
+                      {viewState.sortField === field && (
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {viewState.sortDir === "asc" ? "\u2191" : "\u2193"}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Group</DropdownMenuLabel>
+                  {([
+                    ["status", "Status"],
+                    ["priority", "Priority"],
+                    ["assignee", "Assignee"],
+                    ["project", "Project"],
+                    ["workspace", "Workspace"],
+                    ["parent", "Parent Task"],
+                    ["none", "None"],
+                  ] as const).map(([value, label]) => (
+                    <DropdownMenuItem
+                      key={value}
+                      onSelect={() => updateView({ groupBy: value })}
+                      className="min-h-11"
+                    >
+                      <Layers className="h-4 w-4" />
+                      {label}
+                      {viewState.groupBy === value && <Check className="ml-auto h-4 w-4" />}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Board density</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onSelect={() => updateView({ boardCardDensity: boardCompactCards ? "comfortable" : "compact" })}
+                    className="min-h-11"
+                  >
+                    <ChevronsDownUp className="h-4 w-4" />
+                    {boardCompactCards ? "Use comfortable cards" : "Use compact cards"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => updateView({ boardColdLaneMode: boardCollapsedStatuses.length > 0 ? "expanded" : "collapsed" })}
+                    className="min-h-11"
+                  >
+                    <PanelTopClose className="h-4 w-4" />
+                    {boardCollapsedStatuses.length > 0 ? "Expand cold lanes" : "Collapse cold lanes"}
+                  </DropdownMenuItem>
+                  <DropdownMenuLabel>Cards per column</DropdownMenuLabel>
+                  {KANBAN_COLUMN_PAGE_SIZE_OPTIONS.map((pageSize) => (
+                    <DropdownMenuItem
+                      key={pageSize}
+                      onSelect={() => updateView({ boardColumnPageSize: pageSize })}
+                      className="min-h-11"
+                    >
+                      <ListCollapse className="h-4 w-4" />
+                      {pageSize} per column
+                      {viewState.boardColumnPageSize === pageSize && <Check className="ml-auto h-4 w-4" />}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem
+                    onSelect={() => updateView({
+                      boardCardDensity: "auto",
+                      boardColdLaneMode: "auto",
+                      boardColumnPageSize: KANBAN_COLUMN_DEFAULT_PAGE_SIZE,
+                    })}
+                    disabled={!boardDensityCustomized}
+                    className="min-h-11"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reset board density
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Columns</DropdownMenuLabel>
+              {availableIssueColumns.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column}
+                  checked={visibleIssueColumnSet.has(column)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => toggleIssueColumn(column, checked === true)}
+                  className="min-h-11"
+                >
+                  {column === "id" ? "ID" : column.replace(/_/g, " ").replace(/^./, (char) => char.toUpperCase())}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuItem onSelect={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)} className="min-h-11">
+                Reset columns
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="hidden items-center justify-between gap-2 sm:flex sm:gap-3" data-testid="issues-desktop-toolbar">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Button size="sm" variant="outline" onClick={() => openCreateIssueDialog()}>
             <Plus className="h-4 w-4 sm:mr-1" />

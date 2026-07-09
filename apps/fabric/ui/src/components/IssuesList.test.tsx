@@ -321,6 +321,44 @@ describe("IssuesList", () => {
     container.remove();
   });
 
+  it("renders a compact two-tier mobile toolbar with touch-sized core actions", async () => {
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[createIssue()]}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      expect(container.querySelector("[data-testid='issue-row']")).not.toBeNull();
+    });
+
+    const mobileToolbar = container.querySelector("[data-testid='issues-mobile-toolbar']");
+    const desktopToolbar = container.querySelector("[data-testid='issues-desktop-toolbar']");
+    const mobileAddButton = mobileToolbar?.querySelector("button[aria-label='New Task']");
+    const mobileSearchInput = mobileToolbar?.querySelector("input[aria-label='Search tasks']");
+    const mobileOverflowButton = mobileToolbar?.querySelector("[data-testid='issues-mobile-overflow']");
+
+    expect(mobileToolbar?.className).toContain("space-y-2");
+    expect(mobileToolbar?.className).toContain("sm:hidden");
+    expect(desktopToolbar?.className).toContain("hidden");
+    expect(desktopToolbar?.className).toContain("sm:flex");
+    expect(mobileAddButton?.className).toContain("h-11");
+    expect(mobileAddButton?.className).toContain("w-11");
+    expect(mobileSearchInput?.className).toContain("h-11");
+    expect(mobileOverflowButton?.className).toContain("h-11");
+    expect(mobileOverflowButton?.className).toContain("w-11");
+    expect(mobileToolbar?.textContent).not.toContain("New Task");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   it("forwards external-object summaries into issue rows", async () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({
       enableIsolatedWorkspaces: false,
