@@ -188,9 +188,14 @@ class TeamDiscoveryMixin:
         """
 
         try:
-            from .pool.roster import load_roster
+            from .pool.roster import build_roster
 
-            roster = load_roster()
+            # Startup team refresh already has a live peer map from the active
+            # node.  Loading the roster through its default Keryx live-discovery
+            # path can block startup/CLI discovery when the registry or gateway
+            # is slow.  Use the static/persisted roster only, then intersect it
+            # with currently visible peer IDs below before attempting handshakes.
+            roster = build_roster(live_peers=[], include_plugin_setup=False)
         except Exception:
             return []
 

@@ -170,6 +170,33 @@ class RegistryClientMixin:
 
         if not self.state.peer_id:
             return {"ok": False, "skipped": True, "reason": "peer_id is not set"}
+        if getattr(self.state.config, "transport_backend", "") == "keryx":
+            register_skills = getattr(self._node, "register_skills", None)
+            if callable(register_skills):
+                try:
+                    result = register_skills(card, ttl_seconds=60)
+                    if asyncio.iscoroutine(result):
+                        result = await result
+                except Exception as exc:
+                    return {
+                        "ok": False,
+                        "skipped": False,
+                        "errors": [f"keryx registry: {type(exc).__name__}: {exc}"],
+                        "addresses": [self.state.config.keryx.registry_endpoint]
+                        if self.state.config.keryx.registry_endpoint
+                        else [],
+                        "skill_count": len(getattr(card, "skills", []) or []),
+                    }
+                accepted = bool(result.get("accepted")) if isinstance(result, dict) else bool(result)
+                return {
+                    "ok": accepted,
+                    "skipped": False,
+                    "errors": [] if accepted else ["keryx registry rejected skill registration"],
+                    "addresses": [self.state.config.keryx.registry_endpoint]
+                    if self.state.config.keryx.registry_endpoint
+                    else [],
+                    "skill_count": len(getattr(card, "skills", []) or []),
+                }
         addresses = _registry_addresses()
         if not addresses:
             return {

@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import grpc
 
@@ -22,6 +22,9 @@ from hermes.keryx.v1 import (  # noqa: E402
     registry_pb2_grpc,
     task_pb2,
 )
+
+if TYPE_CHECKING:
+    from keryx.card import AgentCard
 
 
 def _grpc_target(endpoint: str) -> str:
@@ -51,7 +54,13 @@ class DaemonClient:
         registry_channel: grpc.aio.Channel | None = None,
     ) -> None:
         self._daemon_endpoint = daemon_endpoint
-        self._registry_endpoint = registry_endpoint or os.environ.get("HERMES_KERYX_REGISTRY_ENDPOINT")
+        self._registry_endpoint = (
+            registry_endpoint
+            or os.environ.get("HERMES_KERYX_REGISTRY_ENDPOINT")
+            or os.environ.get("KERYX_REGISTRY_ENDPOINT")
+            or os.environ.get("HERMES_KERYX_RELAY_REGISTRY_ENDPOINT")
+            or os.environ.get("KERYX_RELAY_REGISTRY_ENDPOINT")
+        )
         self._channel = channel
         self._registry_channel = registry_channel
         self._daemon: daemon_pb2_grpc.KeryxDaemonStub | None = None
@@ -63,7 +72,9 @@ class DaemonClient:
         self._daemon = daemon_pb2_grpc.KeryxDaemonStub(self._channel)
         if self._registry_endpoint:
             if self._registry_channel is None:
-                self._registry_channel = grpc.aio.insecure_channel(_grpc_target(self._registry_endpoint))
+                self._registry_channel = grpc.aio.insecure_channel(
+                    _grpc_target(self._registry_endpoint)
+                )
             self._registry = registry_pb2_grpc.RegistryServiceStub(self._registry_channel)
 
     async def close(self) -> None:
@@ -120,23 +131,40 @@ class DaemonClient:
         )
         return await self._daemon.SendTask(request)
 
-    async def discover(self, skill_id: str, *, tags: list[str] | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    async def discover(
+        self,
+        skill_id: str,
+        *,
+        tags: list[str] | None = None,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
         if self._registry is None:
             return []
         assert self._registry is not None
+        active_tags = tags or []
         response = await self._registry.DiscoverBySkill(
-            registry_pb2.DiscoverBySkillRequest(skill_id=skill_id, tags=tags or [], limit=limit)
+            registry_pb2.DiscoverBySkillRequest(skill_id=skill_id, tags=active_tags, limit=limit)
         )
-        results: list[dict[str, Any]] = []
-        for registration in response.registrations:
-            results.append(
-                {
-                    "peer_id": registration.peer_id,
-                    "agent_name": registration.name,
-                    "agent_description": registration.description,
-                    "skills": [skill.skill_id for skill in registration.skills],
-                }
+        registrations = list(response.registrations)
+        if skill_id and not registrations:
+            # Some live relay versions can retain registrations while losing their
+            # in-memory skill index after gossip/refresh activity. Querying the full
+            # registry and filtering client-side keeps Agency discovery actionable
+            # until the relay is restarted or upgraded, without changing the normal
+            # fast path when the index is healthy.
+            fallback = await self._registry.DiscoverBySkill(
+                registry_pb2.DiscoverBySkillRequest(skill_id="", tags=active_tags, limit=0)
             )
+            registrations = [
+                registration
+                for registration in fallback.registrations
+                if _registration_matches(registration, skill_id, active_tags)
+            ]
+            if limit > 0:
+                registrations = registrations[:limit]
+        results: list[dict[str, Any]] = []
+        for registration in registrations:
+            results.append(_registration_to_result(registration))
         return results
 
     async def register_skills(
@@ -173,7 +201,7 @@ class DaemonClient:
         )
         return bool(response.accepted)
 
-    async def get_card(self, peer_id: str) -> "AgentCard":
+    async def get_card(self, peer_id: str) -> AgentCard:
         from keryx.card import AgentCard, Skill
 
         if self._registry is None:
@@ -194,3 +222,20 @@ class DaemonClient:
                     peer_id=registration.peer_id,
                 )
         raise RuntimeError(f"No agent card for peer {peer_id}")
+
+
+def _registration_matches(registration: Any, skill_id: str, tags: list[str]) -> bool:
+    return any(
+        skill.skill_id == skill_id
+        and all(tag in getattr(skill, "tags", []) for tag in tags)
+        for skill in registration.skills
+    )
+
+
+def _registration_to_result(registration: Any) -> dict[str, Any]:
+    return {
+        "peer_id": registration.peer_id,
+        "agent_name": registration.name,
+        "agent_description": registration.description,
+        "skills": [skill.skill_id for skill in registration.skills],
+    }

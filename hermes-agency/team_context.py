@@ -26,7 +26,12 @@ def _load_pool_roster() -> dict[str, Any]:
     try:
         from .pool.roster import build_roster, save_roster
 
-        roster = save_roster(build_roster(include_plugin_setup=False))
+        # Team-context rendering runs on node startup and CLI discovery.  Do not
+        # let it trigger another live Keryx roster scan: the active node refresh
+        # path already supplies live discovery overlays via
+        # _update_pool_roster_from_discovery(), and nested live roster discovery
+        # can block otherwise successful `hermes agency discover` commands.
+        roster = save_roster(build_roster(live_peers=[], include_plugin_setup=False))
         if os.getenv("HERMES_AGENCY_DEBUG_TEAM_CONTEXT"):
             sample = next(
                 (

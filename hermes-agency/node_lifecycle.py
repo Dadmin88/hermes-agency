@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import threading
 import time
 from collections.abc import Coroutine
@@ -130,25 +129,15 @@ class NodeLifecycleMixin:
             cfg.home.mkdir(parents=True, exist_ok=True)
 
         try:
-            from keryx import KeryxNode as Node
-
-            card = self._nm().build_card(lazy=True)
+            node_cls, backend = self._nm()._resolve_transport_node_class(cfg)
+            card = self._nm()._build_card_for_transport(backend)
             self._record_card_state(card)
-            daemon_bin = self._nm()._resolve_daemon_bin()
-            if daemon_bin is not None:
-                self._status_callback(f"Using Hermes Agency daemon binary: {daemon_bin}")
-            if cfg.relay_security.token:
-                # Current protected daemon builds do not expose a token flag, but
-                # exporting this keeps plugin configuration forward-compatible
-                # with token-aware daemon builds without touching SDK source.
-                os.environ["AGENTANYCAST_RELAY_TOKEN"] = cfg.relay_security.token
-            node = Node(
+            node_kwargs = self._nm()._build_transport_node_kwargs(
+                cfg=cfg,
+                backend=backend,
                 card=card,
-                relay=cfg.relay,
-                home=cfg.home,
-                daemon_bin=daemon_bin,
-                status_callback=self._status_callback,
             )
+            node = node_cls(**node_kwargs)
             await node.start()
             self._register_incoming_handler(node)
 

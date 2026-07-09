@@ -29,7 +29,7 @@ class KeryxConfig:
     request_timeout_ms: int | None = None
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> "KeryxConfig":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> KeryxConfig:
         """Build a config from environment variables only."""
 
         source = env if env is not None else os.environ
@@ -44,6 +44,8 @@ class KeryxConfig:
                 source,
                 "HERMES_KERYX_REGISTRY_ENDPOINT",
                 "KERYX_REGISTRY_ENDPOINT",
+                "HERMES_KERYX_RELAY_REGISTRY_ENDPOINT",
+                "KERYX_RELAY_REGISTRY_ENDPOINT",
             ),
             relay_endpoint=_first_env(
                 source,
@@ -69,7 +71,7 @@ class KeryxConfig:
         )
 
     @classmethod
-    def from_toml(cls, path: str | Path) -> "KeryxConfig":
+    def from_toml(cls, path: str | Path) -> KeryxConfig:
         """Load config values from a TOML file.
 
         Supported keys may be top-level (``daemon_endpoint``) or grouped as
@@ -108,14 +110,20 @@ class KeryxConfig:
             ),
         )
 
-    def with_env_overrides(self, env: Mapping[str, str] | None = None) -> "KeryxConfig":
+    def with_env_overrides(self, env: Mapping[str, str] | None = None) -> KeryxConfig:
         """Return a copy with any configured environment variables applied."""
 
         source = env if env is not None else os.environ
         changes: dict[str, Any] = {}
         if daemon := _first_env(source, "HERMES_KERYX_DAEMON_ENDPOINT", "KERYX_DAEMON_ENDPOINT"):
             changes["daemon_endpoint"] = daemon
-        if registry := _first_env(source, "HERMES_KERYX_REGISTRY_ENDPOINT", "KERYX_REGISTRY_ENDPOINT"):
+        if registry := _first_env(
+            source,
+            "HERMES_KERYX_REGISTRY_ENDPOINT",
+            "KERYX_REGISTRY_ENDPOINT",
+            "HERMES_KERYX_RELAY_REGISTRY_ENDPOINT",
+            "KERYX_RELAY_REGISTRY_ENDPOINT",
+        ):
             changes["registry_endpoint"] = registry
         if relay := _first_env(source, "HERMES_KERYX_RELAY_ENDPOINT", "KERYX_RELAY_ENDPOINT"):
             changes["relay_endpoint"] = relay

@@ -4,8 +4,8 @@ Config schema and defaults::
 
     agency:
       enabled: true               # plugin-level runtime gate; plugin loading remains opt-in
-      transport_backend: agentanycast # agentanycast (default) or keryx
-      relay: null                 # relay multiaddr for cross-network
+      transport_backend: keryx    # primary transport; agentanycast is legacy fallback
+      relay: null                 # legacy AgentAnycast relay multiaddr for rollback
       auto_start: false           # true = start node on session start
       skills_from_profile: true   # auto-generate AgentCard skills from installed Hermes skills
       allow_remote_tasks: false   # false = safe stub; true = process according to incoming.mode
@@ -713,6 +713,22 @@ def _clean_optional_str(value: Any) -> str | None:
     return cleaned or None
 
 
+def _first_env_value(*names: str) -> str | None:
+    for name in names:
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
+def _first_csv_value(value: Any) -> str | None:
+    for item in str(value or "").split(","):
+        cleaned = item.strip()
+        if cleaned:
+            return cleaned
+    return None
+
+
 def _optional_int_value(value: Any, *, floor: int = 0) -> int | None:
     if value is None or (isinstance(value, str) and not value.strip()):
         return None
@@ -730,9 +746,17 @@ def _keryx_transport_config(config: dict[str, Any]) -> KeryxTransportConfig:
     relay_config = raw_map.get("relay_config") or raw_relay.get("config") or {}
     if not isinstance(relay_config, dict):
         relay_config = {}
+    registry_endpoint = _clean_optional_str(raw_map.get("registry_endpoint"))
+    if registry_endpoint is None:
+        registry_endpoint = _first_env_value(
+            "HERMES_KERYX_REGISTRY_ENDPOINT",
+            "KERYX_REGISTRY_ENDPOINT",
+            "HERMES_KERYX_RELAY_REGISTRY_ENDPOINT",
+            "KERYX_RELAY_REGISTRY_ENDPOINT",
+        ) or _first_csv_value(os.getenv("AGENTANYCAST_REGISTRY_ADDRS"))
     return KeryxTransportConfig(
         daemon_endpoint=_clean_optional_str(raw_map.get("daemon_endpoint")),
-        registry_endpoint=_clean_optional_str(raw_map.get("registry_endpoint")),
+        registry_endpoint=registry_endpoint,
         relay_endpoint=_clean_optional_str(
             raw_map.get("relay_endpoint") or raw_relay.get("endpoint") or raw_relay.get("url")
         ),

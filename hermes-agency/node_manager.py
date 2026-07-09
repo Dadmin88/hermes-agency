@@ -151,6 +151,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+STARTUP_TEAM_REFRESH_TIMEOUT_SECONDS = 15.0
+
 
 _TRANSPORT_BACKEND_ALIASES = {
     "agent-anycast": "agentanycast",
@@ -429,11 +431,14 @@ class NodeManager(
         if backend == "keryx":
             keryx_cfg = getattr(cfg, "keryx", None)
             daemon_addr = getattr(keryx_cfg, "daemon_endpoint", None)
+            registry_endpoint = getattr(keryx_cfg, "registry_endpoint", None)
             relay = getattr(keryx_cfg, "relay_endpoint", None) or cfg.relay
             if relay:
                 kwargs["relay"] = relay
             if daemon_addr:
                 kwargs["daemon_addr"] = daemon_addr
+            if registry_endpoint:
+                kwargs["registry_endpoint"] = registry_endpoint
             kwargs["transport"] = "keryx"
             kwargs["namespace"] = cfg.team.tenant
             endpoint_label = daemon_addr or "default daemon endpoint"
@@ -502,32 +507,36 @@ class NodeManager(
             self.state.serve_task_running = True
             if cfg.team.auto_register:
                 await self._nm().register_agent(node, card, current_load=self._current_load())
-                if backend == "keryx" and hasattr(node, "register_skills"):
-                    try:
-                        await node.register_skills(card, current_load=self._current_load())
-                        self.state.last_status = "Keryx skills registered"
-                    except Exception as exc:
-                        self.state.last_status = (
-                            f"Keryx skill registration failed: {type(exc).__name__}: {exc}"
-                        )
-                else:
-                    registration_result = await self._register_skills_with_registries(card)
-                    self._handle_registry_registration_result(
-                        registration_result,
-                        retry_in_seconds=float(
-                            self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS
-                        ),
-                    )
+                registration_result = await self._register_skills_with_registries(card)
+                self._handle_registry_registration_result(
+                    registration_result,
+                    retry_in_seconds=float(
+                        self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS
+                    ),
+                )
                 self._nm().announce_registration(
                     self.state.card_name or self._nm().current_profile_name(),
                     "registered",
                     peer_id=self.state.peer_id,
                 )
-            await self._refresh_team_context_impl(force=True)
+            try:
+                await asyncio.wait_for(
+                    self._refresh_team_context_impl(force=True),
+                    timeout=STARTUP_TEAM_REFRESH_TIMEOUT_SECONDS,
+                )
+            except TimeoutError:
+                self.state.team_last_error = (
+                    "startup team context refresh timed out; continuing node startup"
+                )
+                logger.warning(
+                    "Hermes Agency startup team context refresh timed out after %.1fs; "
+                    "continuing node startup",
+                    STARTUP_TEAM_REFRESH_TIMEOUT_SECONDS,
+                )
             if cfg.team.auto_discover and self._team_refresh_task is None:
                 self._team_refresh_task = asyncio.create_task(self._team_refresh_loop())
             if (
-                backend == "agentanycast"
+                backend in {"agentanycast", "keryx"}
                 and cfg.team.auto_register
                 and self._registry_reregister_task is None
             ):

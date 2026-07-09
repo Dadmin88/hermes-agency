@@ -79,6 +79,7 @@ def fake_keryx_sdk(monkeypatch):
             self.card = kwargs["card"]
             self.peer_id = "peer-keryx-e2e"
             self._task_handlers: list[Any] = []
+            self.register_calls: list[dict[str, Any]] = []
             self.started = False
             self.stopped = False
             KeryxNode.instances.append(self)
@@ -94,6 +95,10 @@ def fake_keryx_sdk(monkeypatch):
 
         async def stop(self) -> None:
             self.stopped = True
+
+        async def register_skills(self, card: Any, **kwargs: Any) -> dict[str, Any]:
+            self.register_calls.append({"card": card, **kwargs})
+            return {"accepted": True, "peer_id": self.peer_id}
 
     keryx_module = types.ModuleType("keryx")
     keryx_module.__spec__ = importlib.machinery.ModuleSpec("keryx", loader=None, is_package=True)
@@ -222,6 +227,22 @@ def test_config_loading_reads_keryx_transport(plugin_tools):
     assert cfg.team.auto_discover is False
 
 
+def test_config_loading_accepts_keryx_relay_registry_env(plugin_tools, monkeypatch):
+    monkeypatch.delenv("HERMES_KERYX_REGISTRY_ENDPOINT", raising=False)
+    monkeypatch.delenv("KERYX_REGISTRY_ENDPOINT", raising=False)
+    plugin_tools["config"].load_config = lambda: {
+        "agency": {
+            "transport_backend": "keryx",
+            "keryx": {"daemon_endpoint": DAEMON_ENDPOINT},
+        }
+    }
+    monkeypatch.setenv("HERMES_KERYX_RELAY_REGISTRY_ENDPOINT", "http://127.0.0.1:51053")
+
+    cfg = plugin_tools["config"].get_config()
+
+    assert cfg.keryx.registry_endpoint == "http://127.0.0.1:51053"
+
+
 @pytest.mark.asyncio
 async def test_mock_daemon_connection_uses_keryx_transport(node_manager_module, fake_keryx_sdk):
     manager = node_manager_module.NodeManager()
@@ -251,6 +272,7 @@ async def test_mock_daemon_connection_uses_keryx_transport(node_manager_module, 
         assert node.started is True
         assert len(node._task_handlers) == 1
         assert node.kwargs["daemon_addr"] == DAEMON_ENDPOINT
+        assert node.kwargs["registry_endpoint"] == "127.0.0.1:50052"
         assert node.kwargs["transport"] == "keryx"
         assert node.kwargs["namespace"] == "default"
         assert node.kwargs["relay"] == "memory://relay"
@@ -258,3 +280,119 @@ async def test_mock_daemon_connection_uses_keryx_transport(node_manager_module, 
         assert node.kwargs["card"].name == "profile-home"
     finally:
         await manager._stop_impl()
+
+
+@pytest.mark.asyncio
+async def test_keryx_auto_register_starts_registry_refresh_loop(
+    plugin_base, node_manager_module, fake_keryx_sdk
+):
+    plugin_base["config_data"]["agency"]["team"]["auto_register"] = True
+    manager = node_manager_module.NodeManager()
+
+    # This test verifies Keryx registry refresh lifecycle wiring only; avoid
+    # queue workers and live team discovery.
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+
+    async def refresh_team_context(*, force: bool = False) -> None:
+        return None
+
+    manager._refresh_team_context_impl = refresh_team_context
+
+    try:
+        state = await manager._start_impl()
+
+        assert state.started is True
+        assert state.registration_healthy is True
+        assert manager._registry_reregister_task is not None
+        assert not manager._registry_reregister_task.done()
+
+        node = fake_keryx_sdk["KeryxNode"].instances[-1]
+        assert node.register_calls
+        assert node.register_calls[0]["ttl_seconds"] == 60
+    finally:
+        await manager._stop_impl()
+
+
+@pytest.mark.asyncio
+async def test_startup_team_refresh_timeout_does_not_block_node_start(
+    node_manager_module, fake_keryx_sdk, monkeypatch
+):
+    manager = node_manager_module.NodeManager()
+
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+    monkeypatch.setattr(node_manager_module, "STARTUP_TEAM_REFRESH_TIMEOUT_SECONDS", 0.01)
+
+    async def refresh_team_context(*, force: bool = False) -> None:
+        await asyncio.sleep(60)
+
+    manager._refresh_team_context_impl = refresh_team_context
+
+    try:
+        state = await manager._start_impl()
+
+        assert state.started is True
+        assert state.error is None
+        assert state.peer_id == "peer-keryx-e2e"
+        assert state.team_last_error == (
+            "startup team context refresh timed out; continuing node startup"
+        )
+    finally:
+        await manager._stop_impl()
+
+
+@pytest.mark.asyncio
+async def test_keryx_client_discover_falls_back_when_skill_index_is_empty():
+    from keryx import client as keryx_client
+
+    daemon_client_cls = keryx_client.DaemonClient
+    registry_pb2 = keryx_client.registry_pb2
+
+    class RegistryStub:
+        def __init__(self) -> None:
+            self.requests: list[Any] = []
+
+        async def DiscoverBySkill(self, request):  # noqa: N802 - gRPC stub method name
+            self.requests.append(request)
+            if request.skill_id:
+                return registry_pb2.DiscoverBySkillResponse()
+            return registry_pb2.DiscoverBySkillResponse(
+                registrations=[
+                    registry_pb2.Registration(
+                        peer_id="peer-local",
+                        name="Local Agent",
+                        description="local",
+                        skills=[
+                            registry_pb2.SkillInfo(skill_id="other", description="Other"),
+                            registry_pb2.SkillInfo(
+                                skill_id="hermes-chat",
+                                description="Hermes chat",
+                                tags=["chat"],
+                            ),
+                        ],
+                    ),
+                    registry_pb2.Registration(
+                        peer_id="peer-filtered-out",
+                        name="Wrong Agent",
+                        description="wrong",
+                        skills=[registry_pb2.SkillInfo(skill_id="other", description="Other")],
+                    ),
+                ]
+            )
+
+    registry = RegistryStub()
+    client = daemon_client_cls(daemon_endpoint="127.0.0.1:50051")
+    client._registry = registry
+
+    results = await client.discover("hermes-chat", tags=["chat"], limit=1)
+
+    assert results == [
+        {
+            "peer_id": "peer-local",
+            "agent_name": "Local Agent",
+            "agent_description": "local",
+            "skills": ["other", "hermes-chat"],
+        }
+    ]
+    assert [request.skill_id for request in registry.requests] == ["hermes-chat", ""]
