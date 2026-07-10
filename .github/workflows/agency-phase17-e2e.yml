@@ -30,11 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout Phase 17 Keryx
+      - name: Checkout merged Phase 17 Keryx
         uses: actions/checkout@v4
         with:
           repository: DeployFaith/hermes-keryx
-          ref: feat/phase17-complete-roundtrip
+          ref: 906823badac04fd9d159c4da927dda5c25d712dc
           path: .phase17-keryx
 
       - uses: dtolnay/rust-toolchain@stable
