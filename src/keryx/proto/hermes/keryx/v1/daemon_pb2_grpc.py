@@ -59,10 +59,45 @@ class KeryxDaemonStub:
                 request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskRequest.SerializeToString,
                 response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskResponse.FromString,
                 _registered_method=True)
+        self.SubmitRemoteTask = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/SubmitRemoteTask',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitRemoteTaskRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskResponse.FromString,
+                _registered_method=True)
+        self.GetTaskResult = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/GetTaskResult',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.GetTaskResultRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.GetTaskResultResponse.FromString,
+                _registered_method=True)
+        self.ClaimNextResultDelivery = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/ClaimNextResultDelivery',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextResultDeliveryRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextResultDeliveryResponse.FromString,
+                _registered_method=True)
+        self.AckResultDelivery = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/AckResultDelivery',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.AckResultDeliveryRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.AckResultDeliveryResponse.FromString,
+                _registered_method=True)
+        self.FailResultDelivery = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/FailResultDelivery',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.FailResultDeliveryRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.FailResultDeliveryResponse.FromString,
+                _registered_method=True)
+        self.IngestRemoteResult = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/IngestRemoteResult',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.IngestRemoteResultRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.IngestRemoteResultResponse.FromString,
+                _registered_method=True)
         self.ClaimTask = channel.unary_unary(
                 '/hermes.keryx.v1.KeryxDaemon/ClaimTask',
                 request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimTaskRequest.SerializeToString,
                 response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimTaskResponse.FromString,
+                _registered_method=True)
+        self.ClaimNextTask = channel.unary_unary(
+                '/hermes.keryx.v1.KeryxDaemon/ClaimNextTask',
+                request_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextTaskRequest.SerializeToString,
+                response_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextTaskResponse.FromString,
                 _registered_method=True)
         self.Heartbeat = channel.unary_unary(
                 '/hermes.keryx.v1.KeryxDaemon/Heartbeat',
@@ -154,7 +189,49 @@ class KeryxDaemonServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubmitRemoteTask(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTaskResult(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClaimNextResultDelivery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AckResultDelivery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FailResultDelivery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def IngestRemoteResult(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ClaimTask(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClaimNextTask(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -254,10 +331,45 @@ def add_KeryxDaemonServicer_to_server(servicer, server):
                     request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskRequest.FromString,
                     response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskResponse.SerializeToString,
             ),
+            'SubmitRemoteTask': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitRemoteTask,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitRemoteTaskRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskResponse.SerializeToString,
+            ),
+            'GetTaskResult': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTaskResult,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.GetTaskResultRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.GetTaskResultResponse.SerializeToString,
+            ),
+            'ClaimNextResultDelivery': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClaimNextResultDelivery,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextResultDeliveryRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextResultDeliveryResponse.SerializeToString,
+            ),
+            'AckResultDelivery': grpc.unary_unary_rpc_method_handler(
+                    servicer.AckResultDelivery,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.AckResultDeliveryRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.AckResultDeliveryResponse.SerializeToString,
+            ),
+            'FailResultDelivery': grpc.unary_unary_rpc_method_handler(
+                    servicer.FailResultDelivery,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.FailResultDeliveryRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.FailResultDeliveryResponse.SerializeToString,
+            ),
+            'IngestRemoteResult': grpc.unary_unary_rpc_method_handler(
+                    servicer.IngestRemoteResult,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.IngestRemoteResultRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.IngestRemoteResultResponse.SerializeToString,
+            ),
             'ClaimTask': grpc.unary_unary_rpc_method_handler(
                     servicer.ClaimTask,
                     request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimTaskRequest.FromString,
                     response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimTaskResponse.SerializeToString,
+            ),
+            'ClaimNextTask': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClaimNextTask,
+                    request_deserializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextTaskRequest.FromString,
+                    response_serializer=hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextTaskResponse.SerializeToString,
             ),
             'Heartbeat': grpc.unary_unary_rpc_method_handler(
                     servicer.Heartbeat,
@@ -461,6 +573,168 @@ class KeryxDaemon:
             _registered_method=True)
 
     @staticmethod
+    def SubmitRemoteTask(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/SubmitRemoteTask',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitRemoteTaskRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.SubmitTaskResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTaskResult(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/GetTaskResult',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.GetTaskResultRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.GetTaskResultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ClaimNextResultDelivery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/ClaimNextResultDelivery',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextResultDeliveryRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextResultDeliveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AckResultDelivery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/AckResultDelivery',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.AckResultDeliveryRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.AckResultDeliveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def FailResultDelivery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/FailResultDelivery',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.FailResultDeliveryRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.FailResultDeliveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def IngestRemoteResult(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/IngestRemoteResult',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.IngestRemoteResultRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.IngestRemoteResultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def ClaimTask(request,
             target,
             options=(),
@@ -477,6 +751,33 @@ class KeryxDaemon:
             '/hermes.keryx.v1.KeryxDaemon/ClaimTask',
             hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimTaskRequest.SerializeToString,
             hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimTaskResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ClaimNextTask(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/hermes.keryx.v1.KeryxDaemon/ClaimNextTask',
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextTaskRequest.SerializeToString,
+            hermes_dot_keryx_dot_v1_dot_daemon__pb2.ClaimNextTaskResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import logging
 import sys
+import time
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import asdict, is_dataclass
@@ -15,10 +16,11 @@ from typing import Any
 import grpc
 
 from keryx.card import AgentCard
-from keryx.client import DaemonClient
+from keryx.client import DaemonClient, default_daemon_endpoint
 from keryx.config import KeryxConfig, grpc_target, load_config
-from keryx.models import TaskArtifact, TaskResult, TaskState
+from keryx.models import ClaimedTask, TaskArtifact, TaskResult, TaskState
 from keryx.task import (
+    Artifact,
     IncomingTask,
     Message,
     Part,
@@ -67,6 +69,10 @@ class KeryxNode:
         status_callback: Callable[[str], None] | None = None,
         channel: grpc.aio.Channel | None = None,
         daemon_stub: Any | None = None,
+        worker_concurrency: int = 1,
+        claim_wait_timeout_ms: int = 1_000,
+        heartbeat_interval_ms: int | None = None,
+        shutdown_grace_seconds: float = 5.0,
         client_factory: Callable[..., DaemonClient] | type[DaemonClient] | None = None,
         **_ignored: Any,
     ) -> None:
@@ -100,7 +106,21 @@ class KeryxNode:
         self._client: DaemonClient | None = None
         self._peer_id: str | None = None
         self._running = False
+        if worker_concurrency < 1:
+            raise ValueError("worker_concurrency must be at least 1")
+        if claim_wait_timeout_ms < 0:
+            raise ValueError("claim_wait_timeout_ms cannot be negative")
+        if heartbeat_interval_ms is not None and heartbeat_interval_ms < 1:
+            raise ValueError("heartbeat_interval_ms must be positive")
+        if shutdown_grace_seconds < 0:
+            raise ValueError("shutdown_grace_seconds cannot be negative")
         self._serve_stop = asyncio.Event()
+        self._serve_done = asyncio.Event()
+        self._serve_done.set()
+        self._worker_concurrency = worker_concurrency
+        self._claim_wait_timeout_ms = claim_wait_timeout_ms
+        self._heartbeat_interval_ms = heartbeat_interval_ms
+        self._shutdown_grace_seconds = shutdown_grace_seconds
         self._task_handlers: list[TaskHandler] = []
 
     @property
@@ -244,6 +264,36 @@ class KeryxNode:
     async def claim_task(self, *args: Any, **kwargs: Any) -> TaskState:
         return await self.claim(*args, **kwargs)
 
+
+    async def claim_next(
+        self,
+        *,
+        worker_id: str | None = None,
+        accepted_skill_ids: Sequence[str] | None = None,
+        accepted_capability_ids: Sequence[str] | None = None,
+        lease_duration_ms: int | None = None,
+        wait_timeout_ms: int = 0,
+    ) -> ClaimedTask:
+        daemon = await self._daemon()
+        worker = self._resolve_worker_id(worker_id)
+        response = await daemon.ClaimNextTask(
+            daemon_pb2.ClaimNextTaskRequest(
+                worker_id=common_pb2.AgentId(value=worker),
+                accepted_skill_ids=list(accepted_skill_ids or []),
+                accepted_capability_ids=list(accepted_capability_ids or []),
+                lease_duration_ms=(
+                    self._config.default_lease_duration_ms
+                    if lease_duration_ms is None
+                    else lease_duration_ms
+                ),
+                wait_timeout_ms=wait_timeout_ms,
+            )
+        )
+        return ClaimedTask.from_proto(response)
+
+    async def claim_next_task(self, **kwargs: Any) -> ClaimedTask:
+        return await self.claim_next(**kwargs)
+
     async def heartbeat(
         self,
         task_id: str,
@@ -381,14 +431,197 @@ class KeryxNode:
         if not self._running and not self._connected:
             return
         self._serve_stop.set()
+        if not self._serve_done.is_set():
+            try:
+                await asyncio.wait_for(
+                    self._serve_done.wait(), timeout=self._shutdown_grace_seconds
+                )
+            except TimeoutError:
+                logger.warning("Keryx worker shutdown exceeded grace period")
         await self.close()
         logger.info("KeryxNode stopped")
 
     async def serve_forever(self) -> None:
         self._ensure_running()
+        if not self._task_handlers:
+            raise RuntimeError("serve_forever requires at least one on_task handler")
+        if not self._serve_done.is_set():
+            raise RuntimeError("serve_forever is already running")
         self._serve_stop.clear()
+        self._serve_done.clear()
+        workers = [
+            asyncio.create_task(
+                self._worker_loop(index), name=f"keryx-worker-{index}"
+            )
+            for index in range(self._worker_concurrency)
+        ]
+        stop_wait = asyncio.create_task(self._serve_stop.wait())
+        try:
+            done, _ = await asyncio.wait(
+                [stop_wait, *workers], return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                if task is stop_wait or task.cancelled():
+                    continue
+                error = task.exception()
+                if error is not None:
+                    raise error
+        finally:
+            self._serve_stop.set()
+            stop_wait.cancel()
+            for worker in workers:
+                worker.cancel()
+            await asyncio.gather(stop_wait, *workers, return_exceptions=True)
+            self._serve_done.set()
+
+
+    async def _worker_loop(self, worker_index: int) -> None:
+        accepted_skills = [skill.id for skill in (self._card.skills if self._card else [])]
         while not self._serve_stop.is_set():
-            await asyncio.sleep(0.25)
+            try:
+                claimed = await self.claim_next(
+                    accepted_skill_ids=accepted_skills,
+                    wait_timeout_ms=self._claim_wait_timeout_ms,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if self._serve_stop.is_set():
+                    return
+                logger.warning(
+                    "Keryx worker %s could not claim work: %s: %s",
+                    worker_index,
+                    type(exc).__name__,
+                    exc,
+                )
+                await self._wait_or_stop(0.5)
+                continue
+            if not claimed.has_task:
+                continue
+            await self._process_claimed_task(claimed)
+
+    async def _process_claimed_task(self, claimed: ClaimedTask) -> None:
+        if (
+            claimed.envelope is None
+            or not claimed.task_id
+            or not claimed.lease_id
+            or not claimed.worker_id
+        ):
+            logger.error("Keryx daemon returned an incomplete claimed task")
+            return
+        started = time.monotonic()
+
+        async def update_remote(
+            task_id: str,
+            status: LegacyTaskStatus,
+            artifacts: list[Artifact] | None,
+            error: str | None,
+        ) -> None:
+            duration_ms = int((time.monotonic() - started) * 1_000)
+            if status == LegacyTaskStatus.COMPLETED:
+                result_metadata, descriptors = _completion_payload(artifacts)
+                await self.complete(
+                    task_id,
+                    claimed.lease_id,
+                    worker_id=claimed.worker_id,
+                    duration_ms=duration_ms,
+                    result_metadata=result_metadata,
+                    output_artifacts=descriptors,
+                )
+            elif status == LegacyTaskStatus.FAILED:
+                await self.fail(
+                    task_id,
+                    claimed.lease_id,
+                    error or "task failed",
+                    worker_id=claimed.worker_id,
+                    duration_ms=duration_ms,
+                )
+
+        incoming = IncomingTask(
+            _task_from_claim(claimed),
+            None,
+            update_remote,
+            lease_id=claimed.lease_id,
+            worker_id=claimed.worker_id,
+            sender_peer_id=claimed.sender_peer_id,
+        )
+        heartbeat = asyncio.create_task(self._heartbeat_claim(claimed, incoming))
+        terminal_wait: asyncio.Task[Any] | None = None
+        stop_wait: asyncio.Task[Any] | None = None
+        try:
+            try:
+                for handler in tuple(self._task_handlers):
+                    await handler(incoming)
+                    if incoming.is_terminal:
+                        break
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if not incoming.is_terminal:
+                    try:
+                        await incoming.fail(f"{type(exc).__name__}: {exc}")
+                    except Exception:
+                        logger.exception(
+                            "Keryx could not persist handler failure for task %s",
+                            claimed.task_id,
+                        )
+                return
+
+            if incoming.is_terminal:
+                return
+            terminal_wait = asyncio.create_task(incoming.wait_terminal())
+            stop_wait = asyncio.create_task(self._serve_stop.wait())
+            done, _ = await asyncio.wait(
+                [terminal_wait, stop_wait, heartbeat],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if heartbeat in done and not incoming.is_terminal:
+                error = heartbeat.exception()
+                if error is not None:
+                    logger.error(
+                        "Keryx lease heartbeat failed for task %s: %s: %s",
+                        claimed.task_id,
+                        type(error).__name__,
+                        error,
+                    )
+        finally:
+            for task in (terminal_wait, stop_wait, heartbeat):
+                if task is not None and not task.done():
+                    task.cancel()
+            await asyncio.gather(
+                *(task for task in (terminal_wait, stop_wait, heartbeat) if task is not None),
+                return_exceptions=True,
+            )
+
+    async def _heartbeat_claim(
+        self, claimed: ClaimedTask, incoming: IncomingTask
+    ) -> None:
+        lease_ttl_ms = max(
+            1_000,
+            claimed.expires_at_ms - claimed.leased_at_ms,
+            self._config.default_lease_duration_ms,
+        )
+        interval_ms = self._heartbeat_interval_ms or max(250, lease_ttl_ms // 3)
+        while not incoming.is_terminal and not self._serve_stop.is_set():
+            if await self._wait_or_stop(interval_ms / 1_000):
+                return
+            if incoming.is_terminal:
+                return
+            await self.heartbeat(
+                claimed.task_id,
+                claimed.lease_id,
+                worker_id=claimed.worker_id,
+                lease_duration_ms=lease_ttl_ms,
+            )
+
+    async def _wait_or_stop(self, timeout_seconds: float) -> bool:
+        try:
+            await asyncio.wait_for(
+                self._serve_stop.wait(), timeout=max(0.0, timeout_seconds)
+            )
+            return True
+        except TimeoutError:
+            return False
 
     async def list_peers(self) -> list[dict[str, Any]]:
         if self._client is not None and self._running:
@@ -438,6 +671,7 @@ class KeryxNode:
         targets = sum(item is not None for item in (peer_id, skill, url))
         if targets != 1:
             raise ValueError("Exactly one of peer_id, skill, or url must be provided")
+        resolved_skill = skill
         if skill is not None:
             discovered = await self.discover(skill, limit=1)
             if not discovered:
@@ -448,14 +682,63 @@ class KeryxNode:
         assert peer_id is not None
         text = _message_text(message)
         task_id = str(uuid.uuid4())
-        response = await self._client.send_task(
-            target_peer_id=peer_id,
-            task_id=task_id,
-            message_text=text,
-            metadata=metadata,
-        )
+        try:
+            response = await self._client.send_task(
+                target_peer_id=peer_id,
+                task_id=task_id,
+                message_text=text,
+                metadata=metadata,
+            )
+        except Exception as exc:
+            if resolved_skill is not None and _is_unknown_peer_error(exc):
+                raise NotImplementedError(
+                    "Keryx discovered a peer for skill "
+                    f"{resolved_skill!r} ({peer_id}), but the local daemon cannot route "
+                    "tasks to registry-discovered peers yet. Cross-node Keryx task "
+                    "delivery requires a relay-backed daemon route / task publisher."
+                ) from exc
+            raise
         task = Task(task_id=response.task_id.value or task_id, status=LegacyTaskStatus.SUBMITTED)
-        return TaskHandle(task=task)
+
+        async def refresh_remote() -> Task:
+            assert self._client is not None
+            result_response = await self._client.get_task_result(task.task_id)
+            task.status = _legacy_status(result_response.status)
+            if result_response.found and result_response.HasField("result"):
+                result = result_response.result
+                task.status = _legacy_status(result_response.status, outcome=result.outcome)
+                artifacts: list[Artifact] = []
+                result_text = result.result_metadata.get("result_text", "")
+                for item in result.output_artifacts:
+                    preview = item.metadata.get("text_preview", "")
+                    parts = [Part(text=preview, media_type=item.media_type or "text/plain")] if preview else []
+                    artifacts.append(Artifact(name=item.path, parts=parts))
+                if result_text and not artifacts:
+                    artifacts.append(
+                        Artifact(
+                            name="result",
+                            parts=[Part(text=result_text, media_type="text/plain")],
+                        )
+                    )
+                task.artifacts = artifacts
+                task.metadata = {
+                    **dict(task.metadata or {}),
+                    **{str(key): str(value) for key, value in result.result_metadata.items()},
+                    "executor_peer_id": result.executor_peer_id,
+                    "duration_ms": str(result.duration_ms),
+                    "error_reason": result.error_reason,
+                }
+            return task
+
+        async def cancel_remote() -> None:
+            assert self._client is not None
+            await self._client.cancel_task(task.task_id, reason="canceled by TaskHandle")
+
+        return TaskHandle(
+            task=task,
+            refresh_fn=refresh_remote,
+            cancel_fn=cancel_remote,
+        )
 
     async def register_skills(
         self,
@@ -510,6 +793,107 @@ class KeryxNode:
         if not self._running or self._client is None:
             raise RuntimeError("Node not started. Call await node.start() first.")
 
+
+
+def _legacy_status(status: str, *, outcome: int = 0) -> LegacyTaskStatus:
+    normalized = status.strip().lower()
+    if normalized == "completed":
+        return LegacyTaskStatus.COMPLETED
+    if normalized in {"failed", "dead_lettered", "timed_out"}:
+        return LegacyTaskStatus.FAILED
+    if normalized == "canceled":
+        return LegacyTaskStatus.CANCELED
+    if normalized == "rejected":
+        return LegacyTaskStatus.REJECTED
+    if normalized in {"running", "working", "leased"}:
+        return LegacyTaskStatus.WORKING
+    if outcome == 1:
+        return LegacyTaskStatus.COMPLETED
+    if outcome in {2, 4}:
+        return LegacyTaskStatus.FAILED
+    if outcome == 3:
+        return LegacyTaskStatus.CANCELED
+    if outcome == 5:
+        return LegacyTaskStatus.REJECTED
+    return LegacyTaskStatus.SUBMITTED
+
+
+def _task_from_claim(claimed: ClaimedTask) -> Task:
+    envelope = claimed.envelope
+    if envelope is None:
+        raise ValueError("claimed task is missing its envelope")
+    metadata = {str(key): str(value) for key, value in envelope.metadata.items()}
+    context_id = (
+        envelope.correlation_id.value
+        if envelope.HasField("correlation_id")
+        else ""
+    )
+    messages = []
+    for proto_message in envelope.messages:
+        message_metadata = {
+            str(key): str(value) for key, value in proto_message.metadata.items()
+        }
+        messages.append(
+            Message(
+                role=message_metadata.get("role", "user"),
+                parts=[
+                    Part(
+                        text=part.text or None,
+                        raw=bytes(part.raw),
+                        media_type=part.media_type or "text/plain",
+                        metadata={
+                            str(key): str(value)
+                            for key, value in part.metadata.items()
+                        },
+                    )
+                    for part in proto_message.parts
+                ],
+                metadata=message_metadata,
+            )
+        )
+    target_skill_id = next(
+        (
+            metadata[key]
+            for key in ("skill", "skill_id", "target_skill_id")
+            if metadata.get(key)
+        ),
+        "",
+    )
+    return Task(
+        task_id=claimed.task_id,
+        context_id=context_id,
+        status=LegacyTaskStatus.WORKING,
+        messages=messages,
+        target_skill_id=target_skill_id,
+        originator_peer_id=claimed.sender_peer_id,
+        metadata=metadata,
+    )
+
+
+def _completion_payload(
+    artifacts: list[Artifact] | None,
+) -> tuple[dict[str, str], list[TaskArtifact]]:
+    descriptors: list[TaskArtifact] = []
+    result_texts: list[str] = []
+    for index, artifact in enumerate(artifacts or [], start=1):
+        text = "\n".join(part.text for part in artifact.parts if part.text)
+        metadata: dict[str, str] = {}
+        if artifact.artifact_id:
+            metadata["artifact_id"] = artifact.artifact_id
+        if text:
+            metadata["text_preview"] = text[:4_096]
+            result_texts.append(text)
+        descriptors.append(
+            TaskArtifact(
+                path=artifact.name or artifact.artifact_id or f"artifact-{index}",
+                media_type="text/plain" if text else "application/octet-stream",
+                metadata=metadata,
+            )
+        )
+    result_metadata: dict[str, str] = {}
+    if result_texts:
+        result_metadata["result_text"] = "\n\n".join(result_texts)[:65_536]
+    return result_metadata, descriptors
 
 def _task_envelope(
     *,
@@ -586,6 +970,23 @@ def _tag_list(tags: Sequence[str] | Mapping[str, str] | None) -> list[str]:
         return [str(value) for value in tags.values()]
     return [str(value) for value in tags]
 
+
+
+def _is_unknown_peer_error(exc: BaseException) -> bool:
+    """Return True for Keryx daemon NOT_FOUND unknown-peer routing errors."""
+
+    code = getattr(exc, "code", None)
+    details = getattr(exc, "details", None)
+    try:
+        status_code = code() if callable(code) else code
+    except Exception:
+        status_code = None
+    try:
+        detail_text = details() if callable(details) else details
+    except Exception:
+        detail_text = None
+    text = " ".join(str(part) for part in (detail_text, exc) if part)
+    return status_code == grpc.StatusCode.NOT_FOUND and "unknown peer" in text.lower()
 
 def _message_text(message: dict[str, Any] | Message) -> str:
     if isinstance(message, dict):
