@@ -3,7 +3,19 @@ import { homedir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { companies, issueRelations, issues } from "@paperclipai/db";
+import type { SourceTrustMetadata } from "@paperclipai/shared";
+import {
+  agents,
+  approvals,
+  companies,
+  issueApprovals,
+  issueLabels,
+  issueRelations,
+  issues,
+  labels,
+  projects,
+  projectWorkspaces,
+} from "@paperclipai/db";
 import { logger } from "../middleware/logger.js";
 import { fabricEnv } from "../fabric-env.js";
 
@@ -43,9 +55,12 @@ type HermesKanbanRunRow = {
   metadata: string | null;
 };
 
-type HermesKanbanBlockEventRow = {
+type HermesKanbanEventRow = {
+  id: number;
   task_id: string;
+  kind: string;
   payload: string | null;
+  created_at: number | null;
 };
 
 type HermesKanbanTaskLinkRow = {
@@ -71,7 +86,18 @@ type HermesKanbanSnapshotTask = {
   blockedReason: string | null;
   latestRunSummary: string | null;
   latestRunError: string | null;
+  latestRunMetadata: Record<string, unknown> | null;
+  events: HermesKanbanSnapshotEvent[];
+  parentTaskIds: string[];
+  childTaskIds: string[];
   updatedAt: Date;
+};
+
+type HermesKanbanSnapshotEvent = {
+  id: number;
+  kind: string;
+  payload: Record<string, unknown> | null;
+  createdAt: Date | null;
 };
 
 type HermesKanbanSnapshot = {
@@ -91,6 +117,30 @@ type HermesKanbanIssueSeed = {
   updatedAt: Date;
   createdAt: Date;
   originFingerprint: string;
+  assigneeAgentId: string | null;
+  projectId: string | null;
+  projectWorkspaceId: string | null;
+  executionPolicy: Record<string, unknown> | null;
+  executionState: Record<string, unknown> | null;
+  sourceTrust: SourceTrustMetadata | null;
+  labelSpecs: ProjectionLabelSpec[];
+  approvalSpecs: ProjectionApprovalSpec[];
+};
+
+type ProjectionLabelSpec = { name: string; color: string };
+type ProjectionApprovalSpec = {
+  type: string;
+  requestedByAgentId: string | null;
+  payload: Record<string, unknown>;
+  fingerprint: string;
+};
+
+type ProjectionMetadata = {
+  fabric: Record<string, unknown>;
+  hermesAgency: Record<string, unknown>;
+  warnings: string[];
+  provenance: string[];
+  sourceTrust: Record<string, unknown> | null;
 };
 
 export type HermesKanbanSyncStatus = "ok" | "unavailable" | "error";
@@ -327,7 +377,13 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
         description: issues.description,
         status: issues.status,
         priority: issues.priority,
+        assigneeAgentId: issues.assigneeAgentId,
+        projectId: issues.projectId,
+        projectWorkspaceId: issues.projectWorkspaceId,
         executionAgentNameKey: issues.executionAgentNameKey,
+        executionPolicy: issues.executionPolicy,
+        executionState: issues.executionState,
+        sourceTrust: issues.sourceTrust,
         startedAt: issues.startedAt,
         completedAt: issues.completedAt,
         createdAt: issues.createdAt,
@@ -363,18 +419,21 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
       if (dupHidden) syncedCount += 1;
     }
     for (const task of snapshot.tasks) {
-      const seed = buildHermesKanbanIssueSeed(task);
       const existing = existingByTaskId.get(task.id) ?? null;
+      const seed = await buildHermesKanbanIssueSeed(db, companyId, task, existing);
       if (!existing) {
         const issue = await createProjectedIssue(db, companyId, task.id, seed);
         issueIdByTaskId.set(task.id, issue.id);
+        const enrichChanged = await syncProjectedIssueEnrichment(db, companyId, issue.id, seed);
         syncedCount += 1;
+        if (enrichChanged) syncedCount += 1;
         continue;
       }
 
       issueIdByTaskId.set(task.id, existing.id);
       const changed = await updateProjectedIssueIfNeeded(db, existing.id, existing, seed);
-      if (changed) syncedCount += 1;
+      const enrichChanged = await syncProjectedIssueEnrichment(db, companyId, existing.id, seed);
+      if (changed || enrichChanged) syncedCount += 1;
     }
 
     for (const task of snapshot.tasks) {
@@ -530,16 +589,15 @@ function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
       ) latest ON latest.task_id = tr.task_id AND latest.max_id = tr.id
     `).all() as HermesKanbanRunRow[];
 
-    const latestBlockedEventRows = sqlite.prepare(`
-      SELECT te.task_id, te.payload
-      FROM task_events te
-      INNER JOIN (
-        SELECT task_id, MAX(id) AS max_id
-        FROM task_events
-        WHERE kind = 'blocked'
-        GROUP BY task_id
-      ) latest ON latest.task_id = te.task_id AND latest.max_id = te.id
-    `).all() as HermesKanbanBlockEventRow[];
+    const taskEventColumns = new Set(
+      (sqlite.prepare("PRAGMA table_info(task_events)").all() as Array<{ name: string }>).map((column) => column.name),
+    );
+    const eventCreatedAtSelect = taskEventColumns.has("created_at") ? "created_at" : "NULL AS created_at";
+    const eventRows = sqlite.prepare(`
+      SELECT id, task_id, kind, payload, ${eventCreatedAtSelect}
+      FROM task_events
+      ORDER BY id ASC
+    `).all() as HermesKanbanEventRow[];
 
     const links = sqlite.prepare(`
       SELECT parent_id, child_id
@@ -547,13 +605,25 @@ function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
     `).all() as HermesKanbanTaskLinkRow[];
 
     const latestRunByTaskId = new Map(latestRunRows.map((row) => [row.task_id, row]));
-    const blockedByTaskId = new Map(latestBlockedEventRows.map((row) => [row.task_id, row]));
+    const eventsByTaskId = new Map<string, HermesKanbanEventRow[]>();
+    for (const event of eventRows) {
+      const events = eventsByTaskId.get(event.task_id) ?? [];
+      events.push(event);
+      eventsByTaskId.set(event.task_id, events);
+    }
+    const parentIdsByChild = new Map<string, string[]>();
+    const childIdsByParent = new Map<string, string[]>();
+    for (const link of links) {
+      parentIdsByChild.set(link.child_id, [...(parentIdsByChild.get(link.child_id) ?? []), link.parent_id]);
+      childIdsByParent.set(link.parent_id, [...(childIdsByParent.get(link.parent_id) ?? []), link.child_id]);
+    }
 
     return {
       dbPath,
       tasks: taskRows.map((task) => {
         const latestRun = latestRunByTaskId.get(task.id) ?? null;
-        const blocked = blockedByTaskId.get(task.id) ?? null;
+        const taskEvents = eventsByTaskId.get(task.id) ?? [];
+        const blocked = [...taskEvents].reverse().find((event) => event.kind === "blocked") ?? null;
         const blockedPayload = parseJsonObject(blocked?.payload);
         const blockedReason = asString(blockedPayload?.reason);
         const createdAt = epochSecondsToDate(task.created_at);
@@ -585,6 +655,15 @@ function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
           blockedReason,
           latestRunSummary: asString(latestRun?.summary),
           latestRunError: asString(latestRun?.error),
+          latestRunMetadata: parseJsonObject(latestRun?.metadata),
+          events: taskEvents.map((event) => ({
+            id: event.id,
+            kind: event.kind,
+            payload: parseJsonObject(event.payload),
+            createdAt: epochSecondsToDate(event.created_at),
+          })),
+          parentTaskIds: parentIdsByChild.get(task.id) ?? [],
+          childTaskIds: childIdsByParent.get(task.id) ?? [],
           updatedAt,
         };
       }),
@@ -595,9 +674,67 @@ function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
   }
 }
 
-function buildHermesKanbanIssueSeed(task: HermesKanbanSnapshotTask): HermesKanbanIssueSeed {
+async function buildHermesKanbanIssueSeed(
+  db: Db,
+  companyId: string,
+  task: HermesKanbanSnapshotTask,
+  existing: {
+    assigneeAgentId: string | null;
+    projectId: string | null;
+    projectWorkspaceId: string | null;
+    executionState: Record<string, unknown> | null;
+  } | null,
+): Promise<HermesKanbanIssueSeed> {
   const createdAt = task.createdAt ?? task.updatedAt;
   const description = buildHermesKanbanIssueDescription(task);
+  const metadata = extractProjectionMetadata(task);
+  const assignee = await resolveProjectionAssignee(db, companyId, metadata, task);
+  const project = await resolveProjectionProject(db, companyId, metadata, task);
+  const warnings = [...metadata.warnings, ...assignee.warnings, ...project.warnings];
+  let assigneeAgentId = assignee.agentId;
+  let projectId = project.projectId;
+  let projectWorkspaceId = project.projectWorkspaceId;
+  const managedFields = {
+    assigneeAgentId: Boolean(assigneeAgentId),
+    projectId: Boolean(projectId),
+    projectWorkspaceId: Boolean(projectWorkspaceId),
+  };
+
+  if (existing?.assigneeAgentId && existing.assigneeAgentId !== assigneeAgentId) {
+    warnings.push(`Preserved manual assignee ${existing.assigneeAgentId}; projection requested ${assigneeAgentId ?? "null"}.`);
+    assigneeAgentId = existing.assigneeAgentId;
+    managedFields.assigneeAgentId = false;
+  }
+  if (existing?.projectId && existing.projectId !== projectId) {
+    warnings.push(`Preserved manual project ${existing.projectId}; projection requested ${projectId ?? "null"}.`);
+    projectId = existing.projectId;
+    managedFields.projectId = false;
+  }
+  if (
+    existing?.projectWorkspaceId &&
+    existing.projectWorkspaceId !== projectWorkspaceId
+  ) {
+    warnings.push(
+      `Preserved manual project workspace ${existing.projectWorkspaceId}; projection requested ${projectWorkspaceId ?? "null"}.`,
+    );
+    projectWorkspaceId = existing.projectWorkspaceId;
+    managedFields.projectWorkspaceId = false;
+  }
+
+  const executionPolicy = asRecord(metadata.fabric.execution_policy) ?? null;
+  const sourceTrust = toSourceTrustMetadata(metadata.sourceTrust);
+  const labelSpecs = deriveProjectionLabels(metadata, task);
+  const approvalSpecs = await deriveProjectionApprovalRequirements(db, companyId, metadata, task, assigneeAgentId);
+  warnings.push(...approvalSpecs.flatMap((spec) => asStringArray(spec.payload.warnings)));
+  const executionState = mergeProjectionExecutionState(existing?.executionState ?? null, {
+    warnings,
+    provenance: metadata.provenance,
+    managedFields,
+    parents: task.parentTaskIds,
+    children: task.childTaskIds,
+    taskId: task.id,
+    lastSyncAt: task.updatedAt.toISOString(),
+  });
   return {
     title: task.title,
     description,
@@ -609,6 +746,14 @@ function buildHermesKanbanIssueSeed(task: HermesKanbanSnapshotTask): HermesKanba
     updatedAt: task.updatedAt,
     createdAt,
     originFingerprint: `hermes-kanban:${task.id}`,
+    assigneeAgentId,
+    projectId,
+    projectWorkspaceId,
+    executionPolicy,
+    executionState,
+    sourceTrust,
+    labelSpecs,
+    approvalSpecs,
   };
 }
 
@@ -638,7 +783,13 @@ async function createProjectedIssue(
       status: seed.status,
       workMode: "standard",
       priority: seed.priority,
+      assigneeAgentId: seed.assigneeAgentId,
+      projectId: seed.projectId,
+      projectWorkspaceId: seed.projectWorkspaceId,
       executionAgentNameKey: seed.executionAgentNameKey,
+      executionPolicy: seed.executionPolicy,
+      executionState: seed.executionState,
+      sourceTrust: seed.sourceTrust,
       issueNumber,
       identifier,
       originKind: HERMES_KANBAN_TASK_ORIGIN_KIND,
@@ -662,7 +813,13 @@ async function updateProjectedIssueIfNeeded(
     description: string | null;
     status: string;
     priority: string;
+    assigneeAgentId: string | null;
+    projectId: string | null;
+    projectWorkspaceId: string | null;
     executionAgentNameKey: string | null;
+    executionPolicy: Record<string, unknown> | null;
+    executionState: Record<string, unknown> | null;
+    sourceTrust: SourceTrustMetadata | null;
     startedAt: Date | null;
     completedAt: Date | null;
     createdAt: Date;
@@ -677,9 +834,15 @@ async function updateProjectedIssueIfNeeded(
   if ((existing.description ?? null) !== seed.description) patch.description = seed.description;
   if (existing.status !== seed.status) patch.status = seed.status;
   if (existing.priority !== seed.priority) patch.priority = seed.priority;
+  if ((existing.assigneeAgentId ?? null) !== seed.assigneeAgentId) patch.assigneeAgentId = seed.assigneeAgentId;
+  if ((existing.projectId ?? null) !== seed.projectId) patch.projectId = seed.projectId;
+  if ((existing.projectWorkspaceId ?? null) !== seed.projectWorkspaceId) patch.projectWorkspaceId = seed.projectWorkspaceId;
   if ((existing.executionAgentNameKey ?? null) !== seed.executionAgentNameKey) {
     patch.executionAgentNameKey = seed.executionAgentNameKey;
   }
+  if (!jsonEqual(existing.executionPolicy ?? null, seed.executionPolicy)) patch.executionPolicy = seed.executionPolicy;
+  if (!jsonEqual(existing.executionState ?? null, seed.executionState)) patch.executionState = seed.executionState;
+  if (!jsonEqual(existing.sourceTrust ?? null, seed.sourceTrust)) patch.sourceTrust = seed.sourceTrust;
   if (dateMs(existing.startedAt) !== dateMs(seed.startedAt)) patch.startedAt = seed.startedAt;
   if (dateMs(existing.completedAt) !== dateMs(seed.completedAt)) patch.completedAt = seed.completedAt;
   if (existing.originFingerprint !== seed.originFingerprint) patch.originFingerprint = seed.originFingerprint;
@@ -689,6 +852,80 @@ async function updateProjectedIssueIfNeeded(
   if (Object.keys(patch).length === 0) return false;
   await db.update(issues).set(patch).where(eq(issues.id, issueId));
   return true;
+}
+
+async function syncProjectedIssueEnrichment(db: Db, companyId: string, issueId: string, seed: HermesKanbanIssueSeed) {
+  const labelsChanged = await syncProjectedIssueLabels(db, companyId, issueId, seed.labelSpecs);
+  const approvalsChanged = await syncProjectedIssueApprovals(db, companyId, issueId, seed.approvalSpecs);
+  return labelsChanged || approvalsChanged;
+}
+
+async function syncProjectedIssueLabels(db: Db, companyId: string, issueId: string, labelSpecs: ProjectionLabelSpec[]) {
+  const uniqueSpecs = dedupeLabelSpecs(labelSpecs);
+  if (uniqueSpecs.length === 0) return false;
+  const names = uniqueSpecs.map((spec) => spec.name);
+  let existingLabels = await db
+    .select({ id: labels.id, name: labels.name })
+    .from(labels)
+    .where(and(eq(labels.companyId, companyId), inArray(labels.name, names)));
+  const existingNames = new Set(existingLabels.map((label) => label.name));
+  const missing = uniqueSpecs.filter((spec) => !existingNames.has(spec.name));
+  if (missing.length > 0) {
+    await db.insert(labels).values(missing.map((spec) => ({
+      companyId,
+      name: spec.name,
+      color: spec.color,
+    }))).onConflictDoNothing();
+    existingLabels = await db
+      .select({ id: labels.id, name: labels.name })
+      .from(labels)
+      .where(and(eq(labels.companyId, companyId), inArray(labels.name, names)));
+  }
+
+  const existingJoins = await db
+    .select({ labelId: issueLabels.labelId })
+    .from(issueLabels)
+    .where(and(eq(issueLabels.companyId, companyId), eq(issueLabels.issueId, issueId)));
+  const joined = new Set(existingJoins.map((row) => row.labelId));
+  const joinRows = existingLabels
+    .filter((label) => !joined.has(label.id))
+    .map((label) => ({ companyId, issueId, labelId: label.id }));
+  if (joinRows.length === 0) return missing.length > 0;
+  await db.insert(issueLabels).values(joinRows).onConflictDoNothing();
+  return true;
+}
+
+async function syncProjectedIssueApprovals(db: Db, companyId: string, issueId: string, approvalSpecs: ProjectionApprovalSpec[]) {
+  if (approvalSpecs.length === 0) return false;
+  const existingRows = await db
+    .select({ id: approvals.id, type: approvals.type, status: approvals.status, payload: approvals.payload })
+    .from(issueApprovals)
+    .innerJoin(approvals, eq(issueApprovals.approvalId, approvals.id))
+    .where(and(eq(issueApprovals.companyId, companyId), eq(issueApprovals.issueId, issueId)));
+  const existingFingerprints = new Set(
+    existingRows.map((row) => `${row.type}:${asString(asRecord(row.payload)?.projectionFingerprint) ?? ""}`),
+  );
+  let changed = false;
+  for (const spec of approvalSpecs) {
+    if (existingFingerprints.has(`${spec.type}:${spec.fingerprint}`)) continue;
+    const [approval] = await db.insert(approvals).values({
+      companyId,
+      type: spec.type,
+      requestedByAgentId: spec.requestedByAgentId,
+      status: "pending",
+      payload: { ...spec.payload, projectionFingerprint: spec.fingerprint },
+    }).returning({ id: approvals.id });
+    if (!approval) continue;
+    await db.insert(issueApprovals).values({
+      companyId,
+      issueId,
+      approvalId: approval.id,
+      linkedByAgentId: spec.requestedByAgentId,
+      linkedByUserId: null,
+    }).onConflictDoNothing();
+    changed = true;
+  }
+  return changed;
 }
 
 async function syncProjectedIssueBlockedBy(db: Db, companyId: string, issueId: string, blockerIssueIds: string[]) {
@@ -758,6 +995,193 @@ async function hideProjectedIssues(db: Db, issueIds: string[]) {
     .set({ hiddenAt, updatedAt: hiddenAt })
     .where(and(inArray(issues.id, issueIds), isNull(issues.hiddenAt)));
   return true;
+}
+
+function extractProjectionMetadata(task: HermesKanbanSnapshotTask): ProjectionMetadata {
+  const packets: Array<{ packet: Record<string, unknown>; provenance: string }> = [];
+  const runPacket = projectionPacketFromRecord(task.latestRunMetadata);
+  if (runPacket) packets.push({ packet: runPacket, provenance: "task_run_metadata" });
+  for (const event of task.events) {
+    const eventPacket = projectionPacketFromRecord(event.payload);
+    if (eventPacket) packets.push({ packet: eventPacket, provenance: "task_event" });
+  }
+  const legacyPacket = extractLegacyHermesAgencyMetadataFromBody(task.body);
+  if (legacyPacket) packets.push({ packet: legacyPacket, provenance: "legacy_body_fallback" });
+
+  const fabric: Record<string, unknown> = {};
+  const hermesAgency: Record<string, unknown> = {};
+  const provenance: string[] = [];
+  for (const { packet, provenance: packetProvenance } of packets) {
+    Object.assign(fabric, asRecord(packet.fabric) ?? {});
+    Object.assign(hermesAgency, asRecord(packet.hermes_agency) ?? asRecord(packet.hermesAgency) ?? {});
+    provenance.push(packetProvenance);
+  }
+  if (packets.some((entry) => entry.provenance !== "legacy_body_fallback")) provenance.push("structured_metadata");
+  if (provenance.length === 0) provenance.push("inference");
+  const sourceTrust = asRecord(fabric.source_trust) ?? asRecord(fabric.sourceTrust) ?? null;
+  return { fabric, hermesAgency, warnings: [], provenance: [...new Set(provenance)], sourceTrust };
+}
+
+function projectionPacketFromRecord(record: Record<string, unknown> | null | undefined) {
+  if (!record) return null;
+  if (asRecord(record.fabric) || asRecord(record.hermes_agency) || asRecord(record.hermesAgency)) return record;
+  const nested = asRecord(record.metadata) ?? asRecord(record.payload);
+  if (nested && (asRecord(nested.fabric) || asRecord(nested.hermes_agency) || asRecord(nested.hermesAgency))) return nested;
+  return null;
+}
+
+function extractLegacyHermesAgencyMetadataFromBody(body: string) {
+  const marker = /Hermes Agency metadata\s*:?\s*(?:```(?:json)?\s*)?(\{[\s\S]{0,8000}?\})\s*(?:```)?/i.exec(body);
+  if (!marker?.[1]) return null;
+  const parsed = parseJsonObject(marker[1]);
+  if (!parsed) return null;
+  if (asRecord(parsed.fabric) || asRecord(parsed.hermes_agency) || asRecord(parsed.hermesAgency)) return parsed;
+  return { hermes_agency: parsed };
+}
+
+async function resolveProjectionAssignee(db: Db, companyId: string, metadata: ProjectionMetadata, task: HermesKanbanSnapshotTask) {
+  const candidate = firstString([
+    metadata.fabric.assignee_agent_name_key,
+    metadata.fabric.assigneeAgentNameKey,
+    metadata.hermesAgency.assignee_profile,
+    metadata.hermesAgency.execution_agent_name_key,
+    metadata.hermesAgency.target_profile,
+    metadata.hermesAgency.target_agent,
+    task.assignee,
+  ]);
+  if (!candidate) return { agentId: null, warnings: [] as string[] };
+  const resolved = await resolveAgentNameKey(db, companyId, candidate);
+  if (resolved.agentId) return { agentId: resolved.agentId, warnings: [] as string[] };
+  return { agentId: null, warnings: [`Unknown Hermes assignee profile ${candidate}; assigneeAgentId left unresolved.`] };
+}
+
+async function resolveProjectionProject(db: Db, companyId: string, metadata: ProjectionMetadata, task: HermesKanbanSnapshotTask) {
+  const projectRecord = asRecord(metadata.fabric.project);
+  const requestedProjectId = asString(projectRecord?.id) ?? asString(metadata.fabric.project_id) ?? asString(metadata.fabric.projectId);
+  const projectName = firstString([projectRecord?.key, projectRecord?.name, metadata.fabric.project_key, metadata.fabric.projectName]);
+  const workspacePath = firstString([projectRecord?.workspace_path, projectRecord?.workspacePath, task.workspacePath]);
+  if (requestedProjectId) {
+    const [project] = await db.select({ id: projects.id }).from(projects)
+      .where(and(eq(projects.companyId, companyId), eq(projects.id, requestedProjectId))).limit(1);
+    if (project) return { projectId: project.id, projectWorkspaceId: null, warnings: [] as string[] };
+  }
+  const projectRows = await db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.companyId, companyId));
+  const normalizedProjectName = normalizeNameKey(projectName);
+  const matchedProject = projectName
+    ? projectRows.find((row) => row.name === projectName || normalizeNameKey(row.name) === normalizedProjectName)
+    : null;
+  if (matchedProject) {
+    const projectWorkspaceId = await resolveProjectWorkspaceId(db, companyId, matchedProject.id, workspacePath);
+    return { projectId: matchedProject.id, projectWorkspaceId, warnings: [] as string[] };
+  }
+  if (workspacePath) {
+    const [workspace] = await db.select({ id: projectWorkspaces.id, projectId: projectWorkspaces.projectId })
+      .from(projectWorkspaces)
+      .where(and(eq(projectWorkspaces.companyId, companyId), eq(projectWorkspaces.cwd, workspacePath))).limit(1);
+    if (workspace) return { projectId: workspace.projectId, projectWorkspaceId: workspace.id, warnings: [] as string[] };
+  }
+  const warnings: string[] = [];
+  if (requestedProjectId || projectName || workspacePath) {
+    warnings.push(`Unknown Hermes project ${requestedProjectId ?? projectName ?? workspacePath}; projectId left unresolved.`);
+  }
+  return { projectId: null, projectWorkspaceId: null, warnings };
+}
+
+async function resolveProjectWorkspaceId(db: Db, companyId: string, projectId: string, workspacePath: string | null) {
+  if (!workspacePath) return null;
+  const [workspace] = await db.select({ id: projectWorkspaces.id }).from(projectWorkspaces)
+    .where(and(eq(projectWorkspaces.companyId, companyId), eq(projectWorkspaces.projectId, projectId), eq(projectWorkspaces.cwd, workspacePath)))
+    .limit(1);
+  return workspace?.id ?? null;
+}
+
+async function resolveAgentNameKey(db: Db, companyId: string, nameKey: string) {
+  const rows = await db.select({ id: agents.id, name: agents.name, metadata: agents.metadata }).from(agents).where(eq(agents.companyId, companyId));
+  const normalized = normalizeNameKey(nameKey);
+  const matched = rows.find((row) => {
+    const metadata = asRecord(row.metadata);
+    return row.name === nameKey ||
+      normalizeNameKey(row.name) === normalized ||
+      normalizeNameKey(asString(metadata?.name_key) ?? asString(metadata?.nameKey)) === normalized;
+  });
+  return { agentId: matched?.id ?? null };
+}
+
+function deriveProjectionLabels(metadata: ProjectionMetadata, task: HermesKanbanSnapshotTask): ProjectionLabelSpec[] {
+  const specs: ProjectionLabelSpec[] = [{ name: "kanban", color: "#64748b" }];
+  const labelRecords = Array.isArray(metadata.fabric.labels) ? metadata.fabric.labels : [];
+  for (const label of labelRecords) {
+    const record = asRecord(label);
+    const name = asString(record?.name) ?? (typeof label === "string" ? label : null);
+    if (name) specs.push({ name: name.toLowerCase(), color: asString(record?.color) ?? "#64748b" });
+  }
+  if (task.status === "blocked") specs.push({ name: "blocked", color: "#ef4444" });
+  if (task.status === "in_review") specs.push({ name: "in-review", color: "#a855f7" });
+  const assigneeHint = firstString([
+    metadata.hermesAgency.assignee_profile,
+    metadata.hermesAgency.target_profile,
+    metadata.hermesAgency.execution_agent_name_key,
+    task.assignee,
+  ]) ?? "";
+  const skills = asStringArray(metadata.hermesAgency.requested_skills);
+  const haystack = `${assigneeHint} ${skills.join(" ")} ${task.title}`.toLowerCase();
+  if (/review|code-review/.test(haystack)) specs.push({ name: "review", color: "#a855f7" });
+  if (/frontend|react|ui/.test(haystack)) specs.push({ name: "frontend", color: "#38bdf8" });
+  if (/backend|api|server/.test(haystack)) specs.push({ name: "backend", color: "#22c55e" });
+  const policy = asRecord(metadata.fabric.approval_policy) ?? {};
+  if (policy.requires_security_review || /security|auth|secret/.test(haystack)) specs.push({ name: "security", color: "#f97316" });
+  if (policy.requires_deploy_approval || /deploy|production/.test(haystack)) specs.push({ name: "deploy", color: "#eab308" });
+  if (policy.destructive) specs.push({ name: "destructive", color: "#dc2626" });
+  return dedupeLabelSpecs(specs);
+}
+
+async function deriveProjectionApprovalRequirements(
+  db: Db,
+  companyId: string,
+  metadata: ProjectionMetadata,
+  task: HermesKanbanSnapshotTask,
+  assigneeAgentId: string | null,
+): Promise<ProjectionApprovalSpec[]> {
+  const specs: ProjectionApprovalSpec[] = [];
+  for (const reviewer of Array.isArray(metadata.fabric.reviewers) ? metadata.fabric.reviewers : []) {
+    const record = asRecord(reviewer);
+    const nameKey = firstString([record?.agent_name_key, record?.agentNameKey, record?.profile, record?.name]);
+    if (!nameKey) continue;
+    const resolved = await resolveAgentNameKey(db, companyId, nameKey);
+    specs.push({
+      type: "review_required",
+      requestedByAgentId: assigneeAgentId,
+      fingerprint: stableProjectionFingerprint("review_required", task.id, nameKey),
+      payload: {
+        source: "hermes_kanban_projection",
+        reviewerAgentNameKey: nameKey,
+        reviewerAgentId: resolved.agentId,
+        required: record?.required ?? true,
+        reason: asString(record?.reason),
+        warnings: resolved.agentId ? [] : [`Unknown reviewer profile ${nameKey}; approval requirement left unresolved.`],
+      },
+    });
+  }
+  for (const approver of Array.isArray(metadata.fabric.approvers) ? metadata.fabric.approvers : []) {
+    const record = asRecord(approver);
+    const nameKey = firstString([record?.agent_name_key, record?.agentNameKey, record?.profile, record?.name]);
+    if (!nameKey) continue;
+    const resolved = await resolveAgentNameKey(db, companyId, nameKey);
+    specs.push({
+      type: "approval_required",
+      requestedByAgentId: assigneeAgentId,
+      fingerprint: stableProjectionFingerprint("approval_required", task.id, nameKey),
+      payload: {
+        source: "hermes_kanban_projection",
+        approverAgentNameKey: nameKey,
+        approverAgentId: resolved.agentId,
+        required: record?.required ?? true,
+        reason: asString(record?.reason),
+        warnings: resolved.agentId ? [] : [`Unknown approver profile ${nameKey}; approval requirement left unresolved.`],
+      },
+    });
+  }
+  return specs;
 }
 
 function buildHermesKanbanIssueDescription(task: HermesKanbanSnapshotTask) {
@@ -861,8 +1285,68 @@ function parseJsonObject(value: string | null | undefined) {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
 function asString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function asStringArray(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => asString(item)).filter((item): item is string => Boolean(item)) : [];
+}
+
+function firstString(values: unknown[]) {
+  for (const value of values) {
+    const stringValue = asString(value);
+    if (stringValue) return stringValue;
+  }
+  return null;
+}
+
+function normalizeNameKey(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[_\s]+/g, "-");
+}
+
+function dedupeLabelSpecs(specs: ProjectionLabelSpec[]) {
+  const byName = new Map<string, ProjectionLabelSpec>();
+  for (const spec of specs) {
+    const name = spec.name.trim().toLowerCase();
+    if (!name || byName.has(name)) continue;
+    byName.set(name, { name, color: spec.color || "#64748b" });
+  }
+  return [...byName.values()];
+}
+
+function jsonEqual(left: unknown, right: unknown) {
+  return stableJsonStringify(left ?? null) === stableJsonStringify(right ?? null);
+}
+
+function stableJsonStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJsonStringify(item)).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJsonStringify(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function toSourceTrustMetadata(value: Record<string, unknown> | null): SourceTrustMetadata {
+  const preset = value?.preset === "low_trust_review" ? "low_trust_review" : "standard";
+  const disposition = value?.disposition === "quarantined" ? "quarantined" : "promoted";
+  return { preset, disposition };
+}
+
+function mergeProjectionExecutionState(existing: Record<string, unknown> | null, projection: Record<string, unknown>) {
+  return {
+    ...(existing ?? {}),
+    hermesKanbanProjection: projection,
+  };
+}
+
+function stableProjectionFingerprint(type: string, taskId: string, subject: string) {
+  return `${type}:${taskId}:${normalizeNameKey(subject)}`;
 }
 
 /**

@@ -7,7 +7,19 @@ import express from "express";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { companies, createDb, issueRelations, issues } from "@paperclipai/db";
+import {
+  agents,
+  approvals,
+  companies,
+  createDb,
+  issueApprovals,
+  issueLabels,
+  issueRelations,
+  issues,
+  labels,
+  projects,
+  projectWorkspaces,
+} from "@paperclipai/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -122,6 +134,7 @@ function seedKanbanDb(rows: {
     error?: string | null;
     lastHeartbeatAt?: number | null;
     endedAt?: number | null;
+    metadata?: Record<string, unknown> | null;
   }>;
   taskEvents?: Array<{ taskId: string; kind: string; payload?: Record<string, unknown> | null }>;
 }) {
@@ -220,7 +233,7 @@ function writeKanbanSnapshot(sqlite: DatabaseSync, rows: Parameters<typeof seedK
       run.error ?? null,
       run.lastHeartbeatAt ?? null,
       run.endedAt ?? null,
-      null,
+      run.metadata ? JSON.stringify(run.metadata) : null,
     );
   }
 
@@ -280,8 +293,15 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     else process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS = previousIncludeDetailsEnv;
     if (previousRosterPathEnv === undefined) delete process.env.HERMES_AGENCY_ROSTER_PATH;
     else process.env.HERMES_AGENCY_ROSTER_PATH = previousRosterPathEnv;
+    await db.delete(issueApprovals);
+    await db.delete(approvals);
+    await db.delete(issueLabels);
+    await db.delete(labels);
     await db.delete(issueRelations);
     await db.delete(issues);
+    await db.delete(projectWorkspaces);
+    await db.delete(projects);
+    await db.delete(agents);
     await db.delete(companies);
     while (tempDirs.length > 0) {
       rmSync(tempDirs.pop()!, { recursive: true, force: true });
@@ -302,6 +322,48 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
       requireBoardApprovalForNewAgents: false,
     });
     return companyId;
+  }
+
+  async function seedAgent(companyId: string, name: string) {
+    const [agent] = await db.insert(agents).values({
+      companyId,
+      name,
+      role: "engineer",
+      metadata: { name_key: name },
+    }).returning({ id: agents.id });
+    return agent!.id;
+  }
+
+  async function seedProject(companyId: string, name: string, workspacePath?: string) {
+    const [project] = await db.insert(projects).values({
+      companyId,
+      name,
+      status: "active",
+    }).returning({ id: projects.id });
+    let workspaceId: string | null = null;
+    if (workspacePath) {
+      const [workspace] = await db.insert(projectWorkspaces).values({
+        companyId,
+        projectId: project!.id,
+        name: `${name} workspace`,
+        cwd: workspacePath,
+        isPrimary: true,
+      }).returning({ id: projectWorkspaces.id });
+      workspaceId = workspace!.id;
+    }
+    return { projectId: project!.id, workspaceId };
+  }
+
+  async function projectedIssueRow(originId: string) {
+    const [issue] = await db.select().from(issues).where(eq(issues.originId, originId)).limit(1);
+    return issue!;
+  }
+
+  async function issueLabelNames(issueId: string) {
+    const rows = await db.select({ name: labels.name }).from(issueLabels)
+      .innerJoin(labels, eq(issueLabels.labelId, labels.id))
+      .where(eq(issueLabels.issueId, issueId));
+    return rows.map((row) => row.name).sort();
   }
 
   it("syncs Hermes Kanban tasks into the issue list with status mapping and native issue coexistence", async () => {
@@ -380,6 +442,178 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
       .from(issues)
       .where(eq(issues.companyId, companyId));
     expect(projectedRows.filter((row) => row.originKind === HERMES_KANBAN_TASK_ORIGIN_KIND)).toHaveLength(2);
+  });
+
+  it("enriches projected issues from structured Hermes metadata", async () => {
+    const companyId = await seedCompany();
+    const reviewerId = await seedAgent(companyId, "agency-code-reviewer");
+    await seedAgent(companyId, "agency-security-reviewer");
+    const { projectId, workspaceId } = await seedProject(companyId, "Hermes Agency", "/home/dadmin/repos/Hermes_Agency");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{ id: "t_structured", title: "Structured metadata task", status: "running", priority: 80, createdAt: 1_782_827_060 }],
+      taskRuns: [{
+        taskId: "t_structured",
+        metadata: {
+          fabric: {
+            project: { key: "Hermes Agency", workspace_path: "/home/dadmin/repos/Hermes_Agency" },
+            labels: [{ name: "review", color: "#a855f7" }, { name: "server", color: "#22c55e" }],
+            reviewers: [{ agent_name_key: "agency-code-reviewer", required: true, reason: "code_change" }],
+            approvers: [{ agent_name_key: "agency-security-reviewer", required: true, reason: "security_sensitive" }],
+            execution_policy: { mode: "autonomous_validated" },
+            source_trust: { preset: "standard", disposition: "promoted" },
+          },
+          hermes_agency: { execution_agent_name_key: "agency-code-reviewer", requested_skills: ["code-review"] },
+        },
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    const sync = await syncHermesKanbanIssues(db, companyId);
+    expect(sync.status).toBe("ok");
+    const issue = await projectedIssueRow("t_structured");
+    expect(issue.assigneeAgentId).toBe(reviewerId);
+    expect(issue.projectId).toBe(projectId);
+    expect(issue.projectWorkspaceId).toBe(workspaceId);
+    expect(issue.executionPolicy).toMatchObject({ mode: "autonomous_validated" });
+    expect(issue.sourceTrust).toMatchObject({ preset: "standard", disposition: "promoted" });
+    expect(issue.executionState).toMatchObject({ hermesKanbanProjection: { provenance: expect.arrayContaining(["task_run_metadata", "structured_metadata"]) } });
+    expect(await issueLabelNames(issue.id)).toEqual(expect.arrayContaining(["kanban", "review", "server"]));
+    const linkedApprovals = await db.select({ type: approvals.type }).from(issueApprovals)
+      .innerJoin(approvals, eq(issueApprovals.approvalId, approvals.id))
+      .where(eq(issueApprovals.issueId, issue.id));
+    expect(linkedApprovals.map((row) => row.type).sort()).toEqual(["approval_required", "review_required"]);
+  });
+
+  it("infers assignee and labels safely when structured metadata is missing", async () => {
+    const companyId = await seedCompany();
+    const reviewerId = await seedAgent(companyId, "agency-code-reviewer");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{ id: "t_infer", title: "Review inferred task", assignee: "agency-code-reviewer", status: "todo", priority: 50, createdAt: 1_782_827_060 }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    await syncHermesKanbanIssues(db, companyId);
+    const issue = await projectedIssueRow("t_infer");
+    expect(issue.assigneeAgentId).toBe(reviewerId);
+    expect(await issueLabelNames(issue.id)).toEqual(expect.arrayContaining(["kanban", "review"]));
+  });
+
+  it("leaves unknown agent and project unresolved with projection warnings", async () => {
+    const companyId = await seedCompany();
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{ id: "t_unknown", title: "Unknown metadata task", status: "todo", priority: 50, createdAt: 1_782_827_060 }],
+      taskEvents: [{ taskId: "t_unknown", kind: "created", payload: {
+        fabric: { project: { key: "Missing Project" } },
+        hermes_agency: { target_profile: "agency-missing-reviewer" },
+      } }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    await syncHermesKanbanIssues(db, companyId);
+    const issue = await projectedIssueRow("t_unknown");
+    expect(issue.assigneeAgentId).toBeNull();
+    expect(issue.projectId).toBeNull();
+    expect(issue.executionState).toMatchObject({
+      hermesKanbanProjection: { warnings: expect.arrayContaining([
+        expect.stringContaining("agency-missing-reviewer"),
+        expect.stringContaining("Missing Project"),
+      ]) },
+    });
+  });
+
+  it("preserves manual assignee, project, labels, and decided approvals across re-sync", async () => {
+    const companyId = await seedCompany();
+    await seedAgent(companyId, "agency-code-reviewer");
+    const manualAgentId = await seedAgent(companyId, "agency-fullstack-engineer");
+    await seedProject(companyId, "Hermes Agency");
+    const manualProject = await seedProject(companyId, "Manual Project");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{ id: "t_manual", title: "Manual override task", assignee: "agency-code-reviewer", status: "todo", priority: 50, createdAt: 1_782_827_060 }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    await syncHermesKanbanIssues(db, companyId);
+    const issue = await projectedIssueRow("t_manual");
+    const [manualLabel] = await db.insert(labels).values({ companyId, name: "manual", color: "#111827" }).returning({ id: labels.id });
+    await db.insert(issueLabels).values({ companyId, issueId: issue.id, labelId: manualLabel!.id });
+    const [decidedApproval] = await db.insert(approvals).values({
+      companyId,
+      type: "approval_required",
+      status: "approved",
+      payload: { projectionFingerprint: "manual-decision" },
+    }).returning({ id: approvals.id });
+    await db.insert(issueApprovals).values({ companyId, issueId: issue.id, approvalId: decidedApproval!.id });
+    await db.update(issues).set({ assigneeAgentId: manualAgentId, projectId: manualProject.projectId }).where(eq(issues.id, issue.id));
+
+    overwriteKanbanDb(dbPath, {
+      tasks: [{ id: "t_manual", title: "Manual override task", assignee: "agency-code-reviewer", status: "running", priority: 70, createdAt: 1_782_827_060 }],
+      taskRuns: [{ taskId: "t_manual", metadata: { fabric: { project: { key: "Hermes Agency" }, labels: [{ name: "review" }] } } }],
+    });
+    await syncHermesKanbanIssues(db, companyId);
+    const updated = await projectedIssueRow("t_manual");
+    expect(updated.assigneeAgentId).toBe(manualAgentId);
+    expect(updated.projectId).toBe(manualProject.projectId);
+    expect(await issueLabelNames(issue.id)).toEqual(expect.arrayContaining(["manual", "kanban", "review"]));
+    const [approval] = await db.select({ status: approvals.status }).from(approvals).where(eq(approvals.id, decidedApproval!.id));
+    expect(approval?.status).toBe("approved");
+    expect(updated.executionState).toMatchObject({ hermesKanbanProjection: { warnings: expect.arrayContaining([expect.stringContaining("Preserved manual assignee")]) } });
+  });
+
+  it("resolves DF-681-style legacy Hermes Agency metadata body fallback", async () => {
+    const companyId = await seedCompany();
+    const reviewerId = await seedAgent(companyId, "agency-code-reviewer");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_d3438cc4",
+        title: "DF-681 legacy metadata task",
+        body: 'Hermes Agency metadata:\n```json\n{"target_profile":"agency-code-reviewer","requested_skills":["code-review"]}\n```',
+        status: "todo",
+        priority: 50,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    await syncHermesKanbanIssues(db, companyId);
+    const issue = await projectedIssueRow("t_d3438cc4");
+    expect(issue.assigneeAgentId).toBe(reviewerId);
+    expect(issue.executionState).toMatchObject({ hermesKanbanProjection: { provenance: expect.arrayContaining(["legacy_body_fallback"]) } });
+    expect(await issueLabelNames(issue.id)).toEqual(expect.arrayContaining(["kanban", "review"]));
+  });
+
+  it("does not resolve cross-company agent or project names", async () => {
+    const companyId = await seedCompany("Primary");
+    const otherCompanyId = await seedCompany("Other");
+    await seedAgent(otherCompanyId, "agency-code-reviewer");
+    await seedProject(otherCompanyId, "Hermes Agency");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{ id: "t_cross_company", title: "Cross company task", status: "todo", priority: 50, createdAt: 1_782_827_060 }],
+      taskRuns: [{ taskId: "t_cross_company", metadata: {
+        fabric: { project: { key: "Hermes Agency" } },
+        hermes_agency: { target_profile: "agency-code-reviewer" },
+      } }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    await syncHermesKanbanIssues(db, companyId);
+    const issue = await projectedIssueRow("t_cross_company");
+    expect(issue.assigneeAgentId).toBeNull();
+    expect(issue.projectId).toBeNull();
+    expect(issue.executionState).toMatchObject({ hermesKanbanProjection: { warnings: expect.arrayContaining([
+      expect.stringContaining("agency-code-reviewer"),
+      expect.stringContaining("Hermes Agency"),
+    ]) } });
   });
 
   it("joins Agency roster health onto projected task assignees in the issue list API", async () => {
