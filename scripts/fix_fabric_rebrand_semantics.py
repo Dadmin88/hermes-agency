@@ -50,13 +50,22 @@ def repair_issue_runtime_hook() -> None:
             raise RuntimeError(f"issue runtime hook collision: {source} -> {target}")
         source.rename(target)
 
+    replacements = (
+        ("UseHermesFabricIssueRuntime", "UseIssueRuntime"),
+        ("UseLink2IssueRuntime", "UseIssueRuntime"),
+        ("useHermesFabricIssueRuntime", "useIssueRuntime"),
+        ("useLink2IssueRuntime", "useIssueRuntime"),
+        ("HermesFabricIssueRuntime", "IssueRuntime"),
+        ("Link2IssueRuntime", "IssueRuntime"),
+        ("Hermes FabricIssueRuntime", "IssueRuntime"),
+    )
     for path in ui_root.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
             continue
         text = path.read_text(encoding="utf-8")
-        updated = text.replace("useHermesFabricIssueRuntime", "useIssueRuntime")
-        updated = updated.replace("useLink2IssueRuntime", "useIssueRuntime")
-        updated = updated.replace("useHermes FabricIssueRuntime", "useIssueRuntime")
+        updated = text
+        for old, new in replacements:
+            updated = updated.replace(old, new)
         if updated != text:
             path.write_text(updated, encoding="utf-8")
 
