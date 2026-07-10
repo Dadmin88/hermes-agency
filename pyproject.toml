@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "hermes-agency"
 version = "0.7.3"
-description = "Hermes Agency: P2P multi-agent orchestration plugin for Hermes Agent (83-agent roster, orchestration, Kanban, team context). Built on the AgentAnycast Python SDK."
+description = "Hermes Agency: managed multi-agent operations for Hermes Agent with an 83-profile roster, skill routing, Kanban, model sets, and Keryx transport."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
@@ -143,7 +143,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_extended_status_discord.py"]
+testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_extended_status_discord.py", "hermes-agency/tests/test_keryx_transport.py"]
 markers = [
     "integration: mark test as integration test (requires relay/daemon binaries)",
 ]
