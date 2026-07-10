@@ -231,7 +231,7 @@ The default pytest configuration skips tests marked `integration`.
 ## Requirements
 
 - Python 3.11+
-- Hermes Agent 0.17.0+
+- Hermes Agent 0.18.0+
 - Vendored Keryx Python SDK at `src/keryx/` (package/import name `keryx`) for node startup and task transport
 - Optional Keryx daemon/relay/registry services for cross-network discovery
 - AgentAnycast package/daemon only for `agency.transport_backend: agentanycast` legacy fallback
