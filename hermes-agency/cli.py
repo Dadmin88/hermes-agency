@@ -882,12 +882,51 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     sleep_parser.add_argument("agent", help="Agent name")
     sleep_parser.set_defaults(func=cmd_agency, agency_command="sleep")
 
+    fabric_sync_parser = subparsers.add_parser(
+        "fabric-metadata-sync",
+        help="Apply an audited Fabric Properties patch to a Kanban task",
+    )
+    fabric_sync_parser.add_argument("task_id", help="Canonical Hermes Kanban task id")
+    fabric_sync_parser.add_argument(
+        "--patch-json", required=True, help="Bounded metadata patch JSON"
+    )
+    fabric_sync_parser.add_argument("--actor", required=True, help="Fabric actor audit label")
+    fabric_sync_parser.add_argument(
+        "--fingerprint", default="", help="Expected projection fingerprint"
+    )
+    fabric_sync_parser.add_argument("--board", default="", help="Optional Kanban board slug")
+    fabric_sync_parser.add_argument("--db", default="", help="Optional explicit Kanban SQLite path")
+    fabric_sync_parser.set_defaults(func=cmd_agency, agency_command="fabric-metadata-sync")
+
 
 def cmd_agency(args: Namespace) -> None:
     """Dispatch ``hermes agency`` verbs."""
 
     verb = getattr(args, "agency_command", "status") or "status"
-    if verb == "status":
+    if verb == "fabric-metadata-sync":
+        from .kanban_bridge import apply_fabric_metadata_patch
+
+        try:
+            patch = json.loads(args.patch_json)
+        except (TypeError, json.JSONDecodeError) as exc:
+            print(_json({"available": True, "ok": False, "error": f"invalid patch JSON: {exc}"}))
+            return
+        if not isinstance(patch, dict):
+            print(_json({"available": True, "ok": False, "error": "patch JSON must be an object"}))
+            return
+        print(
+            _json(
+                apply_fabric_metadata_patch(
+                    args.task_id,
+                    patch,
+                    args.actor,
+                    expected_origin_fingerprint=args.fingerprint or None,
+                    board=args.board or None,
+                    db_path=args.db or None,
+                )
+            )
+        )
+    elif verb == "status":
         print(
             _status_extended_text(json_output=getattr(args, "json", False))
             if getattr(args, "extended", False)

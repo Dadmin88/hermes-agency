@@ -530,20 +530,27 @@ def _model_sets_check() -> DoctorCheck:
             f"Model-set diagnostics failed: {type(exc).__name__}: {exc}",
         )
     drift = [item.as_dict() for item in plan if item.status == "drift"]
-    status = PASS if validation.ok and not drift else WARN
+    missing = [item.as_dict() for item in plan if item.status == "missing"]
+    unchanged = sum(1 for item in plan if item.status == "unchanged")
+    status = PASS if validation.ok and not drift and not missing else WARN
     if not validation.ok:
         status = FAIL
     return _check(
         "agency_model_sets",
         "Agency model sets",
         status,
-        f"Active model set: {model_set.name}; profiles checked: {len(plan)}; drift: {len(drift)}",
+        (
+            f"Active model set: {model_set.name}; profiles checked: {len(plan)}; "
+            f"missing: {len(missing)}; drift: {len(drift)}; unchanged: {unchanged}"
+        ),
         active_set=model_set.name,
         preset_source=str(model_set.source_path),
         warnings=validation.warnings,
         errors=validation.errors,
         profiles_checked=len(plan),
+        missing=missing,
         drift=drift,
+        unchanged=unchanged,
     )
 
 

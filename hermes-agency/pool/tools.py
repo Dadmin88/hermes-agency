@@ -10,6 +10,7 @@ Tools:
 from __future__ import annotations
 
 import fcntl
+import importlib
 import os
 import re
 import signal
@@ -284,6 +285,102 @@ def _profile_env(name: str, profile_dir: Path) -> dict[str, str]:
         }
     )
     return env
+
+
+_SECRET_ASSIGNMENT_RE = re.compile(
+    r"(?i)\b([a-z0-9_-]*(?:api[_-]?key|access[_-]?token|auth[_-]?token|authorization|"
+    r"bearer[_-]?token|token|"
+    r"password|secret|credential))\b\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
+_BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+_TOKEN_RE = re.compile(r"\b(?:sk|pk)-[A-Za-z0-9_-]{8,}\b")
+
+
+def _sanitize_startup_output(details: str, *, limit: int = 1000) -> str:
+    """Redact common credentials before startup output reaches state or callers."""
+
+    sanitized = _BEARER_RE.sub("Bearer <redacted>", details)
+    sanitized = _SECRET_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}=<redacted>", sanitized)
+    sanitized = _TOKEN_RE.sub("<redacted>", sanitized)
+    return sanitized[-limit:]
+
+
+def _profile_model(profile_dir: Path) -> tuple[str, str]:
+    """Read the non-secret provider/model labels used by a worker profile."""
+
+    try:
+        import yaml
+
+        data = yaml.safe_load((profile_dir / "config.yaml").read_text(encoding="utf-8")) or {}
+        model = data.get("model") if isinstance(data, dict) else {}
+        if not isinstance(model, dict):
+            model = {}
+        provider = str(model.get("provider") or "unknown").strip()
+        model_name = str(model.get("default") or model.get("model") or "unknown").strip()
+        return provider or "unknown", model_name or "unknown"
+    except Exception:
+        return "unknown", "unknown"
+
+
+def _startup_failure(details: str) -> Exception:
+    """Build an exception retaining status/transport hints from runner output."""
+
+    lowered = details.lower()
+    if any(
+        marker in lowered
+        for marker in ("connection refused", "connection reset", "connection aborted")
+    ):
+        error: Exception = ConnectionError(details)
+    elif any(marker in lowered for marker in ("timed out", "timeout", "deadline exceeded")):
+        error = TimeoutError(details)
+    else:
+        error = RuntimeError(details)
+
+    status_match = re.search(
+        r"(?i)\b(?:http|status(?:_code)?|error code)\s*[:=]?\s*([45]\d\d)\b",
+        details,
+    )
+    if status_match:
+        error.status_code = int(status_match.group(1))  # type: ignore[attr-defined]
+    return error
+
+
+def _provider_failure_blocker(
+    failure: Exception, profile_dir: Path, *, evidence: str | None = None
+) -> str | None:
+    """Use Hermes' provider classifier to return a sanitized pool blocker."""
+
+    provider, model = _profile_model(profile_dir)
+    try:
+        classify_api_error = importlib.import_module("agent.error_classifier").classify_api_error
+        classified = classify_api_error(failure, provider=provider, model=model)
+    except Exception:
+        return None
+
+    reason = str(getattr(getattr(classified, "reason", None), "value", ""))
+    categories = {
+        "auth": "auth",
+        "auth_permanent": "auth",
+        "billing": "quota",
+        "rate_limit": "quota",
+        "upstream_rate_limit": "quota",
+        "overloaded": "outage",
+        "server_error": "outage",
+        "timeout": "outage",
+    }
+    category = categories.get(reason)
+    if category is None:
+        return None
+
+    safe_evidence = _sanitize_startup_output(
+        evidence if evidence is not None else f"{type(failure).__name__}: {failure}",
+        limit=500,
+    ).replace("\n", " ")
+    return (
+        "Agency infrastructure provider blocker: "
+        f"category={category} provider={provider} model={model} "
+        f"retryable={str(bool(classified.retryable)).lower()} evidence={safe_evidence}"
+    )
 
 
 def _stop_profile_daemon_processes(name: str) -> None:
@@ -593,8 +690,11 @@ def pool_wake(name: str) -> str:
         )[-1000:]
     except Exception:
         pass
-    details = output or daemon_output or "no output"
-    error = f"runner failed to start for {name}; pid={proc.pid}; output={details}"
+    details = "\n".join(part for part in (output, daemon_output) if part) or "no output"
+    safe_details = _sanitize_startup_output(details)
+    error = _provider_failure_blocker(_startup_failure(details), profile_dir, evidence=details) or (
+        f"runner failed to start for {name}; pid={proc.pid}; output={safe_details}"
+    )
     record_wake_attempt(name, success=False, error=error)
     return f"Error: {error}"
 
@@ -636,8 +736,11 @@ def pool_sleep(name: str) -> str:
 def _recent_failed_wake(agent: dict[str, Any], cooldown_seconds: int = 60) -> bool:
     """Return True when a recent failed wake should be respected."""
 
-    if not agent.get("last_wake_error") or not agent.get("last_wake_attempt_at"):
+    error = str(agent.get("last_wake_error") or "")
+    if not error or not agent.get("last_wake_attempt_at"):
         return False
+    if "Agency infrastructure provider blocker" in error and "retryable=false" in error:
+        cooldown_seconds = max(cooldown_seconds, 3600)
     try:
         return time.time() - float(agent["last_wake_attempt_at"]) < cooldown_seconds
     except (TypeError, ValueError):
@@ -687,7 +790,10 @@ def pool_send(name: str, message: str) -> str:
             message=message, peer_id=str(agent["peer_id"]), wait_seconds=0
         )
     except Exception as exc:
-        error = f"{type(exc).__name__}: {exc}"
+        details = f"{type(exc).__name__}: {exc}"
+        error = _provider_failure_blocker(exc, PROFILES / name, evidence=details) or (
+            _sanitize_startup_output(details)
+        )
         queued = queue_offline_task(name, message, reason=error)
         return (
             f"Queued task for {name}; send failed after wake: {error}. "

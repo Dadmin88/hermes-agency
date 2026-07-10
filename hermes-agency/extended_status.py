@@ -71,14 +71,13 @@ def _model_status() -> dict[str, Any]:
         active = active_model_set_name(config=load_config())
         planned = plan_model_set(load_model_set(active))
         counts = Counter(item.status for item in planned)
-        drift = sum(1 for item in planned if item.status == "changed")
-        missing = sum(1 for item in planned if item.status == "missing")
         return {
             "ok": True,
             "active_set": active,
             "profiles_checked": len(planned),
-            "drift": drift,
-            "missing": missing,
+            "drift": counts["drift"],
+            "missing": counts["missing"],
+            "unchanged": counts["unchanged"],
             "status_counts": dict(sorted(counts.items())),
         }
     except Exception as exc:
@@ -245,7 +244,9 @@ def render_extended_status(payload: dict[str, Any]) -> str:
     )
     if models.get("ok"):
         lines.append(
-            f"  models: active={models.get('active_set')} checked={models.get('profiles_checked')} drift={models.get('drift')} missing={models.get('missing')}"
+            f"  models: active={models.get('active_set')} checked={models.get('profiles_checked')} "
+            f"missing={models.get('missing')} drift={models.get('drift')} "
+            f"unchanged={models.get('unchanged')}"
         )
     else:
         lines.append(f"  models: unavailable ({models.get('error')})")
