@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: fabric-rebrand-${{ github.event.pull_request.number }}
+  group: fabric-rebrand-bounded-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
