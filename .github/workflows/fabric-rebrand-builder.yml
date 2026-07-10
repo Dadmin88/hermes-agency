@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: fabric-rebrand-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   rebrand-fabric:
     if: github.head_ref == 'feat/fabric-remove-paperclip-brand'
