@@ -415,24 +415,20 @@ class _WakeLock:
 
 
 OWN_PEER_ID_LINE_RE = re.compile(
-    r'(?:^PEER_ID=|agentanycastd started.*"peer_id"\s*:\s*")'
-    r"(12D3KooW[0-9A-Za-z]+)",
-    re.MULTILINE,
+    r"(?m)(?:^PEER_ID=(12D3KooW[0-9A-Za-z]+)"
+    r'|agentanycastd started.*"peer_id"\s*:\s*"(12D3KooW[0-9A-Za-z]+)"'
+    r'|last_peer_id.*"(12D3KooW[0-9A-Za-z]+)")'
 )
 
 
 def _extract_own_peer_id(text: str) -> str | None:
-    """Extract the latest local-node startup peer ID from runner/daemon logs.
+    """Extract the latest local-node startup peer ID from runner/daemon logs."""
 
-    Daemon logs are append-only and may contain remote ``peer_id`` values from
-    task or discovery events. Only trust explicit own-node startup markers: the
-    plain ``PEER_ID=...`` line emitted at startup, or a JSON ``peer_id`` on an
-    ``agentanycastd started`` line. Prefer the latest marker in the checked
-    window so stale IDs earlier in the log do not poison the roster.
-    """
-
-    matches = OWN_PEER_ID_LINE_RE.findall(text)
-    return matches[-1] if matches else None
+    matches = [m for m in OWN_PEER_ID_LINE_RE.findall(text) if any(m)]
+    if not matches:
+        return None
+    last = matches[-1]
+    return next((part for part in last if part), None) or None
 
 
 def _resolve_runner_peer_id(agency_dir: Path, runner_log: Path) -> str | None:
@@ -561,7 +557,9 @@ def pool_wake(name: str) -> str:
             )
         _runner_pid_file(profile_dir).write_text(str(proc.pid), encoding="utf-8")
 
-    deadline = time.time() + STARTUP_WAIT
+    startup_wait = float(os.environ.get("HERMES_AGENCY_STARTUP_WAIT", str(STARTUP_WAIT)))
+    socket_wait = float(os.environ.get("HERMES_AGENCY_SOCKET_WAIT", "10"))
+    deadline = time.time() + startup_wait
     peer_id = None
     while time.time() < deadline:
         if proc.poll() is not None:
@@ -570,6 +568,9 @@ def pool_wake(name: str) -> str:
             peer_id = _resolve_runner_peer_id(agency_dir, log)
         except Exception:
             peer_id = None
+        remaining = deadline - time.time()
+        if peer_id and remaining <= max(0.0, startup_wait - socket_wait):
+            break
         if peer_id and sock.exists():
             break
         time.sleep(0.5)
@@ -636,8 +637,11 @@ def pool_sleep(name: str) -> str:
 def _recent_failed_wake(agent: dict[str, Any], cooldown_seconds: int = 60) -> bool:
     """Return True when a recent failed wake should be respected."""
 
-    if not agent.get("last_wake_error") or not agent.get("last_wake_attempt_at"):
+    error = str(agent.get("last_wake_error") or "")
+    if not error or not agent.get("last_wake_attempt_at"):
         return False
+    if "Agency infrastructure provider blocker" in error and "retryable=false" in error:
+        cooldown_seconds = max(cooldown_seconds, 3600)
     try:
         return time.time() - float(agent["last_wake_attempt_at"]) < cooldown_seconds
     except (TypeError, ValueError):
@@ -648,6 +652,7 @@ def pool_send(name: str, message: str) -> str:
     """Send work to an agent. Auto-wakes if offline; queues if wake/send fails."""
     if not name.startswith("agency-"):
         name = f"agency-{name}"
+    queue_metadata: dict[str, Any] = {"target_profile": name, "target_agent": name}
 
     agent = find_agent(name)
     if not agent:
@@ -658,45 +663,69 @@ def pool_send(name: str, message: str) -> str:
             queued = queue_offline_task(
                 name,
                 message,
+                metadata=queue_metadata,
                 reason=f"recent wake failure: {agent.get('last_wake_error')}",
             )
             return (
                 f"Queued task for {name}; recent wake failure is still cooling down. "
-                f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+                f"queue_id={queued['task']['id']} queue_path={queued['queue_path']} status=queued"
             )
         wake_result = pool_wake(name)
         if "Error" in wake_result:
-            queued = queue_offline_task(name, message, reason=wake_result)
+            queued = queue_offline_task(name, message, metadata=queue_metadata, reason=wake_result)
             return (
                 f"Queued task for {name}; wake failed: {wake_result}. "
-                f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+                f"queue_id={queued['task']['id']} queue_path={queued['queue_path']} status=queued"
             )
         agent = find_agent(name) or agent
 
     if not agent.get("peer_id"):
-        queued = queue_offline_task(name, message, reason="no peer_id resolved after wake")
+        queued = queue_offline_task(
+            name,
+            message,
+            metadata=queue_metadata,
+            reason="no peer_id resolved after wake",
+        )
         return (
             f"Queued task for {name}; daemon started but no peer_id resolved yet. "
-            f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+            f"queue_id={queued['task']['id']} queue_path={queued['queue_path']} status=queued"
         )
 
     try:
         from ..node_manager import manager
 
+        target_peer_id = str(agent["peer_id"])
+        queue_metadata["target_peer_id"] = target_peer_id
         result = manager.send_task_sync(
-            message=message, peer_id=str(agent["peer_id"]), wait_seconds=0
+            message=message,
+            peer_id=target_peer_id,
+            wait_seconds=0,
+            metadata={
+                "target_profile": name,
+                "target_agent": name,
+                "profile_name": name,
+                "target_peer_id": target_peer_id,
+            },
         )
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-        queued = queue_offline_task(name, message, reason=error)
+        queued = queue_offline_task(name, message, metadata=queue_metadata, reason=error)
         return (
             f"Queued task for {name}; send failed after wake: {error}. "
-            f"queue_id={queued['task']['id']} queue_path={queued['queue_path']}"
+            f"queue_id={queued['task']['id']} queue_path={queued['queue_path']} status=queued"
         )
 
+    a2a_task_id = result.get("a2a_task_id") or result.get("task_id")
+    kanban_task_id = result.get("kanban_task_id") or (result.get("kanban") or {}).get("task_id")
+    kanban_board = result.get("kanban_board") or result.get("agency_board") or "default"
+    kanban_db_path = result.get("kanban_db_path") or (result.get("kanban") or {}).get(
+        "kanban_db_path"
+    )
     return (
         f"Sent task to {name} (peer_id: {str(agent['peer_id'])[:24]}...). "
-        f"task_id={result.get('task_id')} status={result.get('status')}"
+        f"a2a_task_id={a2a_task_id} kanban_task_id={kanban_task_id} "
+        f"kanban_board={kanban_board} kanban_db_path={kanban_db_path} "
+        f"status={result.get('status')} delegation_status={result.get('delegation_status')}"
     )
 
 
