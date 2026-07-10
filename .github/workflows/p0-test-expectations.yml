@@ -29,49 +29,57 @@ jobs:
       - name: Update stale Keryx expectations
         run: |
           python - <<'PY'
-          import re
           from pathlib import Path
 
           path = Path("hermes-agency/tests/test_unit.py")
-          text = path.read_text(encoding="utf-8")
+          lines = path.read_text(encoding="utf-8").splitlines()
 
-          daemon_replacement = '''def test_resolve_daemon_bin_uses_only_explicit_config(plugin_modules, tmp_path):
-              nm = plugin_modules.node_manager
-              cfg_mod = plugin_modules.config
-              configured = tmp_path / "configured" / "agentanycastd"
-              configured.parent.mkdir(parents=True)
-              configured.write_text("configured", encoding="utf-8")
+          start = next(
+              i
+              for i, line in enumerate(lines)
+              if line.startswith("def test_resolve_daemon_bin_prefers_config_then_protected_copy")
+              or line.startswith("def test_resolve_daemon_bin_uses_only_explicit_config")
+          )
+          end = next(
+              i
+              for i, line in enumerate(lines[start + 1 :], start + 1)
+              if line.startswith("def test_check_agency_available")
+          )
+          daemon_block = [
+              "def test_resolve_daemon_bin_uses_only_explicit_config(plugin_modules, tmp_path):",
+              "    nm = plugin_modules.node_manager",
+              "    cfg_mod = plugin_modules.config",
+              '    configured = tmp_path / "configured" / "agentanycastd"',
+              "    configured.parent.mkdir(parents=True)",
+              '    configured.write_text("configured", encoding="utf-8")',
+              "",
+              "    nm.get_config = lambda: cfg_mod.AgencyConfig(daemon_bin=configured)",
+              "    assert nm._resolve_daemon_bin() == configured",
+              "",
+              "    configured.unlink()",
+              "    assert nm._resolve_daemon_bin() is None",
+              "",
+              "",
+          ]
+          lines[start:end] = daemon_block
 
-              nm.get_config = lambda: cfg_mod.AgencyConfig(daemon_bin=configured)
-              assert nm._resolve_daemon_bin() == configured
+          info_start = next(
+              i
+              for i, line in enumerate(lines)
+              if line.startswith("def test_a2a_info_compact_uses_compact_node_payload")
+          )
+          info_end = next(
+              i
+              for i, line in enumerate(lines[info_start + 1 :], info_start + 1)
+              if line.startswith("def test_a2a_discover_uses_compact_node_payload")
+          )
+          for i in range(info_start, info_end):
+              if '"transport_backend":' in lines[i]:
+                  lines[i] = '        "transport_backend": "keryx",'
+              elif '"effective_transport_backend":' in lines[i]:
+                  lines[i] = '        "effective_transport_backend": "keryx",'
 
-              configured.unlink()
-              assert nm._resolve_daemon_bin() is None
-          '''
-
-          if "def test_resolve_daemon_bin_uses_only_explicit_config" not in text:
-              text, count = re.subn(
-                  r"def test_resolve_daemon_bin_prefers_config_then_protected_copy\(.*?(?=\n\ndef test_check_agency_available)",
-                  daemon_replacement.rstrip(),
-                  text,
-                  count=1,
-                  flags=re.DOTALL,
-              )
-              if count != 1:
-                  raise SystemExit(f"daemon resolver test boundary match count={count}")
-
-          old_info = '''        "transport_backend": "agentanycast",
-              "effective_transport_backend": "agentanycast",
-          '''
-          new_info = '''        "transport_backend": "keryx",
-              "effective_transport_backend": "keryx",
-          '''
-          if old_info in text:
-              text = text.replace(old_info, new_info, 1)
-          elif new_info not in text:
-              raise SystemExit("compact info expectation block changed unexpectedly")
-
-          path.write_text(text, encoding="utf-8")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
 
       - name: Install dependencies
