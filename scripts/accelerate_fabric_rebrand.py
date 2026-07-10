@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Patch the one-time Fabric rebrand migration for fast filesystem-native moves."""
+"""Patch the one-time Fabric rebrand migration for fast, legally safe moves."""
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
 path = Path(__file__).with_name("apply_fabric_namespace_rebrand.py")
 text = path.read_text()
 text = text.replace(
@@ -33,3 +34,23 @@ text = text.replace(
     '        updated = replace_technical(original)\n        updated = updated.replace(\'"HermesFabric"\', \'"Hermes Fabric"\')\n        updated = updated.replace("\'HermesFabric\'", "\'Hermes Fabric\'")\n        updated = updated.replace("`HermesFabric`", "`Hermes Fabric`")\n        updated = updated.replace(">HermesFabric<", ">Hermes Fabric<")',
 )
 path.write_text(text)
+
+normalizer = ROOT / "apps/fabric/scripts/normalize-upstream-import.py"
+text = normalizer.read_text()
+text = text.replace(
+    '    for path in walk_files(root):\n        try:',
+    '    for path in walk_files(root):\n        if path.name in {"LICENSE", "NOTICE"}:\n            continue\n        try:',
+)
+text = text.replace(
+    '        if path.is_symlink() or not path.is_file() or not is_text(path):\n            continue',
+    '        if path.is_symlink() or not path.is_file() or not is_text(path):\n            continue\n        if path.name in {"LICENSE", "NOTICE"}:\n            continue',
+)
+normalizer.write_text(text)
+
+sync_workflow = ROOT / ".github/workflows/fabric-upstream-sync.yml"
+text = sync_workflow.read_text()
+text = text.replace(
+    '              try:\n                  content = open(path, encoding="utf-8").read().lower()',
+    '              if path.endswith("/LICENSE") or path.endswith("/NOTICE"):\n                  continue\n              try:\n                  content = open(path, encoding="utf-8").read().lower()',
+)
+sync_workflow.write_text(text)
