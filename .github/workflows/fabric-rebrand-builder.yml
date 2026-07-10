@@ -86,28 +86,28 @@ jobs:
           name: fabric-rebrand-scan
           path: fabric-rebrand-scan.log
           if-no-files-found: error
+      - name: Fail inherited product references
+        if: steps.brand_scan.outputs.clean != 'true'
+        run: |
+          echo 'Inherited product references remain; inspect the fabric-rebrand-scan artifact.'
+          exit 1
       - name: Install workspace dependencies
         if: steps.brand_scan.outputs.clean == 'true'
         working-directory: apps/fabric
         run: pnpm install --frozen-lockfile
       - name: Verify Fabric workspace
         if: steps.brand_scan.outputs.clean == 'true'
-        id: verify
         working-directory: apps/fabric
         shell: bash
         run: |
-          set +e
+          set -o pipefail
           (
             pnpm run check:branding &&
             pnpm run preflight:workspace-links &&
             pnpm run typecheck &&
             pnpm run test:run &&
             pnpm run build
-          ) > ../../fabric-rebrand-build.log 2>&1
-          status=$?
-          cat ../../fabric-rebrand-build.log
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
+          ) 2>&1 | tee ../../fabric-rebrand-build.log
       - name: Upload verification diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -116,7 +116,7 @@ jobs:
           path: fabric-rebrand-build.log
           if-no-files-found: ignore
       - name: Commit verified rebrand
-        if: steps.brand_scan.outputs.clean == 'true' && steps.verify.outputs.status == '0'
+        if: success() && steps.brand_scan.outputs.clean == 'true'
         run: |
           if git diff --quiet; then
             echo 'No rebrand changes'
@@ -127,11 +127,3 @@ jobs:
           git add -A
           git commit -m 'refactor(fabric): remove inherited legacy namespace'
           git push origin HEAD:${{ github.head_ref }}
-      - name: Fail inherited product references
-        if: steps.brand_scan.outputs.clean != 'true'
-        run: |
-          echo 'Inherited product references remain; inspect the fabric-rebrand-scan artifact.'
-          exit 1
-      - name: Fail unsuccessful verification
-        if: steps.brand_scan.outputs.clean == 'true' && steps.verify.outputs.status != '0'
-        run: exit 1
