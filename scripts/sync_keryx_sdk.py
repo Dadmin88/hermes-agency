@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Synchronize a reviewed Hermes Keryx Python SDK revision into Hermes Agency."""
+
 from __future__ import annotations
 
 import argparse
