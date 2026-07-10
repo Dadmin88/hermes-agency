@@ -96,8 +96,37 @@ async function buildSketchTarget(inputPath) {
   return serveSketchDirectory(inputPath);
 }
 
+const SKETCH_ASSET_CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+};
+
+function isHiddenPath(relativePath) {
+  return relativePath.split(path.sep).some(part => part.startsWith('.'));
+}
+
 function serveSketchDirectory(inputPath) {
   const rootDir = path.dirname(inputPath);
+  const rootRealPath = fs.realpathSync(rootDir);
   const entryName = path.basename(inputPath);
 
   const server = http.createServer((req, res) => {
@@ -108,43 +137,46 @@ function serveSketchDirectory(inputPath) {
       const resolvedPath = path.resolve(rootDir, relativePath);
       const relativeToRoot = path.relative(rootDir, resolvedPath);
 
-      if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+      if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot) || isHiddenPath(relativeToRoot)) {
         res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Forbidden');
         return;
       }
 
-      if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
+      const ext = path.extname(resolvedPath).toLowerCase();
+      const contentType = SKETCH_ASSET_CONTENT_TYPES[ext];
+      if (!contentType) {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Not found');
         return;
       }
 
-      const ext = path.extname(resolvedPath).toLowerCase();
-      const contentType = {
-        '.html': 'text/html; charset=utf-8',
-        '.js': 'application/javascript; charset=utf-8',
-        '.mjs': 'application/javascript; charset=utf-8',
-        '.json': 'application/json; charset=utf-8',
-        '.css': 'text/css; charset=utf-8',
-        '.txt': 'text/plain; charset=utf-8',
-        '.svg': 'image/svg+xml',
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp',
-        '.woff': 'font/woff',
-        '.woff2': 'font/woff2',
-        '.ttf': 'font/ttf',
-        '.otf': 'font/otf',
-      }[ext] || 'application/octet-stream';
+      if (!fs.existsSync(resolvedPath)) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not found');
+        return;
+      }
+
+      const fileStat = fs.lstatSync(resolvedPath);
+      if (!fileStat.isFile() || fileStat.isSymbolicLink()) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not found');
+        return;
+      }
+
+      const realPath = fs.realpathSync(resolvedPath);
+      const relativeRealPath = path.relative(rootRealPath, realPath);
+      if (relativeRealPath.startsWith('..') || path.isAbsolute(relativeRealPath)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Forbidden');
+        return;
+      }
 
       res.writeHead(200, {
         'Content-Type': contentType,
         'Cache-Control': 'no-store',
       });
-      fs.createReadStream(resolvedPath).pipe(res);
+      fs.createReadStream(realPath).pipe(res);
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(err.message);
