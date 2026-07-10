@@ -45,16 +45,9 @@ jobs:
 
           ui = Path("apps/fabric/ui/src")
 
-          def replace(path: Path, old: str, new: str) -> None:
-              text = path.read_text(encoding="utf-8")
-              updated = text.replace(old, new)
-              if updated != text:
-                  path.write_text(updated, encoding="utf-8")
-
           def write(path: Path, text: str) -> None:
               path.write_text(text, encoding="utf-8")
 
-          # Public application/account surfaces use the Fabric product name.
           public_files = (
               "components/BootstrapPendingPage.tsx",
               "components/SidebarAccountMenu.tsx",
@@ -103,7 +96,12 @@ jobs:
               text = text.replace("HermesFabric", "Hermes Fabric")
               write(path, text)
 
-          # Mention tests must query the option they were passed, including task IDs.
+          # Preserve identifier-safe compound property names after fixing prose.
+          secrets_test = ui / "pages/Secrets.render.test.tsx"
+          text = secrets_test.read_text(encoding="utf-8")
+          text = text.replace("Hermes FabricSampleCount", "HermesFabricSampleCount")
+          write(secrets_test, text)
+
           editor = ui / "components/MarkdownEditor.test.tsx"
           text = editor.read_text(encoding="utf-8")
           root_anchor = "    const root = createRoot(container);\n"
@@ -121,7 +119,6 @@ jobs:
           )
           write(editor, text)
 
-          # Select the responsive utility class literally instead of as a CSS pseudo-selector.
           agents = ui / "pages/Agents.test.tsx"
           text = agents.read_text(encoding="utf-8")
           text = re.sub(
