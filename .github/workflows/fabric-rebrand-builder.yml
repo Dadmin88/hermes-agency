@@ -35,6 +35,7 @@ jobs:
           python scripts/apply_fabric_namespace_rebrand.py
           python scripts/fix_fabric_rebrand_semantics.py
           python scripts/fix_fabric_cli_alias.py
+          python scripts/fix_fabric_final_contracts.py
       - name: Enforce attachment icon repair
         run: |
           files=(
@@ -70,6 +71,7 @@ jobs:
             ':!scripts/accelerate_fabric_rebrand.py' \
             ':!scripts/fix_fabric_rebrand_semantics.py' \
             ':!scripts/fix_fabric_cli_alias.py' \
+            ':!scripts/fix_fabric_final_contracts.py' \
             ':!.github/workflows/fabric-rebrand-builder.yml' \
             | tee -a fabric-rebrand-scan.log
           content_status=${PIPESTATUS[0]}
