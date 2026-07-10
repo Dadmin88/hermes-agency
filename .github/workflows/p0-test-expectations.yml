@@ -29,38 +29,13 @@ jobs:
       - name: Update stale Keryx expectations
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path("hermes-agency/tests/test_unit.py")
           text = path.read_text(encoding="utf-8")
 
-          old_daemon = '''def test_resolve_daemon_bin_prefers_config_then_protected_copy(
-              plugin_modules, monkeypatch, tmp_path
-          ):
-              nm = plugin_modules.node_manager
-              cfg_mod = plugin_modules.config
-              configured = tmp_path / "configured" / "agentanycastd"
-              protected = tmp_path / "src" / "hermes-agentanycast" / "bin" / "agentanycastd"
-              configured.parent.mkdir(parents=True)
-              protected.parent.mkdir(parents=True)
-              configured.write_text("configured", encoding="utf-8")
-              protected.write_text("protected", encoding="utf-8")
-              monkeypatch.setenv("HOME", str(tmp_path))
-
-              monkeypatch.setattr(
-                  nm,
-                  "get_config",
-                  lambda: cfg_mod.AgencyConfig(daemon_bin=configured),
-              )
-              assert nm._resolve_daemon_bin() == configured
-
-              configured.unlink()
-              assert nm._resolve_daemon_bin() == str(protected)
-
-              protected.unlink()
-              assert nm._resolve_daemon_bin() is None
-          '''
-          new_daemon = '''def test_resolve_daemon_bin_uses_only_explicit_config(plugin_modules, tmp_path):
+          daemon_replacement = '''def test_resolve_daemon_bin_uses_only_explicit_config(plugin_modules, tmp_path):
               nm = plugin_modules.node_manager
               cfg_mod = plugin_modules.config
               configured = tmp_path / "configured" / "agentanycastd"
@@ -74,18 +49,23 @@ jobs:
               assert nm._resolve_daemon_bin() is None
           '''
 
+          if "def test_resolve_daemon_bin_uses_only_explicit_config" not in text:
+              text, count = re.subn(
+                  r"def test_resolve_daemon_bin_prefers_config_then_protected_copy\(.*?(?=\n\ndef test_check_agency_available)",
+                  daemon_replacement.rstrip(),
+                  text,
+                  count=1,
+                  flags=re.DOTALL,
+              )
+              if count != 1:
+                  raise SystemExit(f"daemon resolver test boundary match count={count}")
+
           old_info = '''        "transport_backend": "agentanycast",
               "effective_transport_backend": "agentanycast",
           '''
           new_info = '''        "transport_backend": "keryx",
               "effective_transport_backend": "keryx",
           '''
-
-          if old_daemon in text:
-              text = text.replace(old_daemon, new_daemon, 1)
-          elif "def test_resolve_daemon_bin_uses_only_explicit_config" not in text:
-              raise SystemExit("daemon resolver test block changed unexpectedly")
-
           if old_info in text:
               text = text.replace(old_info, new_info, 1)
           elif new_info not in text:
