@@ -760,6 +760,124 @@ def test_pool_roster_keeps_profile_config_when_live_discovery_has_stale_card(tmp
     assert agent["provider"] == "opencode-go"
 
 
+def test_pool_roster_rejects_unverified_keryx_registry_peer_for_known_profile(
+    tmp_path, monkeypatch
+):
+    module_name = "agency_pool_roster_keryx_spoof_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "roster.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    roster_mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, roster_mod)
+    spec.loader.exec_module(roster_mod)
+
+    registry_path = tmp_path / "registry_definition.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "agents": [
+                    {
+                        "name": "agency-frontend-engineer",
+                        "description": "Frontend specialist",
+                        "skills": ["react"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    profiles_dir = tmp_path / "profiles"
+    (profiles_dir / "agency-frontend-engineer").mkdir(parents=True)
+
+    monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
+    monkeypatch.setattr(roster_mod, "PROFILES", profiles_dir)
+    monkeypatch.setattr(roster_mod, "LEGACY_ROSTER_PATH", tmp_path / "legacy_roster.json")
+    monkeypatch.setattr(roster_mod, "roster_state_path", lambda: tmp_path / "roster_state.json")
+    monkeypatch.setattr(roster_mod, "_transport_backend", lambda: "keryx")
+    monkeypatch.setattr(
+        roster_mod,
+        "_discover_keryx_live_peers",
+        lambda: {
+            "attacker-peer": {
+                "peer_id": "attacker-peer",
+                "agent_name": "agency-frontend-engineer",
+                "skills": ["react"],
+                "discovered_via": "keryx_registry",
+            }
+        },
+    )
+
+    roster = roster_mod.build_roster(include_plugin_setup=False)
+
+    agent = roster["profiles"][0]
+    assert agent["name"] == "agency-frontend-engineer"
+    assert agent["online"] is False
+    assert agent["peer_id"] is None
+
+
+def test_pool_roster_accepts_keryx_registry_peer_matching_local_identity(tmp_path, monkeypatch):
+    module_name = "agency_pool_roster_keryx_trusted_under_test"
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        PLUGIN_DIR / "pool" / "roster.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    roster_mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, roster_mod)
+    spec.loader.exec_module(roster_mod)
+
+    registry_path = tmp_path / "registry_definition.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "agents": [
+                    {
+                        "name": "agency-frontend-engineer",
+                        "description": "Frontend specialist",
+                        "skills": ["react"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    profiles_dir = tmp_path / "profiles"
+    logs_dir = profiles_dir / "agency-frontend-engineer" / ".agency" / "logs"
+    logs_dir.mkdir(parents=True)
+    trusted_peer_id = "12D3KooWtrustedPeer"
+    (logs_dir / "daemon.log").write_text(f'{{"peer_id":"{trusted_peer_id}"}}\n', encoding="utf-8")
+
+    monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
+    monkeypatch.setattr(roster_mod, "PROFILES", profiles_dir)
+    monkeypatch.setattr(roster_mod, "LEGACY_ROSTER_PATH", tmp_path / "legacy_roster.json")
+    monkeypatch.setattr(roster_mod, "roster_state_path", lambda: tmp_path / "roster_state.json")
+    monkeypatch.setattr(roster_mod, "_transport_backend", lambda: "keryx")
+    monkeypatch.setattr(
+        roster_mod,
+        "_discover_keryx_live_peers",
+        lambda: {
+            trusted_peer_id: {
+                "peer_id": trusted_peer_id,
+                "agent_name": "agency-frontend-engineer",
+                "skills": ["react"],
+                "discovered_via": "keryx_registry",
+            }
+        },
+    )
+
+    roster = roster_mod.build_roster(include_plugin_setup=False)
+
+    agent = roster["profiles"][0]
+    assert agent["online"] is True
+    assert agent["peer_id"] == trusted_peer_id
+
+
 def test_pool_roster_uses_shared_root_state_when_running_inside_profile(tmp_path, monkeypatch):
     for name in list(sys.modules):
         if name == "hermes_plugin" or name.startswith("hermes_plugin."):

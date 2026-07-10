@@ -128,6 +128,7 @@ def _discover_keryx_live_peers() -> dict[str, dict[str, Any]]:
                             "agent_name": registration.get("agent_name") or "",
                             "agent_description": registration.get("agent_description") or "",
                             "skills": [],
+                            "discovered_via": "keryx_registry",
                         },
                     )
                     merged_skills = set(current.get("skills", []))
@@ -137,6 +138,7 @@ def _discover_keryx_live_peers() -> dict[str, dict[str, Any]]:
                         current["agent_name"] = registration["agent_name"]
                     if registration.get("agent_description"):
                         current["agent_description"] = registration["agent_description"]
+                    current["discovered_via"] = "keryx_registry"
             return discovered
         finally:
             await client.close()
@@ -731,6 +733,7 @@ def _normalise_live_peer(item: Any) -> dict[str, Any] | None:
             item.get("card_skills") or item.get("skills") or card.get("skills") or []
         )
         model_meta = _read_card_model(card)
+        discovered_via = str(item.get("discovered_via") or "").strip()
     else:
         peer_id = str(getattr(item, "peer_id", "") or getattr(item, "id", "") or "").strip()
         name = str(getattr(item, "card_name", "") or getattr(item, "name", "") or "").strip()
@@ -741,9 +744,12 @@ def _normalise_live_peer(item: Any) -> dict[str, Any] | None:
             getattr(item, "card_skills", None) or getattr(item, "skills", None) or []
         )
         model_meta = {}
+        discovered_via = str(getattr(item, "discovered_via", "") or "").strip()
     if not peer_id and not name:
         return None
     peer = {"peer_id": peer_id or None, "name": name, "description": description, "skills": skills}
+    if discovered_via:
+        peer["discovered_via"] = discovered_via
     peer.update(model_meta)
     return peer
 
@@ -866,6 +872,12 @@ def build_roster(
         name = peer.get("name") or ""
         if not name.startswith("agency-"):
             continue
+        registry_expected_peer_id = str(agents_by_name.get(name, {}).get("peer_id") or "").strip()
+        peer_id = str(peer.get("peer_id") or "").strip()
+        if peer.get("discovered_via") == "keryx_registry" and (
+            not registry_expected_peer_id or peer_id != registry_expected_peer_id
+        ):
+            continue
         if name not in agents_by_name:
             skills = _normalise_skills(peer.get("skills") or [])
             agents_by_name[name] = {
@@ -900,13 +912,14 @@ def build_roster(
                     "last_wake_attempt_at",
                     "wake_attempt_count",
                     "last_wake_error",
+                    "discovered_via",
                 }
             }
             agents_by_name[name] = _merge_agent(agents_by_name[name], peer)
         agents_by_name[name]["online"] = True
         agents_by_name[name]["last_seen"] = time.time()
-        if peer.get("peer_id"):
-            agents_by_name[name]["peer_id"] = peer["peer_id"]
+        if peer_id:
+            agents_by_name[name]["peer_id"] = peer_id
 
     profiles = []
     for name in sorted(agents_by_name):
