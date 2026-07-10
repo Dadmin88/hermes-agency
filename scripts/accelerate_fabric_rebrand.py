@@ -10,6 +10,18 @@ text = text.replace(
     'subprocess.check_output(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=ROOT)',
 )
 text = text.replace(
+    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",',
+    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",\n    ".hcl", ".mod", ".webmanifest",',
+)
+text = text.replace(
+    '    "Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile", "AGENTS.md",',
+    '    "Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile", "AGENTS.md",\n    ".gitignore", ".dockerignore",',
+)
+text = text.replace(
+    'return path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_BASENAMES or ".env" in path.name',
+    'return (\n        path.suffix.lower() in TEXT_SUFFIXES\n        or path.name in TEXT_BASENAMES\n        or path.name.startswith("Dockerfile")\n        or ".env" in path.name\n    )',
+)
+text = text.replace(
     '        run("git", "mv", str(relative), str(target_relative))',
     '        source.rename(target)',
 )
@@ -45,6 +57,18 @@ path.write_text(text)
 
 normalizer = ROOT / "apps/fabric/scripts/normalize-upstream-import.py"
 text = normalizer.read_text()
+text = text.replace(
+    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",',
+    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",\n    ".hcl", ".mod", ".webmanifest",',
+)
+text = text.replace(
+    'TEXT_BASENAMES = {"Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile"}',
+    'TEXT_BASENAMES = {"Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile", ".gitignore", ".dockerignore"}',
+)
+text = text.replace(
+    'return path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_BASENAMES or ".env" in path.name',
+    'return (\n        path.suffix.lower() in TEXT_SUFFIXES\n        or path.name in TEXT_BASENAMES\n        or path.name.startswith("Dockerfile")\n        or ".env" in path.name\n    )',
+)
 text = text.replace(
     '    for path in walk_files(root):\n        try:',
     '    for path in walk_files(root):\n        if path.name in {"LICENSE", "NOTICE"}:\n            continue\n        try:',
