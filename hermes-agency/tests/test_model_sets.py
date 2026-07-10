@@ -28,20 +28,20 @@ def _load_agency_module(monkeypatch, module_name: str):
     return module
 
 
-def test_economic_model_set_resolves_backend_engineer(monkeypatch, tmp_path):
+def test_openai_codex_only_resolves_backend_engineer(monkeypatch, tmp_path):
     hermes_constants = types.ModuleType("hermes_constants")
     setattr(hermes_constants, "get_hermes_home", lambda: tmp_path / "hermes_home")
     monkeypatch.setitem(sys.modules, "hermes_constants", hermes_constants)
 
     model_sets = _load_agency_module(monkeypatch, "model_sets")
-    model_set = model_sets.load_model_set("economic")
+    model_set = model_sets.load_model_set("openai-codex-only")
     validation = model_sets.validate_model_set(model_set, strict=True)
 
     assert validation.ok
     resolved = model_sets.resolve_profile_model("agency-backend-engineer", model_set)
     assert resolved.family == "coding_worker"
-    assert resolved.provider == "opencode-go"
-    assert resolved.model == "deepseek-v4-pro"
+    assert resolved.provider == "openai-codex"
+    assert resolved.model == "gpt-5.5"
 
 
 def test_profile_config_writer_dry_run_preserves_files(monkeypatch, tmp_path):
@@ -60,7 +60,7 @@ def test_profile_config_writer_dry_run_preserves_files(monkeypatch, tmp_path):
 
     model_sets = _load_agency_module(monkeypatch, "model_sets")
     writer = _load_agency_module(monkeypatch, "profile_config_writer")
-    model_set = model_sets.load_model_set("economic")
+    model_set = model_sets.load_model_set("openai-codex-only")
     result = writer.apply_model_set(model_set, dry_run=True)
 
     assert result["ok"] is True

@@ -1,0 +1,222 @@
+version: 1
+name: openai-codex-only
+description: "Use only the OpenAI Codex provider with GPT-5.5 across Hermes Agency."
+
+defaults:
+  family: general_worker
+
+families:
+  general_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  lightweight_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  coding_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  coding_light:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  creative_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  analysis_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  review_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "Standard Hermes Agency worker model: OpenAI Codex GPT-5.5."
+  orchestration:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "OpenAI Codex GPT-5.5 for coordination, task decomposition, recovery, and synthesis."
+  senior_review:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: "OpenAI Codex GPT-5.5 for architecture, security, compliance, legal, and releases."
+
+profiles:
+  agency-orchestrator: orchestration
+  agency-ceo: orchestration
+  agency-chief-of-staff: orchestration
+  agency-technical-lead: orchestration
+  agency-project-manager: orchestration
+  agency-traffic-manager: orchestration
+  agency-scrum-master: orchestration
+  agency-operations-manager: orchestration
+  agency-launch-manager: orchestration
+  agency-software-architect: senior_review
+  agency-systems-architect: senior_review
+  agency-security-reviewer: senior_review
+  agency-security-engineer: senior_review
+  agency-compliance-reviewer: senior_review
+  agency-legal-ops: senior_review
+  agency-release-manager: senior_review
+  agency-red-team: senior_review
+  agency-code-reviewer: review_worker
+  agency-qa-lead: review_worker
+  agency-qa-tester: review_worker
+  agency-design-reviewer: review_worker
+  agency-accessibility-reviewer: review_worker
+  agency-git-steward: review_worker
+  agency-backend-engineer: coding_worker
+  agency-frontend-engineer: coding_worker
+  agency-fullstack-engineer: coding_worker
+  agency-godot-engineer: coding_worker
+  agency-tools-engineer: coding_worker
+  agency-automation-engineer: coding_worker
+  agency-devops-engineer: coding_worker
+  agency-infrastructure-engineer: coding_worker
+  agency-platform-engineer: coding_worker
+  agency-integration-engineer: coding_worker
+  agency-data-engineer: coding_worker
+  agency-database-engineer: coding_worker
+  agency-performance-engineer: coding_worker
+  agency-ai-engineer: coding_worker
+  agency-gpt-bridge: coding_worker
+  agency-ai: coding_light
+  agency-automation: coding_light
+  agency-backend: coding_light
+  agency-data: coding_light
+  agency-database: coding_light
+  agency-devops: coding_light
+  agency-frontend: coding_light
+  agency-fullstack: coding_light
+  agency-godot: coding_light
+  agency-infrastructure: coding_light
+  agency-integration: coding_light
+  agency-performance: coding_light
+  agency-platform: coding_light
+  agency-tools: coding_light
+  agency-copywriter: creative_worker
+  agency-content-writer: creative_worker
+  agency-docs-writer: creative_worker
+  agency-technical-writer: creative_worker
+  agency-dialogue-writer: creative_worker
+  agency-lore-writer: creative_worker
+  agency-scriptwriter: creative_worker
+  agency-worldbuilder: creative_worker
+  agency-editor-in-chief: creative_worker
+  agency-art-director: creative_worker
+  agency-asset-artist: creative_worker
+  agency-audio-designer: creative_worker
+  agency-brand-designer: creative_worker
+  agency-creative-director: creative_worker
+  agency-design-systems-designer: creative_worker
+  agency-environment-artist: creative_worker
+  agency-game-designer: creative_worker
+  agency-level-designer: creative_worker
+  agency-motion-designer: creative_worker
+  agency-product-designer: creative_worker
+  agency-ui-ux-designer: creative_worker
+  agency-technical-artist: creative_worker
+  agency-product-manager: analysis_worker
+  agency-product-strategist: analysis_worker
+  agency-business-analyst: analysis_worker
+  agency-requirements-analyst: analysis_worker
+  agency-market-researcher: analysis_worker
+  agency-user-researcher: analysis_worker
+  agency-analytics-specialist: analysis_worker
+  agency-competitive-analyst: analysis_worker
+  agency-finance-ops: analysis_worker
+  agency-monetization-strategist: analysis_worker
+  agency-procurement-specialist: analysis_worker
+  agency-seo-specialist: analysis_worker
+  agency-community-manager: general_worker
+  agency-customer-success: general_worker
+  agency-email-marketer: general_worker
+  agency-growth-marketer: general_worker
+  agency-knowledge-manager: general_worker
+  agency-marketing-strategist: general_worker
+  agency-onboarding-specialist: general_worker
+  agency-partnerships-manager: general_worker
+  agency-public-relations: general_worker
+  agency-social-media-manager: general_worker
+  agency-support-specialist: general_worker
+  agency-training-specialist: general_worker
+
+escalation:
+  default_family: senior_review
+  triggers: [security, legal, release, destructive_change, architecture, ambiguous_requirements]
+
+task_routing:
+  enabled: true
+  mode: conservative
+  default:
+    provider: openai-codex
+    model: gpt-5.5
+    tier: gpt55_rollback
+  health:
+    preflight: config
+    cache_ttl_seconds: 300
+    block_if_safe_default_unhealthy: true
+  classifier:
+    downgrade_min_confidence: 0.85
+    uncertain_goes_to_default: true
+    long_context_parent_threshold: 3
+    long_context_body_chars: 12000
+    repeated_failure_threshold: 1
+  tiers:
+    gpt55_rollback:
+      provider: openai-codex
+      model: gpt-5.5
+      reason: "DF-653 rollback tier for all Agency workers."
+  escalation:
+    force_tier: gpt55_rollback
+    tags: [security, privacy, compliance, legal, architecture, api_design, system_design, release, deployment, destructive_change, code_review, qa_signoff, ambiguous_requirements, long_context, repeated_failure, orchestration]
+    assignees: [agency-orchestrator, agency-software-architect, agency-systems-architect, agency-security-reviewer, agency-code-reviewer, agency-release-manager]
+    keyword_rules:
+      security_keyword:
+        any: [security, secret, credential, auth, privacy]
+        tags: [security]
+      architecture_keyword:
+        any: [architecture, design, boundary, api design, system design]
+        tags: [architecture]
+      release_keyword:
+        any: [release, deploy, production, rollback, migration]
+        tags: [release]
+      review_keyword:
+        any: [review, approval, signoff, merge readiness]
+        tags: [code_review]
+      destructive_keyword:
+        any: [delete, destructive, rewrite, bulk, irreversible]
+        tags: [destructive_change]
+  downgrade_rules:
+    docs_typo:
+      tier: gpt55_rollback
+      confidence: 0.90
+      all:
+        file_globs: ["docs/**/*.md", "*.md"]
+        keywords_any: [typo, spelling, grammar, formatting]
+      deny_tags: [security, release, architecture, code_review]
+    readonly_summary:
+      tier: gpt55_rollback
+      confidence: 0.88
+      all:
+        tool_access: read_only
+        keywords_any: [summarize, extract, list, inspect]
+      max_body_chars: 6000
+      deny_tags: [security, legal, release, code_review]
+
+budget:
+  max_input_cost_per_1m: null
+  max_output_cost_per_1m: null
+  warn_if_unknown_pricing: false
+
+metadata:
+  source: packaged
+  provider_policy: openai-codex-only
+  last_reviewed: "2026-07-10"
+  rollout: gpt-5.5-rollback
+  notes:
+    - "All families intentionally use provider=openai-codex."
+    - "All Hermes Agency worker families intentionally use model=gpt-5.5."
+    - "No GPT-5.6 routing tiers are enabled in this rollback policy."
