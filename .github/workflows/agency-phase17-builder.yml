@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: DeployFaith/hermes-keryx
-          ref: ada02506293630f824d01d1e9267088a05caf6f9
+          ref: 2fc86d5ea236a60130cf6150705820fec6e98fca
           path: .phase17-keryx
 
       - uses: actions/setup-python@v5
@@ -37,7 +37,7 @@ jobs:
         run: |
           python scripts/sync_keryx_sdk.py \
             --source .phase17-keryx/sdk/python/keryx \
-            --revision ada02506293630f824d01d1e9267088a05caf6f9
+            --revision 2fc86d5ea236a60130cf6150705820fec6e98fca
           rm -rf .phase17-keryx
 
       - name: Install Agency development dependencies
@@ -73,5 +73,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/keryx scripts/sync_keryx_sdk.py
-          git commit -m 'feat(agency): synchronize the authenticated Phase 17 Keryx SDK'
+          git commit -m 'feat(agency): synchronize the final Phase 17 Keryx SDK'
           git push origin HEAD:${{ github.head_ref }}
