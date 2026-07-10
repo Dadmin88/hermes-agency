@@ -8,7 +8,6 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-
 _ROUTE_TERMINAL_STATUSES = {"completed", "failed", "blocked", "escalated", "cancelled"}
 _ROUTE_FAILED_STATUSES = {"failed", "blocked", "escalated"}
 
