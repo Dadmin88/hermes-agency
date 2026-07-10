@@ -134,8 +134,12 @@ class DaemonClient:
         self._daemon = daemon_pb2_grpc.KeryxDaemonStub(self._channel)
         if self._registry_endpoint:
             if self._registry_channel is None:
-                self._registry_channel = grpc.aio.insecure_channel(_grpc_target(self._registry_endpoint))
-            self._registry = registry_pb2_grpc.RegistryServiceStub(self._registry_channel)
+                self._registry_channel = grpc.aio.insecure_channel(
+                    _grpc_target(self._registry_endpoint)
+                )
+            self._registry = registry_pb2_grpc.RegistryServiceStub(
+                self._registry_channel
+            )
 
     async def close(self) -> None:
         if self._channel is not None:
@@ -179,7 +183,12 @@ class DaemonClient:
             status=task_pb2.TASK_STATUS_CREATED,
             messages=[
                 task_pb2.TaskMessage(
-                    parts=[task_pb2.TaskMessagePart(text=message_text, media_type="text/plain")]
+                    parts=[
+                        task_pb2.TaskMessagePart(
+                            text=message_text,
+                            media_type="text/plain",
+                        )
+                    ]
                 )
             ],
             metadata=metadata or {},
@@ -191,13 +200,19 @@ class DaemonClient:
         )
         return await self._daemon.SendTask(request)
 
-    async def get_task_result(self, task_id: str) -> daemon_pb2.GetTaskResultResponse:
+    async def get_task_result(
+        self, task_id: str
+    ) -> daemon_pb2.GetTaskResultResponse:
         assert self._daemon is not None
         return await self._daemon.GetTaskResult(
-            daemon_pb2.GetTaskResultRequest(task_id=common_pb2.TaskId(value=task_id))
+            daemon_pb2.GetTaskResultRequest(
+                task_id=common_pb2.TaskId(value=task_id)
+            )
         )
 
-    async def cancel_task(self, task_id: str, *, reason: str = "") -> daemon_pb2.CancelTaskResponse:
+    async def cancel_task(
+        self, task_id: str, *, reason: str = ""
+    ) -> daemon_pb2.CancelTaskResponse:
         assert self._daemon is not None
         return await self._daemon.CancelTask(
             daemon_pb2.CancelTaskRequest(
@@ -206,24 +221,65 @@ class DaemonClient:
             )
         )
 
-    async def discover(self, skill_id: str, *, tags: list[str] | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    async def discover(
+        self,
+        skill_id: str,
+        *,
+        tags: list[str] | None = None,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
         if self._registry is None:
             return []
         assert self._registry is not None
+        requested_tags = {tag.strip() for tag in tags or [] if tag.strip()}
         response = await self._registry.DiscoverBySkill(
-            registry_pb2.DiscoverBySkillRequest(skill_id=skill_id, tags=tags or [], limit=limit)
-        )
-        results: list[dict[str, Any]] = []
-        for registration in response.registrations:
-            results.append(
-                {
-                    "peer_id": registration.peer_id,
-                    "agent_name": registration.name,
-                    "agent_description": registration.description,
-                    "skills": [skill.skill_id for skill in registration.skills],
-                }
+            registry_pb2.DiscoverBySkillRequest(
+                skill_id=skill_id,
+                tags=tags or [],
+                limit=limit,
             )
-        return results
+        )
+        registrations = list(response.registrations)
+
+        # Registry gossip can briefly expose a node before its secondary skill
+        # index catches up. Fall back to one bounded full-registry read and
+        # filter locally so discovery remains correct without an unbounded scan.
+        if skill_id and not registrations:
+            fallback_limit = limit if limit > 0 else 100
+            fallback = await self._registry.DiscoverBySkill(
+                registry_pb2.DiscoverBySkillRequest(
+                    skill_id="",
+                    limit=fallback_limit,
+                )
+            )
+            registrations = []
+            for registration in fallback.registrations:
+                matching_skill = next(
+                    (
+                        skill
+                        for skill in registration.skills
+                        if skill.skill_id == skill_id
+                    ),
+                    None,
+                )
+                if matching_skill is None:
+                    continue
+                skill_tags = {tag.strip() for tag in matching_skill.tags if tag.strip()}
+                if requested_tags and not requested_tags.issubset(skill_tags):
+                    continue
+                registrations.append(registration)
+                if limit > 0 and len(registrations) >= limit:
+                    break
+
+        return [
+            {
+                "peer_id": registration.peer_id,
+                "agent_name": registration.name,
+                "agent_description": registration.description,
+                "skills": [skill.skill_id for skill in registration.skills],
+            }
+            for registration in registrations
+        ]
 
     async def register_skills(
         self,
@@ -243,19 +299,27 @@ class DaemonClient:
             description=description,
             ttl_seconds=ttl_seconds,
             skills=[
-                registry_pb2.SkillInfo(skill_id=skill_id, description=skill_description)
+                registry_pb2.SkillInfo(
+                    skill_id=skill_id,
+                    description=skill_description,
+                )
                 for skill_id, skill_description in skills
             ],
         )
         response = await self._registry.RegisterSkills(request)
         return bool(response.accepted)
 
-    async def unregister_skills(self, *, peer_id: str, skill_ids: list[str]) -> bool:
+    async def unregister_skills(
+        self, *, peer_id: str, skill_ids: list[str]
+    ) -> bool:
         if self._registry is None:
             return False
         assert self._registry is not None
         response = await self._registry.UnregisterSkills(
-            registry_pb2.UnregisterSkillsRequest(peer_id=peer_id, skill_ids=skill_ids)
+            registry_pb2.UnregisterSkillsRequest(
+                peer_id=peer_id,
+                skill_ids=skill_ids,
+            )
         )
         return bool(response.accepted)
 
@@ -274,7 +338,10 @@ class DaemonClient:
                     name=registration.name or registration.peer_id,
                     description=registration.description,
                     skills=[
-                        Skill(id=skill.skill_id, description=skill.description)
+                        Skill(
+                            id=skill.skill_id,
+                            description=skill.description,
+                        )
                         for skill in registration.skills
                     ],
                     peer_id=registration.peer_id,
