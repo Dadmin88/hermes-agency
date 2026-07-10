@@ -1,0 +1,42 @@
+name: P0 Runtime Alignment PR
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  align-runtime:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/p0-product-truth-keryx-alignment'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply asserted runtime alignment
+        run: python scripts/p0_runtime_alignment.py
+
+      - name: Verify syntax and patch hygiene
+        run: |
+          python -m compileall -q hermes-agency
+          git diff --check
+
+      - name: Commit runtime alignment
+        run: |
+          if git diff --quiet; then
+            echo "Runtime alignment is already applied."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hermes-agency docs/audits
+          git commit -m "fix(agency): make Keryx the truthful runtime default"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
