@@ -396,3 +396,30 @@ async def test_keryx_client_discover_falls_back_when_skill_index_is_empty():
         }
     ]
     assert [request.skill_id for request in registry.requests] == ["hermes-chat", ""]
+    assert [request.limit for request in registry.requests] == [1, 1]
+
+
+@pytest.mark.asyncio
+async def test_keryx_client_discover_uses_bounded_full_registry_fallback_for_unlimited_call():
+    from keryx import client as keryx_client
+
+    daemon_client_cls = keryx_client.DaemonClient
+    registry_pb2 = keryx_client.registry_pb2
+
+    class RegistryStub:
+        def __init__(self) -> None:
+            self.requests: list[Any] = []
+
+        async def DiscoverBySkill(self, request):  # noqa: N802 - gRPC stub method name
+            self.requests.append(request)
+            return registry_pb2.DiscoverBySkillResponse()
+
+    registry = RegistryStub()
+    client = daemon_client_cls(daemon_endpoint="127.0.0.1:50051")
+    client._registry = registry
+
+    results = await client.discover("hermes-chat", limit=0)
+
+    assert results == []
+    assert [request.skill_id for request in registry.requests] == ["hermes-chat", ""]
+    assert [request.limit for request in registry.requests] == [0, 100]
