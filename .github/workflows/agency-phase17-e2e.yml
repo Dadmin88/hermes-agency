@@ -43,12 +43,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Prepare and build Keryx runtime
+      - name: Build committed Keryx runtime
         working-directory: .phase17-keryx
-        run: |
-          python scripts/apply_phase17_e2e_fix.py
-          python scripts/fix_phase17_relay_config.py
-          cargo build --workspace --bins
+        run: cargo build --workspace --bins
 
       - name: Install Hermes Agency
         run: python -m pip install -e '.[dev]'
