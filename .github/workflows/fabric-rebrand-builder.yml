@@ -34,6 +34,7 @@ jobs:
           python scripts/accelerate_fabric_rebrand.py
           python scripts/apply_fabric_namespace_rebrand.py
           python scripts/fix_fabric_rebrand_semantics.py
+          python scripts/fix_fabric_cli_alias.py
       - name: Enforce attachment icon repair
         run: |
           files=(
@@ -68,6 +69,7 @@ jobs:
             ':!scripts/apply_fabric_namespace_rebrand.py' \
             ':!scripts/accelerate_fabric_rebrand.py' \
             ':!scripts/fix_fabric_rebrand_semantics.py' \
+            ':!scripts/fix_fabric_cli_alias.py' \
             ':!.github/workflows/fabric-rebrand-builder.yml' \
             | tee -a fabric-rebrand-scan.log
           content_status=${PIPESTATUS[0]}
@@ -125,5 +127,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'refactor(fabric): remove inherited legacy namespace'
+          git commit -m 'refactor(fabric): remove inherited upstream namespace'
           git push origin HEAD:${{ github.head_ref }}
