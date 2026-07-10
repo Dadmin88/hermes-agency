@@ -29,7 +29,9 @@ jobs:
       - name: Enable pnpm
         run: corepack enable && corepack prepare pnpm@9.15.4 --activate
       - name: Apply complete namespace migration
-        run: python scripts/apply_fabric_namespace_rebrand.py
+        run: |
+          python scripts/accelerate_fabric_rebrand.py
+          python scripts/apply_fabric_namespace_rebrand.py
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
@@ -38,6 +40,7 @@ jobs:
         run: |
           if git grep -Iin 'paperclip' -- . \
             ':!scripts/apply_fabric_namespace_rebrand.py' \
+            ':!scripts/accelerate_fabric_rebrand.py' \
             ':!.github/workflows/fabric-rebrand-builder.yml'; then
             echo 'Inherited brand text remains'
             exit 1
