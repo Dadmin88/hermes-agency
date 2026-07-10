@@ -1,0 +1,86 @@
+name: Fabric Rebrand Builder
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  rebrand-fabric:
+    if: github.head_ref == 'feat/fabric-remove-paperclip-brand'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/fabric/pnpm-lock.yaml
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@9.15.4 --activate
+      - name: Apply complete namespace migration
+        run: python scripts/apply_fabric_namespace_rebrand.py
+      - name: Normalize workspace lockfile
+        working-directory: apps/fabric
+        run: pnpm install --lockfile-only
+      - name: Verify zero inherited brand references
+        shell: bash
+        run: |
+          if git grep -Iin 'paperclip' -- . ':!scripts/apply_fabric_namespace_rebrand.py'; then
+            echo 'Inherited brand text remains'
+            exit 1
+          fi
+          if find . -path './.git' -prune -o -iname '*paperclip*' -print | grep -q .; then
+            echo 'Inherited brand paths remain'
+            find . -path './.git' -prune -o -iname '*paperclip*' -print
+            exit 1
+          fi
+      - name: Install workspace dependencies
+        working-directory: apps/fabric
+        run: pnpm install --frozen-lockfile
+      - name: Verify Fabric workspace
+        id: verify
+        working-directory: apps/fabric
+        shell: bash
+        run: |
+          set +e
+          {
+            pnpm run check:branding
+            pnpm run preflight:workspace-links
+            pnpm run typecheck
+            pnpm run test:run
+            pnpm run build
+          } 2>&1 | tee ../../fabric-rebrand-build.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabric-rebrand-build-log
+          path: fabric-rebrand-build.log
+          if-no-files-found: error
+      - name: Commit verified rebrand
+        if: steps.verify.outputs.status == '0'
+        run: |
+          if git diff --quiet; then
+            echo 'No rebrand changes'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor(fabric): remove inherited Paperclip namespace'
+          git push origin HEAD:${{ github.head_ref }}
+      - name: Fail unsuccessful verification
+        if: steps.verify.outputs.status != '0'
+        run: exit 1
