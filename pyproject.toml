@@ -29,7 +29,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    "hermes-agent>=0.17.0",
+    "hermes-agent>=0.18.0",
     "grpcio>=1.82.1",
     "protobuf>=7.34.1",
     "httpx>=0.27",
