@@ -31,6 +31,36 @@ def regex_replace(path: Path, pattern: str, replacement: str) -> None:
         path.write_text(updated, encoding="utf-8")
 
 
+def repair_issue_runtime_hook() -> None:
+    ui_root = FABRIC / "ui"
+    for source_name in (
+        "useHermesFabricIssueRuntime.ts",
+        "useHermesFabricIssueRuntime.test.tsx",
+        "useLink2IssueRuntime.ts",
+        "useLink2IssueRuntime.test.tsx",
+    ):
+        source = ui_root / "src/hooks" / source_name
+        if not source.exists():
+            continue
+        target_name = (
+            "useIssueRuntime.test.tsx" if source_name.endswith(".test.tsx") else "useIssueRuntime.ts"
+        )
+        target = source.with_name(target_name)
+        if target.exists():
+            raise RuntimeError(f"issue runtime hook collision: {source} -> {target}")
+        source.rename(target)
+
+    for path in ui_root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        updated = text.replace("useHermesFabricIssueRuntime", "useIssueRuntime")
+        updated = updated.replace("useLink2IssueRuntime", "useIssueRuntime")
+        updated = updated.replace("useHermes FabricIssueRuntime", "useIssueRuntime")
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
+
+
 def repair_attachment_icons() -> None:
     ui_root = FABRIC / "ui"
     repaired: list[Path] = []
@@ -57,7 +87,11 @@ def repair_attachment_icons() -> None:
 
 def repair_ui_contracts() -> None:
     pricing = FABRIC / "ui/src/pages/ModelPricing.tsx"
-    replace(pricing, "description: `${result.discovered} models discovered`", "body: `${result.discovered} models discovered`")
+    replace(
+        pricing,
+        "description: `${result.discovered} models discovered`",
+        "body: `${result.discovered} models discovered`",
+    )
     replace(pricing, "description: error.message", "body: error.message")
 
 
@@ -79,7 +113,13 @@ def repair_catalog_identifiers() -> None:
         if not root.exists():
             continue
         for path in root.rglob("*"):
-            if not path.is_file() or path.suffix.lower() not in {".md", ".json", ".ts", ".yaml", ".yml"}:
+            if not path.is_file() or path.suffix.lower() not in {
+                ".md",
+                ".json",
+                ".ts",
+                ".yaml",
+                ".yml",
+            }:
                 continue
             text = path.read_text(encoding="utf-8")
             updated = text
@@ -159,6 +199,7 @@ def repair_test_language() -> None:
 
 
 def main() -> None:
+    repair_issue_runtime_hook()
     repair_attachment_icons()
     repair_ui_contracts()
     repair_catalog_identifiers()
