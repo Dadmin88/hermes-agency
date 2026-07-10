@@ -32,20 +32,27 @@ def regex_replace(path: Path, pattern: str, replacement: str) -> None:
 
 
 def repair_attachment_icons() -> None:
-    relative_paths = [
-        "ui/src/components/ChatComposer.tsx",
-        "ui/src/components/CommentThread.tsx",
-        "ui/src/components/IssueAttachmentsSection.tsx",
-        "ui/src/components/IssueChatThread.tsx",
-        "ui/src/components/NewIssueDialog.tsx",
-        "ui/src/components/artifacts/ArtifactCard.tsx",
-        "ui/src/components/search/SearchResultRow.tsx",
-        "ui/src/pages/IssueDetail.tsx",
-        "ui/src/pages/Pipelines.tsx",
-        "ui/storybook/stories/assigned-backlog-safeguards.stories.tsx",
-    ]
-    for relative in relative_paths:
-        replace(FABRIC / relative, "HermesFabric", "Link2")
+    ui_root = FABRIC / "ui"
+    repaired: list[Path] = []
+    for path in ui_root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "lucide-react" not in text or "HermesFabric" not in text:
+            continue
+        path.write_text(text.replace("HermesFabric", "Link2"), encoding="utf-8")
+        repaired.append(path)
+
+    remaining = []
+    for path in ui_root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "lucide-react" in text and "HermesFabric" in text:
+            remaining.append(path.relative_to(FABRIC).as_posix())
+    if remaining:
+        raise RuntimeError(f"unrepaired attachment icon imports: {remaining}")
+    print(f"Repaired {len(repaired)} attachment icon source files")
 
 
 def repair_ui_contracts() -> None:
