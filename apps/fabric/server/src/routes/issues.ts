@@ -66,6 +66,7 @@ import {
   type ExecutionWorkspace,
   type IssueRelationIssueSummary,
   type IssueWatchdogDiscoveryKind,
+  type HermesAgencyAgent,
   type SourceTrustMetadata,
   type SuccessfulRunHandoffState,
 } from "@paperclipai/shared";
@@ -123,6 +124,10 @@ import { executionWorkspaceService as executionWorkspaceServiceDirect } from "..
 import { feedbackService } from "../services/feedback.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { hermesKanbanSyncHeaders, syncHermesKanbanIssues } from "../services/hermes-kanban-issues.js";
+import {
+  HermesAgencyRosterUnavailableError,
+  readHermesAgencyRoster,
+} from "../services/hermes-agency-roster.js";
 import { readAcceptedPlanConfirmationTarget } from "../services/issues.js";
 import { environmentService } from "../services/environments.js";
 import { environmentRuntimeService } from "../services/environment-runtime.js";
@@ -3143,8 +3148,10 @@ export function issueRoutes(
       if (revalidated) recoveryActionByIssue.set(issue.id, revalidated);
       else recoveryActionByIssue.delete(issue.id);
     }));
+    const agencyAssigneeHealthByName = await readAgencyAssigneeHealthByName();
     res.json(result.map((issue) => ({
       ...issue,
+      agencyAssigneeHealth: agencyAssigneeHealthForIssue(issue, agencyAssigneeHealthByName),
       successfulRunHandoff: handoffStates.get(issue.id) ?? null,
       activeRecoveryAction: recoveryActionByIssue.get(issue.id) ?? null,
     })));
@@ -8437,4 +8444,46 @@ export function issueRoutes(
   });
 
   return router;
+}
+
+type IssueAgencyHealthInput = {
+  executionAgentNameKey?: string | null;
+};
+
+type IssueAgencyAssigneeHealth = Pick<
+  HermesAgencyAgent,
+  "name" | "department" | "skills" | "online" | "disabled" | "status" | "peerId" | "peerIdRedacted" | "lastSeen" | "lastError"
+>;
+
+async function readAgencyAssigneeHealthByName(): Promise<Map<string, IssueAgencyAssigneeHealth>> {
+  try {
+    const roster = await readHermesAgencyRoster();
+    return new Map(roster.agents.map((agent) => [agent.name, {
+      name: agent.name,
+      department: agent.department,
+      skills: agent.skills,
+      online: agent.online,
+      disabled: agent.disabled,
+      status: agent.status,
+      peerId: agent.peerId,
+      peerIdRedacted: agent.peerIdRedacted,
+      lastSeen: agent.lastSeen,
+      lastError: agent.lastError,
+    }]));
+  } catch (error) {
+    if (error instanceof HermesAgencyRosterUnavailableError) {
+      logger.debug({ error }, "Hermes Agency roster health unavailable; returning issues without health overlay");
+      return new Map();
+    }
+    throw error;
+  }
+}
+
+function agencyAssigneeHealthForIssue(
+  issue: IssueAgencyHealthInput,
+  byName: Map<string, IssueAgencyAssigneeHealth>,
+): IssueAgencyAssigneeHealth | null {
+  const assignee = issue.executionAgentNameKey?.trim();
+  if (!assignee) return null;
+  return byName.get(assignee) ?? null;
 }

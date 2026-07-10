@@ -1,20 +1,27 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import express from "express";
+import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { companies, createDb, issueRelations, issues } from "@paperclipai/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
 } from "./helpers/embedded-postgres.js";
 import {
+  createHermesKanbanProjectionSyncWorker,
   HERMES_KANBAN_TASK_ORIGIN_KIND,
   resolveHermesKanbanDbPath,
+  resolveHermesKanbanSyncIntervalMs,
   syncHermesKanbanIssues,
 } from "../services/hermes-kanban-issues.ts";
+import { hermesAgencyRoutes } from "../routes/hermes-agency.ts";
+import { issueRoutes } from "../routes/issues.ts";
+import { errorHandler } from "../middleware/error-handler.ts";
 import { issueService } from "../services/issues.ts";
 
 const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
@@ -44,6 +51,35 @@ describe("resolveHermesKanbanDbPath", () => {
     delete process.env.PAPERCLIP_HERMES_KANBAN_DB;
     delete process.env.HERMES_KANBAN_DB;
     expect(resolveHermesKanbanDbPath()).toBeNull();
+  });
+});
+
+describe("resolveHermesKanbanSyncIntervalMs", () => {
+  const previousFabric = process.env.FABRIC_HERMES_KANBAN_SYNC_INTERVAL_MS;
+  const previousLegacy = process.env.PAPERCLIP_HERMES_KANBAN_SYNC_INTERVAL_MS;
+  const previousUnprefixed = process.env.HERMES_KANBAN_SYNC_INTERVAL_MS;
+
+  afterEach(() => {
+    if (previousFabric === undefined) delete process.env.FABRIC_HERMES_KANBAN_SYNC_INTERVAL_MS;
+    else process.env.FABRIC_HERMES_KANBAN_SYNC_INTERVAL_MS = previousFabric;
+    if (previousLegacy === undefined) delete process.env.PAPERCLIP_HERMES_KANBAN_SYNC_INTERVAL_MS;
+    else process.env.PAPERCLIP_HERMES_KANBAN_SYNC_INTERVAL_MS = previousLegacy;
+    if (previousUnprefixed === undefined) delete process.env.HERMES_KANBAN_SYNC_INTERVAL_MS;
+    else process.env.HERMES_KANBAN_SYNC_INTERVAL_MS = previousUnprefixed;
+  });
+
+  it("defaults to a 15 second Kanban projection sync interval", () => {
+    delete process.env.FABRIC_HERMES_KANBAN_SYNC_INTERVAL_MS;
+    delete process.env.PAPERCLIP_HERMES_KANBAN_SYNC_INTERVAL_MS;
+    delete process.env.HERMES_KANBAN_SYNC_INTERVAL_MS;
+    expect(resolveHermesKanbanSyncIntervalMs()).toBe(15_000);
+  });
+
+  it("uses a configured interval with a safe lower bound", () => {
+    process.env.FABRIC_HERMES_KANBAN_SYNC_INTERVAL_MS = "250";
+    expect(resolveHermesKanbanSyncIntervalMs()).toBe(1_000);
+    process.env.FABRIC_HERMES_KANBAN_SYNC_INTERVAL_MS = "20000";
+    expect(resolveHermesKanbanSyncIntervalMs()).toBe(20_000);
   });
 });
 
@@ -215,6 +251,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
   let previousCompanyEnv: string | undefined;
   let previousLegacyCompanyEnv: string | undefined;
   let previousIncludeDetailsEnv: string | undefined;
+  let previousRosterPathEnv: string | undefined;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
@@ -229,6 +266,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     previousCompanyEnv = process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
     previousLegacyCompanyEnv = process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
     previousIncludeDetailsEnv = process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
+    previousRosterPathEnv = process.env.HERMES_AGENCY_ROSTER_PATH;
   });
 
   afterEach(async () => {
@@ -240,6 +278,8 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     else process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID = previousLegacyCompanyEnv;
     if (previousIncludeDetailsEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
     else process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS = previousIncludeDetailsEnv;
+    if (previousRosterPathEnv === undefined) delete process.env.HERMES_AGENCY_ROSTER_PATH;
+    else process.env.HERMES_AGENCY_ROSTER_PATH = previousRosterPathEnv;
     await db.delete(issueRelations);
     await db.delete(issues);
     await db.delete(companies);
@@ -328,6 +368,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(projectedParent?.executionAgentNameKey).toBe("agency-fullstack-engineer");
     expect(projectedParent?.description).toContain("Hermes Kanban task: t_parent");
     expect(projectedParent?.description).toContain("Assignee: agency-fullstack-engineer");
+    expect(projectedParent?.description).toContain("Last heartbeat: 2026-06-30T13:45:10.000Z");
     expect(projectedParent?.description).not.toContain("Parent body");
     expect(projectedParent?.description).not.toContain("/tmp/projected-parent");
     expect(projectedParent?.description).not.toContain("Latest run summary");
@@ -339,6 +380,114 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
       .from(issues)
       .where(eq(issues.companyId, companyId));
     expect(projectedRows.filter((row) => row.originKind === HERMES_KANBAN_TASK_ORIGIN_KIND)).toHaveLength(2);
+  });
+
+  it("joins Agency roster health onto projected task assignees in the issue list API", async () => {
+    const companyId = await seedCompany();
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_roster_health",
+        title: "Projected task with Agency assignee",
+        assignee: "agency-backend-engineer",
+        status: "running",
+        priority: 95,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    const rosterPath = join(dir, "roster_state.json");
+    writeFileSync(rosterPath, JSON.stringify({
+      profiles: [{
+        name: "agency-backend-engineer",
+        category: "engineering",
+        skills: ["api", "server"],
+        online: false,
+        last_seen: "2026-07-10T02:00:00.000Z",
+        peer_id: "12D3KooWDoNotExposeByDefault",
+        disabled: false,
+      }],
+    }));
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    process.env.HERMES_AGENCY_ROSTER_PATH = rosterPath;
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as any).actor = {
+        type: "board",
+        source: "local_implicit",
+        userId: "board-user",
+        isInstanceAdmin: true,
+        companyIds: [companyId],
+      };
+      next();
+    });
+    app.use("/api", issueRoutes(db, {} as never));
+    app.use(errorHandler);
+
+    const res = await request(app).get(`/api/companies/${companyId}/issues?includeRoutineExecutions=true`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      title: "Projected task with Agency assignee",
+      executionAgentNameKey: "agency-backend-engineer",
+      agencyAssigneeHealth: {
+        name: "agency-backend-engineer",
+        department: "engineering",
+        skills: ["api", "server"],
+        online: false,
+        disabled: false,
+        status: "sleeping",
+        peerId: null,
+        peerIdRedacted: true,
+        lastSeen: "2026-07-10T02:00:00.000Z",
+      },
+    });
+  });
+
+  it("keeps the issue list API available when Agency roster health is unreadable", async () => {
+    const companyId = await seedCompany();
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_missing_roster",
+        title: "Projected task without readable roster",
+        assignee: "agency-backend-engineer",
+        status: "todo",
+        priority: 50,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    process.env.HERMES_AGENCY_ROSTER_PATH = join(dir, "missing-roster-state.json");
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as any).actor = {
+        type: "board",
+        source: "local_implicit",
+        userId: "board-user",
+        isInstanceAdmin: true,
+        companyIds: [companyId],
+      };
+      next();
+    });
+    app.use("/api", issueRoutes(db, {} as never));
+    app.use(errorHandler);
+
+    const res = await request(app).get(`/api/companies/${companyId}/issues?includeRoutineExecutions=true`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      title: "Projected task without readable roster",
+      executionAgentNameKey: "agency-backend-engineer",
+      agencyAssigneeHealth: null,
+    });
   });
 
   it("is idempotent across repeated syncs", async () => {
@@ -622,13 +771,418 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(projectedRows).toHaveLength(0);
   });
 
-  it("reports unavailable when the configured Hermes Kanban DB is missing", async () => {
+  it("reports error when the configured Hermes Kanban DB is missing", async () => {
     const companyId = await seedCompany();
     process.env.FABRIC_HERMES_KANBAN_DB = join(tmpdir(), `missing-${randomUUID()}.db`);
     process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
 
     const sync = await syncHermesKanbanIssues(db, companyId);
-    expect(sync.status).toBe("unavailable");
+    expect(sync.status).toBe("error");
     expect(sync.message).toContain("Hermes Kanban DB not found");
+  });
+
+  it("projects tasks when the background sync worker ticks", async () => {
+    const companyId = await seedCompany();
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_background_worker",
+        title: "Background projected task",
+        status: "running",
+        priority: 75,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    const worker = createHermesKanbanProjectionSyncWorker(db);
+    worker.start();
+    await worker.triggerNow();
+    worker.stop();
+
+    const issueList = await svc.list(companyId, { includeRoutineExecutions: true });
+    expect(issueList.map((issue) => issue.title)).toContain("Background projected task");
+  });
+
+  it("exposes the Hermes Kanban projection status endpoint", async () => {
+    const companyId = await seedCompany();
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_status_endpoint",
+        title: "Status endpoint task",
+        status: "running",
+        priority: 75,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    await syncHermesKanbanIssues(db, companyId);
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as any).actor = {
+        type: "board",
+        source: "local_implicit",
+        userId: "board-user",
+        isInstanceAdmin: true,
+        companyIds: [companyId],
+      };
+      next();
+    });
+    app.use("/api/hermes-agency", hermesAgencyRoutes(db));
+
+    const res = await request(app).get("/api/hermes-agency/kanban-projection/status");
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      enabled: true,
+      dbPath,
+      companyId,
+      lastStatus: "ok",
+      projectedCount: 1,
+    });
+    expect(typeof res.body.lastSyncAt).toBe("string");
+    expect(res.body.syncedCount).toBeGreaterThanOrEqual(1);
+    expect(res.body.lastError).toBeNull();
+  });
+
+  it("forbids projection status access for board users outside the configured company", async () => {
+    const configuredCompanyId = await seedCompany("Configured");
+    const unrelatedCompanyId = await seedCompany("Unrelated");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_status_forbidden",
+        title: "Forbidden status endpoint task",
+        status: "running",
+        priority: 75,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = configuredCompanyId;
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as any).actor = {
+        type: "board",
+        source: "session",
+        userId: "board-user",
+        isInstanceAdmin: false,
+        companyIds: [unrelatedCompanyId],
+      };
+      next();
+    });
+    app.use("/api/hermes-agency", hermesAgencyRoutes(db));
+    app.use(errorHandler);
+
+    const res = await request(app).get("/api/hermes-agency/kanban-projection/status");
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("User does not have access to this company");
+
+    const projectedRows = await db
+      .select({ originId: issues.originId })
+      .from(issues)
+      .where(and(eq(issues.companyId, configuredCompanyId), eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND)));
+    expect(projectedRows).toHaveLength(0);
+  });
+
+  it("allows instance admins to read projection status without configured company membership", async () => {
+    const configuredCompanyId = await seedCompany("Configured Admin");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_status_admin",
+        title: "Admin status endpoint task",
+        status: "running",
+        priority: 75,
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = configuredCompanyId;
+    await syncHermesKanbanIssues(db, configuredCompanyId);
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as any).actor = {
+        type: "board",
+        source: "session",
+        userId: "admin-user",
+        isInstanceAdmin: true,
+        companyIds: [],
+      };
+      next();
+    });
+    app.use("/api/hermes-agency", hermesAgencyRoutes(db));
+
+    const res = await request(app).get("/api/hermes-agency/kanban-projection/status");
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      enabled: true,
+      dbPath,
+      companyId: configuredCompanyId,
+      lastStatus: "ok",
+      projectedCount: 1,
+    });
+  });
+
+  it("hides duplicate unhidden projections from sync races and keeps the canonical row", async () => {
+    const companyId = await seedCompany();
+    const createdAt = 1_782_827_060;
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_dup_race",
+        title: "Sync race task",
+        status: "running",
+        priority: 80,
+        createdAt,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    // First sync creates the canonical projection
+    const first = await syncHermesKanbanIssues(db, companyId);
+    expect(first.status).toBe("ok");
+    expect(first.syncedCount).toBeGreaterThanOrEqual(1);
+
+    const canonicalRows = await db
+      .select({ id: issues.id, issueNumber: issues.issueNumber, identifier: issues.identifier })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND)));
+    expect(canonicalRows).toHaveLength(1);
+    const canonicalId = canonicalRows[0]!.id;
+    const canonicalNumber = canonicalRows[0]!.issueNumber;
+
+    // Simulate a sync race: insert a second unhidden row with the same originId
+    const dupIssueNumber = canonicalNumber + 1;
+    const [company] = await db
+      .select({ issuePrefix: companies.issuePrefix })
+      .from(companies)
+      .where(eq(companies.id, companyId));
+    const dupIdentifier = `${company!.issuePrefix}-${dupIssueNumber}`;
+    await db.insert(issues).values({
+      companyId,
+      title: "Sync race task (duplicate)",
+      description: "duplicate from race",
+      status: "in_progress",
+      workMode: "standard",
+      priority: "high",
+      issueNumber: dupIssueNumber,
+      identifier: dupIdentifier,
+      originKind: HERMES_KANBAN_TASK_ORIGIN_KIND,
+      originId: "t_dup_race",
+      originFingerprint: "hermes-kanban:t_dup_race",
+      requestDepth: 0,
+      createdAt: new Date(createdAt * 1000),
+      updatedAt: new Date(createdAt * 1000),
+    });
+    // Update company counter to match
+    await db.update(companies).set({ issueCounter: dupIssueNumber }).where(eq(companies.id, companyId));
+
+    // Verify both rows are unhidden before the cleanup sync
+    const preSyncRows = await db
+      .select({ id: issues.id, hiddenAt: issues.hiddenAt, originId: issues.originId })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND)));
+    expect(preSyncRows).toHaveLength(2);
+    expect(preSyncRows.every((r) => r.hiddenAt === null)).toBe(true);
+
+    // Second sync should detect and hide the duplicate
+    const second = await syncHermesKanbanIssues(db, companyId);
+    expect(second.status).toBe("ok");
+    expect(second.syncedCount).toBeGreaterThanOrEqual(1); // hide duplicate
+
+    const postSyncRows = await db
+      .select({ id: issues.id, hiddenAt: issues.hiddenAt, originId: issues.originId })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND)));
+    expect(postSyncRows).toHaveLength(2);
+
+    const canonical = postSyncRows.find((r) => r.id === canonicalId);
+    const duplicate = postSyncRows.find((r) => r.id !== canonicalId);
+    expect(canonical?.hiddenAt).toBeNull();
+    expect(duplicate?.hiddenAt).not.toBeNull();
+
+    // Only the canonical row should be visible in the issue list
+    const issueList = await svc.list(companyId, { includeRoutineExecutions: true });
+    const projectedIssues = issueList.filter((i) => i.originId === "t_dup_race");
+    expect(projectedIssues).toHaveLength(1);
+    expect(projectedIssues[0]!.id).toBe(canonicalId);
+  });
+
+  it("is idempotent when duplicate projections exist across repeated syncs", async () => {
+    const companyId = await seedCompany();
+    const createdAt = 1_782_827_060;
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_dup_idempotent",
+        title: "Idempotent dup task",
+        status: "todo",
+        priority: 30,
+        createdAt,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    // First sync
+    const first = await syncHermesKanbanIssues(db, companyId);
+    expect(first.status).toBe("ok");
+
+    // Inject a duplicate
+    const [company] = await db
+      .select({ issuePrefix: companies.issuePrefix, issueCounter: companies.issueCounter })
+      .from(companies)
+      .where(eq(companies.id, companyId));
+    const dupNumber = (company!.issueCounter as number) + 1;
+    await db.insert(issues).values({
+      companyId,
+      title: "Idempotent dup task (dup)",
+      description: "duplicate",
+      status: "todo",
+      workMode: "standard",
+      priority: "low",
+      issueNumber: dupNumber,
+      identifier: `${company!.issuePrefix}-${dupNumber}`,
+      originKind: HERMES_KANBAN_TASK_ORIGIN_KIND,
+      originId: "t_dup_idempotent",
+      originFingerprint: "hermes-kanban:t_dup_idempotent",
+      requestDepth: 0,
+      createdAt: new Date(createdAt * 1000),
+      updatedAt: new Date(createdAt * 1000),
+    });
+    await db.update(companies).set({ issueCounter: dupNumber }).where(eq(companies.id, companyId));
+
+    // Second sync cleans up duplicate
+    const second = await syncHermesKanbanIssues(db, companyId);
+    expect(second.status).toBe("ok");
+    expect(second.syncedCount).toBeGreaterThanOrEqual(1);
+
+    // Third sync should be a no-op (idempotent after cleanup)
+    const third = await syncHermesKanbanIssues(db, companyId);
+    expect(third.status).toBe("ok");
+    expect(third.syncedCount).toBe(0);
+
+    // Still exactly one unhidden projection
+    const unhiddenRows = await db
+      .select({ id: issues.id })
+      .from(issues)
+      .where(and(
+        eq(issues.companyId, companyId),
+        eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND),
+        isNull(issues.hiddenAt),
+      ));
+    expect(unhiddenRows).toHaveLength(1);
+  });
+
+  it("preserves the canonical blocked projection when a duplicate unhidden row exists", async () => {
+    const companyId = await seedCompany();
+    const createdAt = 1_782_827_060;
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [
+        {
+          id: "t_blocker",
+          title: "Blocker task",
+          status: "running",
+          priority: 90,
+          createdAt,
+        },
+        {
+          id: "t_blocked_canonical",
+          title: "Blocked task (canonical)",
+          status: "blocked",
+          priority: 50,
+          createdAt,
+          blockKind: "dependency",
+        },
+      ],
+      links: [{ parentId: "t_blocker", childId: "t_blocked_canonical" }],
+      taskEvents: [{ taskId: "t_blocked_canonical", kind: "blocked", payload: { reason: "Waiting on blocker" } }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    // First sync creates both projections and the blocker relation
+    const first = await syncHermesKanbanIssues(db, companyId);
+    expect(first.status).toBe("ok");
+
+    const canonicalBlocked = await db
+      .select({ id: issues.id, issueNumber: issues.issueNumber, status: issues.status })
+      .from(issues)
+      .where(and(
+        eq(issues.companyId, companyId),
+        eq(issues.originId, "t_blocked_canonical"),
+        isNull(issues.hiddenAt),
+      ));
+    expect(canonicalBlocked).toHaveLength(1);
+    expect(canonicalBlocked[0]!.status).toBe("blocked");
+    const canonicalBlockedId = canonicalBlocked[0]!.id;
+
+    // Verify blocker relation exists
+    const relations = await db
+      .select({ issueId: issueRelations.issueId, relatedIssueId: issueRelations.relatedIssueId })
+      .from(issueRelations)
+      .where(and(eq(issueRelations.companyId, companyId), eq(issueRelations.type, "blocks")));
+    expect(relations).toHaveLength(1);
+    expect(relations[0]!.relatedIssueId).toBe(canonicalBlockedId);
+
+    // Inject a duplicate unhidden row for the blocked task
+    const [company] = await db
+      .select({ issuePrefix: companies.issuePrefix, issueCounter: companies.issueCounter })
+      .from(companies)
+      .where(eq(companies.id, companyId));
+    const dupNumber = (company!.issueCounter as number) + 1;
+    const dupIdentifier = `${company!.issuePrefix}-${dupNumber}`;
+    await db.insert(issues).values({
+      companyId,
+      title: "Blocked task (duplicate)",
+      description: "duplicate",
+      status: "blocked",
+      workMode: "standard",
+      priority: "medium",
+      issueNumber: dupNumber,
+      identifier: dupIdentifier,
+      originKind: HERMES_KANBAN_TASK_ORIGIN_KIND,
+      originId: "t_blocked_canonical",
+      originFingerprint: "hermes-kanban:t_blocked_canonical",
+      requestDepth: 0,
+      createdAt: new Date(createdAt * 1000),
+      updatedAt: new Date(createdAt * 1000),
+    });
+    await db.update(companies).set({ issueCounter: dupNumber }).where(eq(companies.id, companyId));
+
+    // Second sync should hide the duplicate and preserve the canonical blocked projection
+    const second = await syncHermesKanbanIssues(db, companyId);
+    expect(second.status).toBe("ok");
+
+    const postSyncRows = await db
+      .select({ id: issues.id, hiddenAt: issues.hiddenAt, status: issues.status, originId: issues.originId })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.originId, "t_blocked_canonical")));
+    expect(postSyncRows).toHaveLength(2);
+
+    const surviving = postSyncRows.find((r) => r.hiddenAt === null);
+    const hidden = postSyncRows.find((r) => r.hiddenAt !== null);
+    expect(surviving?.id).toBe(canonicalBlockedId);
+    expect(surviving?.status).toBe("blocked");
+    expect(hidden?.id).not.toBe(canonicalBlockedId);
+
+    // Blocker relation should still point to the canonical
+    const postRelations = await db
+      .select({ issueId: issueRelations.issueId, relatedIssueId: issueRelations.relatedIssueId })
+      .from(issueRelations)
+      .where(and(eq(issueRelations.companyId, companyId), eq(issueRelations.type, "blocks")));
+    expect(postRelations).toHaveLength(1);
+    expect(postRelations[0]!.relatedIssueId).toBe(canonicalBlockedId);
   });
 });

@@ -25,6 +25,11 @@ import { AlertTriangle } from "lucide-react";
 import { isSuccessfulRunHandoffRequired } from "../lib/successful-run-handoff";
 import { collectSubtreeLiveCounts } from "../lib/liveIssueIds";
 import { cn } from "../lib/utils";
+import { timeAgo } from "../lib/timeAgo";
+import {
+  isHermesKanbanHeartbeatStale,
+  parseHermesKanbanIssueMetadata,
+} from "../lib/hermes-kanban";
 
 export const KANBAN_BOARD_HIGH_VOLUME_THRESHOLD = 100;
 export const KANBAN_COLUMN_PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
@@ -123,6 +128,7 @@ function KanbanColumn({
   agents,
   liveIssueIds,
   subtreeLiveCounts,
+  childCounts,
   compactCards = false,
   collapsed = false,
   visibleCount,
@@ -134,6 +140,7 @@ function KanbanColumn({
   agents?: Agent[];
   liveIssueIds?: Set<string>;
   subtreeLiveCounts?: ReadonlyMap<string, number>;
+  childCounts?: ReadonlyMap<string, number>;
   compactCards?: boolean;
   collapsed?: boolean;
   visibleCount: number;
@@ -204,6 +211,7 @@ function KanbanColumn({
               agents={agents}
               isLive={liveIssueIds?.has(issue.id)}
               subtreeLiveCount={subtreeLiveCounts?.get(issue.id) ?? 0}
+              childCount={childCounts?.get(issue.id) ?? 0}
               compact={compactCards}
               className={tone.card}
             />
@@ -235,6 +243,7 @@ function KanbanCard({
   agents,
   isLive,
   subtreeLiveCount = 0,
+  childCount = 0,
   isOverlay,
   compact = false,
   className,
@@ -243,6 +252,7 @@ function KanbanCard({
   agents?: Agent[];
   isLive?: boolean;
   subtreeLiveCount?: number;
+  childCount?: number;
   isOverlay?: boolean;
   compact?: boolean;
   className?: string;
@@ -265,6 +275,8 @@ function KanbanCard({
     if (!id || !agents) return null;
     return agents.find((a) => a.id === id)?.name ?? null;
   };
+  const kanban = parseHermesKanbanIssueMetadata(issue);
+  const heartbeatStale = kanban ? isHermesKanbanHeartbeatStale(kanban) : false;
 
   return (
     <div
@@ -323,6 +335,42 @@ function KanbanCard({
           )}
         </div>
         <p className={`${compact ? "mb-1.5 text-xs" : "mb-2 text-sm"} leading-snug line-clamp-2`}>{issue.title}</p>
+        {kanban ? (
+          <div className="mb-1.5 flex min-w-0 flex-wrap gap-1" aria-label="Hermes Agency Kanban metadata">
+            <span className="inline-flex min-w-0 max-w-full items-center rounded-full border border-primary/25 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary" title="Hermes Agency Kanban task id">
+              {kanban.taskId}
+            </span>
+            {kanban.assignee ? (
+              <span className="inline-flex min-w-0 max-w-full items-center rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground" title={`Hermes Agency assignee: ${kanban.assignee}`}>
+                <span className="truncate">{kanban.assignee}</span>
+              </span>
+            ) : null}
+            {kanban.status ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Hermes Kanban status">
+                {kanban.status}
+              </span>
+            ) : null}
+            {heartbeatStale ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-amber-400/45 bg-amber-50/60 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-300/35 dark:bg-amber-400/10 dark:text-amber-300" title={kanban.lastHeartbeatAt ? `Last heartbeat ${timeAgo(kanban.lastHeartbeatAt)}` : "Heartbeat stale"}>
+                stale
+              </span>
+            ) : kanban.lastHeartbeatAt ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground" title={`Last heartbeat ${kanban.lastHeartbeatAt.toLocaleString()}`}>
+                hb {timeAgo(kanban.lastHeartbeatAt)}
+              </span>
+            ) : null}
+            {(issue.blockedBy?.length ?? 0) > 0 ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-amber-500/40 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300" title="Blocked by parent/dependency tasks">
+                {(issue.blockedBy?.length ?? 0)} blocker{(issue.blockedBy?.length ?? 0) === 1 ? "" : "s"}
+              </span>
+            ) : null}
+            {childCount > 0 ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Child tasks">
+                {childCount} child{childCount === 1 ? "" : "ren"}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 min-w-0">
           <PriorityIcon priority={issue.priority} />
           {issue.assigneeAgentId && (() => {
@@ -388,6 +436,14 @@ export function KanbanBoard({
     () => collectSubtreeLiveCounts(issues, liveIssueIds ?? new Set<string>()),
     [issues, liveIssueIds],
   );
+  const childCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const issue of issues) {
+      if (!issue.parentId) continue;
+      counts.set(issue.parentId, (counts.get(issue.parentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [issues]);
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
@@ -431,6 +487,7 @@ export function KanbanBoard({
             agents={agents}
             liveIssueIds={liveIssueIds}
             subtreeLiveCounts={subtreeLiveCounts}
+            childCounts={childCounts}
             compactCards={compactCards}
             collapsed={collapsedStatusSet.has(status)}
             visibleCount={visibleCountByStatus[status] ?? initialVisibleCount}

@@ -40,6 +40,7 @@ import { CompanyEnvironments } from "./pages/CompanyEnvironments";
 import { CloudUpstream } from "./pages/CloudUpstream";
 import { CloudUpstreamUxLab } from "./pages/CloudUpstreamUxLab";
 import { BootstrapSetupUxLab } from "./pages/BootstrapSetupUxLab";
+import { FabricVisualizationPrototype } from "./pages/FabricVisualizationPrototype";
 import { CompanySettingsPluginPage } from "./pages/CompanySettingsPluginPage";
 import { CompanyAccess, CompanyAccessLegacyRoute } from "./pages/CompanyAccess";
 import { CompanyInvites } from "./pages/CompanyInvites";
@@ -49,6 +50,7 @@ import { CompanyExport } from "./pages/CompanyExport";
 import { CompanyImport } from "./pages/CompanyImport";
 import { DesignGuide } from "./pages/DesignGuide";
 import { InstanceGeneralSettings } from "./pages/InstanceGeneralSettings";
+import { HermesAgencySettings } from "./pages/HermesAgencySettings";
 import { InstanceAccess } from "./pages/InstanceAccess";
 import { InstanceSettings } from "./pages/InstanceSettings";
 import { InstanceExperimentalSettings } from "./pages/InstanceExperimentalSettings";
@@ -77,6 +79,9 @@ import {
 } from "./lib/onboarding-route";
 import { normalizeRememberedInstanceSettingsPath } from "./lib/instance-settings";
 
+const enableFabricVisualizationPrototype =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_FABRIC_VIS_PROTOTYPE === "true";
+
 function boardRoutes() {
   return (
     <>
@@ -98,6 +103,7 @@ function boardRoutes() {
       <Route path="company/settings/instance" element={<Navigate to="general" replace />} />
       <Route path="company/settings/instance/profile" element={<ProfileSettings />} />
       <Route path="company/settings/instance/general" element={<InstanceGeneralSettings />} />
+      <Route path="company/settings/instance/hermes-agency" element={<HermesAgencySettings />} />
       <Route path="company/settings/instance/environments" element={<CompanyEnvironments />} />
       <Route path="company/settings/instance/access" element={<InstanceAccess />} />
       <Route path="company/settings/instance/heartbeats" element={<InstanceSettings />} />
@@ -144,6 +150,9 @@ function boardRoutes() {
       <Route path="issues/:issueId" element={<IssueDetail />} />
       {import.meta.env.DEV ? (
         <Route path="tests/perf/long-thread" element={<IssueChatLongThreadPerf />} />
+      ) : null}
+      {enableFabricVisualizationPrototype ? (
+        <Route path="tests/ux/fabric-visualization" element={<FabricVisualizationPrototype />} />
       ) : null}
       <Route path="routines" element={<Routines />} />
       <Route

@@ -79,6 +79,11 @@ import {
   WorkspaceRuntimeQuickControls,
   type WorkspaceRuntimeControlRequest,
 } from "./WorkspaceRuntimeControls";
+import {
+  isHermesKanbanHeartbeatStale,
+  parseHermesKanbanIssueMetadata,
+  type HermesKanbanIssueMetadata,
+} from "../lib/hermes-kanban";
 
 function TruncatedCopyable({ value, icon: Icon }: { value: string; icon: React.ComponentType<{ className?: string }> }) {
   const [copied, setCopied] = useState(false);
@@ -195,6 +200,101 @@ function PropertyRow({
     <div className="flex items-start gap-3 py-1.5">
       <span className={cn("text-xs text-muted-foreground shrink-0 w-20 mt-0.5", labelClassName)}>{label}</span>
       <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">{children}</div>
+    </div>
+  );
+}
+
+function HermesKanbanMetadataText({ value }: { value: string }) {
+  return <p className="min-w-0 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{value}</p>;
+}
+
+function HermesKanbanMetadataBadge({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "primary" | "warning" | "danger";
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-0 max-w-full items-center rounded-full border px-2 py-0.5 text-xs",
+        tone === "primary" && "border-primary/25 bg-primary/5 font-mono font-medium text-primary",
+        tone === "warning" && "border-amber-400/45 bg-amber-50/60 font-medium text-amber-700 dark:border-amber-300/35 dark:bg-amber-400/10 dark:text-amber-300",
+        tone === "danger" && "border-destructive/35 bg-destructive/10 font-medium text-destructive",
+        tone === "default" && "border-border text-muted-foreground",
+      )}
+    >
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+function HermesKanbanMetadataPanel({
+  metadata,
+  blockedByCount,
+  blockingCount,
+  childCount,
+}: {
+  metadata: HermesKanbanIssueMetadata;
+  blockedByCount: number;
+  blockingCount: number;
+  childCount: number;
+}) {
+  const heartbeatStale = isHermesKanbanHeartbeatStale(metadata);
+  return (
+    <div className="rounded-md border border-primary/20 bg-primary/5 p-2.5">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <HermesKanbanMetadataBadge tone="primary">{metadata.taskId}</HermesKanbanMetadataBadge>
+        {metadata.assignee ? <HermesKanbanMetadataBadge>{metadata.assignee}</HermesKanbanMetadataBadge> : null}
+        {metadata.status ? <HermesKanbanMetadataBadge>{metadata.status}</HermesKanbanMetadataBadge> : null}
+        {metadata.priority ? <HermesKanbanMetadataBadge>priority {metadata.priority}</HermesKanbanMetadataBadge> : null}
+        {metadata.blockKind ? <HermesKanbanMetadataBadge tone="warning">{metadata.blockKind}</HermesKanbanMetadataBadge> : null}
+      </div>
+      <div className="space-y-1.5">
+        {metadata.lastHeartbeatAt ? (
+          <PropertyRow label="Heartbeat" labelClassName="w-24">
+            <span className={cn("text-sm", heartbeatStale && "font-medium text-amber-700 dark:text-amber-300")}>
+              {heartbeatStale ? "Stale · " : ""}{timeAgo(metadata.lastHeartbeatAt)}
+            </span>
+          </PropertyRow>
+        ) : null}
+        <PropertyRow label="Relations" labelClassName="w-24">
+          <span className="text-sm text-muted-foreground">
+            {blockedByCount} blocker{blockedByCount === 1 ? "" : "s"} · {blockingCount} blocking · {childCount} child{childCount === 1 ? "" : "ren"}
+          </span>
+        </PropertyRow>
+        {metadata.workspacePath ? (
+          <PropertyRow label="Workspace" labelClassName="w-24">
+            <TruncatedCopyable value={metadata.workspacePath} icon={FolderOpen} />
+          </PropertyRow>
+        ) : null}
+        {metadata.latestRunSummary ? (
+          <PropertyRow label="Last run" labelClassName="w-24">
+            <HermesKanbanMetadataText value={metadata.latestRunSummary} />
+          </PropertyRow>
+        ) : null}
+        {metadata.latestRunError ? (
+          <PropertyRow label="Run error" labelClassName="w-24">
+            <HermesKanbanMetadataText value={metadata.latestRunError} />
+          </PropertyRow>
+        ) : null}
+        {metadata.latestBlockReason ? (
+          <PropertyRow label="Block reason" labelClassName="w-24">
+            <HermesKanbanMetadataText value={metadata.latestBlockReason} />
+          </PropertyRow>
+        ) : null}
+        {metadata.taskResult ? (
+          <PropertyRow label="Result" labelClassName="w-24">
+            <HermesKanbanMetadataText value={metadata.taskResult} />
+          </PropertyRow>
+        ) : null}
+        {metadata.projectionSyncedAt ? (
+          <PropertyRow label="Projection" labelClassName="w-24">
+            <span className="text-sm text-muted-foreground">Synced {timeAgo(metadata.projectionSyncedAt)}</span>
+          </PropertyRow>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -2211,6 +2311,7 @@ export function IssueProperties({
     </>
   );
   const blockingIssues = issue.blocks ?? [];
+  const hermesKanbanMetadata = parseHermesKanbanIssueMetadata(issue);
   const blockerSearchActive = normalizedBlockedBySearch.length > 0;
   const blockerSourceIssues = blockerSearchActive ? searchedBlockedByIssues : allIssues;
   const blockerOptions = (blockerSourceIssues ?? [])
@@ -2439,6 +2540,15 @@ export function IssueProperties({
                 );
               })}
           </>
+        ) : null}
+
+        {hermesKanbanMetadata ? (
+          <HermesKanbanMetadataPanel
+            metadata={hermesKanbanMetadata}
+            blockedByCount={blockedByRelations.length}
+            blockingCount={blockingIssues.length}
+            childCount={childIssues.length}
+          />
         ) : null}
 
         <PropertyPicker

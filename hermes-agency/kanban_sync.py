@@ -9,6 +9,7 @@ import os
 import re
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from .departments import (
@@ -19,6 +20,7 @@ from .departments import (
 )
 
 _BOARD_FRAGMENT_RE = re.compile(r"[^a-z0-9_-]+")
+_PEER_ID_RE = re.compile(r"^12D3KooW[0-9A-Za-z]+$")
 
 
 class KanbanSyncMixin:
@@ -74,6 +76,69 @@ class KanbanSyncMixin:
                 if value:
                     return str(value)
         return None
+
+    @staticmethod
+    def _dispatchable_profile_from_metadata(
+        metadata: dict[str, Any] | None, context_packet: dict[str, Any] | None = None
+    ) -> str | None:
+        """Return an agency profile name suitable for Kanban.assignee, never a peer ID."""
+
+        for source in (metadata or {}, (context_packet or {}).get("metadata") or {}):
+            if not isinstance(source, dict):
+                continue
+            for key in (
+                "target_profile",
+                "profile_name",
+                "target_agent",
+                "assigned_to",
+                "receiver",
+            ):
+                value = str(source.get(key) or "").strip()
+                if value.startswith("agency-") and not _PEER_ID_RE.match(value):
+                    return value
+        return None
+
+    @staticmethod
+    def _kanban_db_path_for_board(board_slug: str | None) -> str:
+        """Return the concrete Kanban DB path for a board selection."""
+
+        try:
+            from hermes_cli import kanban_db as kb  # type: ignore
+
+            if hasattr(kb, "kanban_db_path"):
+                return str(kb.kanban_db_path(board_slug))
+        except Exception:
+            pass
+        if not board_slug:
+            env_path = os.environ.get("HERMES_KANBAN_DB")
+            if env_path:
+                return str(Path(env_path).expanduser())
+            return str(Path.home() / ".hermes" / "kanban.db")
+        return str(Path.home() / ".hermes" / "kanban" / "boards" / board_slug / "kanban.db")
+
+    def _kanban_board_context(self, board_slug: str | None) -> dict[str, str]:
+        """Return user-facing board labels for a tracking response."""
+
+        return {
+            "kanban_board": board_slug or "default",
+            "kanban_db_path": self._kanban_db_path_for_board(board_slug),
+        }
+
+    @staticmethod
+    def _delegation_status_from_a2a(a2a_status: Any, *, artifact_text: Any = None) -> str:
+        """Normalize transport state into user-facing delegation semantics."""
+
+        status = str(a2a_status or "").strip().lower()
+        has_artifact = bool(str(artifact_text or "").strip())
+        if status in {"completed", "complete", "done", "succeeded", "success"}:
+            return "artifact_verified" if has_artifact else "completed"
+        if status in {"failed", "error", "cancelled", "canceled", "rejected"}:
+            return "failed"
+        if status in {"working", "running", "in_progress", "in-progress"}:
+            return "remote_running"
+        if status in {"queued", "offline_queued", "offline-queued"}:
+            return "queued"
+        return "a2a_accepted"
 
     @staticmethod
     def _department_board_slug(agent_name: str | None) -> str | None:
@@ -308,20 +373,11 @@ class KanbanSyncMixin:
         kanban_task_id = clean_metadata.get("kanban_task_id") or clean_metadata.get(
             "agency_kanban_task_id"
         )
-        agency_board = self._ensure_agency_board(
-            task_id=kanban_task_id or clean_context_id or None,
-            title=message,
-            agent_name=(
-                clean_metadata.get("target_agent")
-                or clean_metadata.get("target_profile")
-                or clean_metadata.get("assigned_to")
-                or peer_id
-                or skill
-            ),
-            metadata=clean_metadata,
-            context_packet=packet_context,
-            direction="outgoing",
-        )
+        target_profile = self._dispatchable_profile_from_metadata(clean_metadata, packet_context)
+        # Outbound executable tracking must default to the active Hermes Kanban DB
+        # so the dispatcher can claim profile-name assignees. Department boards are
+        # used only when the caller explicitly supplied a board-aware context.
+        agency_board = self._agency_board_from_metadata(clean_metadata, packet_context)
         if agency_board:
             clean_metadata.setdefault("agency_board", agency_board)
             packet_context["agency_board"] = agency_board
@@ -337,7 +393,7 @@ class KanbanSyncMixin:
             agency_board,
             self._nm().kanban_track_delegation,
             message=message,
-            assigned_to=peer_id or None,
+            assigned_to=target_profile,
             skills=[skill] if skill else [],
             a2a_task_id=None,
             kanban_task_id=kanban_task_id,
@@ -387,7 +443,7 @@ class KanbanSyncMixin:
             agency_board,
             self._nm().kanban_track_delegation,
             message=message,
-            assigned_to=peer_id or None,
+            assigned_to=target_profile,
             skills=[skill] if skill else [],
             a2a_task_id=handle.task_id,
             kanban_task_id=kanban_task_id,
@@ -441,7 +497,7 @@ class KanbanSyncMixin:
                 agency_board,
                 self._nm().kanban_track_delegation,
                 message=message,
-                assigned_to=peer_id or None,
+                assigned_to=target_profile,
                 skills=[skill] if skill else [],
                 a2a_task_id=handle.task_id,
                 kanban_task_id=kanban_task_id,
@@ -496,19 +552,33 @@ class KanbanSyncMixin:
                 agency_board,
                 self._nm().kanban_update_task,
                 kanban_task_id,
-                status="running",
+                status="a2a_accepted",
             )
             self._call_on_agency_board(
                 agency_board,
                 self._nm().kanban_add_comment,
                 kanban_task_id,
-                "A2A task sent, not waiting for completion",
+                "A2A task accepted/submitted; wait_seconds=0 so remote completion and artifacts are unknown until status polling verifies them.",
             )
         if isinstance(packet_or_message, dict):
             data["context_packet"] = packet_or_message
         data["kanban"] = kanban_result
-        if agency_board:
-            data["agency_board"] = agency_board
+        board_context = self._kanban_board_context(agency_board)
+        data.update(board_context)
+        data["a2a_task_id"] = data.get("task_id")
+        if kanban_task_id:
+            data["kanban_task_id"] = kanban_task_id
+        data["a2a_status"] = data.get("status")
+        data["delegation_status"] = self._delegation_status_from_a2a(
+            data.get("status"), artifact_text=data.get("artifact_text")
+        )
+        data["artifact_verified"] = data["delegation_status"] == "artifact_verified"
+        if not (wait_seconds and wait_seconds > 0):
+            data["remote_completion_known"] = False
+        data["agency_board"] = board_context["kanban_board"]
+        if isinstance(data.get("kanban"), dict):
+            data["kanban"].setdefault("board", board_context["kanban_board"])
+            data["kanban"].setdefault("kanban_db_path", board_context["kanban_db_path"])
         data["announcements"] = self._nm().recent_announcements(limit=5)
         if wait_error:
             data["wait_error"] = wait_error
@@ -520,16 +590,25 @@ class KanbanSyncMixin:
         if handle is None:
             if kanban.get("available") and kanban.get("ok"):
                 task = kanban.get("task", {})
+                board_context = self._kanban_board_context(
+                    kanban.get("board") if isinstance(kanban, dict) else None
+                )
                 return {
                     "task_id": task_id,
                     "status": task.get("plugin_status") or task.get("status"),
                     "kanban_status": task.get("plugin_status") or task.get("status"),
                     "kanban_task_id": kanban.get("task_id"),
+                    **board_context,
                     "result": task.get("result"),
                     "kanban": kanban,
                 }
             return None
         data = self._serialize_handle(handle)
+        data["a2a_status"] = data.get("status")
+        data["delegation_status"] = self._delegation_status_from_a2a(
+            data.get("status"), artifact_text=data.get("artifact_text")
+        )
+        data["artifact_verified"] = data["delegation_status"] == "artifact_verified"
         agency_board = self._agency_board_from_metadata(data.get("metadata") or {})
         if agency_board and not (kanban.get("available") and kanban.get("ok")):
             kanban = self._call_on_agency_board(agency_board, self._nm().kanban_get_task, task_id)
@@ -538,6 +617,8 @@ class KanbanSyncMixin:
         if kanban.get("available") and kanban.get("ok"):
             task = kanban.get("task", {})
             kanban_task_id = kanban.get("task_id")
+            board_context = self._kanban_board_context(agency_board or kanban.get("board"))
+            data.update(board_context)
             kanban_status = task.get("plugin_status") or task.get("status")
             if (
                 data.get("status") == "completed"

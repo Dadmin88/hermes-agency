@@ -8,6 +8,8 @@ export type {
   HermesAgencyDispatchRecord,
   HermesAgencyDispatchStatus,
   HermesAgencyDispatchStatusTransition,
+  HermesKanbanProjectionStatus,
+  HermesKanbanProjectionSyncStatus,
   HermesAgencyRosterResponse,
   HermesAgencyTaskPacketDispatchMode,
   HermesAgencyTaskPacketIssueLike,

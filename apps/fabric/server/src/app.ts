@@ -47,6 +47,10 @@ import { authRoutes } from "./routes/auth.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { hermesAgencyRoutes } from "./routes/hermes-agency.js";
+import {
+  createHermesKanbanProjectionSyncWorker,
+  logHermesKanbanProjectionStartupStatus,
+} from "./services/hermes-kanban-issues.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { adapterRoutes } from "./routes/adapters.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
@@ -248,7 +252,9 @@ export async function createApp(
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(userProfileRoutes(db));
-  api.use("/hermes-agency", hermesAgencyRoutes());
+  logHermesKanbanProjectionStartupStatus();
+  const hermesKanbanProjectionWorker = createHermesKanbanProjectionSyncWorker(db);
+  api.use("/hermes-agency", hermesAgencyRoutes(db));
   api.use(sidebarBadgeRoutes(db));
   api.use(sidebarPreferenceRoutes(db));
   api.use(resourceMembershipRoutes(db));
@@ -447,6 +453,7 @@ export async function createApp(
 
   jobCoordinator.start();
   scheduler.start();
+  hermesKanbanProjectionWorker.start();
   let feedbackExportShuttingDown = false;
   let feedbackExportTimer: ReturnType<typeof setInterval> | null = null;
   const disableFeedbackExportFlushes = () => {
@@ -561,6 +568,7 @@ export async function createApp(
     if (appServicesShutdown) return;
     appServicesShutdown = true;
     disableFeedbackExportFlushes();
+    hermesKanbanProjectionWorker.stop();
     devWatcher?.close();
     viteHtmlRenderer?.dispose();
     hostServiceCleanup.disposeAll();

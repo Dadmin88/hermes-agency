@@ -3,6 +3,7 @@ import express from "express";
 import os from "node:os";
 import path from "node:path";
 import request from "supertest";
+import type { Db } from "@paperclipai/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../middleware/error-handler.js";
 import { hermesAgencyRoutes } from "../routes/hermes-agency.js";
@@ -31,7 +32,7 @@ function createApp(rosterPath: string, options: Record<string, unknown> = {}) {
     };
     next();
   });
-  app.use("/api/hermes-agency", hermesAgencyRoutes({ rosterPath, ...options }));
+  app.use("/api/hermes-agency", hermesAgencyRoutes({} as Db, { rosterPath, ...options }));
   app.use(errorHandler);
   return app;
 }
@@ -46,9 +47,12 @@ describe("Hermes Agency roster route", () => {
       profiles: [
         {
           name: "agency-backend-engineer",
+          category: "engineering",
           description: "Builds APIs",
           skills: ["api", "database"],
           online: false,
+          disabled: false,
+          peer_id: "12D3KooWExamplePeerId",
           wake_attempt_count: 1,
           last_wake_error: "Error: profile agency-backend-engineer not found",
           model: "gpt-5.5",
@@ -66,13 +70,18 @@ describe("Hermes Agency roster route", () => {
       total: 1,
       online: 0,
       offline: 1,
+      disabled: 0,
       agents: [
         {
           name: "agency-backend-engineer",
+          department: "engineering",
           description: "Builds APIs",
           skills: ["api", "database"],
           online: false,
+          disabled: false,
           status: "wake_failed",
+          peerId: null,
+          peerIdRedacted: true,
           wakeAttempts: 1,
           lastError: "Error: profile agency-backend-engineer not found",
           model: "gpt-5.5",
@@ -82,12 +91,111 @@ describe("Hermes Agency roster route", () => {
     });
   });
 
+  it("distinguishes disabled and sleeping agents", async () => {
+    const rosterPath = await tempRosterPath({
+      profiles: [
+        {
+          name: "agency-sleeping-worker",
+          category: "engineering",
+          online: false,
+          last_seen: "2026-07-10T01:02:03.000Z",
+          skills: ["api"],
+        },
+        {
+          name: "agency-disabled-worker",
+          category: "quality",
+          disabled: true,
+          online: false,
+          skills: ["qa"],
+        },
+      ],
+    });
+
+    const res = await request(createApp(rosterPath)).get("/api/hermes-agency/roster");
+
+    expect(res.status).toBe(200);
+    expect(res.body.disabled).toBe(1);
+    expect(res.body.agents).toEqual([
+      expect.objectContaining({
+        name: "agency-disabled-worker",
+        department: "quality",
+        disabled: true,
+        status: "disabled",
+      }),
+      expect.objectContaining({
+        name: "agency-sleeping-worker",
+        department: "engineering",
+        disabled: false,
+        status: "sleeping",
+        lastSeen: "2026-07-10T01:02:03.000Z",
+      }),
+    ]);
+  });
+
   it("returns 503 when the roster source is unavailable", async () => {
     const res = await request(createApp("/tmp/does-not-exist/hermes-agency-roster.json"))
       .get("/api/hermes-agency/roster");
 
     expect(res.status).toBe(503);
     expect(res.body.error).toBe("hermes_agency_roster_unavailable");
+  });
+
+  it("returns live Keryx relay health with known one-way completion limitation metadata", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const keryxHealthFetch = vi.fn(async () => new Response(JSON.stringify({
+      status: "ok",
+      connected_peers: 2,
+      registry_size: 99,
+      tasks_routed: 7,
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+
+    const res = await request(createApp(rosterPath, { keryxHealthFetch }))
+      .get("/api/hermes-agency/keryx/status");
+
+    expect(res.status).toBe(200);
+    expect(keryxHealthFetch).toHaveBeenCalledWith("http://127.0.0.1:18081/health", expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }));
+    expect(res.body).toMatchObject({
+      healthy: true,
+      relayReachable: true,
+      connectedPeers: 2,
+      registrySize: 99,
+      tasksRouted: 7,
+      checkedUrl: "http://127.0.0.1:18081/health",
+      knownLimitations: {
+        oneWayCompletionResponse: true,
+      },
+      error: null,
+    });
+    expect(res.body.knownLimitations.message).toContain("completion return path is not implemented");
+  });
+
+  it("degrades Keryx relay health when the local relay is unreachable", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const keryxHealthFetch = vi.fn(async () => {
+      throw new Error("connect ECONNREFUSED 127.0.0.1:18081");
+    });
+
+    const res = await request(createApp(rosterPath, { keryxHealthFetch }))
+      .get("/api/hermes-agency/keryx/status");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      healthy: false,
+      relayReachable: false,
+      connectedPeers: null,
+      registrySize: null,
+      tasksRouted: null,
+      knownLimitations: {
+        oneWayCompletionResponse: true,
+      },
+      error: "connect ECONNREFUSED 127.0.0.1:18081",
+      raw: null,
+    });
   });
 
   it("previews an Agency task packet without dispatching", async () => {

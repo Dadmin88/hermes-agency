@@ -1,43 +1,21 @@
 # Hermes Agency
 
-Hermes Agency is a Hermes Agent plugin and local operations layer for running a managed multi-agent team. It installs and coordinates specialist `agency-*` Hermes profiles, routes work by skill, tracks execution through Kanban when available, manages model-set strategies, exposes Hermes CLI/slash/model-tool surfaces, and delegates work over **Keryx** (primary P2P/task transport).
+Hermes Agency is a Hermes Agent plugin and local operations layer for running a managed multi-agent team. It installs and coordinates specialist `agency-*` Hermes profiles, routes work by skill, tracks execution through Kanban when available, manages model-set strategies, exposes Hermes CLI/slash/model-tool surfaces, and delegates work over the primary Keryx P2P transport.
 
-Hermes Agency is the product in this repository.
-
-- Primary transport SDK: `src/keryx/` (Python package/import `keryx`)
-- Legacy fallback transport: `src/agentanycast/`
-- External Rust runtime (daemon/relay/CLI): separate `hermes-keryx` repository
+Hermes Agency is the product in this repository. Keryx is the primary transport and its Python SDK is vendored at `src/keryx/` (import name `keryx`). AgentAnycast remains under `src/agentanycast/` as legacy/fallback compatibility only.
 
 ## Primary capabilities
 
 - Packaged specialist staff roster under `hermes-agency/default_staff/`
-- Per-profile AgentCards from `SOUL.md`, installed skills, and non-secret config metadata
+- Per-profile AgentCards built from `SOUL.md`, installed skills, and non-secret config metadata
 - Per-profile node lifecycle and task queue management
-- Skill-based discovery and task sending through Keryx (`KeryxNode`)
+- Skill-based discovery and task sending through Keryx
 - Safe incoming task handling with conservative defaults
 - Kanban-aware task routing and reconciliation when Hermes Kanban is available
 - Team/orchestrator context injection through Hermes plugin hooks
 - Model-set management for bulk provider/model strategy changes
 - Orchestrator-only `orch_*` tools for promoted agency coordinators
 - Headless Docker setup/node runtime
-
-## Transport configuration
-
-```yaml
-agency:
-  enabled: true
-  transport_backend: keryx
-  keryx:
-    daemon_endpoint: 127.0.0.1:50051
-    registry_endpoint: 127.0.0.1:51053
-```
-
-Typical Keryx dual-run ports (loopback):
-
-- daemon gRPC: `50051`
-- relay health gRPC: `51052`
-- registry gRPC: `51053`
-- libp2p: `4101`
 
 ## Important command surfaces
 
@@ -97,20 +75,85 @@ HERMES_AGENCY_MODEL_SET=<model-set>
 HERMES_AGENCY_START_NODE=0
 HERMES_AGENCY_ALLOW_REMOTE_TASKS=0
 HERMES_AGENCY_TOOL_ACCESS=safe
-HERMES_AGENCY_TRANSPORT_BACKEND=keryx
-HERMES_KERYX_DAEMON_ENDPOINT=127.0.0.1:50051
-HERMES_KERYX_REGISTRY_ENDPOINT=127.0.0.1:51053
+HERMES_KERYX_DAEMON_ENDPOINT=<daemon-endpoint>
+HERMES_KERYX_RELAY_ENDPOINT=<relay-endpoint>
+HERMES_KERYX_REGISTRY_ENDPOINT=<registry-address>
 ```
 
-## Safety defaults
+`AGENTANYCAST_RELAY` and `AGENTANYCAST_REGISTRY_ADDRS` are legacy fallback variables, not the primary Keryx path.
 
-- `allow_remote_tasks: false`
-- `incoming.tool_access: safe`
-- plugin load must not require a live daemon
-- keep responses compact; use compact health endpoints for frequent checks
-- never embed secrets, private hostnames, real peer IDs, or local absolute paths in docs/examples
+## Configuration shape
 
-## Related repositories
+Hermes profile config:
 
-- `hermes-keryx` — Rust runtime (`keryxd`, `keryx-relay`, CLI) + migration/dual-run scripts
-- Hermes Agent core — host runtime that loads this plugin
+```yaml
+plugins:
+  enabled:
+    - agency
+
+agency:
+  enabled: true
+  transport_backend: keryx
+  auto_start: false
+  allow_remote_tasks: false
+  keryx:
+    daemon_endpoint: <daemon-endpoint>
+    relay_endpoint: <relay-endpoint>
+    registry_endpoint: <registry-address>
+  incoming:
+    mode: delegation
+    tool_access: safe
+  team:
+    auto_discover: true
+    kanban_integration: true
+    inject_context: true
+  models:
+    active_set: <model-set>
+  orchestrator:
+    enabled: false
+    agent: null
+    auto_decompose: true
+```
+
+Keryx config maps to `HERMES_KERYX_DAEMON_ENDPOINT`, `HERMES_KERYX_RELAY_ENDPOINT`, `HERMES_KERYX_REGISTRY_ENDPOINT`, `HERMES_KERYX_WORKER_ID`, `HERMES_KERYX_DEFAULT_LEASE_DURATION_MS`, and `HERMES_KERYX_REQUEST_TIMEOUT_MS`; the vendored SDK also accepts the shorter `KERYX_*` aliases.
+
+## Transport layer
+
+`src/keryx/` contains the vendored Python SDK used by Hermes Agency's primary transport. It provides:
+
+- `KeryxNode` gRPC client wrapper for `keryxd`
+- AgentCards and skills
+- peer identity / DID helpers
+- direct and skill-based task sending
+- A2A-style task payloads and task handles
+- encrypted relay/registry-backed peer transport through external Keryx runtime services
+
+Most operators should use Hermes Agency commands/tools instead of the raw transport API. Modify `src/keryx/` only for Keryx SDK work, and modify `src/agentanycast/` only for explicit legacy fallback fixes.
+
+## Safety boundaries
+
+- Remote task execution defaults to disabled: `allow_remote_tasks: false`.
+- Incoming remote-task tools should default to `safe`, not `full`.
+- Plugin discovery should not start daemons when Agency is disabled or transport dependencies are unavailable.
+- Do not expose API keys, raw environment variables, local paths, private relay addresses, real peer IDs, private hostnames, Discord channel IDs, gateway logs, or maintainer-local details in docs, AgentCards, logs, tests, or fixtures.
+- Management endpoints and local services should be loopback-only unless explicit remote/LAN mode is configured.
+- State-changing HTTP endpoints must require authentication.
+- Auto-update flows should verify trusted signed commits before applying changes.
+
+## Development checks
+
+```bash
+ruff check .
+ruff format --check .
+make test-agency
+make test-sdk
+python -m pytest
+python -m pip check
+```
+
+Manual/live checks:
+
+```bash
+make integration-agency
+make integration-agency-full
+```

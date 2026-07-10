@@ -510,9 +510,7 @@ class NodeManager(
                 registration_result = await self._register_skills_with_registries(card)
                 self._handle_registry_registration_result(
                     registration_result,
-                    retry_in_seconds=float(
-                        self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS
-                    ),
+                    retry_in_seconds=float(self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS),
                 )
                 self._nm().announce_registration(
                     self.state.card_name or self._nm().current_profile_name(),

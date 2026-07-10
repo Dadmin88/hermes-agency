@@ -1,12 +1,16 @@
-export type HermesAgencyAgentStatus = "online" | "offline" | "wake_failed";
+export type HermesAgencyAgentStatus = "online" | "offline" | "sleeping" | "disabled" | "wake_failed";
 
 export interface HermesAgencyAgent {
   name: string;
+  department: string | null;
   description: string;
   skills: string[];
   online: boolean;
+  disabled: boolean;
   status: HermesAgencyAgentStatus;
   lastSeen: string | null;
+  peerId: string | null;
+  peerIdRedacted: boolean;
   wakeAttempts: number;
   lastAttempt: string | null;
   lastError: string | null;
@@ -20,7 +24,21 @@ export interface HermesAgencyRosterResponse {
   total: number;
   online: number;
   offline: number;
+  disabled: number;
   agents: HermesAgencyAgent[];
+}
+
+export type HermesKanbanProjectionSyncStatus = "ok" | "unavailable" | "error";
+
+export interface HermesKanbanProjectionStatus {
+  enabled: boolean;
+  dbPath: string | null;
+  companyId: string | null;
+  lastSyncAt: string | null;
+  lastStatus: HermesKanbanProjectionSyncStatus | "disabled";
+  projectedCount: number;
+  syncedCount: number;
+  lastError: string | null;
 }
 
 export type HermesAgencyTaskPacketDispatchMode = "direct-agent" | "skill-fit";

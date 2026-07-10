@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
@@ -10,6 +10,9 @@ import { fabricEnv } from "../fabric-env.js";
 export const HERMES_KANBAN_TASK_ORIGIN_KIND = "hermes_kanban_task";
 const HERMES_KANBAN_SYNC_HEADER = "X-Hermes-Kanban-Sync";
 const HERMES_KANBAN_SYNC_MESSAGE_HEADER = "X-Hermes-Kanban-Sync-Message";
+const HERMES_KANBAN_SYNC_DEFAULT_INTERVAL_MS = 15_000;
+const HERMES_KANBAN_SYNC_MIN_INTERVAL_MS = 1_000;
+const HERMES_KANBAN_SYNC_MAX_BACKOFF_MS = 60_000;
 
 const HERMES_KANBAN_OPT_IN_MESSAGE =
   "Hermes Kanban projection requires explicit FABRIC_HERMES_KANBAN_DB and FABRIC_HERMES_KANBAN_COMPANY_ID (or PAPERCLIP_ aliases).";
@@ -100,15 +103,42 @@ export type HermesKanbanSyncResult = {
   dbPath: string | null;
 };
 
+export type HermesKanbanProjectionStatus = {
+  enabled: boolean;
+  dbPath: string | null;
+  companyId: string | null;
+  lastSyncAt: string | null;
+  lastStatus: HermesKanbanSyncStatus | "disabled";
+  projectedCount: number;
+  syncedCount: number;
+  lastError: string | null;
+  intervalMs: number;
+  consecutiveFailures: number;
+  nextSyncAt: string | null;
+};
+
 type HermesKanbanProjectionScope =
   | { allowed: true }
   | { allowed: false; status: HermesKanbanSyncStatus; message: string | null };
+
+let lastHermesKanbanSync: (HermesKanbanSyncResult & { syncedAt: Date }) | null = null;
+let hermesKanbanSyncLogState: { key: string; repeats: number } | null = null;
+let hermesKanbanSyncWorkerState: {
+  intervalMs: number;
+  consecutiveFailures: number;
+  nextSyncAt: Date | null;
+} = {
+  intervalMs: HERMES_KANBAN_SYNC_DEFAULT_INTERVAL_MS,
+  consecutiveFailures: 0,
+  nextSyncAt: null,
+};
 
 export function hermesKanbanSyncHeaders(result: HermesKanbanSyncResult): Record<string, string> {
   const headers: Record<string, string> = {
     [HERMES_KANBAN_SYNC_HEADER]: result.status,
   };
-  if (result.message) headers[HERMES_KANBAN_SYNC_MESSAGE_HEADER] = result.message;
+  const headerMessage = sanitizeHeaderValue(result.message);
+  if (headerMessage) headers[HERMES_KANBAN_SYNC_MESSAGE_HEADER] = headerMessage;
   return headers;
 }
 
@@ -125,37 +155,164 @@ export function resolveHermesKanbanDbPath(env: NodeJS.ProcessEnv = process.env):
   return configured.startsWith("~/") ? `${homedir()}/${configured.slice(2)}` : configured;
 }
 
+export function resolveHermesKanbanCompanyId(env: NodeJS.ProcessEnv = process.env): string | null {
+  return asString(fabricEnv("HERMES_KANBAN_COMPANY_ID") ?? env.HERMES_KANBAN_COMPANY_ID);
+}
+
+export function resolveHermesKanbanSyncIntervalMs(env: NodeJS.ProcessEnv = process.env): number {
+  const configured = fabricEnv("HERMES_KANBAN_SYNC_INTERVAL_MS") ?? env.HERMES_KANBAN_SYNC_INTERVAL_MS;
+  if (!configured) return HERMES_KANBAN_SYNC_DEFAULT_INTERVAL_MS;
+  const parsed = Number.parseInt(configured, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return HERMES_KANBAN_SYNC_DEFAULT_INTERVAL_MS;
+  return Math.max(HERMES_KANBAN_SYNC_MIN_INTERVAL_MS, parsed);
+}
+
+export function getHermesKanbanProjectionStatus(): HermesKanbanProjectionStatus {
+  const dbPath = resolveHermesKanbanDbPath();
+  const companyId = resolveHermesKanbanCompanyId();
+  const enabled = Boolean(dbPath && companyId);
+  return {
+    enabled,
+    dbPath,
+    companyId,
+    lastSyncAt: lastHermesKanbanSync?.syncedAt.toISOString() ?? null,
+    lastStatus: lastHermesKanbanSync?.status ?? (enabled ? "unavailable" : "disabled"),
+    projectedCount: lastHermesKanbanSync?.projectedCount ?? 0,
+    syncedCount: lastHermesKanbanSync?.syncedCount ?? 0,
+    lastError: lastHermesKanbanSync?.status === "error" ? lastHermesKanbanSync.message : null,
+    intervalMs: hermesKanbanSyncWorkerState.intervalMs,
+    consecutiveFailures: hermesKanbanSyncWorkerState.consecutiveFailures,
+    nextSyncAt: hermesKanbanSyncWorkerState.nextSyncAt?.toISOString() ?? null,
+  };
+}
+
+export function createHermesKanbanProjectionSyncWorker(db: Db) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running = false;
+  let stopped = true;
+  const intervalMs = resolveHermesKanbanSyncIntervalMs();
+  hermesKanbanSyncWorkerState = {
+    intervalMs,
+    consecutiveFailures: 0,
+    nextSyncAt: null,
+  };
+
+  const schedule = (delayMs: number) => {
+    if (stopped) return;
+    const nextSyncAt = new Date(Date.now() + delayMs);
+    hermesKanbanSyncWorkerState = { ...hermesKanbanSyncWorkerState, intervalMs, nextSyncAt };
+    timer = setTimeout(() => {
+      void tick();
+    }, delayMs);
+    timer.unref?.();
+  };
+
+  const tick = async () => {
+    if (stopped) return;
+    if (running) {
+      schedule(intervalMs);
+      return;
+    }
+    running = true;
+    hermesKanbanSyncWorkerState = { ...hermesKanbanSyncWorkerState, nextSyncAt: null };
+    let failed = false;
+    try {
+      const companyId = resolveHermesKanbanCompanyId();
+      if (!companyId) {
+        lastHermesKanbanSync = null;
+        hermesKanbanSyncWorkerState = { ...hermesKanbanSyncWorkerState, consecutiveFailures: 0 };
+        return;
+      }
+      const result = await syncHermesKanbanIssues(db, companyId);
+      failed = result.status === "error";
+    } catch (error) {
+      failed = true;
+      rememberHermesKanbanSync({
+        status: "error",
+        message: error instanceof Error ? error.message : "Hermes Kanban projection background sync failed",
+        syncedCount: 0,
+        projectedCount: 0,
+        dbPath: resolveHermesKanbanDbPath(),
+      }, resolveHermesKanbanCompanyId() ?? "unknown");
+    } finally {
+      running = false;
+      if (!stopped) {
+        const previousFailures = hermesKanbanSyncWorkerState.consecutiveFailures;
+        const consecutiveFailures = failed ? previousFailures + 1 : 0;
+        const backoffMs = failed
+          ? Math.min(intervalMs * (2 ** Math.min(consecutiveFailures - 1, 4)), HERMES_KANBAN_SYNC_MAX_BACKOFF_MS)
+          : intervalMs;
+        hermesKanbanSyncWorkerState = { ...hermesKanbanSyncWorkerState, intervalMs, consecutiveFailures };
+        schedule(backoffMs);
+      }
+    }
+  };
+
+  return {
+    start() {
+      if (!stopped) return;
+      stopped = false;
+      schedule(0);
+    },
+    stop() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      timer = null;
+      hermesKanbanSyncWorkerState = { ...hermesKanbanSyncWorkerState, nextSyncAt: null };
+    },
+    triggerNow: tick,
+  };
+}
+
+export function logHermesKanbanProjectionStartupStatus() {
+  const dbPath = resolveHermesKanbanDbPath();
+  const companyId = resolveHermesKanbanCompanyId();
+  if (!dbPath || !companyId) {
+    logger.info({ enabled: false, dbPath, companyId }, HERMES_KANBAN_OPT_IN_MESSAGE);
+    return;
+  }
+  try {
+    assertReadableFile(dbPath);
+    logger.info({ enabled: true, dbPath, companyId }, "Hermes Kanban projection configured");
+  } catch (error) {
+    logger.warn({ enabled: true, dbPath, companyId, error }, "Hermes Kanban projection configured but DB is not readable");
+  }
+}
+
 export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise<HermesKanbanSyncResult> {
-  const scope = await resolveHermesKanbanProjectionScope(db, companyId);
+  const dbPath = resolveHermesKanbanDbPath();
+  const configuredCompanyId = resolveHermesKanbanCompanyId();
+  const scope = await resolveHermesKanbanProjectionScope(db, companyId, configuredCompanyId);
   if (!scope.allowed) {
-    return {
+    return rememberHermesKanbanSync({
       status: scope.status,
       message: scope.message,
       syncedCount: 0,
       projectedCount: 0,
-      dbPath: null,
-    };
+      dbPath,
+    }, companyId);
   }
 
-  const dbPath = resolveHermesKanbanDbPath();
   if (!dbPath) {
-    return {
+    return rememberHermesKanbanSync({
       status: "unavailable",
       message: HERMES_KANBAN_OPT_IN_MESSAGE,
       syncedCount: 0,
       projectedCount: 0,
       dbPath: null,
-    };
+    }, companyId);
   }
 
-  if (!existsSync(dbPath)) {
-    return {
-      status: "unavailable",
-      message: "Hermes Kanban DB not found.",
+  try {
+    assertReadableFile(dbPath);
+  } catch (error) {
+    return rememberHermesKanbanSync({
+      status: configuredCompanyId ? "error" : "unavailable",
+      message: error instanceof Error ? error.message : "Hermes Kanban DB is not readable.",
       syncedCount: 0,
       projectedCount: 0,
       dbPath,
-    };
+    }, companyId);
   }
 
   try {
@@ -185,7 +342,10 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
           eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND),
         ),
       );
-    const existingByTaskId = new Map(existingRows.map((row) => [row.originId ?? "", row]));
+    // Deduplicate: prefer unhidden rows; among same hidden-state, prefer most recently updated.
+    // This prevents concurrent sync races from creating duplicate projections for the same task.
+    const dedupedRows = deduplicateExistingRows(existingRows);
+    const existingByTaskId = new Map(dedupedRows.map((row) => [row.originId ?? "", row]));
     const issueIdByTaskId = new Map<string, string>();
     const currentTaskIds = new Set(taskIds);
     const staleProjectedIssueIds = existingRows
@@ -193,6 +353,15 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
       .map((row) => row.id);
 
     let syncedCount = 0;
+
+    // Hide duplicate unhidden rows that were not selected as the canonical row.
+    const duplicateUnhiddenIds = findDuplicateUnhiddenIds(existingRows, existingByTaskId);
+    if (duplicateUnhiddenIds.length > 0) {
+      const dupRelationsDeleted = await deleteProjectedIssueRelations(db, companyId, duplicateUnhiddenIds);
+      if (dupRelationsDeleted) syncedCount += 1;
+      const dupHidden = await hideProjectedIssues(db, duplicateUnhiddenIds);
+      if (dupHidden) syncedCount += 1;
+    }
     for (const task of snapshot.tasks) {
       const seed = buildHermesKanbanIssueSeed(task);
       const existing = existingByTaskId.get(task.id) ?? null;
@@ -228,26 +397,103 @@ export async function syncHermesKanbanIssues(db: Db, companyId: string): Promise
       if (staleHidden) syncedCount += 1;
     }
 
-    return { status: "ok", message: null, syncedCount, projectedCount, dbPath };
+    return rememberHermesKanbanSync({ status: "ok", message: null, syncedCount, projectedCount, dbPath }, companyId);
   } catch (error) {
-    logger.warn({ error, companyId, dbPath }, "Failed to sync Hermes Kanban tasks into Fabric issues");
-    return {
+    return rememberHermesKanbanSync({
       status: "error",
-      message: error instanceof Error ? error.message : "Failed to sync Hermes Kanban tasks",
+      message: classifyHermesKanbanSyncError(error),
       syncedCount: 0,
       projectedCount: 0,
       dbPath,
-    };
+    }, companyId);
   }
 }
 
-async function resolveHermesKanbanProjectionScope(_db: Db, companyId: string): Promise<HermesKanbanProjectionScope> {
-  const configuredCompanyId = asString(fabricEnv("HERMES_KANBAN_COMPANY_ID") ?? process.env.HERMES_KANBAN_COMPANY_ID);
+async function resolveHermesKanbanProjectionScope(
+  db: Db,
+  companyId: string,
+  configuredCompanyId: string | null,
+): Promise<HermesKanbanProjectionScope> {
   if (!configuredCompanyId) {
     return { allowed: false, status: "unavailable", message: HERMES_KANBAN_OPT_IN_MESSAGE };
   }
+  const [configuredCompany] = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(eq(companies.id, configuredCompanyId))
+    .limit(1);
+  if (!configuredCompany) {
+    return {
+      allowed: false,
+      status: "error",
+      message: `Configured Hermes Kanban company ${configuredCompanyId} was not found in Fabric.`,
+    };
+  }
   if (configuredCompanyId === companyId) return { allowed: true };
-  return { allowed: false, status: "ok", message: null };
+  return {
+    allowed: false,
+    status: "ok",
+    message: `Hermes Kanban projection is scoped to company ${configuredCompanyId}; skipping company ${companyId}.`,
+  };
+}
+
+function rememberHermesKanbanSync(result: HermesKanbanSyncResult, companyId: string): HermesKanbanSyncResult {
+  lastHermesKanbanSync = { ...result, syncedAt: new Date() };
+  const logContext = {
+    companyId,
+    dbPath: result.dbPath,
+    status: result.status,
+    projectedCount: result.projectedCount,
+    syncedCount: result.syncedCount,
+    message: result.message,
+  };
+  const logKey = `${result.status}:${result.message ?? ""}`;
+  const repeated = hermesKanbanSyncLogState?.key === logKey;
+  hermesKanbanSyncLogState = repeated
+    ? { key: logKey, repeats: (hermesKanbanSyncLogState?.repeats ?? 0) + 1 }
+    : { key: logKey, repeats: 0 };
+  const repeatCount = hermesKanbanSyncLogState.repeats;
+  const shouldLogRepeatedFailure = repeatCount === 0 || repeatCount === 1 || repeatCount % 10 === 0;
+
+  if (result.status === "ok") {
+    logger.debug(logContext, "Hermes Kanban projection sync completed");
+  } else if (shouldLogRepeatedFailure) {
+    const repeatedLogContext = repeatCount > 0 ? { ...logContext, repeatCount } : logContext;
+    if (result.status === "unavailable") {
+      logger.info(repeatedLogContext, "Hermes Kanban projection sync unavailable");
+    } else {
+      logger.warn(repeatedLogContext, "Hermes Kanban projection sync failed");
+    }
+  }
+  return result;
+}
+
+function assertReadableFile(dbPath: string) {
+  if (!existsSync(dbPath)) {
+    throw new Error(`Hermes Kanban DB not found: ${dbPath}`);
+  }
+  try {
+    accessSync(dbPath, constants.R_OK);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Hermes Kanban DB is not readable: ${message}`);
+  }
+}
+
+function classifyHermesKanbanSyncError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Failed to sync Hermes Kanban tasks";
+  if (/no such table|no such column/i.test(message)) {
+    return `Hermes Kanban DB schema mismatch: ${message}`;
+  }
+  if (/SQLITE_CANTOPEN|permission|EACCES|EPERM/i.test(message)) {
+    return `Hermes Kanban DB permission/open error: ${message}`;
+  }
+  return message;
+}
+
+function sanitizeHeaderValue(value: string | null | undefined) {
+  if (!value) return null;
+  return value.replace(/[\r\n\t\0]+/g, " ").replace(/[\u0001-\u001f\u007f]+/g, " ").trim();
 }
 
 function readHermesKanbanSnapshot(dbPath: string): HermesKanbanSnapshot {
@@ -525,6 +771,7 @@ function buildHermesKanbanIssueDescription(task: HermesKanbanSnapshotTask) {
     `Status: ${task.status}`,
     `Priority: ${task.priority}`,
     task.assignee ? `Assignee: ${task.assignee}` : null,
+    task.lastHeartbeatAt ? `Last heartbeat: ${task.lastHeartbeatAt.toISOString()}` : null,
     includeDetails && task.workspacePath ? `Workspace: ${task.workspacePath}` : null,
     includeDetails && task.tenant ? `Tenant: ${task.tenant}` : null,
     task.blockKind ? `Block kind: ${task.blockKind}` : null,
@@ -616,4 +863,49 @@ function parseJsonObject(value: string | null | undefined) {
 
 function asString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+/**
+ * From all existing projected rows, pick the best row per originId:
+ * prefer unhidden over hidden; among same hidden-state, prefer most recently updated.
+ */
+function deduplicateExistingRows<T extends { originId: string | null; hiddenAt: Date | null; updatedAt: Date }>(
+  rows: Array<T>,
+): Array<T> {
+  const best = new Map<string, T>();
+  for (const row of rows) {
+    const key = row.originId ?? "";
+    if (!key) continue;
+    const current = best.get(key);
+    if (!current) {
+      best.set(key, row);
+      continue;
+    }
+    // Prefer unhidden over hidden
+    const rowHidden = row.hiddenAt !== null;
+    const currentHidden = current.hiddenAt !== null;
+    if (rowHidden !== currentHidden) {
+      best.set(key, rowHidden ? current : row);
+      continue;
+    }
+    // Same hidden-state: prefer most recently updated
+    const rowTime = row.updatedAt?.getTime() ?? 0;
+    const currentTime = current.updatedAt?.getTime() ?? 0;
+    if (rowTime > currentTime) best.set(key, row);
+  }
+  return [...best.values()];
+}
+
+/**
+ * Find IDs of unhidden duplicate rows that were NOT selected as the canonical row
+ * for their originId. These are sync races that should be hidden.
+ */
+function findDuplicateUnhiddenIds(
+  allRows: Array<{ id: string; originId: string | null; hiddenAt: Date | null }>,
+  canonicalByTaskId: Map<string, { id: string }>,
+): string[] {
+  const canonicalIds = new Set([...canonicalByTaskId.values()].map((r) => r.id));
+  return allRows
+    .filter((row) => row.originId && row.hiddenAt === null && !canonicalIds.has(row.id))
+    .map((row) => row.id);
 }

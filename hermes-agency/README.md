@@ -22,24 +22,25 @@ Hermes Agency is the product layer. Keryx is the primary transport. AgentAnycast
 - Python 3.11+
 - Hermes Agent with user-plugin support
 - `hermes-agent>=0.17.0` through the package dependency
-- Keryx Python SDK (package/import name `keryx`, vendored at repo `src/keryx/`) available when starting nodes or sending tasks
+- Vendored Keryx Python SDK (package/import name `keryx`, repo path `src/keryx/`) available when starting nodes or sending tasks
 - Optional Keryx daemon, relay, and registry services for cross-network discovery
 - Legacy AgentAnycast package/bundle only when using `agency.transport_backend: agentanycast`
 
-The transport SDK is optional at plugin load time. If it is absent, plugin discovery must still succeed and Agency tools should report unavailable rather than crashing Hermes. When `transport_backend: keryx` is configured but the Keryx SDK is not importable, the plugin falls back to AgentAnycast compatibility when available.
+The transport SDK is optional at plugin load time. If it is absent, plugin discovery must still succeed and Agency tools should report unavailable rather than crashing Hermes. In normal repository/package installs, `keryx` is supplied by this package; missing-sdk states usually mean a stripped plugin copy, partial checkout, or broken editable install. AgentAnycast is a legacy fallback path, not the primary SDK to install for new deployments.
 
 ## Install into a Hermes profile
 
-Install the plugin and the Keryx SDK in the same Python environment used by Hermes:
+Install the plugin in the same Python environment used by Hermes:
 
 ```bash
 cd <workspace>/Hermes_Agency
 python -m pip install -e ".[dev]"
 ```
 
-This installs the vendored Keryx SDK from `../src/keryx/`. For live daemon/relay
-binaries and migration scripts, use the separate `hermes-keryx` repository
-(`scripts/migrate-to-keryx.sh`, `scripts/keryx-dual-run.sh`).
+This installs the vendored Keryx SDK from repo `src/keryx/`. Do **not** add a
+separate editable `Hermes_Keryx/sdk/python` install unless you are intentionally
+testing an alternate SDK checkout. For live daemon/relay binaries and migration
+scripts, use the separate `hermes-keryx` repository or your runtime deployment.
 
 Development symlink:
 
@@ -83,9 +84,9 @@ agency:
   card_name: null               # optional public display name override
   daemon_bin: null              # legacy AgentAnycast daemon path; unused by Keryx
   keryx:
-    daemon_endpoint: null       # e.g. 127.0.0.1:50051 or unix:///tmp/keryx-daemon.sock
-    registry_endpoint: null     # optional registry endpoint; dual-run default often 127.0.0.1:51053
-    relay_endpoint: null        # optional relay endpoint/health; dual-run often 51052/51053
+    daemon_endpoint: null       # e.g. <host>:<port> or unix:///tmp/keryx-daemon.sock
+    registry_endpoint: null     # optional registry endpoint
+    relay_endpoint: null        # optional relay endpoint
     relay_config: {}            # relay-specific options passed through for Keryx runtimes
     worker_id: null             # optional worker identity for daemon task leasing
     default_lease_duration_ms: 0 # 0 = SDK/runtime default
@@ -129,9 +130,9 @@ Use Keryx for new deployments:
 agency:
   transport_backend: keryx
   keryx:
-    daemon_endpoint: 127.0.0.1:50051
-    relay_endpoint: 127.0.0.1:50053
-    registry_endpoint: 127.0.0.1:50053
+    daemon_endpoint: <daemon-endpoint>
+    relay_endpoint: <relay-endpoint>
+    registry_endpoint: <registry-address>
     relay_config: {}
     worker_id: null
     default_lease_duration_ms: 0
@@ -161,12 +162,11 @@ Relay/bootstrap and skill registry are separate in the legacy path: `agency.rela
 ### Migrate from AgentAnycast to Keryx
 
 1. Ensure Hermes Agency is installed so the vendored Keryx SDK at `src/keryx/` is available (`pip install -e ".[dev]"`).
-2. Build/start Keryx binaries from the separate `hermes-keryx` repo (`keryxd`, `keryx-relay`), preferably via `./scripts/keryx-dual-run.sh --start`.
-3. Run config migration from hermes-keryx: `./scripts/migrate-to-keryx.sh --dry-run` then `./scripts/migrate-to-keryx.sh`.
-4. Confirm `agency.transport_backend: keryx` and endpoints such as daemon `127.0.0.1:50051` and dual-run registry `127.0.0.1:51053`.
-5. Leave legacy `agency.relay` / `AGENTANYCAST_*` settings only for rollback testing.
-6. Verify with `hermes-agency status --extended`, `hermes-agency start`, and a small `hermes-agency discover <skill>` check.
-7. Rollback: hermes-keryx `./scripts/migrate-to-keryx.sh --revert` and/or set `agency.transport_backend: agentanycast`.
+2. Build/start Keryx runtime services (`keryxd`, relay, registry) from the separate runtime repository or your deployment system.
+3. Set `agency.transport_backend: keryx` and add the `agency.keryx.*` endpoints shown above, or provide the matching `HERMES_KERYX_*` / `KERYX_*` environment variables.
+4. Leave legacy `agency.relay` / `AGENTANYCAST_*` settings only for rollback testing.
+5. Verify with `hermes-agency status --extended`, `hermes-agency start`, and a small `hermes-agency discover <skill>` check.
+6. Roll back by setting `agency.transport_backend: agentanycast` and restoring the legacy relay/registry settings.
 
 ## Staff profiles
 
@@ -285,7 +285,7 @@ In a Hermes session:
 - The incoming processor can use delegation/subprocess modes only when explicitly configured.
 - AgentCards expose only a non-secret metadata allowlist: provider/model names, configured booleans, and profile/toolset summaries.
 - AgentCards, logs, docs, and tests must not expose API keys, raw environment variables, Discord channel IDs, local daemon paths, local profile paths, private hostnames, or profile-private data.
-- Daemon and relay components are runtime dependencies/foundations. Do not vendor daemon or relay binaries into a Hermes upstream plugin proposal.
+- The Keryx Python SDK is vendored in this package, but daemon and relay components are runtime dependencies/foundations. Do not vendor daemon or relay binaries into a Hermes upstream plugin proposal.
 
 ## Architecture
 
@@ -299,7 +299,7 @@ Hermes profile
     ├── __init__.py      → tool/CLI/slash/hook registration
     ├── config.py        → profile-safe config resolver
     ├── card_builder.py  → AgentCard builder with secret-safe metadata
-    ├── node_manager.py  → daemon/node lifecycle, incoming queue, registry refresh
+    ├── node_manager.py  → Keryx/legacy node lifecycle, incoming queue, registry refresh
     ├── tools.py         → agency_* model tools; a2a_* deprecated compatibility aliases
     ├── orchestrator.py  → orch_* model tools
     └── *_bridge.py      → Kanban/team/context helpers
@@ -338,4 +338,4 @@ make integration-agency
 make integration-agency-full
 ```
 
-`test_e2e.py` starts real SDK nodes with isolated temporary daemon homes. Keryx checks should use `agency.keryx.*` endpoints; legacy AgentAnycast checks still honor `AGENTANYCAST_E2E_REGISTRY` or `AGENTANYCAST_E2E_RELAY` when explicitly set. Full live profile/Kanban/relay validation should remain explicit/manual until those assumptions are converted into fixtures or skips.
+`test_e2e.py` starts real SDK nodes with isolated temporary daemon homes. Keryx checks should use `agency.keryx.*` endpoints or `HERMES_KERYX_*` / `KERYX_*` environment variables; legacy AgentAnycast checks still honor `AGENTANYCAST_E2E_REGISTRY` or `AGENTANYCAST_E2E_RELAY` when explicitly set. Full live profile/Kanban/relay validation should remain explicit/manual until those assumptions are converted into fixtures or skips.

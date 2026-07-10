@@ -13,11 +13,18 @@ export class HermesAgencyRosterUnavailableError extends Error {
 
 interface RawRosterProfile {
   name?: unknown;
+  category?: unknown;
+  department?: unknown;
   description?: unknown;
   skills?: unknown;
   capabilities?: unknown;
   online?: unknown;
+  sleeping?: unknown;
+  status?: unknown;
+  disabled?: unknown;
+  enabled?: unknown;
   last_seen?: unknown;
+  peer_id?: unknown;
   wake_attempt_count?: unknown;
   last_wake_attempt_at?: unknown;
   last_wake_error?: unknown;
@@ -79,9 +86,24 @@ function asCount(value: unknown): number {
   return Math.floor(value);
 }
 
-function statusFor(input: { online: boolean; lastError: string | null }): HermesAgencyAgentStatus {
+function isPeerIdExposureEnabled() {
+  const configured = process.env.FABRIC_HERMES_AGENCY_EXPOSE_PEER_IDS
+    ?? process.env.HERMES_AGENCY_EXPOSE_PEER_IDS;
+  return configured === "1" || configured?.toLowerCase() === "true";
+}
+
+function statusFor(input: {
+  online: boolean;
+  disabled: boolean;
+  sleeping: boolean;
+  lastSeen: string | null;
+  lastError: string | null;
+  rawStatus: string | null;
+}): HermesAgencyAgentStatus {
+  if (input.disabled) return "disabled";
   if (input.online) return "online";
   if (input.lastError) return "wake_failed";
+  if (input.rawStatus === "sleeping" || input.sleeping || input.lastSeen) return "sleeping";
   return "offline";
 }
 
@@ -94,14 +116,28 @@ export function normalizeHermesAgencyRoster(raw: RawRosterState): HermesAgencyRo
       const skills = asStringArray(profile.skills);
       const fallbackSkills = skillsFromCapabilities(profile.capabilities);
       const online = profile.online === true;
+      const disabled = profile.disabled === true || profile.enabled === false;
+      const lastSeen = asString(profile.last_seen);
       const lastError = asString(profile.last_wake_error);
+      const peerId = isPeerIdExposureEnabled() ? asString(profile.peer_id) : null;
       return {
         name,
+        department: asString(profile.department) ?? asString(profile.category),
         description: asString(profile.description) ?? "",
         skills: skills.length > 0 ? skills : fallbackSkills,
         online,
-        status: statusFor({ online, lastError }),
-        lastSeen: asString(profile.last_seen),
+        disabled,
+        status: statusFor({
+          online,
+          disabled,
+          sleeping: profile.sleeping === true,
+          lastSeen,
+          lastError,
+          rawStatus: asString(profile.status)?.toLowerCase() ?? null,
+        }),
+        lastSeen,
+        peerId,
+        peerIdRedacted: !peerId && asString(profile.peer_id) !== null,
         wakeAttempts: asCount(profile.wake_attempt_count),
         lastAttempt: asString(profile.last_wake_attempt_at),
         lastError,
@@ -112,13 +148,15 @@ export function normalizeHermesAgencyRoster(raw: RawRosterState): HermesAgencyRo
     .filter((agent): agent is HermesAgencyAgent => agent !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const online = agents.filter((agent) => agent.online).length;
+  const disabled = agents.filter((agent) => agent.disabled).length;
+  const online = agents.filter((agent) => agent.online && !agent.disabled).length;
   return {
     tenant: asString(raw.tenant) ?? "default",
     filter: asString(raw.filter) ?? "agency-only",
     total: agents.length,
     online,
-    offline: agents.length - online,
+    offline: agents.length - online - disabled,
+    disabled,
     agents,
   };
 }

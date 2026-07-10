@@ -236,6 +236,7 @@ export const queryKeys = {
   cloudUpstreams: (companyId: string) => ["cloud-upstreams", companyId] as const,
   health: ["health"] as const,
   hermesAgency: {
+    kanbanProjectionStatus: ["hermes-agency", "kanban-projection-status"] as const,
     roster: ["hermes-agency", "roster"] as const,
   },
   secrets: {

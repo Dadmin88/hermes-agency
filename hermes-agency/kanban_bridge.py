@@ -17,6 +17,7 @@ The public functions are fail-open: if the Kanban module/DB is unavailable or
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import logging
 import os
@@ -24,6 +25,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, is_dataclass
+from pathlib import Path
 from typing import Any, cast
 
 from .config import current_profile_name, get_config
@@ -38,6 +40,9 @@ log = logging.getLogger(__name__)
 
 TERMINAL_PLUGIN_STATUSES = {"done", "blocked", "failed"}
 _A2A_TO_KANBAN: dict[str, str] = {}
+_A2A_ACCEPTED_EVENT = "agency_a2a_accepted"
+_A2A_REMOTE_RUNNING_EVENT = "agency_remote_running"
+_A2A_QUEUED_EVENT = "agency_queued"
 
 
 class KanbanUnavailable(RuntimeError):
@@ -86,13 +91,48 @@ def _unavailable(reason: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
+def _plugin_tools_shadows_hermes_tools() -> bool:
+    """Return whether this plugin's ``tools.py`` shadows Hermes' tools package.
+
+    Direct profile scripts sometimes add the plugin directory itself to
+    ``PYTHONPATH``. In that context Hermes Kanban's lazy ``hermes_state`` import
+    resolves ``tools`` to this plugin's module instead of Hermes' package, and
+    ``init_db`` fails with a package-relative import error. The Agency fallback
+    does not depend on that host import chain and writes the same configured DB.
+    """
+
+    try:
+        spec = importlib.util.find_spec("tools")
+        origin = getattr(spec, "origin", None)
+        return (
+            bool(origin)
+            and Path(origin).resolve() == Path(__file__).with_name("tools.py").resolve()
+        )
+    except (ImportError, OSError, ValueError):
+        return False
+
+
 def _import_kb() -> Any:
     if not _enabled():
         raise KanbanUnavailable("agency.team.kanban_integration is disabled")
+    if _plugin_tools_shadows_hermes_tools():
+        log.info(
+            "plugin tools module shadows Hermes tools package; using Agency Kanban DB fallback"
+        )
+        from . import kanban_db_fallback as kb
+
+        return kb
     try:
         from hermes_cli import kanban_db as kb  # type: ignore
     except Exception as exc:  # pragma: no cover - depends on host install
-        raise KanbanUnavailable(f"could not import hermes_cli.kanban_db: {exc}") from exc
+        log.info("hermes_cli.kanban_db unavailable; using Agency Kanban DB fallback: %s", exc)
+        try:
+            from . import kanban_db_fallback as kb
+        except Exception as fallback_exc:  # pragma: no cover - defensive fallback
+            raise KanbanUnavailable(
+                "could not import hermes_cli.kanban_db or Agency fallback: "
+                f"{exc}; fallback={fallback_exc}"
+            ) from fallback_exc
     return kb
 
 
@@ -250,13 +290,37 @@ def _latest_event_kind(kb: Any, conn: Any, task_id: str) -> str | None:
     return events[-1].kind if events else None
 
 
+def _has_worker_execution_evidence(task: Any) -> bool:
+    """Return True when a Kanban row has an actual worker claim/session signal."""
+
+    return any(
+        bool(getattr(task, field, None))
+        for field in (
+            "claim_lock",
+            "claim_expires",
+            "worker_pid",
+            "last_heartbeat_at",
+            "workspace_path",
+            "session_id",
+            "current_run_id",
+        )
+    )
+
+
 def _plugin_status(kb: Any, conn: Any, task: Any) -> str:
+    latest_event = _latest_event_kind(kb, conn, task.id)
     if task.status == "done":
         return "done"
+    if latest_event == _A2A_QUEUED_EVENT:
+        return "queued"
+    if latest_event == _A2A_ACCEPTED_EVENT:
+        return "a2a_accepted"
+    if latest_event == _A2A_REMOTE_RUNNING_EVENT:
+        return "remote_running"
     if task.status == "running":
-        return "in_progress"
+        return "in_progress" if _has_worker_execution_evidence(task) else "a2a_accepted"
     if task.status == "blocked":
-        return "failed" if _latest_event_kind(kb, conn, task.id) == "failed" else "blocked"
+        return "failed" if latest_event == "failed" else "blocked"
     if task.assignee:
         return "assigned"
     return "unassigned"
@@ -683,6 +747,29 @@ def _update_task_impl(
             if not kb.block_task(conn, resolved, reason=error or result):
                 _set_status(kb, conn, resolved, "blocked", {"error": error or result})
             _append_event(kb, conn, resolved, "failed", {"error": error, "result": result})
+        elif clean_status in {"accepted", "a2a_accepted", "submitted"}:
+            target_status = "todo" if _has_unfinished_parents(kb, conn, resolved) else "ready"
+            _set_status(
+                kb,
+                conn,
+                resolved,
+                target_status,
+                {"source": "agency", "requested_status": clean_status},
+            )
+            _append_event(kb, conn, resolved, _A2A_ACCEPTED_EVENT, {"status": clean_status})
+        elif clean_status in {"remote_running", "remote-running"}:
+            _set_status(kb, conn, resolved, "running", {"source": "agency_remote"})
+            _append_event(kb, conn, resolved, _A2A_REMOTE_RUNNING_EVENT, {"status": clean_status})
+        elif clean_status in {"queued", "offline_queued", "offline-queued"}:
+            target_status = "todo" if _has_unfinished_parents(kb, conn, resolved) else "ready"
+            _set_status(
+                kb,
+                conn,
+                resolved,
+                target_status,
+                {"source": "agency", "requested_status": clean_status},
+            )
+            _append_event(kb, conn, resolved, _A2A_QUEUED_EVENT, {"status": clean_status})
         elif clean_status in {"in_progress", "in-progress", "working", "running"}:
             _set_status(kb, conn, resolved, "running", {"source": "agency"})
         elif clean_status in {"assigned", "unassigned", "ready", "todo"}:
@@ -712,14 +799,14 @@ def _update_task_impl(
         }
 
 
-def get_task(task_id: str) -> dict[str, Any]:
+def get_task(task_id: str, board: str | None = None) -> dict[str, Any]:
     """Return Kanban task details, accepting either a Kanban id or A2A id."""
 
-    return _safe_call(_get_task_impl, task_id)
+    return _safe_call(_get_task_impl, task_id, board)
 
 
-def _get_task_impl(task_id: str) -> dict[str, Any]:
-    with _connection() as (kb, conn):
+def _get_task_impl(task_id: str, board: str | None = None) -> dict[str, Any]:
+    with _connection(board) as (kb, conn):
         resolved = _resolve_task_id(kb, conn, task_id)
         if not resolved:
             return {
@@ -732,6 +819,10 @@ def _get_task_impl(task_id: str) -> dict[str, Any]:
             "available": True,
             "ok": True,
             "task_id": resolved,
+            "board": board or "default",
+            "kanban_db_path": str(kb.kanban_db_path(board))
+            if hasattr(kb, "kanban_db_path")
+            else None,
             "task": _task_to_dict(kb, conn, task, include_thread=True),
         }
 

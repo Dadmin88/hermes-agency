@@ -529,6 +529,19 @@ export interface IssueWatchdog extends IssueWatchdogSummary {
   updatedByRunId: string | null;
 }
 
+export interface IssueAgencyAssigneeHealth {
+  name: string;
+  department: string | null;
+  skills: string[];
+  online: boolean;
+  disabled: boolean;
+  status: "online" | "offline" | "sleeping" | "disabled" | "wake_failed";
+  peerId: string | null;
+  peerIdRedacted: boolean;
+  lastSeen: string | null;
+  lastError: string | null;
+}
+
 export interface Issue {
   id: string;
   companyId: string;
@@ -547,6 +560,7 @@ export interface Issue {
   checkoutRunId: string | null;
   executionRunId: string | null;
   executionAgentNameKey: string | null;
+  agencyAssigneeHealth?: IssueAgencyAssigneeHealth | null;
   executionLockedAt: Date | null;
   createdByAgentId: string | null;
   createdByUserId: string | null;

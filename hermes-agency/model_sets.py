@@ -42,6 +42,7 @@ KNOWN_TOP_LEVEL_KEYS = {
     "defaults",
     "families",
     "profiles",
+    "task_routing",
     "escalation",
     "budget",
     "metadata",
@@ -73,6 +74,7 @@ class ModelSet:
     defaults: dict[str, Any]
     families: dict[str, ModelFamily]
     profiles: dict[str, str]
+    task_routing: dict[str, Any]
     escalation: dict[str, Any]
     budget: dict[str, Any]
     metadata: dict[str, Any]
@@ -240,6 +242,7 @@ def load_model_set(name: str) -> ModelSet:
         defaults=raw.get("defaults") if isinstance(raw.get("defaults"), dict) else {},
         families=families,
         profiles={str(k): str(v) for k, v in profiles.items()},
+        task_routing=raw.get("task_routing") if isinstance(raw.get("task_routing"), dict) else {},
         escalation=raw.get("escalation") if isinstance(raw.get("escalation"), dict) else {},
         budget=raw.get("budget") if isinstance(raw.get("budget"), dict) else {},
         metadata=raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {},
@@ -301,7 +304,65 @@ def validate_model_set(
     escalation_family = model_set.escalation.get("default_family")
     if escalation_family and escalation_family not in model_set.families:
         result.error(f"escalation.default_family references missing family: {escalation_family}")
+
+    _validate_task_routing(model_set, catalog, result, strict=strict)
     return result
+
+
+def _validate_task_routing(
+    model_set: ModelSet,
+    catalog: ModelCatalog,
+    result: ModelSetValidationResult,
+    *,
+    strict: bool = False,
+) -> None:
+    routing = model_set.task_routing
+    if not routing:
+        return
+    tiers = routing.get("tiers") if isinstance(routing.get("tiers"), dict) else {}
+    if not tiers:
+        result.error("task_routing.tiers must define at least the safe_default tier")
+        return
+    for tier_name, tier in tiers.items():
+        if not isinstance(tier, dict):
+            result.error(f"task_routing.tiers.{tier_name} must be a mapping")
+            continue
+        provider_name = str(tier.get("provider") or "").strip()
+        model_name = str(tier.get("model") or "").strip()
+        if not provider_name or not model_name:
+            result.error(f"task_routing.tiers.{tier_name} must define provider and model")
+            continue
+        provider = catalog.providers.get(provider_name)
+        if provider is None:
+            result.error(f"Unknown provider '{provider_name}' in task_routing tier {tier_name}")
+            continue
+        models = provider.get("models") if isinstance(provider, dict) else None
+        if not isinstance(models, dict) or model_name not in models:
+            message = f"Unknown model '{model_name}' for provider '{provider_name}' in task_routing tier {tier_name}"
+            if strict:
+                result.error(message)
+            else:
+                result.warn(message)
+    default = routing.get("default") if isinstance(routing.get("default"), dict) else {}
+    default_tier = str(default.get("tier") or "").strip()
+    if default_tier and default_tier not in tiers:
+        result.error(f"task_routing.default.tier references missing tier: {default_tier}")
+    escalation = routing.get("escalation") if isinstance(routing.get("escalation"), dict) else {}
+    force_tier = str(escalation.get("force_tier") or "").strip()
+    if force_tier and force_tier not in tiers:
+        result.error(f"task_routing.escalation.force_tier references missing tier: {force_tier}")
+    downgrade_rules = (
+        routing.get("downgrade_rules") if isinstance(routing.get("downgrade_rules"), dict) else {}
+    )
+    for rule_name, rule in downgrade_rules.items():
+        if not isinstance(rule, dict):
+            result.error(f"task_routing.downgrade_rules.{rule_name} must be a mapping")
+            continue
+        tier_name = str(rule.get("tier") or "").strip()
+        if not tier_name or tier_name not in tiers:
+            result.error(
+                f"task_routing.downgrade_rules.{rule_name}.tier references missing tier: {tier_name or '<empty>'}"
+            )
 
 
 def active_model_set_name(
@@ -431,6 +492,7 @@ def model_set_summary(model_set: ModelSet, *, strict: bool = False) -> dict[str,
         "source_path": str(model_set.source_path),
         "families": {name: family.__dict__ for name, family in model_set.families.items()},
         "profiles": model_set.profiles,
+        "task_routing": model_set.task_routing,
         "escalation": model_set.escalation,
         "budget": model_set.budget,
         "validation": validation.as_dict(),

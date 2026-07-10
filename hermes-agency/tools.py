@@ -47,7 +47,7 @@ def check_keryx_available() -> bool:
 
 
 def get_transport_backend() -> str:
-    """Return configured Agency transport backend, defaulting to agentanycast."""
+    """Return the configured Agency transport backend."""
 
     try:
         from .config import get_config

@@ -1,202 +1,302 @@
 providers:
   opencode-go:
-    label: "OpenCode Go"
+    label: OpenCode Go
     models:
       deepseek-v4-flash:
-        label: "DeepSeek V4 Flash via OpenCode Go"
+        label: DeepSeek V4 Flash via OpenCode Go
         context_window: 1000000
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "https://opencode.ai/docs/go/"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: https://opencode.ai/docs/go/
       deepseek-v4-pro:
-        label: "DeepSeek V4 Pro via OpenCode Go"
+        label: DeepSeek V4 Pro via OpenCode Go
         context_window: 1000000
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "https://opencode.ai/docs/go/"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: https://opencode.ai/docs/go/
       qwen3-coder-plus:
-        label: "Qwen3 Coder Plus via OpenCode Go"
+        label: Qwen3 Coder Plus via OpenCode Go
         context_window: 1000000
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "https://opencode.ai/docs/go/"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: https://opencode.ai/docs/go/
   openai-codex:
-    label: "OpenAI Codex"
+    label: OpenAI Codex
     models:
       gpt-5.5:
-        label: "GPT-5.5"
+        label: GPT-5.5
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-provided Hermes OpenAI Codex availability screenshot
       gpt-5.4:
-        label: "GPT-5.4"
+        label: GPT-5.4
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-provided Hermes OpenAI Codex availability screenshot
       gpt-5.4-mini:
-        label: "GPT-5.4 Mini"
+        label: GPT-5.4 Mini
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-provided Hermes OpenAI Codex availability screenshot
       gpt-5.3-codex-spark:
-        label: "GPT-5.3 Codex Spark"
+        label: GPT-5.3 Codex Spark
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, code, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-provided Hermes OpenAI Codex availability screenshot"
+        capabilities:
+        - text
+        - code
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-provided Hermes OpenAI Codex availability screenshot
+      gpt-5.6-sol:
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: &id001
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-07-10'
+        source_url: Kyle-directed GPT-5.6 Agency rollout policy
+        label: GPT-5.6 Sol
+      gpt-5.6-luna:
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities:
+        - text
+        - reasoning
+        - tools
+        last_verified: '2026-07-10'
+        source_url: Kyle-directed GPT-5.6 Agency rollout policy
+        label: GPT-5.6 Luna
+      gpt-5.6-terra:
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: *id001
+        last_verified: '2026-07-10'
+        source_url: Kyle-directed GPT-5.6 Agency rollout policy
+        label: GPT-5.6 Terra
   nous:
-    label: "Nous Portal"
+    label: Nous Portal
     models:
       xiaomi/mimo-v2.5:
-        label: "Xiaomi MiMo-V2.5 via Nous Portal"
+        label: Xiaomi MiMo-V2.5 via Nous Portal
         context_window: null
         input_cost_per_1m: 0.11
         output_cost_per_1m: 0.28
         billing_mode: prepaid_portal_credit
-        capabilities: [text, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        capabilities:
+        - text
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-supplied Nous Portal model list
       xiaomi/mimo-v2.5-pro:
-        label: "Xiaomi MiMo-V2.5-Pro via Nous Portal"
+        label: Xiaomi MiMo-V2.5-Pro via Nous Portal
         context_window: null
         input_cost_per_1m: 0.44
         output_cost_per_1m: 0.87
         billing_mode: prepaid_portal_credit
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-supplied Nous Portal model list
       deepseek/deepseek-v4-flash:
-        label: "DeepSeek V4 Flash via Nous Portal"
+        label: DeepSeek V4 Flash via Nous Portal
         context_window: null
         input_cost_per_1m: 0.09
         output_cost_per_1m: 0.18
         billing_mode: prepaid_portal_credit
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-supplied Nous Portal model list
       qwen/qwen3-coder-plus:
-        label: "Qwen3 Coder Plus via Nous Portal"
+        label: Qwen3 Coder Plus via Nous Portal
         context_window: null
         input_cost_per_1m: 0.65
         output_cost_per_1m: 3.25
         billing_mode: prepaid_portal_credit
-        capabilities: [text, code, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        capabilities:
+        - text
+        - code
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-supplied Nous Portal model list
   xai:
-    label: "xAI"
+    label: xAI
     models:
       grok-4.3:
-        label: "Grok 4.3"
+        label: Grok 4.3
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: direct_or_plan_metered
-        capabilities: [text, creative, reasoning]
-        last_verified: "2026-06-26"
-        source_url: "https://docs.x.ai/"
+        capabilities:
+        - text
+        - creative
+        - reasoning
+        last_verified: '2026-06-26'
+        source_url: https://docs.x.ai/
   xai-oauth:
-    label: "xAI Grok OAuth (SuperGrok)"
+    label: xAI Grok OAuth (SuperGrok)
     models:
       grok-composer-2.5-fast:
-        label: "Grok Composer 2.5 Fast"
+        label: Grok Composer 2.5 Fast
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-07-02"
-        source_url: "hermes model xai-oauth picker"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-07-02'
+        source_url: hermes model xai-oauth picker
       grok-build-0.1:
-        label: "Grok Build 0.1"
+        label: Grok Build 0.1
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, code, tools]
-        last_verified: "2026-07-02"
-        source_url: "hermes model xai-oauth picker"
+        capabilities:
+        - text
+        - code
+        - tools
+        last_verified: '2026-07-02'
+        source_url: hermes model xai-oauth picker
       grok-4.20-0309-reasoning:
-        label: "Grok 4.20 Reasoning"
+        label: Grok 4.20 Reasoning
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, reasoning, tools]
-        last_verified: "2026-07-02"
-        source_url: "hermes model xai-oauth picker"
+        capabilities:
+        - text
+        - reasoning
+        - tools
+        last_verified: '2026-07-02'
+        source_url: hermes model xai-oauth picker
       grok-4.20-0309-non-reasoning:
-        label: "Grok 4.20 Non-Reasoning"
+        label: Grok 4.20 Non-Reasoning
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, tools]
-        last_verified: "2026-07-02"
-        source_url: "hermes model xai-oauth picker"
+        capabilities:
+        - text
+        - tools
+        last_verified: '2026-07-02'
+        source_url: hermes model xai-oauth picker
       grok-4.20-multi-agent-0309:
-        label: "Grok 4.20 Multi-Agent"
+        label: Grok 4.20 Multi-Agent
         context_window: null
         input_cost_per_1m: null
         output_cost_per_1m: null
         billing_mode: subscription_or_plan_metered
-        capabilities: [text, reasoning, tools]
-        last_verified: "2026-07-02"
-        source_url: "hermes model xai-oauth picker"
+        capabilities:
+        - text
+        - reasoning
+        - tools
+        last_verified: '2026-07-02'
+        source_url: hermes model xai-oauth picker
   xiaomi:
-    label: "Xiaomi"
+    label: Xiaomi
     models:
       mimo-v2.5:
-        label: "MiMo-V2.5"
+        label: MiMo-V2.5
         context_window: null
         input_cost_per_1m: 0.11
         output_cost_per_1m: 0.28
         billing_mode: direct_or_plan_metered
-        capabilities: [text, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        capabilities:
+        - text
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-supplied Nous Portal model list
       mimo-v2.5-pro:
-        label: "MiMo-V2.5-Pro"
+        label: MiMo-V2.5-Pro
         context_window: null
         input_cost_per_1m: 0.44
         output_cost_per_1m: 0.87
         billing_mode: direct_or_plan_metered
-        capabilities: [text, code, reasoning, tools]
-        last_verified: "2026-06-26"
-        source_url: "user-supplied Nous Portal model list"
+        capabilities:
+        - text
+        - code
+        - reasoning
+        - tools
+        last_verified: '2026-06-26'
+        source_url: user-supplied Nous Portal model list
   local:
-    label: "Local runtime"
+    label: Local runtime
     models:
       disabled-placeholder:
-        label: "Disabled placeholder"
+        label: Disabled placeholder
         context_window: null
         input_cost_per_1m: 0
         output_cost_per_1m: 0
         billing_mode: local
         capabilities: []
-        last_verified: "2026-06-26"
-        source_url: ""
+        last_verified: '2026-06-26'
+        source_url: ''

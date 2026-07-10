@@ -417,6 +417,57 @@ describe("IssueProperties", () => {
     document.body.innerHTML = "";
   });
 
+  it("shows read-only Hermes Agency Kanban projection metadata", async () => {
+    const issue = createIssue({
+      originKind: "hermes_kanban_task",
+      originId: "t_eaf465cb",
+      description: [
+        "Hermes Kanban task: t_eaf465cb",
+        "Status: blocked",
+        "Priority: 125",
+        "Assignee: agency-docs-writer",
+        "Last heartbeat: 2026-04-06T11:00:00.000Z",
+        "Workspace: /tmp/hermes-workspace",
+        "Block kind: needs_input",
+        "",
+        "Latest run summary:",
+        "Worker reached review-required handoff.",
+        "",
+        "Latest run error:",
+        "Missing API token.",
+      ].join("\n"),
+      updatedAt: new Date("2026-04-06T12:05:00.000Z"),
+      blockedBy: [{
+        id: "blocker-1",
+        identifier: "PAP-2",
+        title: "Parent blocker",
+        status: "todo",
+        priority: "medium",
+        assigneeAgentId: null,
+        assigneeUserId: null,
+      }],
+    });
+    const root = renderProperties(container, {
+      issue,
+      childIssues: [createIssue({ id: "child-1", identifier: "PAP-3", parentId: issue.id })],
+      onUpdate: vi.fn(),
+      inline: true,
+    });
+    await flush();
+
+    expect(container.textContent).toContain("t_eaf465cb");
+    expect(container.textContent).toContain("agency-docs-writer");
+    expect(container.textContent).toContain("blocked");
+    expect(container.textContent).toContain("priority 125");
+    expect(container.textContent).toContain("needs_input");
+    expect(container.textContent).toContain("1 blocker · 0 blocking · 1 child");
+    expect(container.textContent).toContain("/tmp/hermes-workspace");
+    expect(container.textContent).toContain("Worker reached review-required handoff.");
+    expect(container.textContent).toContain("Missing API token.");
+
+    act(() => root.unmount());
+  });
+
   it("groups the assignee picker and gates a live-run reassign behind an interrupt confirm", async () => {
     const minimalAgent = (id: string, name: string) =>
       ({

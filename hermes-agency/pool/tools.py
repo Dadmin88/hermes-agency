@@ -452,6 +452,75 @@ def _resolve_runner_peer_id(agency_dir: Path, runner_log: Path) -> str | None:
     return None
 
 
+def _read_profile_model_config(profile_dir: Path) -> dict[str, str | None]:
+    """Read a profile's public provider/model config for diagnostics."""
+
+    provider = "openai-codex"
+    model = "gpt-5.5"
+    config_path = profile_dir / "config.yaml"
+    if not config_path.exists():
+        return {"provider": provider, "model": model}
+    try:
+        import yaml
+
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        data = {}
+    model_cfg = data.get("model") if isinstance(data, dict) else {}
+    if isinstance(model_cfg, dict):
+        provider = str(model_cfg.get("provider") or provider).strip() or provider
+        model = str(model_cfg.get("default") or model_cfg.get("model") or model).strip() or model
+    return {"provider": provider, "model": model}
+
+
+def _classified_provider_startup_failure(
+    name: str,
+    profile_dir: Path,
+    output: str,
+    *,
+    source: str,
+) -> str | None:
+    """Return a roster-safe provider blocker for known startup failures."""
+
+    if not str(output or "").strip():
+        return None
+    try:
+        from ..provider_preflight import classify_provider_failure
+
+        model_cfg = _read_profile_model_config(profile_dir)
+        health = classify_provider_failure(
+            output,
+            provider=model_cfg.get("provider"),
+            model=model_cfg.get("model"),
+        )
+    except Exception:
+        return None
+    if health.category == "unknown_provider_failure":
+        return None
+    action = health.actions[0] if health.actions else "Repair provider health before retrying."
+    evidence = f" evidence={health.evidence}" if health.evidence else ""
+    return (
+        "Agency infrastructure provider blocker: "
+        f"category={health.category} retryable={str(health.retryable).lower()} "
+        f"provider={health.provider or '-'} model={health.model or '-'} source={source}. "
+        f"{health.message}. action={action}.{evidence}"
+    )
+
+
+def _sanitised_startup_failure_output(output: str) -> str:
+    """Return startup output safe to persist/echo when no known category matched."""
+
+    try:
+        from ..provider_preflight import classify_provider_failure
+
+        health = classify_provider_failure(output)
+        if health.evidence:
+            return health.evidence
+    except Exception:
+        pass
+    return str(output or "")[:500]
+
+
 def pool_roster(query: str = "", show_offline: bool = True) -> str:
     """Show the agency roster. Optionally filter by query."""
     roster = load_roster()
@@ -595,7 +664,16 @@ def pool_wake(name: str) -> str:
     except Exception:
         pass
     details = output or daemon_output or "no output"
-    error = f"runner failed to start for {name}; pid={proc.pid}; output={details}"
+    provider_error = _classified_provider_startup_failure(
+        name,
+        profile_dir,
+        "\n".join(part for part in (output, daemon_output) if part),
+        source="pool_tools_runner_start",
+    )
+    error = provider_error or (
+        f"runner failed to start for {name}; pid={proc.pid}; "
+        f"output={_sanitised_startup_failure_output(details)}"
+    )
     record_wake_attempt(name, success=False, error=error)
     return f"Error: {error}"
 

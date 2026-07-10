@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -199,6 +200,7 @@ class PoolManager:
             if spec is None or spec.loader is None:
                 raise
             module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
             spec.loader.exec_module(module)
             return module
 
@@ -231,6 +233,53 @@ class PoolManager:
             )
         except Exception as exc:
             print(f"[PoolManager] roster status update warning for {name}: {exc}")
+
+    def _provider_preflight_module(self):
+        """Load provider_preflight in package and direct-script execution modes."""
+
+        try:
+            from .. import provider_preflight
+
+            return provider_preflight
+        except ImportError:
+            module_path = PLUGIN_ROOT / "provider_preflight.py"
+            spec = importlib.util.spec_from_file_location(
+                "hermes_agency_provider_preflight", module_path
+            )
+            if spec is None or spec.loader is None:
+                raise
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            spec.loader.exec_module(module)
+            return module
+
+    def _classified_provider_failure(self, name: str, output: str, *, source: str) -> str | None:
+        """Return a roster-safe provider blocker message for known startup failures."""
+
+        if not str(output or "").strip():
+            return None
+        model_cfg = self._get_model(name)
+        provider = str(model_cfg.get("provider") or "").strip() or None
+        model = str(model_cfg.get("model") or "").strip() or None
+        try:
+            health = self._provider_preflight_module().classify_provider_failure(
+                output,
+                provider=provider,
+                model=model,
+            )
+        except Exception as exc:
+            print(f"[PoolManager] provider failure classification warning for {name}: {exc}")
+            return None
+        if health.category == "unknown_provider_failure":
+            return None
+        action = health.actions[0] if health.actions else "Repair provider health before retrying."
+        evidence = f" evidence={health.evidence}" if health.evidence else ""
+        return (
+            "Agency infrastructure provider blocker: "
+            f"category={health.category} retryable={str(health.retryable).lower()} "
+            f"provider={health.provider or '-'} model={health.model or '-'} source={source}. "
+            f"{health.message}. action={action}.{evidence}"
+        )
 
     def _is_agent_disabled(self, name: str) -> bool:
         """Return whether the roster marks an agent as disabled."""
@@ -520,6 +569,51 @@ class PoolManager:
                     found[str(path.relative_to(PROFILES_DIR / name))] = str(path)
         return found
 
+    def _model_config_preflight_error(self):
+        """Return an infrastructure-blocker message when Agency model configs drift."""
+
+        if os.environ.get("HERMES_AGENCY_SKIP_MODEL_PREFLIGHT", "").lower() in {"1", "true", "yes"}:
+            print(
+                "[PoolManager] HERMES_AGENCY_SKIP_MODEL_PREFLIGHT is set; "
+                "skipping static model/config drift preflight only. Runtime provider "
+                "failures will still be classified."
+            )
+            return None
+        try:
+            from ..model_sets import active_model_set_name, load_model_set
+            from ..profile_config_writer import audit_model_set_configs
+
+            config = {}
+            try:
+                config_mod = importlib.import_module("hermes_cli.config")
+                loaded = config_mod.load_config()
+                config = loaded if isinstance(loaded, dict) else {}
+            except Exception:
+                config = {}
+            model_set = load_model_set(active_model_set_name(config=config))
+            audit = audit_model_set_configs(model_set, base=PROFILES_DIR)
+            if audit.ok:
+                return None
+            payload = audit.as_dict()
+            summary = payload["summary"]
+            examples = [
+                *(item["profile"] for item in payload["missing_configs"][:5]),
+                *(item["profile"] for item in payload["drifted_configs"][:5]),
+            ]
+            return (
+                "Agency infrastructure blocker: model/provider config preflight failed "
+                f"for active model set {model_set.name!r} "
+                f"(missing={summary['missing']} drift={summary['drift']}). "
+                f"Examples: {', '.join(examples) or 'none'}. "
+                "Run `hermes agency models validate "
+                f"{model_set.name} --health` and repair configs before dispatching workers."
+            )
+        except Exception as exc:
+            return (
+                "Agency infrastructure blocker: model/provider config preflight could not run: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
     def _resolve_started_peer_id(self, name, initial_output="", timeout=10):
         """Resolve a real PeerID after daemon startup through status/log/key."""
         peer_id = self._extract_peer_id(initial_output)
@@ -654,6 +748,11 @@ class PoolManager:
             if not persistent and active_pool_count >= effective_max:
                 self._swap_oldest()
 
+            preflight_error = self._model_config_preflight_error()
+            if preflight_error:
+                self._record_roster_wake(name, success=False, error=preflight_error)
+                raise RuntimeError(preflight_error)
+
             self._ensure_profile(name)
 
             # First try the documented CLI flow: start, wait 5s for the
@@ -661,6 +760,13 @@ class PoolManager:
             cli_peer, cli_output, cli_started = self._start_cli_node(name)
             if cli_output:
                 print(f"[PoolManager] agency start output for {name}: {cli_output.strip()[:1000]}")
+            if not cli_started:
+                provider_error = self._classified_provider_failure(
+                    name, cli_output, source="agency_start_cli"
+                )
+                if provider_error:
+                    self._record_roster_wake(name, success=False, error=provider_error)
+                    raise RuntimeError(provider_error)
             peer_id = None
             if cli_started:
                 time.sleep(5)
@@ -689,6 +795,15 @@ class PoolManager:
             if not peer_id:
                 peer_id, proc, runner_output = self._start_runner_node(name)
                 if not peer_id:
+                    provider_error = self._classified_provider_failure(
+                        name,
+                        "\n".join(part for part in (runner_output, cli_output) if part),
+                        source="runner_start",
+                    )
+                    if provider_error:
+                        self._record_roster_wake(name, success=False, error=provider_error)
+                        self._terminate_runner_proc(proc)
+                        raise RuntimeError(provider_error)
                     log_peer = log_path = key_peer = None
                     key_files = {}
                     # Only use file-derived peer IDs if the runner is still

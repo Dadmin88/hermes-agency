@@ -107,7 +107,7 @@ Risk escalation is exposed through the resolver API but does not automatically s
 - `economic`: lowest practical spend; cheap workers, GPT-5.5 only for senior/high-risk roles.
 - `premium`: quality-first without pretending cost does not matter.
 - `go-plan`: only OpenCode Go provider models.
-- `openai-codex-only`: only OpenAI Codex provider models. Routine roles use cheaper OpenAI models, coding roles use Codex-focused models, and orchestration/senior review use GPT-5.5.
+- `openai-codex-only`: only OpenAI Codex provider models. Current GPT-5.6 Agency policy maps heavy/complex coding to GPT-5.6 Sol, lightweight coding and reviews to GPT-5.5 with documented Luna/Terra escalation, and general non-coding plus orchestration to GPT-5.6 Luna with Terra/Sol escalation tiers. The explicit GPT-5.5 rollback/fallback tier is preserved.
 - `local-only`: intentionally fails validation until a real local provider/model exists.
 
 ## Examples

@@ -2,7 +2,7 @@
 
 **A Hermes Agent plugin and local operations layer for running a managed multi-agent team.**
 
-Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, and safe P2P delegation. Keryx is the recommended transport for AgentCards, skill discovery, task messages, and encrypted P2P networking; AgentAnycast remains available for legacy/fallback deployments.
+Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based task routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, and safe P2P delegation. Keryx is the primary transport for AgentCards, skill discovery, task messages, and encrypted P2P networking; AgentAnycast remains available for legacy/fallback deployments.
 
 Hermes Agency is the product in this repository. Keryx is the primary transport; AgentAnycast is the legacy compatibility path.
 
@@ -18,8 +18,8 @@ Hermes Agency is the product in this repository. Keryx is the primary transport;
 | `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, and pool delegation. |
 | `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
 | `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
-| `src/keryx/` | Vendored Keryx Python SDK (primary transport). |
-| `src/agentanycast/` | Legacy AgentAnycast compatibility transport (fallback only). |
+| `src/keryx/` | Vendored Keryx Python SDK (`import keryx`) used by the primary transport path. Runtime daemons/relays still come from the separate Keryx runtime deployment. |
+| `src/agentanycast/` | Legacy AgentAnycast compatibility transport retained for rollback/fallback only. |
 | `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
 | `scripts/` | Operational helpers such as batch agent wake scripts. |
 | `docs/` | Focused implementation and operations notes. |
@@ -42,8 +42,10 @@ python -m pip install -e ".[dev]"
 ```
 
 This installs the plugin and the vendored Keryx Python SDK from `src/keryx/`.
-External Keryx binaries (`keryxd`, `keryx-relay`) still come from the separate
-[`hermes-keryx`](https://github.com/DeployFaith/hermes-keryx) repository.
+Do **not** install a sibling `Hermes_Keryx/sdk/python` checkout for normal Agency
+development. External Keryx binaries (`keryxd`, `keryx-relay`) still come from
+the separate [`hermes-keryx`](https://github.com/DeployFaith/hermes-keryx)
+repository or your runtime deployment.
 
 ## Command surfaces
 
@@ -80,14 +82,17 @@ The current Docker setup is a headless agency runtime. It prepares a Hermes home
 docker compose up --build
 ```
 
-Common overrides (current compose wiring still exposes the legacy AgentAnycast relay/registry variables for fallback runs):
+Common overrides:
 
 ```bash
 HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
-AGENTANYCAST_RELAY=<relay-multiaddr> docker compose up --build
-AGENTANYCAST_REGISTRY_ADDRS=<registry-address> docker compose up --build
 HERMES_AGENCY_START_NODE=0 docker compose --profile tools run --rm setup
 ```
+
+Keryx endpoints live under `agency.keryx.*` in Hermes config and are also read by
+the vendored SDK from `HERMES_KERYX_*` / `KERYX_*` environment variables when
+those variables are present in the runtime environment. `AGENTANYCAST_*` relay
+and registry variables are legacy fallback settings, not the primary Keryx path.
 
 Advanced modes use the same image:
 
@@ -159,7 +164,7 @@ Hermes Agency
 └── coordinates optional private escalation paths when configured
 ```
 
-Keryx supplies the recommended lower-level P2P machinery: daemon/relay connectivity, AgentCards, skills, identity, A2A-style task messages, and encrypted peer transport. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly. Set `agency.transport_backend: agentanycast` only for legacy rollback.
+Keryx supplies the primary lower-level P2P machinery: daemon/relay connectivity, AgentCards, skills, identity, A2A-style task messages, and encrypted peer transport. The Python SDK surface is vendored in this repository under `src/keryx/`; runtime daemons/relays are external services. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly. Set `agency.transport_backend: agentanycast` only for legacy rollback.
 
 ## Core capabilities
 

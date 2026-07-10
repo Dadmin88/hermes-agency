@@ -10,7 +10,7 @@
 
 **Please do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please use [GitHub Security Advisories](https://github.com/DeployFaith/Hermes_Agency/security/advisories/new) to report vulnerabilities privately.
+Use [GitHub Security Advisories](https://github.com/DeployFaith/Hermes_Agency/security/advisories/new) to report vulnerabilities privately.
 
 Please include:
 
@@ -35,15 +35,19 @@ The pool manager routes tasks to staff agents. It can attempt to wake offline ag
 
 ### Remote Task Execution
 
-Staff agents execute delegated tasks with access to their configured tools and model providers. Task payloads travel over the P2P transport layer (Noise_XX encrypted). A malicious task payload could attempt to exploit an agent's tool set or model integration.
+Staff agents execute delegated tasks with access to their configured tools and model providers. Task payloads travel over the P2P transport layer. A malicious task payload could attempt to exploit an agent's tool set or model integration, so remote execution defaults to disabled and tool access defaults to `safe`.
 
-### Relay and Registry
+### Keryx Relay and Registry
 
-The relay server forwards encrypted P2P messages between peers. It cannot read message content. The registry maps skills to peer IDs. Compromising the relay or registry could allow traffic analysis or service disruption but not plaintext message disclosure.
+Keryx is the primary transport. Relay and registry services route encrypted P2P traffic and map capabilities/skills to peers. A compromised relay or registry could cause traffic analysis, misrouting, or service disruption, but should not grant plaintext task visibility when end-to-end transport encryption is intact.
 
-### Daemon Downloads
+### Vendored Python SDK vs Runtime Binaries
 
-The AgentAnycast Go daemon binary is auto-downloaded on first run. The SDK verifies the binary before execution. A compromised download source could serve a malicious daemon. See the AgentAnycast documentation for verification details.
+The Keryx Python SDK is vendored in this repository at `src/keryx/`. Keryx daemon/relay/registry binaries are external runtime components and must be installed, built, pinned, and monitored by the deployment. Do not commit runtime binaries, sockets, logs, private endpoints, or local daemon paths.
+
+### Legacy AgentAnycast Fallback
+
+`src/agentanycast/` is retained for legacy rollback/fallback deployments. Do not use AgentAnycast as the default for new security reviews unless `agency.transport_backend: agentanycast` is explicitly selected. Vulnerabilities in the fallback path are still in scope when that backend is supported.
 
 ### Model and Tool Access
 
@@ -51,7 +55,7 @@ Each agent has a configured model set and tool set. The agency restricts which t
 
 ## Transport Layer Security
 
-The AgentAnycast P2P layer uses end-to-end encryption (Noise_XX protocol + NaCl box) for all peer communication. The relay server cannot read message content. See the [AgentAnycast architecture documentation](https://github.com/AgentAnycast/agentanycast/blob/main/docs/architecture.md) for details.
+Hermes Agency's primary transport path uses Keryx for encrypted peer communication and relay/registry-backed discovery. Configure Keryx endpoints under `agency.keryx.*` or with `HERMES_KERYX_*` / `KERYX_*` environment variables. Keep endpoint examples generic in committed docs and never publish private relay addresses, peer IDs, tokens, or local paths.
 
 ## Disclosure Policy
 

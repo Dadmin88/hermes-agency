@@ -15,7 +15,7 @@ try:
 except Exception:  # pragma: no cover - Hermes normally depends on PyYAML
     yaml = None  # type: ignore[assignment]
 
-from .model_sets import ModelSet, ResolvedProfileModel, resolve_profile_model
+from .model_sets import ModelSet, ResolvedProfileModel, default_staff_names, resolve_profile_model
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,33 @@ class ProfileWriteResult:
             "backup_path": self.backup_path,
             "message": self.message,
             "warnings": self.warnings,
+        }
+
+
+@dataclass(frozen=True)
+class ModelConfigAuditResult:
+    """Preflight result for installed Agency profile model config drift."""
+
+    ok: bool
+    model_set: str
+    profiles_checked: int
+    missing_configs: list[dict[str, Any]] = field(default_factory=list)
+    drifted_configs: list[dict[str, Any]] = field(default_factory=list)
+    unchanged: list[dict[str, Any]] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "model_set": self.model_set,
+            "profiles_checked": self.profiles_checked,
+            "missing_configs": self.missing_configs,
+            "drifted_configs": self.drifted_configs,
+            "unchanged": self.unchanged,
+            "summary": {
+                "missing": len(self.missing_configs),
+                "drift": len(self.drifted_configs),
+                "unchanged": len(self.unchanged),
+            },
         }
 
 
@@ -116,12 +143,25 @@ def profile_plan(
         current_label = (
             f"{current_provider}/{current_model}" if current_provider or current_model else None
         )
+        agency_raw = data.get("agency")
+        agency = agency_raw if isinstance(agency_raw, dict) else {}
+        models_raw = agency.get("models")
+        models = models_raw if isinstance(models_raw, dict) else {}
+        active_set = str(models.get("active_set") or "").strip()
         model_matches = current == target_model
-        status = "unchanged" if model_matches else "drift"
+        active_set_matches = active_set == model_set.name
+        status = "unchanged" if model_matches and active_set_matches else "drift"
         if status == "unchanged":
             message = "Already matches target model"
         else:
-            message = "Model block differs from target"
+            reasons = []
+            if not model_matches:
+                reasons.append("model block differs from target")
+            if not active_set_matches:
+                reasons.append(
+                    f"agency.models.active_set={active_set!r} differs from {model_set.name!r}"
+                )
+            message = "; ".join(reasons) or "Model config differs from target"
     return ProfileWriteResult(
         profile=profile,
         config_path=str(config_path),
@@ -138,6 +178,54 @@ def plan_model_set(
 ) -> list[ProfileWriteResult]:
     selected = profiles or installed_agency_profiles(base)
     return [profile_plan(profile, model_set, base=base) for profile in selected]
+
+
+def audit_model_set_configs(
+    model_set: ModelSet,
+    *,
+    profiles: list[str] | None = None,
+    base: Path | None = None,
+    include_roster: bool = True,
+) -> ModelConfigAuditResult:
+    """Audit installed/roster Agency profiles against the active model set.
+
+    Health-mode callers use this as a guard before dispatching many Kanban
+    workers. It reports both model/provider drift and missing config.yaml files
+    for roster-listed agency profiles so defaults cannot silently take over.
+    """
+
+    root = base or hermes_profiles_dir()
+    if profiles is not None:
+        selected = sorted(
+            {str(profile) for profile in profiles if str(profile).startswith("agency-")}
+        )
+    else:
+        selected_set = set(installed_agency_profiles(root))
+        if include_roster:
+            selected_set.update(default_staff_names())
+        selected = sorted(selected_set)
+
+    missing: list[dict[str, Any]] = []
+    drift: list[dict[str, Any]] = []
+    unchanged: list[dict[str, Any]] = []
+    for profile in selected:
+        planned = profile_plan(profile, model_set, base=root)
+        item = planned.as_dict()
+        if planned.status == "missing":
+            missing.append(item)
+        elif planned.status == "drift":
+            drift.append(item)
+        else:
+            unchanged.append(item)
+
+    return ModelConfigAuditResult(
+        ok=not missing and not drift,
+        model_set=model_set.name,
+        profiles_checked=len(selected),
+        missing_configs=missing,
+        drifted_configs=drift,
+        unchanged=unchanged,
+    )
 
 
 def apply_model_set(

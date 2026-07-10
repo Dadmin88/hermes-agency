@@ -5194,15 +5194,289 @@ async def test_send_task_marks_kanban_done_after_wait_success(plugin_modules, mo
 
 
 @pytest.mark.asyncio
-async def test_send_task_marks_kanban_running_when_not_waiting(plugin_modules, monkeypatch):
+async def test_send_task_marks_kanban_accepted_when_not_waiting(plugin_modules, monkeypatch):
     nm = plugin_modules.node_manager
     calls = _install_kanban_spies(nm, monkeypatch)
     manager = nm.NodeManager()
 
     await _send_with_fake_node(manager, _FakeA2ANode(handle=_FakeA2AHandle()), wait_seconds=0)
 
-    assert any(call["status"] == "running" for call in calls["update"])
-    assert any("not waiting for completion" in call["body"] for call in calls["comment"])
+    assert any(call["status"] == "a2a_accepted" for call in calls["update"])
+    assert any("wait_seconds=0" in call["body"] for call in calls["comment"])
+
+
+def test_delegation_status_maps_rejected_transport_status_to_failed(plugin_modules):
+    manager = plugin_modules.node_manager.NodeManager()
+
+    assert manager._delegation_status_from_a2a("REJECTED") == "failed"
+    assert manager._delegation_status_from_a2a("rejected") == "failed"
+
+
+def test_kanban_bridge_falls_back_when_hermes_cli_kanban_missing(
+    plugin_modules, monkeypatch, tmp_path
+):
+    kb_mod = plugin_modules.kanban_bridge
+    cfg_mod = plugin_modules.config
+    hermes_home = tmp_path / "hermes_home"
+    hermes_cli = sys.modules["hermes_cli"]
+
+    if hasattr(hermes_cli, "kanban_db"):
+        monkeypatch.delattr(hermes_cli, "kanban_db", raising=False)
+    monkeypatch.delitem(sys.modules, "hermes_cli.kanban_db", raising=False)
+    monkeypatch.delenv("HERMES_KANBAN_DB", raising=False)
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setattr(
+        kb_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(team=cfg_mod.TeamConfig(kanban_integration=True)),
+    )
+
+    created = kb_mod.track_delegation(
+        message="fallback smoke",
+        assigned_to="agency-backend-engineer",
+        metadata={"target_profile": "agency-backend-engineer"},
+        description="fallback smoke body",
+    )
+    accepted = kb_mod.track_delegation(
+        message="fallback smoke",
+        assigned_to="agency-backend-engineer",
+        a2a_task_id="a2a-fallback",
+        kanban_task_id=created["task_id"],
+        metadata={"target_profile": "agency-backend-engineer"},
+        description="fallback smoke body",
+    )
+    updated = kb_mod.update_task(created["task_id"], status="a2a_accepted")
+
+    assert created["ok"] is True
+    assert created["task"]["assignee"] == "agency-backend-engineer"
+    assert accepted["ok"] is True
+    assert accepted["task_id"] == created["task_id"]
+    assert updated["ok"] is True
+    assert updated["task"]["plugin_status"] == "a2a_accepted"
+    assert (hermes_home / "kanban.db").exists()
+
+
+def test_kanban_bridge_fallback_honors_hermes_kanban_db_for_default_board(
+    plugin_modules, monkeypatch, tmp_path
+):
+    kb_mod = plugin_modules.kanban_bridge
+    cfg_mod = plugin_modules.config
+    hermes_home = tmp_path / "profiles" / "agency-code-reviewer"
+    env_db = tmp_path / "kanban.db"
+    hermes_cli = sys.modules["hermes_cli"]
+
+    if hasattr(hermes_cli, "kanban_db"):
+        monkeypatch.delattr(hermes_cli, "kanban_db", raising=False)
+    monkeypatch.delitem(sys.modules, "hermes_cli.kanban_db", raising=False)
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(env_db))
+    monkeypatch.setattr(
+        kb_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(team=cfg_mod.TeamConfig(kanban_integration=True)),
+    )
+
+    created = kb_mod.track_delegation(
+        message="fallback env db smoke",
+        assigned_to="agency-backend-engineer",
+        metadata={"target_profile": "agency-backend-engineer"},
+        description="fallback env db body",
+    )
+    updated = kb_mod.update_task(created["task_id"], status="a2a_accepted")
+    fetched = kb_mod.get_task(created["task_id"])
+
+    assert created["ok"] is True
+    assert updated["ok"] is True
+    assert fetched["ok"] is True
+    assert fetched["kanban_db_path"] == str(env_db.resolve())
+    assert env_db.exists()
+    assert not (hermes_home / "kanban.db").exists()
+    assert updated["task"]["plugin_status"] == "a2a_accepted"
+
+
+def test_qa_profile_pool_send_uses_fallback_when_plugin_tools_shadows_hermes_tools(
+    plugin_modules, monkeypatch, tmp_path
+):
+    """Reproduce the direct QA profile PYTHONPATH used by the P4 pool send."""
+
+    kb_mod = plugin_modules.kanban_bridge
+    cfg_mod = plugin_modules.config
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    canonical_db = tmp_path / "kanban.db"
+    expected_peer_id = "12D3KooWfakebackend"
+    host_kb_used = False
+
+    class BrokenHostKanban:
+        @staticmethod
+        def init_db():
+            nonlocal host_kb_used
+            host_kb_used = True
+            raise ImportError("attempted relative import with no known parent package")
+
+    hermes_cli = sys.modules["hermes_cli"]
+    monkeypatch.setattr(hermes_cli, "kanban_db", BrokenHostKanban, raising=False)
+    monkeypatch.setitem(sys.modules, "hermes_cli.kanban_db", BrokenHostKanban)
+    monkeypatch.delitem(sys.modules, "tools", raising=False)
+    monkeypatch.syspath_prepend(str(PLUGIN_DIR))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "agency-qa-tester"))
+    monkeypatch.setenv("HERMES_PROFILE", "agency-qa-tester")
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(canonical_db))
+    monkeypatch.setattr(
+        kb_mod,
+        "get_config",
+        lambda: cfg_mod.AgencyConfig(team=cfg_mod.TeamConfig(kanban_integration=True)),
+    )
+
+    class FakeManager:
+        def send_task_sync(self, *, message, peer_id, wait_seconds, metadata):
+            assert peer_id == expected_peer_id
+            assert wait_seconds == 0
+            created = kb_mod.track_delegation(
+                message=message,
+                assigned_to=metadata["target_profile"],
+                metadata={**metadata, "board": "default"},
+                description=message,
+            )
+            accepted = kb_mod.track_delegation(
+                message=message,
+                assigned_to=metadata["target_profile"],
+                a2a_task_id="a2a-qa-pool",
+                kanban_task_id=created["task_id"],
+                metadata={**metadata, "board": "default"},
+                description=message,
+            )
+            updated = kb_mod.update_task(created["task_id"], status="a2a_accepted")
+            assert accepted["ok"] is True
+            assert updated["ok"] is True
+            return {
+                "task_id": "a2a-qa-pool",
+                "a2a_task_id": "a2a-qa-pool",
+                "kanban_task_id": accepted["task_id"],
+                "kanban_board": "default",
+                "kanban_db_path": str(canonical_db),
+                "status": "submitted",
+                "delegation_status": "a2a_accepted",
+            }
+
+    monkeypatch.setattr(
+        pool_tools,
+        "find_agent",
+        lambda name: {"name": name, "online": True, "peer_id": expected_peer_id},
+    )
+    monkeypatch.setattr(plugin_modules.node_manager, "manager", FakeManager())
+
+    text = pool_tools.pool_send("agency-backend-engineer", "QA profile regression")
+
+    assert host_kb_used is False
+    assert canonical_db.exists()
+    assert "a2a_task_id=a2a-qa-pool" in text
+    assert "kanban_task_id=None" not in text
+    assert "kanban_board=default" in text
+    assert f"kanban_db_path={canonical_db}" in text
+
+
+@pytest.mark.asyncio
+async def test_send_task_preserves_profile_assignee_on_canonical_board(
+    plugin_modules, monkeypatch, tmp_path
+):
+    nm = plugin_modules.node_manager
+    calls = _install_kanban_spies(nm, monkeypatch, task_id="kb-profile")
+    manager = nm.NodeManager()
+    board_calls = []
+
+    def call_on_board(board_slug, fn, *args, **kwargs):
+        board_calls.append(board_slug)
+        return fn(*args, **kwargs)
+
+    monkeypatch.setattr(manager, "_call_on_agency_board", call_on_board)
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(tmp_path / "kanban.db"))
+    node = _FakeA2ANode(handle=_FakeA2AHandle(task_id="a2a-profile"))
+
+    data = await _send_with_fake_node(
+        manager,
+        node,
+        wait_seconds=0,
+        metadata={
+            "target_profile": "agency-backend-engineer",
+            "target_agent": "agency-backend-engineer",
+            "target_peer_id": "peer-x",
+        },
+    )
+
+    assert board_calls and set(board_calls) == {None}
+    assert {call["assigned_to"] for call in calls["track"]} == {"agency-backend-engineer"}
+    assert all(call["assigned_to"] != "peer-x" for call in calls["track"])
+    assert calls["track"][-1]["metadata"]["target_peer_id"] == "peer-x"
+    assert node.sent[0]["metadata"]["target_profile"] == "agency-backend-engineer"
+    assert data["a2a_task_id"] == "a2a-profile"
+    assert data["kanban_task_id"] == "kb-profile"
+    assert data["kanban_board"] == "default"
+    assert data["kanban_db_path"] == str(tmp_path / "kanban.db")
+    assert data["kanban"]["board"] == "default"
+
+
+def test_pool_send_includes_profile_metadata_and_board_handles(plugin_modules, monkeypatch):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    sent = {}
+
+    class FakeManager:
+        def send_task_sync(self, **kwargs):
+            sent.update(kwargs)
+            return {
+                "task_id": "a2a-pool",
+                "a2a_task_id": "a2a-pool",
+                "kanban_task_id": "kb-pool",
+                "kanban_board": "default",
+                "kanban_db_path": "/home/dadmin/.hermes/kanban.db",
+                "status": "submitted",
+                "delegation_status": "a2a_accepted",
+            }
+
+    monkeypatch.setattr(
+        pool_tools,
+        "find_agent",
+        lambda name: {"name": name, "online": True, "peer_id": "12D3KooWfakebackend"},
+    )
+    monkeypatch.setattr(plugin_modules.node_manager, "manager", FakeManager())
+
+    text = pool_tools.pool_send("agency-backend-engineer", "do work")
+
+    assert sent["peer_id"] == "12D3KooWfakebackend"
+    assert sent["metadata"]["target_profile"] == "agency-backend-engineer"
+    assert sent["metadata"]["target_peer_id"] == "12D3KooWfakebackend"
+    assert "a2a_task_id=a2a-pool" in text
+    assert "kanban_task_id=kb-pool" in text
+    assert "kanban_board=default" in text
+    assert "kanban_db_path=/home/dadmin/.hermes/kanban.db" in text
+    assert "delegation_status=a2a_accepted" in text
+
+
+def test_pool_send_persists_unreachable_agent_queue_item(plugin_modules, monkeypatch, tmp_path):
+    pool_tools = importlib.import_module("hermes_plugin.pool.tools")
+    roster = importlib.import_module("hermes_plugin.pool.roster")
+    queue_path = tmp_path / "offline_task_queue.json"
+
+    monkeypatch.setattr(roster, "offline_queue_path", lambda: queue_path)
+    monkeypatch.setattr(pool_tools, "queue_offline_task", roster.queue_offline_task)
+    monkeypatch.setattr(
+        pool_tools,
+        "find_agent",
+        lambda name: {"name": name, "online": False, "peer_id": ""},
+    )
+    monkeypatch.setattr(pool_tools, "pool_wake", lambda name: "Error: unreachable target")
+
+    text = pool_tools.pool_send("agency-backend-engineer", "do queued work")
+    data = json.loads(queue_path.read_text(encoding="utf-8"))
+    task = data["tasks"][-1]
+
+    assert "queue_id=" in text
+    assert f"queue_path={queue_path}" in text
+    assert "status=queued" in text
+    assert task["status"] == "queued"
+    assert task["target_agent"] == "agency-backend-engineer"
+    assert task["message"] == "do queued work"
+    assert task["metadata"]["target_profile"] == "agency-backend-engineer"
+    assert task["reason"] == "Error: unreachable target"
 
 
 @pytest.mark.asyncio
@@ -5245,6 +5519,25 @@ async def test_task_status_prefers_terminal_kanban_over_stale_handle(plugin_modu
     assert data["a2a_status"] == "submitted"
     assert data["kanban_status"] == "done"
     assert data["result"] == "kanban result"
+
+
+@pytest.mark.asyncio
+async def test_task_status_reports_rejected_handle_as_failed_delegation(
+    plugin_modules, monkeypatch
+):
+    nm = plugin_modules.node_manager
+    manager = nm.NodeManager()
+    manager._task_handles["a2a-rejected"] = _FakeA2AHandle(
+        task_id="a2a-rejected", status="REJECTED"
+    )
+    monkeypatch.setattr(nm, "kanban_get_task", lambda task_id: {"available": False})
+
+    data = await manager._task_status_impl("a2a-rejected")
+
+    assert data["status"] == "REJECTED"
+    assert data["a2a_status"] == "REJECTED"
+    assert data["delegation_status"] == "failed"
+    assert data["delegation_status"] != "a2a_accepted"
 
 
 # === Phase 1 Security Regression Tests (added during repair) ===
@@ -5652,3 +5945,113 @@ def test_pool_wake_does_not_override_blocked_orchestrator(plugin_modules, monkey
 
     assert changed is False
     assert data["peers"]["peer-orch"]["trust_level"] == "blocked"
+
+
+def test_kanban_identity_mapping_preserves_profiles_and_rejects_peer_ids(
+    plugin_modules, monkeypatch
+):
+    sync_mod = importlib.import_module("hermes_plugin.kanban_sync")
+    peer_id = "12D3KooWABCDEFGHIJKLMNOPQRSTUVWXYZaBcDeFgHiJkLmNoPqRsTuV"
+
+    assert (
+        sync_mod.KanbanSyncMixin._dispatchable_profile_from_metadata(
+            {"target_profile": "agency-qa-tester"}
+        )
+        == "agency-qa-tester"
+    )
+    assert (
+        sync_mod.KanbanSyncMixin._dispatchable_profile_from_metadata(
+            {"target_profile": peer_id, "target_agent": "agency-backend-engineer"}
+        )
+        == "agency-backend-engineer"
+    )
+    assert sync_mod.KanbanSyncMixin._dispatchable_profile_from_metadata({"receiver": peer_id}) is None
+
+
+def test_kanban_default_board_uses_canonical_db_and_named_boards_are_explicit(
+    plugin_modules, monkeypatch, tmp_path
+):
+    kb_mod = plugin_modules.kanban_bridge
+    hermes_home = tmp_path / "hermes-home"
+    canonical_db = tmp_path / "canonical-kanban.db"
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(canonical_db))
+
+    default_result = kb_mod.create_task("Canonical task", metadata={"tenant": "default"})
+    qa_result = kb_mod.create_task(
+        "QA board task",
+        assigned_to="agency-qa-tester",
+        metadata={"board": "qa", "tenant": "default"},
+    )
+
+    assert default_result["ok"] is True
+    assert qa_result["ok"] is True
+    assert "board" not in default_result
+    assert qa_result["board"] == "agency-qa"
+    assert canonical_db.exists()
+
+    default_get = kb_mod.get_task(default_result["task_id"])
+    explicit_board_get = kb_mod.get_task(qa_result["task_id"], board="agency-qa")
+    implicit_alt_get = kb_mod.get_task(qa_result["task_id"])
+
+    assert default_get["ok"] is True
+    assert default_get["board"] == "default"
+    assert default_get["kanban_db_path"] == str(canonical_db)
+    assert explicit_board_get["ok"] is True
+    assert explicit_board_get["board"] == "agency-qa"
+    assert explicit_board_get["kanban_db_path"].endswith("kanban/boards/agency-qa/kanban.db")
+    assert implicit_alt_get["ok"] is False
+
+
+def test_kanban_leadership_is_not_fallback_assignee_for_executable_work(plugin_modules):
+    kb_mod = plugin_modules.kanban_bridge
+    leadership_profiles = {
+        "agency-orchestrator",
+        "agency-chief-of-staff",
+        "agency-technical-lead",
+        "agency-scrum-master",
+        "agency-traffic-manager",
+    }
+
+    assert kb_mod._agent_for_department_board(None, {}) is None
+    assert kb_mod._department_board_from_metadata({}) is None
+    assert kb_mod._department_board_from_metadata({"board": "leadership"}) == (
+        "agency-leadership",
+        "Agency Leadership",
+    )
+    assert all(
+        kb_mod._agent_for_department_board(None, {"target_profile": profile}) == profile
+        for profile in leadership_profiles
+    )
+
+
+def test_kanban_list_status_cards_name_resolvable_boards(plugin_modules, monkeypatch, tmp_path):
+    kb_mod = plugin_modules.kanban_bridge
+    hermes_home = tmp_path / "hermes-home"
+    canonical_db = tmp_path / "canonical-kanban.db"
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(canonical_db))
+
+    default_result = kb_mod.create_task("Default status card", metadata={"tenant": "default"})
+    qa_result = kb_mod.create_task(
+        "QA status card",
+        assigned_to="agency-qa-tester",
+        metadata={"board": "qa", "tenant": "default"},
+    )
+
+    assert default_result["ok"] is True
+    assert qa_result["ok"] is True
+
+    listed = kb_mod.list_tasks({"board": "all", "include_archived": True, "tenant": "*"})
+
+    assert listed["ok"] is True
+    listed_by_id = {task["id"]: task for task in listed["tasks"]}
+    assert default_result["task_id"] in listed_by_id
+    assert qa_result["task_id"] in listed_by_id
+    for task_id in (default_result["task_id"], qa_result["task_id"]):
+        board = listed_by_id[task_id].get("board")
+        assert board
+        if board == "default":
+            assert canonical_db.exists()
+        else:
+            assert (hermes_home / "kanban" / "boards" / board / "kanban.db").exists()

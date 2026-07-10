@@ -31,8 +31,9 @@ Config:
 agency:
   transport_backend: keryx
   keryx:
-    daemon_endpoint: 127.0.0.1:50051
-    registry_endpoint: 127.0.0.1:51053   # dual-run default
+    daemon_endpoint: <daemon-endpoint>
+    registry_endpoint: <registry-address>
+    relay_endpoint: <relay-endpoint>
     relay_config: {}
 ```
 

@@ -438,6 +438,7 @@ class KeryxNode:
         targets = sum(item is not None for item in (peer_id, skill, url))
         if targets != 1:
             raise ValueError("Exactly one of peer_id, skill, or url must be provided")
+        resolved_skill = skill
         if skill is not None:
             discovered = await self.discover(skill, limit=1)
             if not discovered:
@@ -448,12 +449,22 @@ class KeryxNode:
         assert peer_id is not None
         text = _message_text(message)
         task_id = str(uuid.uuid4())
-        response = await self._client.send_task(
-            target_peer_id=peer_id,
-            task_id=task_id,
-            message_text=text,
-            metadata=metadata,
-        )
+        try:
+            response = await self._client.send_task(
+                target_peer_id=peer_id,
+                task_id=task_id,
+                message_text=text,
+                metadata=metadata,
+            )
+        except Exception as exc:
+            if resolved_skill is not None and _is_unknown_peer_error(exc):
+                raise NotImplementedError(
+                    "Keryx discovered a peer for skill "
+                    f"{resolved_skill!r} ({peer_id}), but the local daemon cannot route "
+                    "tasks to registry-discovered peers yet. Cross-node Keryx task "
+                    "delivery requires a relay-backed daemon route / task publisher."
+                ) from exc
+            raise
         task = Task(task_id=response.task_id.value or task_id, status=LegacyTaskStatus.SUBMITTED)
         return TaskHandle(task=task)
 
@@ -586,6 +597,23 @@ def _tag_list(tags: Sequence[str] | Mapping[str, str] | None) -> list[str]:
         return [str(value) for value in tags.values()]
     return [str(value) for value in tags]
 
+
+
+def _is_unknown_peer_error(exc: BaseException) -> bool:
+    """Return True for Keryx daemon NOT_FOUND unknown-peer routing errors."""
+
+    code = getattr(exc, "code", None)
+    details = getattr(exc, "details", None)
+    try:
+        status_code = code() if callable(code) else code
+    except Exception:
+        status_code = None
+    try:
+        detail_text = details() if callable(details) else details
+    except Exception:
+        detail_text = None
+    text = " ".join(str(part) for part in (detail_text, exc) if part)
+    return status_code == grpc.StatusCode.NOT_FOUND and "unknown peer" in text.lower()
 
 def _message_text(message: dict[str, Any] | Message) -> str:
     if isinstance(message, dict):

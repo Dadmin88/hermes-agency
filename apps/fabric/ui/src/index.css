@@ -3,6 +3,38 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.fabric-particle-visualization .fabric-flow-particle {
+  fill: rgba(224, 242, 254, 0.92);
+  filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.92));
+  animation: fabric-particle-pulse var(--flow-duration, 5s) ease-in-out infinite;
+  animation-delay: var(--flow-delay, 0s);
+}
+
+.fabric-particle-visualization .fabric-topology-node {
+  filter: drop-shadow(0 0 12px var(--node-glow, rgba(45, 212, 191, 0.35)));
+}
+
+.fabric-particle-visualization .fabric-node-halo {
+  animation: fabric-node-halo 3.8s ease-in-out infinite;
+}
+
+@keyframes fabric-particle-pulse {
+  0%, 100% { opacity: 0.28; }
+  45% { opacity: 1; }
+}
+
+@keyframes fabric-node-halo {
+  0%, 100% { opacity: 0.42; transform: scale(0.92); }
+  50% { opacity: 0.72; transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fabric-particle-visualization .fabric-flow-particle,
+  .fabric-particle-visualization .fabric-node-halo {
+    animation: none;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

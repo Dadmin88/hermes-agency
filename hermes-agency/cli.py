@@ -433,9 +433,14 @@ def _models_show_text(name: str, *, json_output: bool = False, strict: bool = Fa
 
 
 def _models_validate_text(
-    name: str, *, json_output: bool = False, strict: bool = False
+    name: str,
+    *,
+    json_output: bool = False,
+    strict: bool = False,
+    health: bool = False,
 ) -> tuple[str, int]:
     from .model_sets import load_model_set, resolve_roster, validate_model_set
+    from .profile_config_writer import audit_model_set_configs
 
     model_set = load_model_set(name)
     result = validate_model_set(model_set, strict=strict)
@@ -445,22 +450,56 @@ def _models_validate_text(
             roster = [item.__dict__ for item in resolve_roster(model_set)]
         except Exception as exc:
             result.error(f"Default staff roster resolution failed: {type(exc).__name__}: {exc}")
+    audit = audit_model_set_configs(model_set).as_dict() if health and result.ok else None
+    ok = result.ok and (audit is None or bool(audit.get("ok")))
     payload = {
+        "ok": ok,
         "model_set": model_set.name,
         "validation": result.as_dict(),
         "profiles_checked": len(roster),
     }
+    if audit is not None:
+        payload["config_audit"] = audit
+        payload["provider_health"] = {
+            "ok": True,
+            "category": "not_probed",
+            "message": "No provider failure observed during static health validation",
+        }
     if json_output:
-        return _json(payload), 0 if result.ok else 2
+        return _json(payload), 0 if ok else 2
     lines = [
-        f"Model set {model_set.name}: {'ok' if result.ok else 'failed'}",
+        f"Model set {model_set.name}: {'ok' if ok else 'failed'}",
         f"Profiles checked: {len(roster)}",
     ]
+    if health and audit is not None:
+        summary = audit["summary"]
+        lines.append(
+            "Config health: "
+            f"missing={summary['missing']} drift={summary['drift']} "
+            f"unchanged={summary['unchanged']}"
+        )
+        if audit["missing_configs"]:
+            lines.append("Missing profile config.yaml files:")
+            for item in audit["missing_configs"]:
+                lines.append(f"  - {item['profile']}: {item['config_path']}")
+        if audit["drifted_configs"]:
+            lines.append("Drifted profile model configs:")
+            for item in audit["drifted_configs"]:
+                lines.append(
+                    "  - "
+                    f"{item['profile']}: {item.get('current') or '-'} -> {item.get('target')} "
+                    f"({item.get('message')})"
+                )
     if result.warnings:
         lines.extend(["Warnings:"] + [f"  - {item}" for item in result.warnings])
     if result.errors:
         lines.extend(["Errors:"] + [f"  - {item}" for item in result.errors])
-    return "\n".join(lines), 0 if result.ok else 2
+    if health and not ok:
+        lines.append(
+            "Infrastructure blocker: repair Agency profile model configs before dispatching "
+            "Kanban workers. Do not reroute cards to alternate specialists."
+        )
+    return "\n".join(lines), 0 if ok else 2
 
 
 def _models_resolve_text(profile: str, set_name: str = "", *, json_output: bool = False) -> str:
@@ -616,7 +655,10 @@ def handle_agency_slash(raw_args: str = "") -> str:
             )
         if sub == "validate":
             text, _code = _models_validate_text(
-                parts[2] if len(parts) > 2 else "", json_output=json_output, strict=strict
+                parts[2] if len(parts) > 2 else "",
+                json_output=json_output,
+                strict=strict,
+                health="--health" in parts,
             )
             return text
         if sub == "resolve":
@@ -823,6 +865,11 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     models_validate.add_argument(
         "--strict", action="store_true", help="Treat unknown models as errors"
     )
+    models_validate.add_argument(
+        "--health",
+        action="store_true",
+        help="Also fail on installed/roster agency profile config drift or missing configs",
+    )
     models_validate.set_defaults(func=cmd_agency, agency_command="models")
 
     models_resolve = models_sub.add_parser("resolve", help="Resolve one profile's target model")
@@ -933,6 +980,7 @@ def cmd_agency(args: Namespace) -> None:
                 getattr(args, "name", ""),
                 json_output=getattr(args, "json", False),
                 strict=getattr(args, "strict", False),
+                health=getattr(args, "health", False),
             )
             print(text)
             if code:

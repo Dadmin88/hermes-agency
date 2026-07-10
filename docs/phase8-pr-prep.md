@@ -2,6 +2,10 @@
 
 > Status: testing only. Do **not** open PRs from this work without explicit maintainer approval.
 
+> Historical note: this file records pre-Keryx PR-prep work. Current Hermes
+> Agency docs should describe Keryx as the primary transport, the Keryx Python
+> SDK as vendored under `src/keryx/`, and AgentAnycast as legacy/fallback only.
+
 ## Phase 8 goal
 
 Prepare the Hermes Agency Hermes plugin for eventual upstream review by tightening docs, tests, dependency gating, license notes, and validation evidence.
@@ -14,9 +18,9 @@ The safest eventual shape is an optional Hermes plugin, not a core tool addition
 
 - Plugin directory: `plugins/hermes-agency/` or equivalent bundled-plugin surface.
 - Toolset: `agency`, gated by plugin enablement and SDK availability.
-- SDK dependency: optional, not part of Hermes core install.
-- Daemon/relay: external runtime components, not vendored into Hermes.
-- Runtime config: `config.yaml`, not new user-facing `.env` knobs except where the current Hermes Agency daemon requires `AGENTANYCAST_REGISTRY_ADDRS`.
+- SDK dependency: supplied by the vendored Keryx Python SDK under `src/keryx/` for this repository/package; still optional at Hermes plugin load time.
+- Daemon/relay: external Keryx runtime components, not vendored into Hermes.
+- Runtime config: `config.yaml` under `agency.keryx.*`; `HERMES_KERYX_*` / `KERYX_*` are runtime aliases, while `AGENTANYCAST_*` remains legacy fallback only.
 
 ## Required docs/AGENTS content
 
@@ -26,8 +30,8 @@ Covered by `hermes-agency/README.md` and `hermes-agency/AGENTS.md`:
 - full config surface
 - tool list including core `a2a_*`, autonomous helpers, and orchestrator-only `orch_*`
 - security model for remote tasks
-- relay vs registry distinction
-- daemon binary override / SDK auto-download risk
+- Keryx relay/registry/daemon endpoint distinction
+- vendored Python SDK vs external daemon/relay binaries
 - validation commands
 - local artifact hygiene
 - explicit warning not to open PRs while still testing
@@ -157,7 +161,7 @@ Manual/live validation also exercised local and cross-network A2A task completio
 
 ## Notes for reviewers
 
-- Relay/bootstrap and skill registry are separate: `agency.relay` handles libp2p, while `AGENTANYCAST_REGISTRY_ADDRS` is currently required for anycast skill discovery.
+- Keryx relay, registry, and daemon endpoints are configured under `agency.keryx.*` or `HERMES_KERYX_*` / `KERYX_*`; legacy `agency.relay` and `AGENTANYCAST_REGISTRY_ADDRS` are rollback-only settings.
 - The daemon's task lifecycle requires `SUBMITTED -> WORKING -> COMPLETED`.
 - The artifact propagation regression is covered by integration/manual validation and should become an isolated CI test before merge.
 ```

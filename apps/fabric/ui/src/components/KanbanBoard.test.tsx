@@ -217,6 +217,31 @@ describe("KanbanBoard", () => {
     expect(container.textContent).toContain("Live");
   });
 
+  it("renders Hermes Agency Kanban metadata badges on projected task cards", () => {
+    const parent = createIssue(1, "in_progress");
+    parent.originKind = "hermes_kanban_task";
+    parent.originId = "t_parent";
+    parent.description = [
+      "Hermes Kanban task: t_parent",
+      "Status: running",
+      "Priority: 125",
+      "Assignee: agency-frontend-engineer",
+      "Last heartbeat: 2026-05-05T00:00:00.000Z",
+    ].join("\n");
+    const child = createIssue(2, "todo");
+    child.parentId = parent.id;
+
+    const { container } = renderBoard({
+      issues: [parent, child],
+      compactCards: true,
+    });
+
+    expect(container.textContent).toContain("t_parent");
+    expect(container.textContent).toContain("agency-frontend-engineer");
+    expect(container.textContent).toContain("running");
+    expect(container.textContent).toContain("1 child");
+  });
+
   it("resolves drop targets from status rails and cards", () => {
     const issues = [
       createIssue(1, "todo"),

@@ -152,6 +152,12 @@ export function CompanySettingsSidebar() {
             end
           />
           <SidebarNavItem
+            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/hermes-agency`}
+            label="Hermes Agency"
+            icon={Settings}
+            end
+          />
+          <SidebarNavItem
             to={`${INSTANCE_SETTINGS_PATH_PREFIX}/environments`}
             label="Environments"
             icon={MonitorCog}

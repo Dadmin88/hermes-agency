@@ -1,0 +1,338 @@
+version: 1
+name: openai-codex
+description: >
+  Single-provider Agency model set. Routes every profile through OpenAI Codex
+  with GPT-5.6 Sol / Terra / GPT-5.5 matched to task complexity.
+
+defaults:
+  family: general_worker
+
+families:
+  # ── Tier 1: GPT-5.6 Sol — heavy/complex engineering, no higher escalation ──
+  coding_worker:
+    provider: openai-codex
+    model: gpt-5.6-sol
+    reason: >
+      Heavy-duty and complex coding work (backend, fullstack, infra, platform,
+      DevOps, data engineering, automation, integration). Sol has code + reasoning
+      and is the strongest available model — no escalation needed.
+
+  # ── Tier 2: GPT-5.6 Terra — general work, orchestration, analysis ──
+  general_worker:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    reason: >
+      General non-coding work: community, support, marketing, operations,
+      knowledge management. Terra is the balanced workhorse.
+
+  orchestration:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    reason: >
+      Orchestrator handles routing, synthesis, decomposition, and recovery.
+      Terra provides the reasoning depth needed for coordination. Escalates
+      to Sol for security-critical or architecture-level decisions.
+
+  analysis_worker:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    reason: >
+      Research, product strategy, business analysis, market research, finance,
+      requirements analysis. Terra has the reasoning and code capability for
+      data-heavy analysis.
+
+  creative_worker:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    reason: >
+      Creative and content work: copywriting, docs, worldbuilding, art direction,
+      game design, lore, scripts. Terra handles long-form generation well.
+
+  senior_review:
+    provider: openai-codex
+    model: gpt-5.6-sol
+    reason: >
+      Senior/sensitive reviews: architecture, security, compliance, legal, release
+      gates, systems design. These are high-stakes decisions — use the strongest
+      model. Escalation target for lower tiers.
+
+  # ── Tier 3: GPT-5.5 — lightweight coding, normal reviews, routine ops ──
+  coding_light:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: >
+      Lightweight coding tasks: minor fixes, formatting, simple scripts, boilerplate.
+      GPT-5.5 is cost-effective for straightforward work. Escalates to Terra for
+      complex logic, Sol for architecture-sensitive code.
+
+  review_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: >
+      Normal code reviews, QA checks, accessibility reviews, git steward tasks.
+      GPT-5.5 handles standard review patterns. Escalates to Terra when uncertain,
+      Sol for security/architecture concerns.
+
+  lightweight_worker:
+    provider: openai-codex
+    model: gpt-5.5
+    reason: >
+      Routine support, operations, coordination, email, onboarding. GPT-5.5 is
+      sufficient for standard operational tasks.
+
+# ── Profile → Family mapping ──
+profiles:
+  # Leadership & orchestration → Terra
+  agency-orchestrator: orchestration
+  agency-ceo: orchestration
+  agency-chief-of-staff: orchestration
+  agency-technical-lead: orchestration
+  agency-project-manager: orchestration
+  agency-traffic-manager: orchestration
+  agency-scrum-master: orchestration
+  agency-operations-manager: orchestration
+  agency-launch-manager: orchestration
+
+  # Senior review & architecture → Sol
+  agency-software-architect: senior_review
+  agency-systems-architect: senior_review
+  agency-security-reviewer: senior_review
+  agency-security-engineer: senior_review
+  agency-compliance-reviewer: senior_review
+  agency-legal-ops: senior_review
+  agency-release-manager: senior_review
+  agency-red-team: senior_review
+
+  # Normal review → GPT-5.5
+  agency-code-reviewer: review_worker
+  agency-qa-lead: review_worker
+  agency-qa-tester: review_worker
+  agency-design-reviewer: review_worker
+  agency-accessibility-reviewer: review_worker
+  agency-git-steward: review_worker
+
+  # Heavy engineering → Sol
+  agency-backend-engineer: coding_worker
+  agency-frontend-engineer: coding_worker
+  agency-fullstack-engineer: coding_worker
+  agency-godot-engineer: coding_worker
+  agency-tools-engineer: coding_worker
+  agency-automation-engineer: coding_worker
+  agency-devops-engineer: coding_worker
+  agency-infrastructure-engineer: coding_worker
+  agency-platform-engineer: coding_worker
+  agency-integration-engineer: coding_worker
+  agency-data-engineer: coding_worker
+  agency-database-engineer: coding_worker
+  agency-performance-engineer: coding_worker
+  agency-ai-engineer: coding_worker
+  agency-gpt-bridge: coding_worker
+
+  # Lightweight coding → GPT-5.5
+  agency-ai: coding_light
+  agency-automation: coding_light
+  agency-backend: coding_light
+  agency-data: coding_light
+  agency-database: coding_light
+  agency-devops: coding_light
+  agency-frontend: coding_light
+  agency-fullstack: coding_light
+  agency-godot: coding_light
+  agency-infrastructure: coding_light
+  agency-integration: coding_light
+  agency-performance: coding_light
+  agency-platform: coding_light
+  agency-tools: coding_light
+
+  # Creative → Terra
+  agency-copywriter: creative_worker
+  agency-content-writer: creative_worker
+  agency-docs-writer: creative_worker
+  agency-technical-writer: creative_worker
+  agency-dialogue-writer: creative_worker
+  agency-lore-writer: creative_worker
+  agency-scriptwriter: creative_worker
+  agency-worldbuilder: creative_worker
+  agency-editor-in-chief: creative_worker
+  agency-art-director: creative_worker
+  agency-asset-artist: creative_worker
+  agency-audio-designer: creative_worker
+  agency-brand-designer: creative_worker
+  agency-creative-director: creative_worker
+  agency-design-systems-designer: creative_worker
+  agency-environment-artist: creative_worker
+  agency-game-designer: creative_worker
+  agency-level-designer: creative_worker
+  agency-motion-designer: creative_worker
+  agency-product-designer: creative_worker
+  agency-ui-ux-designer: creative_worker
+  agency-technical-artist: creative_worker
+
+  # Analysis → Terra
+  agency-product-manager: analysis_worker
+  agency-product-strategist: analysis_worker
+  agency-business-analyst: analysis_worker
+  agency-requirements-analyst: analysis_worker
+  agency-market-researcher: analysis_worker
+  agency-user-researcher: analysis_worker
+  agency-analytics-specialist: analysis_worker
+  agency-competitive-analyst: analysis_worker
+  agency-finance-ops: analysis_worker
+  agency-monetization-strategist: analysis_worker
+  agency-procurement-specialist: analysis_worker
+  agency-seo-specialist: analysis_worker
+
+  # General / ops → Terra
+  agency-community-manager: general_worker
+  agency-customer-success: general_worker
+  agency-email-marketer: general_worker
+  agency-growth-marketer: general_worker
+  agency-knowledge-manager: general_worker
+  agency-marketing-strategist: general_worker
+  agency-onboarding-specialist: general_worker
+  agency-partnerships-manager: general_worker
+  agency-public-relations: general_worker
+  agency-social-media-manager: general_worker
+  agency-support-specialist: general_worker
+  agency-training-specialist: general_worker
+
+# ── Escalation policy ──
+escalation:
+  default_family: senior_review
+  triggers:
+    - security
+    - legal
+    - release
+    - destructive_change
+    - architecture
+    - ambiguous_requirements
+    - uncertain
+    - inconclusive
+    - orchestration
+
+task_routing:
+  enabled: true
+  mode: conservative
+
+  default:
+    provider: openai-codex
+    model: gpt-5.5
+    tier: baseline
+
+  health:
+    preflight: config
+    cache_ttl_seconds: 300
+    block_if_safe_default_unhealthy: true
+
+  classifier:
+    downgrade_min_confidence: 0.85
+    uncertain_goes_to_default: true
+    long_context_parent_threshold: 3
+    long_context_body_chars: 12000
+    repeated_failure_threshold: 1
+
+  tiers:
+    baseline:
+      provider: openai-codex
+      model: gpt-5.5
+      reason: Default baseline — GPT-5.5 for routine tasks.
+
+    terra:
+      provider: openai-codex
+      model: gpt-5.6-terra
+      reason: >
+        General work, orchestration, analysis, creative. Escalation target
+        from baseline for complex non-code tasks.
+
+    sol:
+      provider: openai-codex
+      model: gpt-5.6-sol
+      reason: >
+        Heavy engineering and senior review. Top tier — no further escalation.
+        Also the escalation target from Terra for security/architecture decisions.
+
+    luna:
+      provider: openai-codex
+      model: gpt-5.6-luna
+      reason: >
+        Reasoning-focused tier (no code capability). Use for text-only analysis,
+        writing review, or reasoning-heavy non-code escalation from baseline.
+
+  escalation:
+    force_tier: sol
+    tags:
+      - security
+      - privacy
+      - compliance
+      - legal
+      - architecture
+      - api_design
+      - system_design
+      - release
+      - deployment
+      - destructive_change
+      - code_review
+      - qa_signoff
+      - ambiguous_requirements
+      - long_context
+      - repeated_failure
+      - orchestration
+      - uncertain
+      - inconclusive
+    assignees:
+      - agency-orchestrator
+      - agency-software-architect
+      - agency-systems-architect
+      - agency-security-reviewer
+      - agency-code-reviewer
+      - agency-release-manager
+    keyword_rules:
+      security_keyword:
+        any: [security, secret, credential, auth, privacy]
+        tags: [security]
+      architecture_keyword:
+        any: [architecture, design, boundary, api design, system design]
+        tags: [architecture]
+      release_keyword:
+        any: [release, deploy, production, rollback, migration]
+        tags: [release]
+      review_uncertain_keyword:
+        any: [uncertain, inconclusive, cannot determine, ambiguous]
+        tags: [uncertain]
+      orchestration_keyword:
+        any: [orchestrate, decompose, fan out, route work]
+        tags: [orchestration]
+
+  downgrade_rules:
+    docs_typo:
+      tier: baseline
+      confidence: 0.9
+      all:
+        file_globs: ["docs/**/*.md", "*.md"]
+        keywords_any: [typo, spelling, grammar, formatting]
+      deny_tags: [security, release, architecture, code_review]
+    readonly_summary:
+      tier: baseline
+      confidence: 0.88
+      all:
+        tool_access: read_only
+        keywords_any: [summarize, extract, list, inspect]
+      max_body_chars: 6000
+      deny_tags: [security, legal, release, code_review]
+
+budget:
+  max_input_cost_per_1m: null
+  max_output_cost_per_1m: null
+  warn_if_unknown_pricing: false
+
+metadata:
+  source: packaged
+  provider_policy: openai-codex-only
+  last_reviewed: "2026-07-10"
+  rollout: gpt-5.6-sol-terra-gpt55
+  notes:
+    - Single provider: all families use openai-codex.
+    - Sol for heavy engineering + senior review (no higher escalation).
+    - Terra for general work, orchestration, analysis, creative (escalates to Sol).
+    - GPT-5.5 for lightweight coding, normal reviews, routine ops (escalates to Terra/Sol).
+    - Luna available as reasoning-only escalation tier for non-code tasks.

@@ -212,6 +212,13 @@ describe("CompanySettingsSidebar", () => {
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        to: "/company/settings/instance/hermes-agency",
+        label: "Hermes Agency",
+        end: true,
+      }),
+    );
+    expect(sidebarNavItemMock).toHaveBeenCalledWith(
+      expect.objectContaining({
         to: "/company/settings/instance/plugins",
         label: "Plugins",
       }),
