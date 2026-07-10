@@ -116,6 +116,44 @@ _WARNED_EMPTY_ALLOWLIST_MIGRATION = False
 _WORKSPACE_DIR_MODE = 0o700
 
 
+_SECRET_KEY_PARTS = (
+    "api_key",
+    "apikey",
+    "authorization",
+    "auth_token",
+    "bearer",
+    "client_secret",
+    "credential",
+    "password",
+    "private_key",
+    "secret",
+    "token",
+)
+_REDACTED = "<redacted>"
+
+
+def _is_secret_key(key: object) -> bool:
+    normalized = str(key).replace("-", "_").lower()
+    return any(part in normalized for part in _SECRET_KEY_PARTS)
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _redact_mapping(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_value(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def _redact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
+    return {
+        str(key): _REDACTED if _is_secret_key(key) else _redact_value(value)
+        for key, value in mapping.items()
+    }
+
+
 @dataclass(frozen=True)
 class RelaySecurityConfig:
     """Resolved relay-side security configuration."""
@@ -152,7 +190,7 @@ class KeryxTransportConfig:
             "daemon_endpoint": self.daemon_endpoint,
             "registry_endpoint": self.registry_endpoint,
             "relay_endpoint": self.relay_endpoint,
-            "relay_config": dict(self.relay_config),
+            "relay_config": _redact_mapping(self.relay_config),
             "worker_id": self.worker_id,
             "default_lease_duration_ms": self.default_lease_duration_ms,
             "request_timeout_ms": self.request_timeout_ms,

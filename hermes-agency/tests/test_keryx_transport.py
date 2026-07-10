@@ -227,6 +227,36 @@ def test_config_loading_reads_keryx_transport(plugin_tools):
     assert cfg.team.auto_discover is False
 
 
+def test_keryx_config_as_dict_redacts_secret_relay_config_values(plugin_tools):
+    cfg_mod = plugin_tools["config"]
+    cfg = cfg_mod.KeryxTransportConfig(
+        relay_config={
+            "mode": "test",
+            "authorization": "Bearer SECRET_TOKEN_12345",
+            "api-key": "APIKEY-SECRET-67890",
+            "nested": {
+                "password": "NESTED-PASS",
+                "safe": "visible",
+                "items": [{"client_secret": "CLIENT-SECRET"}],
+            },
+        }
+    )
+
+    data = cfg.as_dict()
+
+    assert data["relay_config"] == {
+        "mode": "test",
+        "authorization": "<redacted>",
+        "api-key": "<redacted>",
+        "nested": {
+            "password": "<redacted>",
+            "safe": "visible",
+            "items": [{"client_secret": "<redacted>"}],
+        },
+    }
+    assert cfg.relay_config["authorization"] == "Bearer SECRET_TOKEN_12345"
+
+
 def test_config_loading_accepts_keryx_relay_registry_env(plugin_tools, monkeypatch):
     monkeypatch.delenv("HERMES_KERYX_REGISTRY_ENDPOINT", raising=False)
     monkeypatch.delenv("KERYX_REGISTRY_ENDPOINT", raising=False)
