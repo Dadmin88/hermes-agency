@@ -35,27 +35,42 @@ jobs:
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
-      - name: Verify zero inherited product references
+      - name: Scan for inherited product references
+        id: brand_scan
         shell: bash
         run: |
-          if git grep -Iin 'paperclip' -- . \
+          set +e
+          : > fabric-rebrand-scan.log
+          git grep -Iin 'paperclip' -- . \
             ':!apps/fabric/LICENSE' \
             ':!apps/fabric/NOTICE' \
             ':!scripts/apply_fabric_namespace_rebrand.py' \
             ':!scripts/accelerate_fabric_rebrand.py' \
-            ':!.github/workflows/fabric-rebrand-builder.yml'; then
-            echo 'Inherited product branding remains outside required legal attribution'
-            exit 1
+            ':!.github/workflows/fabric-rebrand-builder.yml' \
+            | tee -a fabric-rebrand-scan.log
+          content_status=${PIPESTATUS[0]}
+          find . -path './.git' -prune -o -iname '*paperclip*' -print \
+            | tee -a fabric-rebrand-scan.log
+          path_status=${PIPESTATUS[0]}
+          if [[ "$content_status" -eq 0 ]] || [[ -s fabric-rebrand-scan.log ]]; then
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=true" >> "$GITHUB_OUTPUT"
           fi
-          if find . -path './.git' -prune -o -iname '*paperclip*' -print | grep -q .; then
-            echo 'Inherited product-brand paths remain'
-            find . -path './.git' -prune -o -iname '*paperclip*' -print
-            exit 1
-          fi
+          exit 0
+      - name: Upload product-reference scan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabric-rebrand-scan
+          path: fabric-rebrand-scan.log
+          if-no-files-found: error
       - name: Install workspace dependencies
+        if: steps.brand_scan.outputs.clean == 'true'
         working-directory: apps/fabric
         run: pnpm install --frozen-lockfile
       - name: Verify Fabric workspace
+        if: steps.brand_scan.outputs.clean == 'true'
         id: verify
         working-directory: apps/fabric
         shell: bash
@@ -79,7 +94,7 @@ jobs:
           path: fabric-rebrand-build.log
           if-no-files-found: ignore
       - name: Commit verified rebrand
-        if: steps.verify.outputs.status == '0'
+        if: steps.brand_scan.outputs.clean == 'true' && steps.verify.outputs.status == '0'
         run: |
           if git diff --quiet; then
             echo 'No rebrand changes'
@@ -90,6 +105,11 @@ jobs:
           git add -A
           git commit -m 'refactor(fabric): remove inherited legacy namespace'
           git push origin HEAD:${{ github.head_ref }}
+      - name: Fail inherited product references
+        if: steps.brand_scan.outputs.clean != 'true'
+        run: |
+          echo 'Inherited product references remain; inspect the fabric-rebrand-scan artifact.'
+          exit 1
       - name: Fail unsuccessful verification
-        if: steps.verify.outputs.status != '0'
+        if: steps.brand_scan.outputs.clean == 'true' && steps.verify.outputs.status != '0'
         run: exit 1
