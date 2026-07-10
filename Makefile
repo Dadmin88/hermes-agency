@@ -10,7 +10,7 @@ test-sdk:
 	$(PYTEST) tests/ -m "not integration"
 
 test-agency:
-	$(PYTEST) hermes-agency/tests/test_unit.py hermes-agency/tests/test_model_sets.py hermes-agency/tests/test_extended_status_discord.py hermes-agency/tests/test_keryx_transport.py -q -m "not integration"
+	$(PYTEST) hermes-agency/tests/test_unit.py hermes-agency/tests/test_golden_path.py hermes-agency/tests/test_model_sets.py hermes-agency/tests/test_extended_status_discord.py hermes-agency/tests/test_keryx_transport.py -q -m "not integration"
 
 lint: lint-agency
 
