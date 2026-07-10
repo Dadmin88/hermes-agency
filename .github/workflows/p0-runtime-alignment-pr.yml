@@ -33,6 +33,38 @@ jobs:
       - name: Apply asserted runtime alignment
         run: python scripts/p0_runtime_alignment.py
 
+      - name: Align patched Hermes Agent references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              "hermes-agency/README.md": [
+                  ("`hermes-agent>=0.17.0`", "`hermes-agent>=0.18.0`"),
+                  (
+                      "When `transport_backend: keryx` is configured but the Keryx SDK is not importable, the plugin falls back to AgentAnycast compatibility when available.",
+                      "When `transport_backend: keryx` is configured but the Keryx SDK is not importable, Agency reports the selected transport as unavailable rather than silently switching backends.",
+                  ),
+              ],
+              "apps/fabric/docker/hermes-gateway-smoke/Dockerfile": [
+                  ("ARG HERMES_VERSION=0.17.0", "ARG HERMES_VERSION=0.18.0"),
+              ],
+              "apps/fabric/scripts/smoke/hermes-gateway-e2e.sh": [
+                  ('HERMES_VERSION="${HERMES_VERSION:-0.17.0}"', 'HERMES_VERSION="${HERMES_VERSION:-0.18.0}"'),
+              ],
+          }
+
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding="utf-8")
+              for old, new in pairs:
+                  if old in text:
+                      text = text.replace(old, new)
+                  elif new not in text:
+                      raise SystemExit(f"{filename}: expected text not found: {old}")
+              path.write_text(text, encoding="utf-8")
+          PY
+
       - name: Normalize Python formatting
         run: |
           ruff check hermes-agency --fix
@@ -59,6 +91,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add hermes-agency docs/audits
-          git commit -m "chore(audit): capture P0 verification output"
+          git add hermes-agency apps/fabric/docker apps/fabric/scripts docs/audits
+          git commit -m "fix(deps): align Hermes Agent 0.18.0 references"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
