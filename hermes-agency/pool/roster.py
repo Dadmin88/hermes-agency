@@ -45,6 +45,7 @@ def _transport_backend() -> str:
         return "agentanycast"
     return "keryx"
 
+
 def _keryx_config_kwargs() -> dict[str, str | None]:
     try:
         from ..config import get_config

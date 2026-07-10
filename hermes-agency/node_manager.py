@@ -167,9 +167,7 @@ def _normalize_transport_backend(value: Any) -> str:
     backend = str(value or "keryx").strip().lower()
     backend = _TRANSPORT_BACKEND_ALIASES.get(backend, backend)
     if backend not in {"agentanycast", "keryx"}:
-        logger.warning(
-            "Unsupported agency.transport_backend=%r; falling back to keryx", value
-        )
+        logger.warning("Unsupported agency.transport_backend=%r; falling back to keryx", value)
         return "keryx"
     return backend
 
@@ -183,6 +181,7 @@ def _transport_backend_for_config(cfg: AgencyConfig | None = None) -> str:
     except Exception:
         logger.debug("Failed to load Agency transport backend from config", exc_info=True)
         return "keryx"
+
 
 def _configure_keryx_environment(cfg: AgencyConfig) -> None:
     """Expose Agency Keryx config through the env vars expected by the SDK."""
@@ -245,6 +244,7 @@ def _resolve_transport_node_class(cfg: AgencyConfig) -> tuple[type[Any], str]:
         raise RuntimeError("AgentAnycast transport requested but SDK unavailable") from exc
     return Node, "agentanycast"
 
+
 def _resolve_daemon_bin() -> Any | None:
     """Return an explicit legacy AgentAnycast daemon override when configured."""
 
@@ -252,6 +252,7 @@ def _resolve_daemon_bin() -> Any | None:
     if cfg.daemon_bin and cfg.daemon_bin.exists():
         return cfg.daemon_bin
     return None
+
 
 @dataclass
 class NodeState:
@@ -491,9 +492,7 @@ class NodeManager(
                 registration_result = await self._register_skills_with_registries(card)
                 self._handle_registry_registration_result(
                     registration_result,
-                    retry_in_seconds=float(
-                        self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS
-                    ),
+                    retry_in_seconds=float(self._nm().REGISTRY_REREGISTER_INITIAL_BACKOFF_SECONDS),
                 )
                 self._nm().announce_registration(
                     self.state.card_name or self._nm().current_profile_name(),

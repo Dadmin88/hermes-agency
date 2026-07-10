@@ -742,6 +742,7 @@ def _transport_backend_config(config: dict[str, Any]) -> str:
         return "keryx"
     return backend
 
+
 def _clean_optional_str(value: Any) -> str | None:
     cleaned = str(value or "").strip()
     return cleaned or None

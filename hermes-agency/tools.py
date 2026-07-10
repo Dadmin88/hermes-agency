@@ -64,11 +64,10 @@ def get_transport_backend() -> str:
     }
     normalized = aliases.get(normalized, normalized)
     if normalized not in {"agentanycast", "keryx"}:
-        logger.warning(
-            "Unsupported agency.transport_backend=%r; falling back to keryx", backend
-        )
+        logger.warning("Unsupported agency.transport_backend=%r; falling back to keryx", backend)
         return "keryx"
     return normalized
+
 
 def _configure_keryx_environment() -> None:
     """Expose Hermes Agency Keryx config through Keryx SDK env vars."""
@@ -114,6 +113,7 @@ def check_agency_available() -> bool:
     if effective_backend == "keryx":
         return check_keryx_available()
     return importlib.util.find_spec("agentanycast") is not None
+
 
 def _compact_node() -> dict[str, Any]:
     """Return small node health for high-traffic tool responses."""

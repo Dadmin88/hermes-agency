@@ -86,6 +86,7 @@ def _transport_backend() -> str:
         return "agentanycast"
     return "keryx"
 
+
 def send_task_via_transport(
     *,
     message: str,
