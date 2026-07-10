@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "apps" / "fabric" / "ui" / "src"
+CLI = ROOT / "apps" / "fabric" / "cli" / "src"
 
 
 def replace(path: Path, old: str, new: str) -> None:
@@ -75,6 +76,16 @@ def repair_renamed_fixtures() -> None:
     replace(agents, 'container.querySelector(".w-56")', 'container.querySelector(".sm\\:w-56")')
 
 
+def repair_company_import_fixtures() -> None:
+    path = CLI / "__tests__" / "company-import-url.test.ts"
+    replace(path, 'normalizeGithubImportSource("hermes-fabric/companies/gstack")', 'normalizeGithubImportSource("DeployFaith/companies/gstack")')
+    replace(
+        path,
+        'normalizeGithubImportSource("hermes-fabric/companies/gstack", "feature/demo")',
+        'normalizeGithubImportSource("DeployFaith/companies/gstack", "feature/demo")',
+    )
+
+
 def repair_legacy_catalog_aliases() -> None:
     path = UI / "pages/CompanySkills.tsx"
     text = path.read_text(encoding="utf-8")
@@ -106,6 +117,7 @@ def repair_roster_tests() -> None:
 def main() -> None:
     repair_public_product_surfaces()
     repair_renamed_fixtures()
+    repair_company_import_fixtures()
     repair_legacy_catalog_aliases()
     repair_roster_tests()
     print("Finalized Hermes Fabric UI and rebrand-sensitive test contracts")
