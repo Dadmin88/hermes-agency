@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: DeployFaith/hermes-keryx
-          ref: 09857686101cc950087925b5869ce49469f626cd
+          ref: ada02506293630f824d01d1e9267088a05caf6f9
           path: .phase17-keryx
 
       - uses: actions/setup-python@v5
@@ -37,27 +37,23 @@ jobs:
         run: |
           python scripts/sync_keryx_sdk.py \
             --source .phase17-keryx/sdk/python/keryx \
-            --revision 09857686101cc950087925b5869ce49469f626cd
+            --revision ada02506293630f824d01d1e9267088a05caf6f9
           rm -rf .phase17-keryx
 
       - name: Install Agency development dependencies
         run: python -m pip install -e '.[dev]'
 
       - name: Verify synchronized transport
-        id: verify
         shell: bash
         run: |
-          set +e
           set -o pipefail
           {
             python -m compileall -q src/keryx hermes-agency
             python -m pytest hermes-agency/tests/test_keryx_transport.py -q
             make test-agency
             ruff check hermes-agency scripts/sync_keryx_sdk.py
+            ruff format --check scripts/sync_keryx_sdk.py
           } 2>&1 | tee agency-phase17-build.log
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
 
       - name: Upload verification diagnostics
         if: always()
@@ -68,7 +64,7 @@ jobs:
           if-no-files-found: error
 
       - name: Commit verified SDK synchronization
-        if: steps.verify.outputs.status == '0'
+        if: success()
         run: |
           if git diff --quiet; then
             echo 'No SDK synchronization changes'
@@ -77,9 +73,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/keryx scripts/sync_keryx_sdk.py
-          git commit -m 'feat(agency): synchronize the Phase 17 Keryx SDK'
+          git commit -m 'feat(agency): synchronize the authenticated Phase 17 Keryx SDK'
           git push origin HEAD:${{ github.head_ref }}
-
-      - name: Fail unsuccessful verification
-        if: steps.verify.outputs.status != '0'
-        run: exit 1
