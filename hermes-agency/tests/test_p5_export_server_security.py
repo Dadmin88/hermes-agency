@@ -5,10 +5,14 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _EXPORTERS = [
-    _REPO_ROOT / "hermes-agency/default_staff/profiles/agency-asset-artist/skills/creative/p5js/scripts/export-frames.js",
-    _REPO_ROOT / "hermes-agency/default_staff/profiles/agency-environment-artist/skills/creative/p5js/scripts/export-frames.js",
-    _REPO_ROOT / "hermes-agency/default_staff/profiles/agency-motion-designer/skills/creative/p5js/scripts/export-frames.js",
-    _REPO_ROOT / "hermes-agency/default_staff/profiles/agency-technical-artist/skills/creative/p5js/scripts/export-frames.js",
+    _REPO_ROOT
+    / "hermes-agency/default_staff/profiles/agency-asset-artist/skills/creative/p5js/scripts/export-frames.js",
+    _REPO_ROOT
+    / "hermes-agency/default_staff/profiles/agency-environment-artist/skills/creative/p5js/scripts/export-frames.js",
+    _REPO_ROOT
+    / "hermes-agency/default_staff/profiles/agency-motion-designer/skills/creative/p5js/scripts/export-frames.js",
+    _REPO_ROOT
+    / "hermes-agency/default_staff/profiles/agency-technical-artist/skills/creative/p5js/scripts/export-frames.js",
 ]
 
 

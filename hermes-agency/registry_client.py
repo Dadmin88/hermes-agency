@@ -187,7 +187,9 @@ class RegistryClientMixin:
                         else [],
                         "skill_count": len(getattr(card, "skills", []) or []),
                     }
-                accepted = bool(result.get("accepted")) if isinstance(result, dict) else bool(result)
+                accepted = (
+                    bool(result.get("accepted")) if isinstance(result, dict) else bool(result)
+                )
                 return {
                     "ok": accepted,
                     "skipped": False,
