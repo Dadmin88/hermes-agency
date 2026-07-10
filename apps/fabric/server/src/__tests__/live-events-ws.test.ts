@@ -105,6 +105,28 @@ describe("setupLiveEventsWebSocketServer", () => {
     expect(socket.destroyed).toBe(true);
   });
 
+  it("rejects encoded path separators before authorization", async () => {
+    const server = new EventEmitter();
+    const resolveSession = vi.fn(async () => null);
+    setupLiveEventsWebSocketServer(server as never, {} as never, {
+      deploymentMode: "authenticated",
+      resolveSessionFromHeaders: resolveSession,
+    });
+    const socket = new FakeUpgradeSocket();
+
+    server.emit(
+      "upgrade",
+      createUpgradeRequest({ url: "/api/companies/company%2F1/events/ws" }),
+      socket as unknown as Duplex,
+      Buffer.alloc(0),
+    );
+    await flushPromises();
+
+    expect(resolveSession).not.toHaveBeenCalled();
+    expect(socket.destroyed).toBe(true);
+    expect(socket.endedChunks).toEqual([]);
+  });
+
   it("destroys and cleans up listeners after flushing a rejection response", async () => {
     const server = new EventEmitter();
     setupLiveEventsWebSocketServer(server as never, {} as never, { deploymentMode: "authenticated" });
