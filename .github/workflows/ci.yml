@@ -99,7 +99,6 @@ jobs:
           # environment so the check fails on real advisories rather than
           # on local editable install mechanics.
           pip-audit --strict .
-          pip-audit --strict .
 
   test:
     name: Test (Python ${{ matrix.python-version }})
