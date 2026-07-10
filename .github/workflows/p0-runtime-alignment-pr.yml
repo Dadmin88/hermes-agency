@@ -21,8 +21,20 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install formatter
+        run: python -m pip install ruff
+
       - name: Apply asserted runtime alignment
         run: python scripts/p0_runtime_alignment.py
+
+      - name: Normalize Python formatting
+        run: |
+          ruff check hermes-agency --fix
+          ruff format hermes-agency
 
       - name: Verify syntax and patch hygiene
         run: |
@@ -32,11 +44,11 @@ jobs:
       - name: Commit runtime alignment
         run: |
           if git diff --quiet; then
-            echo "Runtime alignment is already applied."
+            echo "Runtime alignment is already applied and formatted."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add hermes-agency docs/audits
-          git commit -m "fix(agency): make Keryx the truthful runtime default"
+          git commit -m "style(agency): format Keryx runtime alignment"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
