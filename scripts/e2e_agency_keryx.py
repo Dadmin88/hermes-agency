@@ -6,6 +6,7 @@ execution path. The sender verifies the returned artifact while the receiver
 persists evidence that trust, incoming lifecycle, Kanban completion, and pending
 review reconciliation all ran.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -178,9 +179,7 @@ class AgencyReceiverFactory:
             def verify_sender(self, task: Any, _cfg: Any, *, purpose: str) -> Any:
                 sender = str(getattr(task, "peer_id", "") or "")
                 allowed = purpose == "task" and sender == SENDER_PEER
-                self.events.append(
-                    {"event": "trust", "sender_peer_id": sender, "allowed": allowed}
-                )
+                self.events.append({"event": "trust", "sender_peer_id": sender, "allowed": allowed})
                 return SimpleNamespace(
                     allowed=allowed,
                     sender_peer_id=sender,
@@ -192,9 +191,7 @@ class AgencyReceiverFactory:
                 return {"available": True, "task_id": KANBAN_TASK_ID}
 
             def update_kanban(self, task_id: str, **kwargs: Any) -> dict[str, Any]:
-                self.events.append(
-                    {"event": "kanban_update", "task_id": task_id, **kwargs}
-                )
+                self.events.append({"event": "kanban_update", "task_id": task_id, **kwargs})
                 return {"available": True, "task_id": task_id}
 
             def add_comment(self, task_id: str, comment: str) -> dict[str, Any]:
@@ -292,10 +289,7 @@ async def send_and_assert(sender_port: int, registry_port: int) -> None:
         if result.status is not TaskStatus.COMPLETED:
             raise AssertionError(f"Agency task ended as {result.status.value}")
         text = "\n".join(
-            part.text or ""
-            for artifact in result.artifacts
-            for part in artifact.parts
-            if part.text
+            part.text or "" for artifact in result.artifacts for part in artifact.parts if part.text
         )
         if "Hermes Agency safe stub" not in text:
             raise AssertionError(f"Agency result artifact was not returned: {text!r}")
@@ -348,19 +342,12 @@ def assert_receiver_evidence(path: Path) -> None:
         raise AssertionError(f"Agency incoming record was not completed: {record}")
     if record["sender_peer_id"] != SENDER_PEER:
         raise AssertionError(f"Agency trusted the wrong sender: {record}")
-    statuses = [
-        event.get("status")
-        for event in events
-        if event.get("event") == "kanban_update"
-    ]
+    statuses = [event.get("status") for event in events if event.get("event") == "kanban_update"]
     if "running" not in statuses or "done" not in statuses:
         raise AssertionError(f"Agency Kanban lifecycle incomplete: {statuses}")
     if not any(event.get("event") == "pending_review" for event in events):
         raise AssertionError("Agency did not mark the result pending review")
-    if not any(
-        event.get("event") == "trust" and event.get("allowed") is True
-        for event in events
-    ):
+    if not any(event.get("event") == "trust" and event.get("allowed") is True for event in events):
         raise AssertionError("Agency trust check did not approve the authenticated sender")
     print("PASS Agency trust and incoming record verified")
     print("PASS Agency Kanban running to done verified")
