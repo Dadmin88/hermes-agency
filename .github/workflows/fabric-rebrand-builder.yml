@@ -37,6 +37,116 @@ jobs:
           python scripts/fix_fabric_cli_alias.py
           python scripts/fix_fabric_final_contracts.py
           python scripts/fix_fabric_ui_contracts.py
+      - name: Finalize exact UI contracts after migration
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          ui = Path("apps/fabric/ui/src")
+
+          def replace(path: Path, old: str, new: str) -> None:
+              text = path.read_text(encoding="utf-8")
+              updated = text.replace(old, new)
+              if updated != text:
+                  path.write_text(updated, encoding="utf-8")
+
+          def write(path: Path, text: str) -> None:
+              path.write_text(text, encoding="utf-8")
+
+          # Public application/account surfaces use the Fabric product name.
+          public_files = (
+              "components/BootstrapPendingPage.tsx",
+              "components/SidebarAccountMenu.tsx",
+              "pages/CloudUpstream.tsx",
+              "pages/CompanyAccess.tsx",
+              "pages/InviteLanding.tsx",
+              "pages/Secrets.tsx",
+              "pages/secrets/ImportFromVaultDialog.tsx",
+          )
+          for relative in public_files:
+              path = ui / relative
+              text = path.read_text(encoding="utf-8")
+              text = text.replace("HermesFabric", "Hermes Fabric")
+              text = text.replace("Hermes Agency", "Hermes Fabric")
+              write(path, text)
+
+          cloud = ui / "pages/CloudUpstream.tsx"
+          text = cloud.read_text(encoding="utf-8")
+          text = re.sub(
+              r'aria-label="[^"]*Cloud stack URL"',
+              'aria-label="Hermes Fabric Cloud stack URL"',
+              text,
+          )
+          write(cloud, text)
+
+          import_dialog = ui / "pages/secrets/ImportFromVaultDialog.tsx"
+          text = import_dialog.read_text(encoding="utf-8")
+          text = text.replace("A Hermes Fabric secret already uses this name.", "A Fabric secret already uses this name.")
+          text = text.replace("A Hermes Fabric secret already uses this key.", "A Fabric secret already uses this key.")
+          write(import_dialog, text)
+
+          fixture_files = (
+              "components/MarkdownBody.test.tsx",
+              "components/MarkdownEditor.test.tsx",
+              "components/SearchableSelect.test.tsx",
+              "pages/CompanyAccess.test.tsx",
+              "pages/CloudUpstream.test.tsx",
+              "pages/InviteLanding.test.tsx",
+              "pages/Secrets.render.test.tsx",
+              "pages/secrets/ImportFromVaultDialog.test.tsx",
+              "lib/reusable-execution-workspaces.test.ts",
+          )
+          for relative in fixture_files:
+              path = ui / relative
+              text = path.read_text(encoding="utf-8")
+              text = text.replace("HermesFabric", "Hermes Fabric")
+              write(path, text)
+
+          # Mention tests must query the option they were passed, including task IDs.
+          editor = ui / "components/MarkdownEditor.test.tsx"
+          text = editor.read_text(encoding="utf-8")
+          root_anchor = "    const root = createRoot(container);\n"
+          query_line = "    const query = `@${matchText.slice(0, 3)}`;\n"
+          if query_line not in text:
+              if root_anchor not in text:
+                  raise RuntimeError("MarkdownEditor mention helper anchor missing")
+              text = text.replace(root_anchor, root_anchor + query_line, 1)
+          text = re.sub(r'value="@[^"]+"', "value={query}", text, count=1)
+          text = re.sub(
+              r'range\.setStart\(textNode!,\s*"@[^"]+"\.length\);',
+              "range.setStart(textNode!, query.length);",
+              text,
+              count=1,
+          )
+          write(editor, text)
+
+          # Select the responsive utility class literally instead of as a CSS pseudo-selector.
+          agents = ui / "pages/Agents.test.tsx"
+          text = agents.read_text(encoding="utf-8")
+          text = re.sub(
+              r'container\.querySelector\([^\n;]*w-56[^\n;]*\)',
+              'container.querySelector(\'[class~="sm:w-56"]\')',
+              text,
+              count=1,
+          )
+          write(agents, text)
+
+          cloud_test = ui / "pages/CloudUpstream.test.tsx"
+          text = cloud_test.read_text(encoding="utf-8")
+          text = re.sub(
+              r"input\[aria-label='[^']*Cloud stack URL'\]",
+              "input[aria-label='Hermes Fabric Cloud stack URL']",
+              text,
+              count=1,
+          )
+          write(cloud_test, text)
+
+          import_test = ui / "pages/secrets/ImportFromVaultDialog.test.tsx"
+          text = import_test.read_text(encoding="utf-8")
+          text = text.replace("a hermes fabric secret already uses this", "a fabric secret already uses this")
+          write(import_test, text)
+          PY
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
