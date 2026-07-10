@@ -15,7 +15,7 @@ jobs:
   rebrand-fabric:
     if: github.head_ref == 'feat/fabric-remove-paperclip-brand'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,7 +101,6 @@ jobs:
           text = text.replace("Hermes FabricSampleCount", "HermesFabricSampleCount")
           write(secrets_test, text)
 
-          # Mention tests query the actual option passed to their shared helper.
           editor = ui / "components/MarkdownEditor.test.tsx"
           text = editor.read_text(encoding="utf-8")
           query_line = "    const query = `@${matchText.slice(0, 3)}`;\n"
@@ -190,7 +189,7 @@ jobs:
       - name: Install workspace dependencies
         if: steps.brand_scan.outputs.clean == 'true'
         working-directory: apps/fabric
-        run: pnpm install --frozen-lockfile
+        run: timeout 15m pnpm install --frozen-lockfile --reporter=append-only
       - name: Verify Fabric workspace
         if: steps.brand_scan.outputs.clean == 'true'
         working-directory: apps/fabric
