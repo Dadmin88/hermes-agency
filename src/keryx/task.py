@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import enum
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -35,9 +35,9 @@ class Part:
     metadata: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Part:
-        if not isinstance(data, dict):
-            raise ValueError("Part.from_dict expected a dictionary")
+    def from_dict(cls, data: Mapping[str, Any]) -> Part:
+        if not isinstance(data, Mapping):
+            raise ValueError("Part.from_dict expected a mapping")
         text = data.get("text")
         if text is not None and not isinstance(text, str):
             raise ValueError("Part text must be a string")
@@ -45,8 +45,8 @@ class Part:
         if not isinstance(raw, bytes):
             raise ValueError("Part raw content must be bytes")
         metadata = data.get("metadata") or {}
-        if not isinstance(metadata, dict):
-            raise ValueError("Part metadata must be a dictionary")
+        if not isinstance(metadata, Mapping):
+            raise ValueError("Part metadata must be a mapping")
         return cls(
             text=text,
             raw=raw,
@@ -67,6 +67,23 @@ class Artifact:
     artifact_id: str = ""
     name: str = ""
     parts: list[Part] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> Artifact:
+        if not isinstance(data, Mapping):
+            raise ValueError("Artifact.from_dict expected a mapping")
+        raw_parts = data.get("parts") or []
+        if not isinstance(raw_parts, list | tuple):
+            raise ValueError("Artifact parts must be a list or tuple")
+        parts = [
+            item if isinstance(item, Part) else Part.from_dict(item)
+            for item in raw_parts
+        ]
+        return cls(
+            artifact_id=str(data.get("artifact_id") or ""),
+            name=str(data.get("name") or data.get("path") or ""),
+            parts=parts,
+        )
 
 
 @dataclass
@@ -147,7 +164,10 @@ class IncomingTask:
         self,
         task: Task,
         sender_card: Any | None,
-        update_fn: Callable[[str, TaskStatus, list[Artifact] | None, str | None], Coroutine[Any, Any, None]],
+        update_fn: Callable[
+            [str, TaskStatus, list[Artifact] | None, str | None],
+            Coroutine[Any, Any, None],
+        ],
         *,
         lease_id: str = "",
         worker_id: str = "",
@@ -216,13 +236,20 @@ class IncomingTask:
             return
         await self.fail(f"task marked {resolved.value}")
 
-    async def complete(self, artifacts: list[Artifact] | None = None) -> None:
+    async def complete(
+        self,
+        artifacts: list[Artifact | Mapping[str, Any]] | None = None,
+    ) -> None:
+        normalized = [
+            artifact if isinstance(artifact, Artifact) else Artifact.from_dict(artifact)
+            for artifact in artifacts or []
+        ]
         async with self._terminal_lock:
             if self._terminal.is_set():
                 return
-            await self._update_fn(self.task_id, TaskStatus.COMPLETED, artifacts, None)
+            await self._update_fn(self.task_id, TaskStatus.COMPLETED, normalized, None)
             self._task.status = TaskStatus.COMPLETED
-            self._task.artifacts = list(artifacts or [])
+            self._task.artifacts = normalized
             self._terminal.set()
 
     async def fail(self, error: str) -> None:
