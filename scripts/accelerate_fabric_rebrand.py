@@ -21,6 +21,14 @@ text = text.replace(
     '        if path.exists() and re.search("paperclip", relative, re.I):\n            path_hits.append(relative)',
 )
 text = text.replace(
+    '    if not path.exists() or not path.is_file() or not is_text(path):\n        return',
+    '    if not path.exists() or not path.is_file() or not is_text(path):\n        return\n    if path.name in {"LICENSE", "NOTICE"}:\n        return',
+)
+text = text.replace(
+    '        if path.exists() and path.is_file() and is_text(path):',
+    '        if path.exists() and path.is_file() and is_text(path) and path.name not in {"LICENSE", "NOTICE"}:',
+)
+text = text.replace(
     '        updated = polish_code_strings(replace_technical(original))',
     '        updated = replace_technical(original)\n        updated = updated.replace(\'"HermesFabric"\', \'"Hermes Fabric"\')\n        updated = updated.replace("\'HermesFabric\'", "\'Hermes Fabric\'")\n        updated = updated.replace("`HermesFabric`", "`Hermes Fabric`")\n        updated = updated.replace(">HermesFabric<", ">Hermes Fabric<")',
 )
