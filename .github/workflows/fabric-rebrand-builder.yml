@@ -97,15 +97,15 @@ jobs:
         shell: bash
         run: |
           set +e
-          set -o pipefail
           (
             pnpm run check:branding &&
             pnpm run preflight:workspace-links &&
             pnpm run typecheck &&
             pnpm run test:run &&
             pnpm run build
-          ) 2>&1 | tee ../../fabric-rebrand-build.log
-          status=${PIPESTATUS[0]}
+          ) > ../../fabric-rebrand-build.log 2>&1
+          status=$?
+          cat ../../fabric-rebrand-build.log
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
       - name: Upload verification diagnostics
