@@ -86,7 +86,9 @@ function parseCompanyId(pathname: string) {
   if (!match) return null;
 
   try {
-    return decodeURIComponent(match[1] ?? "");
+    const companyId = decodeURIComponent(match[1] ?? "");
+    if (!companyId || companyId.includes("/")) return null;
+    return companyId;
   } catch {
     return null;
   }
