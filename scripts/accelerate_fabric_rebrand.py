@@ -20,4 +20,8 @@ text = text.replace(
     '        if re.search("paperclip", relative, re.I):\n            path_hits.append(relative)',
     '        if path.exists() and re.search("paperclip", relative, re.I):\n            path_hits.append(relative)',
 )
+text = text.replace(
+    '        updated = polish_code_strings(replace_technical(original))',
+    '        technical = replace_technical(original)\n        updated = (\n            polish_code_strings(technical)\n            if path.suffix.lower() in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}\n            else technical\n        )',
+)
 path.write_text(text)
