@@ -21,12 +21,12 @@ Hermes Agency is the product layer. Keryx is the primary transport. AgentAnycast
 
 - Python 3.11+
 - Hermes Agent with user-plugin support
-- `hermes-agent>=0.17.0` through the package dependency
+- `hermes-agent>=0.18.0` through the package dependency
 - Keryx Python SDK (package/import name `keryx`, vendored at repo `src/keryx/`) available when starting nodes or sending tasks
 - Optional Keryx daemon, relay, and registry services for cross-network discovery
 - Legacy AgentAnycast package/bundle only when using `agency.transport_backend: agentanycast`
 
-The transport SDK is optional at plugin load time. If it is absent, plugin discovery must still succeed and Agency tools should report unavailable rather than crashing Hermes. When `transport_backend: keryx` is configured but the Keryx SDK is not importable, the plugin falls back to AgentAnycast compatibility when available.
+The transport SDK is optional at plugin load time. If it is absent, plugin discovery must still succeed and Agency tools should report unavailable rather than crashing Hermes. When `transport_backend: keryx` is selected but the Keryx SDK is not importable, Agency reports the selected transport as unavailable rather than silently switching backends.
 
 ## Install into a Hermes profile
 

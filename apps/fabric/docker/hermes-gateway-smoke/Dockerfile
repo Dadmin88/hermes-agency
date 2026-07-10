@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.6
-ARG HERMES_VERSION=0.17.0
+ARG HERMES_VERSION=0.18.0
 FROM node:22-bookworm-slim
 
 ARG HERMES_VERSION
