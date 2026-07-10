@@ -1,0 +1,65 @@
+name: Agency Phase 17 Live E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "hermes-agency/**"
+      - "src/keryx/**"
+      - "scripts/e2e_agency_keryx.py"
+      - ".github/workflows/agency-phase17-e2e.yml"
+  push:
+    branches: [main]
+    paths:
+      - "hermes-agency/**"
+      - "src/keryx/**"
+      - "scripts/e2e_agency_keryx.py"
+      - ".github/workflows/agency-phase17-e2e.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agency-phase17-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live-agency-round-trip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout merged Phase 17 Keryx
+        uses: actions/checkout@v4
+        with:
+          repository: DeployFaith/hermes-keryx
+          ref: 906823badac04fd9d159c4da927dda5c25d712dc
+          path: .phase17-keryx
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build committed Keryx runtime
+        working-directory: .phase17-keryx
+        run: cargo build --workspace --bins
+
+      - name: Install Hermes Agency
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run the live Agency round trip
+        run: |
+          python scripts/e2e_agency_keryx.py \
+            --keryx-root .phase17-keryx \
+            --work-dir .tmp/agency-phase17-e2e
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agency-phase17-live-failure
+          path: .tmp/agency-phase17-e2e
+          if-no-files-found: warn
