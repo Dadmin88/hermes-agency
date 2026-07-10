@@ -15,6 +15,7 @@ jobs:
   rebrand-fabric:
     if: github.head_ref == 'feat/fabric-remove-paperclip-brand'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,10 +29,11 @@ jobs:
           node-version: '22'
       - name: Enable pnpm
         run: corepack enable && corepack prepare pnpm@9.15.4 --activate
-      - name: Apply complete namespace migration
+      - name: Apply namespace migration and semantic repairs
         run: |
           python scripts/accelerate_fabric_rebrand.py
           python scripts/apply_fabric_namespace_rebrand.py
+          python scripts/fix_fabric_rebrand_semantics.py
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
@@ -46,12 +48,12 @@ jobs:
             ':!apps/fabric/NOTICE' \
             ':!scripts/apply_fabric_namespace_rebrand.py' \
             ':!scripts/accelerate_fabric_rebrand.py' \
+            ':!scripts/fix_fabric_rebrand_semantics.py' \
             ':!.github/workflows/fabric-rebrand-builder.yml' \
             | tee -a fabric-rebrand-scan.log
           content_status=${PIPESTATUS[0]}
           find . -path './.git' -prune -o -iname '*paperclip*' -print \
             | tee -a fabric-rebrand-scan.log
-          path_status=${PIPESTATUS[0]}
           if [[ "$content_status" -eq 0 ]] || [[ -s fabric-rebrand-scan.log ]]; then
             echo "clean=false" >> "$GITHUB_OUTPUT"
           else
@@ -76,13 +78,14 @@ jobs:
         shell: bash
         run: |
           set +e
-          {
-            pnpm run check:branding
-            pnpm run preflight:workspace-links
-            pnpm run typecheck
-            pnpm run test:run
+          set -o pipefail
+          (
+            pnpm run check:branding &&
+            pnpm run preflight:workspace-links &&
+            pnpm run typecheck &&
+            pnpm run test:run &&
             pnpm run build
-          } 2>&1 | tee ../../fabric-rebrand-build.log
+          ) 2>&1 | tee ../../fabric-rebrand-build.log
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
