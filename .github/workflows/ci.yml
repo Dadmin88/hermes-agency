@@ -95,9 +95,7 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          # Audit the project metadata directly instead of the editable CI
-          # environment so the check fails on real advisories rather than
-          # on local editable install mechanics.
+          # Audit project metadata directly so real dependency advisories fail CI.
           pip-audit --strict . --ignore-vuln GHSA-537c-gmf6-5ccf
 
   test:
@@ -117,15 +115,20 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Run SDK unit tests
-        run: # SDK tests skipped: pre-existing AgentAnycast import failures
-        # pytest tests/ -v --cov=agentanycast --cov-report=xml
+      - name: Run Hermes Agency and Keryx unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          make test-agency 2>&1 | tee "p0-test-${{ matrix.python-version }}.txt"
 
-      - name: Run Hermes Agency plugin unit tests
-        run: pytest hermes-agency/tests/test_unit.py -q -m "not integration"
-
-      - name: Upload coverage
-        if: matrix.python-version == '3.12'
-        uses: codecov/codecov-action@v5
+      - name: Upload failing test output
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          fail_ci_if_error: false
+          name: p0-test-${{ matrix.python-version }}
+          path: p0-test-${{ matrix.python-version }}.txt
+          if-no-files-found: error
+
+      - name: Note legacy SDK coverage gap
+        run: |
+          echo "AgentAnycast SDK unit tests remain excluded until the legacy compatibility package imports cleanly."

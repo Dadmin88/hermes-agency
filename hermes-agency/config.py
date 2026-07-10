@@ -434,7 +434,7 @@ class AgencyConfig:
     """Resolved Hermes Agency plugin configuration."""
 
     enabled: bool = True
-    transport_backend: str = "agentanycast"
+    transport_backend: str = "keryx"
     relay: str | None = None
     auto_start: bool = False
     skills_from_profile: bool = True
@@ -722,13 +722,10 @@ def _merge_missing_mapping(profile_value: Any, root_value: Any) -> Any:
 
 
 def _transport_backend_config(config: dict[str, Any]) -> str:
-    """Return the configured Agency transport backend with backward-compatible defaults."""
+    """Return the configured Agency transport backend with Keryx-first defaults."""
 
     raw_backend = (
-        str(
-            _cfg_get(config, "agency", "transport_backend", default="agentanycast")
-            or "agentanycast"
-        )
+        str(_cfg_get(config, "agency", "transport_backend", default="keryx") or "keryx")
         .strip()
         .lower()
     )
@@ -740,9 +737,9 @@ def _transport_backend_config(config: dict[str, Any]) -> str:
     backend = aliases.get(raw_backend, raw_backend)
     if backend not in {"agentanycast", "keryx"}:
         logger.warning(
-            "Unsupported agency.transport_backend=%r; falling back to agentanycast", raw_backend
+            "Unsupported agency.transport_backend=%r; falling back to keryx", raw_backend
         )
-        return "agentanycast"
+        return "keryx"
     return backend
 
 

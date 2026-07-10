@@ -1,0 +1,4 @@
+ERROR:pip_audit._virtual_env:internal pip failure: ERROR: Cannot install -r /tmp/tmp303ks2bz/tmplhcxhnfm (line 1) and cryptography>=48.0.1 because these package versions have conflicting dependencies.
+ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts
+
+ERROR:pip_audit._cli:Failed to install packages: ['/tmp/tmp303ks2bz/bin/python', '-m', 'pip', 'install', '--no-input', '--keyring-provider=subprocess', '--dry-run', '--report', '/tmp/tmp90wcmw5i/tmpdp1edscc', '-r', '/tmp/tmp303ks2bz/tmplhcxhnfm']

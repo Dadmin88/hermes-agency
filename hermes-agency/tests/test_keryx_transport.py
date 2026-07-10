@@ -453,3 +453,43 @@ async def test_keryx_client_discover_uses_bounded_full_registry_fallback_for_unl
     assert results == []
     assert [request.skill_id for request in registry.requests] == ["hermes-chat", ""]
     assert [request.limit for request in registry.requests] == [0, 100]
+
+
+def test_transport_defaults_to_keryx_when_setting_is_absent(plugin_tools):
+    plugin_tools["config"].load_config = lambda: {}
+
+    assert plugin_tools["config"].get_config().transport_backend == "keryx"
+    assert plugin_tools["tools"].get_transport_backend() == "keryx"
+
+
+def test_invalid_transport_name_falls_back_to_keryx(plugin_tools):
+    plugin_tools["config"].load_config = lambda: {
+        "agency": {"transport_backend": "not-a-transport"}
+    }
+
+    assert plugin_tools["config"].get_config().transport_backend == "keryx"
+    assert plugin_tools["tools"].get_transport_backend() == "keryx"
+
+
+def test_keryx_unavailable_is_reported_without_transport_switch(plugin_tools, monkeypatch):
+    monkeypatch.setattr(plugin_tools["tools"], "check_keryx_available", lambda: False)
+
+    assert plugin_tools["tools"].get_effective_transport_backend() == "keryx"
+    assert plugin_tools["tools"].check_agency_available() is False
+
+
+def test_explicit_agentanycast_selects_legacy_node_class(node_manager_module, monkeypatch):
+    class LegacyNode:
+        pass
+
+    legacy_module = types.ModuleType("agentanycast")
+    legacy_module.__spec__ = importlib.machinery.ModuleSpec("agentanycast", loader=None)
+    legacy_module.Node = LegacyNode
+    monkeypatch.setitem(sys.modules, "agentanycast", legacy_module)
+
+    node_cls, backend = node_manager_module._resolve_transport_node_class(
+        types.SimpleNamespace(transport_backend="agentanycast")
+    )
+
+    assert node_cls is LegacyNode
+    assert backend == "agentanycast"

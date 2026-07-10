@@ -47,16 +47,16 @@ def check_keryx_available() -> bool:
 
 
 def get_transport_backend() -> str:
-    """Return configured Agency transport backend, defaulting to agentanycast."""
+    """Return configured Agency transport backend, defaulting to Keryx."""
 
     try:
         from .config import get_config
 
-        backend = getattr(get_config(), "transport_backend", "agentanycast")
+        backend = getattr(get_config(), "transport_backend", "keryx")
     except Exception:
         logger.debug("Failed to load Agency transport backend from config", exc_info=True)
-        backend = "agentanycast"
-    normalized = str(backend or "agentanycast").strip().lower()
+        backend = "keryx"
+    normalized = str(backend or "keryx").strip().lower()
     aliases = {
         "agent-anycast": "agentanycast",
         "agent_anycast": "agentanycast",
@@ -64,10 +64,8 @@ def get_transport_backend() -> str:
     }
     normalized = aliases.get(normalized, normalized)
     if normalized not in {"agentanycast", "keryx"}:
-        logger.warning(
-            "Unsupported agency.transport_backend=%r; falling back to agentanycast", backend
-        )
-        return "agentanycast"
+        logger.warning("Unsupported agency.transport_backend=%r; falling back to keryx", backend)
+        return "keryx"
     return normalized
 
 
@@ -98,25 +96,22 @@ def _configure_keryx_environment() -> None:
 
 
 def get_effective_transport_backend() -> str:
-    """Return the transport backend this process will actually use."""
+    """Return the configured backend without silently changing transports."""
 
     backend = get_transport_backend()
-    if backend == "keryx":
-        if check_keryx_available():
-            _configure_keryx_environment()
-            return "keryx"
-        logger.warning(
-            "Keryx transport requested but SDK unavailable; falling back to agentanycast"
-        )
-    return "agentanycast"
+    if backend == "keryx" and check_keryx_available():
+        _configure_keryx_environment()
+    elif backend == "keryx":
+        logger.warning("Keryx transport requested but SDK unavailable")
+    return backend
 
 
 def check_agency_available() -> bool:
-    """Return True when the selected Hermes Agency transport SDK is importable."""
+    """Return True when the explicitly selected Agency transport SDK is importable."""
 
     effective_backend = get_effective_transport_backend()
     if effective_backend == "keryx":
-        return True
+        return check_keryx_available()
     return importlib.util.find_spec("agentanycast") is not None
 
 
