@@ -47,7 +47,7 @@ jobs:
 
       - name: Commit runtime alignment
         run: |
-          if git diff --quiet; then
+          if [ -z "$(git status --porcelain)" ]; then
             echo "Runtime alignment is already applied and formatted."
             exit 0
           fi
