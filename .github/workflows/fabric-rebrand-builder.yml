@@ -35,18 +35,20 @@ jobs:
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
-      - name: Verify zero inherited brand references
+      - name: Verify zero inherited product references
         shell: bash
         run: |
           if git grep -Iin 'paperclip' -- . \
+            ':!apps/fabric/LICENSE' \
+            ':!apps/fabric/NOTICE' \
             ':!scripts/apply_fabric_namespace_rebrand.py' \
             ':!scripts/accelerate_fabric_rebrand.py' \
             ':!.github/workflows/fabric-rebrand-builder.yml'; then
-            echo 'Inherited brand text remains'
+            echo 'Inherited product branding remains outside required legal attribution'
             exit 1
           fi
           if find . -path './.git' -prune -o -iname '*paperclip*' -print | grep -q .; then
-            echo 'Inherited brand paths remain'
+            echo 'Inherited product-brand paths remain'
             find . -path './.git' -prune -o -iname '*paperclip*' -print
             exit 1
           fi
