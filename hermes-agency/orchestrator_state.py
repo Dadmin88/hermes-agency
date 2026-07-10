@@ -2,10 +2,43 @@
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+
+
+_ROUTE_TERMINAL_STATUSES = {"completed", "failed", "blocked", "escalated", "cancelled"}
+_ROUTE_FAILED_STATUSES = {"failed", "blocked", "escalated"}
+
+
+def _delegated_route_result(updates: dict[str, Any]) -> dict[str, Any] | None:
+    """Parse a serialized route result when ``orch_route`` reports delegation."""
+
+    if updates.get("status") != "delegated":
+        return None
+    raw = updates.get("result_text")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        result = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return result if isinstance(result, dict) else None
+
+
+def _route_status(result: dict[str, Any]) -> str:
+    """Map a transport result to the local orchestrator lifecycle."""
+
+    status = " ".join(str(result.get("status") or "").split()).strip().lower()
+    if result.get("queued") or status == "queued":
+        return "queued"
+    if status in {"completed", "done"}:
+        return "completed"
+    if status in {"failed", "blocked", "cancelled"}:
+        return status
+    return "delegated"
 
 
 @dataclass
@@ -89,15 +122,14 @@ class OrchestratorStateMixin:
 
     def _refresh_orchestrator_state(self) -> None:
         records = list(self._orchestrator_tasks.values())
-        terminal = {"completed", "failed", "escalated", "cancelled"}
         self.state.orchestrator_active_task_count = sum(
-            1 for item in records if item.status not in terminal
+            1 for item in records if item.status not in _ROUTE_TERMINAL_STATUSES
         )
         self.state.orchestrator_completed_task_count = sum(
             1 for item in records if item.status == "completed"
         )
         self.state.orchestrator_failed_task_count = sum(
-            1 for item in records if item.status in {"failed", "escalated"}
+            1 for item in records if item.status in _ROUTE_FAILED_STATUSES
         )
 
     def _current_load(self) -> int:
@@ -155,11 +187,31 @@ class OrchestratorStateMixin:
         return record.as_dict()
 
     def update_orchestrator_task(self, task_id: str, **updates: Any) -> dict[str, Any] | None:
-        """Update a local orchestrator task record."""
+        """Update a local orchestrator task record and reconcile routed outcomes."""
 
         record = self._orchestrator_tasks.get(task_id)
         if record is None:
             return None
+
+        route_result = _delegated_route_result(updates)
+        if route_result is not None:
+            updates = dict(updates)
+            updates["status"] = _route_status(route_result)
+            artifact_text = str(route_result.get("artifact_text") or "").strip()
+            if artifact_text:
+                updates["result_text"] = artifact_text
+            if updates["status"] == "queued":
+                kanban_task_id = str(record.metadata.get("kanban_task_id") or "").strip()
+                if kanban_task_id:
+                    try:
+                        self._nm().kanban_update_task(
+                            kanban_task_id,
+                            status="running",
+                            result="Queued for offline agent",
+                        )
+                    except Exception:
+                        pass
+
         for key in (
             "kind",
             "target_agent",
@@ -191,10 +243,7 @@ class OrchestratorStateMixin:
                 for idx, item in enumerate(updates["subtasks"], start=1)
                 if str(item.get("goal") or "").strip()
             ]
-        if (
-            record.status in {"completed", "failed", "escalated", "cancelled"}
-            and record.completed_at is None
-        ):
+        if record.status in _ROUTE_TERMINAL_STATUSES and record.completed_at is None:
             record.completed_at = time.time()
         record.updated_at = time.time()
         self._refresh_orchestrator_state()
