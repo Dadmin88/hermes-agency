@@ -69,23 +69,22 @@ KANBAN_SOUL_MARKER = "<!-- hermes-agency-kanban-worker -->"
 
 
 def _transport_backend() -> str:
-    """Return the configured pool transport backend, defaulting to AgentAnycast."""
+    """Return the configured pool transport backend, defaulting to Keryx."""
 
     try:
         from ..config import get_config
 
-        backend = str(getattr(get_config(), "transport_backend", "agentanycast") or "agentanycast")
+        backend = str(getattr(get_config(), "transport_backend", "keryx") or "keryx")
     except Exception:
         backend = str(
             os.environ.get("HERMES_AGENCY_TRANSPORT_BACKEND")
             or os.environ.get("AGENCY_TRANSPORT_BACKEND")
-            or "agentanycast"
+            or "keryx"
         )
     backend = backend.strip().lower().replace("_", "-")
-    if backend in {"keryx", "hermes-keryx"}:
-        return "keryx"
-    return "agentanycast"
-
+    if backend in {"agentanycast", "agent-anycast", "anycast"}:
+        return "agentanycast"
+    return "keryx"
 
 def send_task_via_transport(
     *,
@@ -96,10 +95,8 @@ def send_task_via_transport(
 ) -> dict[str, object]:
     """Route an outbound pool task through the configured transport.
 
-    AgentAnycast remains the default/fallback.  When ``transport_backend=keryx``
-    is configured, install Keryx's compatibility transport before touching the
-    singleton NodeManager so ``send_task_sync`` delivers via Keryx's daemon/relay
-    path instead of the legacy AgentAnycast daemon.
+    Keryx is the default. AgentAnycast is used only when legacy mode is selected.
+    The singleton NodeManager owns the selected transport implementation.
     """
 
     from ..node_manager import manager
@@ -254,11 +251,9 @@ class PoolManager:
     def _normalise_model_config(self, model):
         """Return a Hermes-current provider/model pair for worker profiles.
 
-        Older pool configs used provider names such as ``openai``/``xai`` that
-        are no longer valid on this VPS Hermes install. Kanban workers exit rc=0
-        before loading tools when the provider is invalid, which the dispatcher
-        records as a protocol violation. Keep the pool safe by defaulting every
-        agency worker to the known-good OpenAI Codex OAuth provider.
+        Older pool configs may use deprecated provider aliases. Normalize them so
+        workers reach Hermes with a supported provider name instead of failing
+        before tool loading.
         """
         configured = dict(model or {})
         provider = (configured.get("provider") or DEFAULT_PROVIDER).strip()

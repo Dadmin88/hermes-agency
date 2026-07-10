@@ -28,23 +28,22 @@ LEGACY_ROSTER_PATH: Path | None = None
 
 
 def _transport_backend() -> str:
-    """Return the configured pool transport backend."""
+    """Return the configured pool transport backend, defaulting to Keryx."""
 
     try:
         from ..config import get_config
 
-        backend = str(getattr(get_config(), "transport_backend", "agentanycast") or "agentanycast")
+        backend = str(getattr(get_config(), "transport_backend", "keryx") or "keryx")
     except Exception:
         backend = str(
             os.environ.get("HERMES_AGENCY_TRANSPORT_BACKEND")
             or os.environ.get("AGENCY_TRANSPORT_BACKEND")
-            or "agentanycast"
+            or "keryx"
         )
     backend = backend.strip().lower().replace("_", "-")
-    if backend in {"keryx", "hermes-keryx"}:
-        return "keryx"
-    return "agentanycast"
-
+    if backend in {"agentanycast", "agent-anycast", "anycast"}:
+        return "agentanycast"
+    return "keryx"
 
 def _keryx_config_kwargs() -> dict[str, str | None]:
     try:

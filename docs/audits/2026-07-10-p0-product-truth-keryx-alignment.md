@@ -143,11 +143,11 @@ Required resolution:
 
 ### Slice B: runtime transport truth
 
-- [ ] Change the config default to `keryx`
-- [ ] Change tools, node manager, pool, and roster fallbacks to `keryx`
-- [ ] Restore a genuine explicit AgentAnycast node-class path or remove the runtime fallback claim
-- [ ] Ensure configured and effective backend reporting is truthful
-- [ ] Add transport-default and resolver regression tests
+- [x] Change the config default to `keryx`
+- [x] Change tools, node manager, pool, and roster fallbacks to `keryx`
+- [x] Restore a genuine explicit AgentAnycast node-class path or remove the runtime fallback claim
+- [x] Ensure configured and effective backend reporting is truthful
+- [x] Add transport-default and resolver regression tests
 - [ ] Run the full Agency test target on all supported Python versions
 
 ### Slice C: stale implementation language

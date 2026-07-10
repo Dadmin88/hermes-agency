@@ -162,15 +162,15 @@ _TRANSPORT_BACKEND_ALIASES = {
 
 
 def _normalize_transport_backend(value: Any) -> str:
-    """Normalize configured transport backend with AgentAnycast fallback."""
+    """Normalize configured transport backend with a Keryx-first fallback."""
 
-    backend = str(value or "agentanycast").strip().lower()
+    backend = str(value or "keryx").strip().lower()
     backend = _TRANSPORT_BACKEND_ALIASES.get(backend, backend)
     if backend not in {"agentanycast", "keryx"}:
         logger.warning(
-            "Unsupported agency.transport_backend=%r; falling back to agentanycast", value
+            "Unsupported agency.transport_backend=%r; falling back to keryx", value
         )
-        return "agentanycast"
+        return "keryx"
     return backend
 
 
@@ -179,13 +179,10 @@ def _transport_backend_for_config(cfg: AgencyConfig | None = None) -> str:
 
     try:
         active_cfg = cfg or get_config()
-        return _normalize_transport_backend(
-            getattr(active_cfg, "transport_backend", "agentanycast")
-        )
+        return _normalize_transport_backend(getattr(active_cfg, "transport_backend", "keryx"))
     except Exception:
         logger.debug("Failed to load Agency transport backend from config", exc_info=True)
-        return "agentanycast"
-
+        return "keryx"
 
 def _configure_keryx_environment(cfg: AgencyConfig) -> None:
     """Expose Agency Keryx config through the env vars expected by the SDK."""
@@ -231,46 +228,30 @@ def _build_card_for_transport(backend: str) -> Any:
 
 
 def _resolve_transport_node_class(cfg: AgencyConfig) -> tuple[type[Any], str]:
-    """Return the configured SDK node class and effective backend name."""
+    """Return the node class for the explicitly selected transport backend."""
 
     backend = _transport_backend_for_config(cfg)
     if backend == "keryx":
+        _configure_keryx_environment(cfg)
         try:
-            _configure_keryx_environment(cfg)
             from keryx.node import KeryxNode
+        except Exception as exc:
+            raise RuntimeError("Keryx transport requested but SDK unavailable") from exc
+        return KeryxNode, "keryx"
 
-            return KeryxNode, "keryx"
-        except Exception:
-            logger.warning(
-                "Keryx transport requested but SDK unavailable; falling back to agentanycast",
-                exc_info=True,
-            )
-
-    from keryx import KeryxNode as Node
-
+    try:
+        from agentanycast import Node
+    except Exception as exc:
+        raise RuntimeError("AgentAnycast transport requested but SDK unavailable") from exc
     return Node, "agentanycast"
 
-
 def _resolve_daemon_bin() -> Any | None:
-    """Resolve the daemon binary path without allowing SDK overwrite of fixed builds.
-
-    Preference order:
-
-    1. ``agency.daemon_bin`` config override, when it exists.
-    2. Protected repository copy at ``~/src/hermes-agentanycast/bin/agentanycastd``.
-    3. ``None``, which lets the SDK manage/download the daemon as a fallback.
-    """
+    """Return an explicit legacy AgentAnycast daemon override when configured."""
 
     cfg = get_config()
     if cfg.daemon_bin and cfg.daemon_bin.exists():
         return cfg.daemon_bin
-
-    protected = os.path.expanduser("~/src/hermes-agentanycast/bin/agentanycastd")
-    if os.path.exists(protected):
-        return protected
-
     return None
-
 
 @dataclass
 class NodeState:
