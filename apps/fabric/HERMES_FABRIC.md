@@ -2,10 +2,13 @@
 
 Hermes Fabric is the Paperclip-derived frontend for Hermes Agency.
 
-## Product Relationship
+## Product relationship
 
-- **Hermes Agency** is the main product and execution substrate: the multi-agent workforce, agency-* roster, AgentAnycast/P2P/A2A routing, wake/queue behavior, trust/allowlists, and task dispatch.
-- **Hermes Fabric** is the frontend and persistent operator surface for Hermes Agency: roster visibility, task threads, artifacts, status, routing decisions, budgets, watchdogs, and human governance.
+- **Hermes Agency** is the main product and execution substrate: the multi-agent workforce, `agency-*` roster, skill-fit routing, wake/queue behavior, trust policy, task dispatch, and status tracking.
+- **Keryx** is Hermes Agency's primary transport for AgentCards, skill discovery, identity, encrypted P2P communication, and task messages. AgentAnycast remains a legacy compatibility path.
+- **Hermes Fabric** is the persistent operator interface for Hermes Agency: roster visibility, task threads, artifacts, status, routing decisions, budgets, watchdogs, and human governance.
+
+Hermes Agency is the workforce. Hermes Fabric is the interface.
 
 ## Foundation
 
@@ -17,74 +20,90 @@ Upstream source at fork time:
 - Local upstream remote: `upstream`
 - Fork branch: `feat/hermes-fabric-foundation`
 
-## Core Direction
+## Core direction
 
-Hermes Fabric should take Paperclip's useful chassis:
+Hermes Fabric retains Paperclip's useful application chassis:
 
 - React dashboard
 - server/API structure
-- PostgreSQL persistence
-- issue/task threads
+- PostgreSQL and embedded PGlite persistence
+- issue and task threads
 - run logs
-- artifacts/work products
+- artifacts and work products
 - adapter architecture
-- budgets/governance surfaces
-- liveness/watchdog concepts
+- budget and governance surfaces
+- liveness and watchdog concepts
 
-Then reshape it around Hermes Agency as source of truth for agent workforce execution:
+It is being reshaped around Hermes Agency as the source of truth for workforce execution:
 
-- agency-* roster and skill tags
-- offline agents as valid task targets
-- skill-fit routing first
+- `agency-*` roster and skill tags
+- offline specialists as valid task targets
+- skill-fit routing before manual assignment when possible
 - wake/sleep lifecycle
 - persistent offline queue
-- A2A task dispatch/status
-- trust/allowlist visibility
-- specialist profile identity and descriptions
+- Agency task dispatch and status
+- Keryx-backed peer discovery and transport
+- trust and allowlist visibility
+- specialist identity, role, and descriptions
 
-## Current Hermes Agency Context
+## Current integration status
 
-- Tenant: `default`
+The current Fabric codebase includes:
+
+- a read-only Agency roster service and API
+- an Agency roster UI
+- task-packet preview types and routes
+- direct-agent and skill-fit dispatch service seams
+- persisted dispatch records and status models
+- dry-run dispatch for local interface testing
+
+The default Fabric dispatch client is intentionally unconfigured. A real server-to-Agency client still needs to be wired before Fabric can claim end-to-end live dispatch without an injected adapter. Dry-run records prove the operator flow, not live transport execution.
+
+## Current Hermes Agency context
+
+- Tenant default: `default`
 - Team context filter: `agency-only`
-- Registered agency roster currently reports `0/83 online`
-- Offline agents are still valid targets: `agency_pool_send` / orchestrator routing should attempt wake and persistently queue if wake fails
+- Canonical packaged roster: 83 `agency-*` profiles
+- Offline agents remain valid targets: pool/orchestrator routing attempts a wake and can persistently queue work if no peer is available
 - Routing should prefer skill fit before direct assignment when possible
 
-## Initial Milestones
+## Initial milestones
 
 1. **Own the fork safely**
-   - Keep upstream remote fetchable.
-   - Disable upstream push.
+   - Keep the upstream remote fetchable.
+   - Keep upstream push disabled.
    - Preserve MIT attribution.
-   - Rename/rebrand from Paperclip to Hermes Fabric in focused passes.
+   - Rebrand in focused passes rather than breaking package/runtime links wholesale.
 
 2. **Agency roster visibility**
-   - Surface all 83 agency-* profiles regardless of online status.
-   - Show skills, descriptions, model/provider, online/offline, last_seen, wake attempts, last_error.
+   - Surface all 83 packaged `agency-*` profiles regardless of online status.
+   - Show skills, descriptions, model/provider, status, last seen, wake attempts, and last error.
 
 3. **Agency task dispatch**
-   - Convert a Hermes Fabric task into a Hermes Agency task packet.
-   - Dispatch by direct profile first, then skill-fit routing.
-   - Reflect queued/wake_failed/running/completed/blocked states back into the task thread.
+   - Convert a Fabric task into an Agency task packet.
+   - Support direct-profile and skill-fit routing.
+   - Wire a real authenticated dispatch client to the established Hermes Agency surface.
+   - Reflect queued, wake-failed, running, completed, blocked, and failed states into the task thread.
 
 4. **Artifacts and validation**
    - Store returned reports, files, screenshots, diffs, URLs, logs, and validation evidence as first-class work products.
 
 5. **Agency-native governance**
-   - Add budget/time/turn guardrails.
-   - Add watchdog/reviewer roles mapped to existing agency QA/review profiles.
-   - Keep Hermes Agency trust/allowlist as the security boundary; Hermes Fabric must not bypass it.
+   - Add budget, time, and turn guardrails.
+   - Map watchdog and reviewer roles to Agency QA/review profiles.
+   - Preserve Hermes Agency trust and approval boundaries. Fabric must not bypass them.
 
-## Non-Goals
+## Non-goals
 
 - Do not make Hermes Fabric a replacement for Hermes Agency.
-- Do not move agency-* profile source of truth out of Hermes Agency.
-- Do not hardcode maintainer-local profiles or model/provider choices into shipped defaults.
-- Do not bypass Hermes Agency's trust, relay, allowlist, or queue semantics.
+- Do not move `agency-*` profile source of truth out of Hermes Agency.
+- Do not describe dry-run dispatch as live Agency execution.
+- Do not hardcode maintainer-local profiles, providers, models, tokens, paths, or credentials into shipped defaults.
+- Do not bypass Hermes Agency trust, relay, allowlist, queue, or approval semantics.
 
-## Phase 7 Rename Decisions
+## Rename decisions
 
-- **Package namespace:** keep `@paperclipai/*` workspace package names temporarily. They are wired through package imports, workspace filters, build scripts, tests, and plugin package references. Target future namespace: `@hermes-fabric/*`, but only after a dedicated package-rename migration updates imports, lockfiles, bins, publish metadata, and release tooling together.
-- **CLI name:** expose `hermes-fabric` first and keep `paperclipai` as a compatibility alias. Removing `paperclipai` is deferred until package publishing and downstream docs have migrated.
-- **Config path:** keep `~/.paperclip` and `PAPERCLIP_*` environment variables for now to preserve existing local dev data. Future migration should copy—not move—data into a Hermes Fabric path, verify config/db/log/storage parity, then optionally deprecate the old path. Do not delete user data during migration.
-- **Docs/assets:** top-level identity and docs metadata should say Hermes Fabric. Historical docs, release notes, Paperclip skill references, and upstream attribution may retain Paperclip references until a deeper docs rewrite.
+- **Package namespace:** keep `@paperclipai/*` workspace package names temporarily. Rename only after imports, lockfiles, bins, publish metadata, and release tooling can move together.
+- **CLI name:** expose `hermes-fabric` and retain `paperclipai` as a compatibility alias during migration.
+- **Config path:** keep `~/.paperclip` and `PAPERCLIP_*` temporarily to preserve existing data. A future migration must copy, verify, and only then deprecate old paths.
+- **Docs/assets:** public identity should say Hermes Fabric. Historical docs, release notes, upstream skills, package internals, and legal attribution may retain Paperclip references until their dedicated migration.
