@@ -2496,30 +2496,17 @@ async def test_subprocess_env_allows_hooks_only_when_explicit(plugin_modules, mo
     assert captured["env"].get("HERMES_ACCEPT_HOOKS") == "1"
 
 
-def test_resolve_daemon_bin_prefers_config_then_protected_copy(
-    plugin_modules, monkeypatch, tmp_path
-):
+def test_resolve_daemon_bin_uses_only_explicit_config(plugin_modules, tmp_path):
     nm = plugin_modules.node_manager
     cfg_mod = plugin_modules.config
     configured = tmp_path / "configured" / "agentanycastd"
-    protected = tmp_path / "src" / "hermes-agentanycast" / "bin" / "agentanycastd"
     configured.parent.mkdir(parents=True)
-    protected.parent.mkdir(parents=True)
     configured.write_text("configured", encoding="utf-8")
-    protected.write_text("protected", encoding="utf-8")
-    monkeypatch.setenv("HOME", str(tmp_path))
 
-    monkeypatch.setattr(
-        nm,
-        "get_config",
-        lambda: cfg_mod.AgencyConfig(daemon_bin=configured),
-    )
+    nm.get_config = lambda: cfg_mod.AgencyConfig(daemon_bin=configured)
     assert nm._resolve_daemon_bin() == configured
 
     configured.unlink()
-    assert nm._resolve_daemon_bin() == str(protected)
-
-    protected.unlink()
     assert nm._resolve_daemon_bin() is None
 
 
@@ -4933,8 +4920,8 @@ def test_a2a_info_compact_uses_compact_node_payload(plugin_modules, monkeypatch)
         "ok": True,
         "sdk_available": True,
         "compact": True,
-        "transport_backend": "agentanycast",
-        "effective_transport_backend": "agentanycast",
+        "transport_backend": "keryx",
+        "effective_transport_backend": "keryx",
         "node": compact,
     }
     assert "card" not in result
