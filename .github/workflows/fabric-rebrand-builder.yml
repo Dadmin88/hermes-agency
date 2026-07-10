@@ -96,28 +96,30 @@ jobs:
               text = text.replace("HermesFabric", "Hermes Fabric")
               write(path, text)
 
-          # Preserve identifier-safe compound property names after fixing prose.
           secrets_test = ui / "pages/Secrets.render.test.tsx"
           text = secrets_test.read_text(encoding="utf-8")
           text = text.replace("Hermes FabricSampleCount", "HermesFabricSampleCount")
           write(secrets_test, text)
 
+          # Mention tests query the actual option passed to their shared helper.
           editor = ui / "components/MarkdownEditor.test.tsx"
           text = editor.read_text(encoding="utf-8")
-          root_anchor = "    const root = createRoot(container);\n"
           query_line = "    const query = `@${matchText.slice(0, 3)}`;\n"
-          if query_line not in text:
-              if root_anchor not in text:
-                  raise RuntimeError("MarkdownEditor mention helper anchor missing")
-              text = text.replace(root_anchor, root_anchor + query_line, 1)
-          text = re.sub(r'value="@[^"]+"', "value={query}", text, count=1)
-          text = re.sub(
+          text = text.replace(query_line, "")
+          function_start = text.index("async function openMentionMenuFor(")
+          root_anchor = "    const root = createRoot(container);\n"
+          root_index = text.index(root_anchor, function_start)
+          text = text[:root_index] + query_line + text[root_index:]
+          prefix = text[:function_start]
+          helper = text[function_start:]
+          helper = re.sub(r'value="@[^"]+"', "value={query}", helper, count=1)
+          helper = re.sub(
               r'range\.setStart\(textNode!,\s*"@[^"]+"\.length\);',
               "range.setStart(textNode!, query.length);",
-              text,
+              helper,
               count=1,
           )
-          write(editor, text)
+          write(editor, prefix + helper)
 
           agents = ui / "pages/Agents.test.tsx"
           text = agents.read_text(encoding="utf-8")
