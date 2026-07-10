@@ -11,7 +11,7 @@ text = text.replace(
 )
 text = text.replace(
     '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",',
-    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",\n    ".hcl", ".mod", ".webmanifest",',
+    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",\n    ".hcl", ".mod", ".webmanifest", ".jsonc",',
 )
 text = text.replace(
     '    "Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile", "AGENTS.md",',
@@ -19,7 +19,7 @@ text = text.replace(
 )
 text = text.replace(
     'return path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_BASENAMES or ".env" in path.name',
-    'return (\n        path.suffix.lower() in TEXT_SUFFIXES\n        or path.name in TEXT_BASENAMES\n        or path.name.startswith("Dockerfile")\n        or ".env" in path.name\n    )',
+    'return (\n        path.suffix.lower() in TEXT_SUFFIXES\n        or path.name in TEXT_BASENAMES\n        or path.name.startswith("Dockerfile")\n        or not path.suffix\n        or ".env" in path.name\n    )',
 )
 text = text.replace(
     '        run("git", "mv", str(relative), str(target_relative))',
@@ -59,7 +59,7 @@ normalizer = ROOT / "apps/fabric/scripts/normalize-upstream-import.py"
 text = normalizer.read_text()
 text = text.replace(
     '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",',
-    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",\n    ".hcl", ".mod", ".webmanifest",',
+    '    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",\n    ".hcl", ".mod", ".webmanifest", ".jsonc",',
 )
 text = text.replace(
     'TEXT_BASENAMES = {"Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile"}',
@@ -67,7 +67,7 @@ text = text.replace(
 )
 text = text.replace(
     'return path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_BASENAMES or ".env" in path.name',
-    'return (\n        path.suffix.lower() in TEXT_SUFFIXES\n        or path.name in TEXT_BASENAMES\n        or path.name.startswith("Dockerfile")\n        or ".env" in path.name\n    )',
+    'return (\n        path.suffix.lower() in TEXT_SUFFIXES\n        or path.name in TEXT_BASENAMES\n        or path.name.startswith("Dockerfile")\n        or not path.suffix\n        or ".env" in path.name\n    )',
 )
 text = text.replace(
     '    for path in walk_files(root):\n        try:',
