@@ -37,18 +37,18 @@ hermes-agency/default_staff/
 
 ## Categories
 
-| Category | Count | Examples |
-|---|---:|---|
-| Leadership | 6 | Orchestrator, Chief of Staff, Project Manager, Traffic Manager, Scrum Master, Operations Manager |
-| Product | 8 | Product Manager, Strategist, Business Analyst, Requirements Analyst, user/market/competitive researchers |
-| Engineering | 18 | Architects, leads, frontend/backend/fullstack, DevOps, security, data, AI, Godot |
-| Design | 14 | Creative and art direction, UI/UX, brand, game design, worldbuilding, technical art, motion, audio |
-| Content | 9 | Editor-in-Chief, copywriting, technical writing, lore, dialogue, scripting |
-| Marketing | 10 | Strategy, growth, launch, social, community, partnerships, SEO, email, analytics, PR |
-| QA | 10 | QA lead/tester, code/design/security/accessibility/compliance review, red team, release, Git stewardship |
-| Support | 8 | Support, customer success, onboarding, training, knowledge, finance, procurement, legal |
+The packaged workforce includes roles across:
 
-The category totals above must sum to the manifest total. Update this table, `manifest.json`, and the runtime pool registry together when adding or removing packaged staff.
+- Leadership and operations
+- Product and research
+- Engineering and infrastructure
+- Design, games, and creative production
+- Content and documentation
+- Marketing, growth, and community
+- QA, review, security, release, and Git stewardship
+- Support, onboarding, knowledge, finance, procurement, and legal operations
+
+When adding or removing packaged staff, update `manifest.json`, the runtime pool registry, and this README together.
 
 ## Discovering packaged staff
 
