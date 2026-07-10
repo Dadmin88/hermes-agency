@@ -38,6 +38,9 @@ def repair_public_product_surfaces() -> None:
     ):
         replace_product_copy(UI / relative)
 
+    cloud = UI / "pages/CloudUpstream.tsx"
+    replace(cloud, 'aria-label="Hermes Fabric cloud stack URL"', 'aria-label="Hermes Fabric Cloud stack URL"')
+
     import_dialog = UI / "pages/secrets/ImportFromVaultDialog.tsx"
     replace(import_dialog, "A Hermes Fabric secret already uses this name.", "A Fabric secret already uses this name.")
     replace(import_dialog, "A Hermes Fabric secret already uses this key.", "A Fabric secret already uses this key.")
@@ -69,7 +72,7 @@ def repair_renamed_fixtures() -> None:
     replace(reusable, 'reusableWorkspaceOptionMatches(option, "pclip reusable")', 'reusableWorkspaceOptionMatches(option, "fabric reusable")')
 
     agents = UI / "pages/Agents.test.tsx"
-    replace(agents, 'container.querySelector(".w-56")', 'container.querySelector(".sm\\\\:w-56")')
+    replace(agents, 'container.querySelector(".w-56")', 'container.querySelector(".sm\\:w-56")')
 
 
 def repair_legacy_catalog_aliases() -> None:
