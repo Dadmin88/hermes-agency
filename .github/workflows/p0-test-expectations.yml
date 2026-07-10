@@ -1,16 +1,20 @@
 name: P0 Test Expectations
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/p0-keryx-test-expectations
+      - diagnostic/p0-test-base
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   update-tests:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/p0-keryx-test-expectations'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
