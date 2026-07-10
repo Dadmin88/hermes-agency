@@ -5965,7 +5965,9 @@ def test_kanban_identity_mapping_preserves_profiles_and_rejects_peer_ids(
         )
         == "agency-backend-engineer"
     )
-    assert sync_mod.KanbanSyncMixin._dispatchable_profile_from_metadata({"receiver": peer_id}) is None
+    assert (
+        sync_mod.KanbanSyncMixin._dispatchable_profile_from_metadata({"receiver": peer_id}) is None
+    )
 
 
 def test_kanban_default_board_uses_canonical_db_and_named_boards_are_explicit(
