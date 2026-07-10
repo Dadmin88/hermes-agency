@@ -71,24 +71,56 @@ def repair_issue_runtime_hook() -> None:
 
 
 def repair_attachment_icons() -> None:
-    ui_root = FABRIC / "ui"
-    repaired: list[Path] = []
-    for path in ui_root.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "lucide-react" not in text or "HermesFabric" not in text:
-            continue
-        path.write_text(text.replace("HermesFabric", "Link2"), encoding="utf-8")
-        repaired.append(path)
+    """Rename only the inherited Lucide icon identifier, never product text.
 
-    remaining = []
+    The upstream icon is named ``Paperclip``. The bulk namespace migration
+    mechanically turns that imported identifier into ``HermesFabric``. A broad
+    text replacement is unsafe because the same token can also be a legitimate
+    product label, fixture, hook name, or catalog value. Restrict the repair to
+    Lucide import lists and the common code positions where that imported icon
+    is referenced.
+    """
+
+    ui_root = FABRIC / "ui"
+    import_pattern = re.compile(
+        r"import\s*\{(?P<body>.*?)\}\s*from\s*(['\"])lucide-react\2;?",
+        re.S,
+    )
+    repaired: list[Path] = []
+    remaining: list[str] = []
+
     for path in ui_root.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
             continue
         text = path.read_text(encoding="utf-8")
-        if "lucide-react" in text and "HermesFabric" in text:
-            remaining.append(path.relative_to(FABRIC).as_posix())
+        imported_icon = False
+
+        def rewrite_import(match: re.Match[str]) -> str:
+            nonlocal imported_icon
+            body = match.group("body")
+            updated_body, count = re.subn(r"\bHermesFabric\b", "Link2", body)
+            if count:
+                imported_icon = True
+            return match.group(0).replace(body, updated_body, 1)
+
+        updated = import_pattern.sub(rewrite_import, text)
+        if imported_icon:
+            updated = re.sub(r"<(/?)HermesFabric\b", r"<\1Link2", updated)
+            updated = re.sub(
+                r"(\b(?:icon|Icon|component|glyph)\s*[:=]\s*)HermesFabric\b",
+                r"\1Link2",
+                updated,
+            )
+            updated = updated.replace("createElement(HermesFabric", "createElement(Link2")
+            if updated != text:
+                path.write_text(updated, encoding="utf-8")
+                repaired.append(path)
+
+        for match in import_pattern.finditer(updated):
+            if re.search(r"\bHermesFabric\b", match.group("body")):
+                remaining.append(path.relative_to(FABRIC).as_posix())
+                break
+
     if remaining:
         raise RuntimeError(f"unrepaired attachment icon imports: {remaining}")
     print(f"Repaired {len(repaired)} attachment icon source files")
