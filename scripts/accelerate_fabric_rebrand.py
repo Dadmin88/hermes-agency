@@ -22,6 +22,6 @@ text = text.replace(
 )
 text = text.replace(
     '        updated = polish_code_strings(replace_technical(original))',
-    '        technical = replace_technical(original)\n        updated = (\n            polish_code_strings(technical)\n            if path.suffix.lower() in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}\n            else technical\n        )',
+    '        updated = replace_technical(original)\n        updated = updated.replace(\'"HermesFabric"\', \'"Hermes Fabric"\')\n        updated = updated.replace("\'HermesFabric\'", "\'Hermes Fabric\'")\n        updated = updated.replace("`HermesFabric`", "`Hermes Fabric`")\n        updated = updated.replace(">HermesFabric<", ">Hermes Fabric<")',
 )
 path.write_text(text)
