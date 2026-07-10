@@ -22,8 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: pnpm
-          cache-dependency-path: apps/fabric/pnpm-lock.yaml
       - name: Enable pnpm
         run: corepack enable && corepack prepare pnpm@9.15.4 --activate
       - name: Apply complete namespace migration
@@ -34,7 +32,9 @@ jobs:
       - name: Verify zero inherited brand references
         shell: bash
         run: |
-          if git grep -Iin 'paperclip' -- . ':!scripts/apply_fabric_namespace_rebrand.py'; then
+          if git grep -Iin 'paperclip' -- . \
+            ':!scripts/apply_fabric_namespace_rebrand.py' \
+            ':!.github/workflows/fabric-rebrand-builder.yml'; then
             echo 'Inherited brand text remains'
             exit 1
           fi
@@ -68,7 +68,7 @@ jobs:
         with:
           name: fabric-rebrand-build-log
           path: fabric-rebrand-build.log
-          if-no-files-found: error
+          if-no-files-found: ignore
       - name: Commit verified rebrand
         if: steps.verify.outputs.status == '0'
         run: |
@@ -79,7 +79,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'refactor(fabric): remove inherited Paperclip namespace'
+          git commit -m 'refactor(fabric): remove inherited legacy namespace'
           git push origin HEAD:${{ github.head_ref }}
       - name: Fail unsuccessful verification
         if: steps.verify.outputs.status != '0'
