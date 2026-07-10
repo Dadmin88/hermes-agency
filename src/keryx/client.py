@@ -152,8 +152,11 @@ class DaemonClient:
             # registry and filtering client-side keeps Agency discovery actionable
             # until the relay is restarted or upgraded, without changing the normal
             # fast path when the index is healthy.
+            fallback_limit = limit if limit > 0 else 100
             fallback = await self._registry.DiscoverBySkill(
-                registry_pb2.DiscoverBySkillRequest(skill_id="", tags=active_tags, limit=0)
+                registry_pb2.DiscoverBySkillRequest(
+                    skill_id="", tags=active_tags, limit=fallback_limit
+                )
             )
             registrations = [
                 registration
@@ -226,8 +229,7 @@ class DaemonClient:
 
 def _registration_matches(registration: Any, skill_id: str, tags: list[str]) -> bool:
     return any(
-        skill.skill_id == skill_id
-        and all(tag in getattr(skill, "tags", []) for tag in tags)
+        skill.skill_id == skill_id and all(tag in getattr(skill, "tags", []) for tag in tags)
         for skill in registration.skills
     )
 
