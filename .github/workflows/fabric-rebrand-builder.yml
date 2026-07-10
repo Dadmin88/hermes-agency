@@ -34,6 +34,25 @@ jobs:
           python scripts/accelerate_fabric_rebrand.py
           python scripts/apply_fabric_namespace_rebrand.py
           python scripts/fix_fabric_rebrand_semantics.py
+      - name: Enforce attachment icon repair
+        run: |
+          files=(
+            apps/fabric/ui/src/components/ChatComposer.tsx
+            apps/fabric/ui/src/components/CommentThread.tsx
+            apps/fabric/ui/src/components/IssueAttachmentsSection.tsx
+            apps/fabric/ui/src/components/IssueChatThread.tsx
+            apps/fabric/ui/src/components/NewIssueDialog.tsx
+            apps/fabric/ui/src/components/artifacts/ArtifactCard.tsx
+            apps/fabric/ui/src/components/search/SearchResultRow.tsx
+            apps/fabric/ui/src/pages/IssueDetail.tsx
+            apps/fabric/ui/src/pages/Pipelines.tsx
+            apps/fabric/ui/storybook/stories/assigned-backlog-safeguards.stories.tsx
+          )
+          sed -i 's/HermesFabric/Link2/g' "${files[@]}"
+          if grep -n 'HermesFabric' "${files[@]}"; then
+            echo 'Attachment icon repair did not complete'
+            exit 1
+          fi
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
