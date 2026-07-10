@@ -1,0 +1,39 @@
+name: Agency Phase 17 Merge Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'feat/phase17-agency-live-roundtrip'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Capture exact merge-ref checks
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== RUFF FORMAT ==='
+            ruff format --check --diff .
+            echo "ruff_format_status=$?"
+            echo '=== AGENCY TESTS ==='
+            make test-agency
+            echo "agency_test_status=$?"
+          } 2>&1 | tee agency-phase17-merge-diagnostic.log
+          exit 0
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: agency-phase17-merge-diagnostic
+          path: agency-phase17-merge-diagnostic.log
+          if-no-files-found: error
