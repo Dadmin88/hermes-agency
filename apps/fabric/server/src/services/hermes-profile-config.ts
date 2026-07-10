@@ -28,8 +28,32 @@ export function resolveHermesProfileName(agent: { name: string; adapterConfig?: 
   return null;
 }
 
+export function validateHermesProfileName(profileName: string): string {
+  const profile = profileName.trim();
+  if (!profile) {
+    throw new Error("Profile name is empty.");
+  }
+  if (
+    profile === "." ||
+    profile === ".." ||
+    path.isAbsolute(profile) ||
+    profile.includes("/") ||
+    profile.includes("\\")
+  ) {
+    throw new Error("Profile name must be a safe basename.");
+  }
+  return profile;
+}
+
 export function profileConfigPath(profileName: string, profilesDir = resolveHermesProfilesDir()): string {
-  return path.join(profilesDir, profileName, "config.yaml");
+  const profile = validateHermesProfileName(profileName);
+  const profilesRoot = path.resolve(profilesDir);
+  const configPath = path.resolve(profilesRoot, profile, "config.yaml");
+  const relative = path.relative(profilesRoot, configPath);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("Profile config path must stay within Hermes profiles directory.");
+  }
+  return configPath;
 }
 
 export async function readProfileConfigYaml(configPath: string): Promise<Record<string, unknown> | null> {
@@ -134,11 +158,18 @@ export async function writeModelToProfileConfig(input: {
   profilesDir?: string;
 }): Promise<HermesProfileConfigWriteResult> {
   const profilesDir = input.profilesDir ?? resolveHermesProfilesDir();
-  const profile = input.profileName.trim();
-  if (!profile) {
-    return { status: "error", profile: input.profileName, error: "Profile name is empty." };
+  let profile: string;
+  let configPath: string;
+  try {
+    profile = validateHermesProfileName(input.profileName);
+    configPath = profileConfigPath(profile, profilesDir);
+  } catch (error) {
+    return {
+      status: "error",
+      profile: input.profileName,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
-  const configPath = profileConfigPath(profile, profilesDir);
   try {
     const existing = await readProfileConfigYaml(configPath);
     const family = input.family ?? null;

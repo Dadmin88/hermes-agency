@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -32,6 +32,36 @@ describe("hermes profile config writer", () => {
       "agency-ceo",
     );
     expect(resolveHermesProfileName({ name: "Plain Agent", adapterConfig: {} })).toBeNull();
+  });
+
+  it("rejects traversal profile names before computing config paths", async () => {
+    const profilesDir = await makeProfilesDir();
+    expect(() => profileConfigPath("../outside-target", profilesDir)).toThrow(
+      "Profile name must be a safe basename.",
+    );
+    expect(() => profileConfigPath("agency/other", profilesDir)).toThrow(
+      "Profile name must be a safe basename.",
+    );
+  });
+
+  it("does not write outside profilesDir for invalid profile names", async () => {
+    const profilesDir = await makeProfilesDir();
+    const result = await writeModelToProfileConfig({
+      profileName: "../outside-target",
+      provider: "openai",
+      model: "gpt-5",
+      modelSetName: "balanced",
+      profilesDir,
+    });
+
+    expect(result).toMatchObject({
+      status: "error",
+      profile: "../outside-target",
+      error: "Profile name must be a safe basename.",
+    });
+    await expect(stat(path.join(profilesDir, "..", "outside-target", "config.yaml"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("creates missing config.yaml with model block", async () => {
