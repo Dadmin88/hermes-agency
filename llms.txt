@@ -1,25 +1,52 @@
 # Hermes Agency
 
-Hermes Agency is a Hermes Agent plugin and local operations layer for running a managed multi-agent team. It installs and coordinates specialist `agency-*` Hermes profiles, routes work by skill, tracks execution through Kanban when available, manages model-set strategies, exposes Hermes CLI/slash/model-tool surfaces, and delegates work over **Keryx** (primary P2P/task transport).
+Hermes Agency is a Hermes Agent plugin and local operations layer for running a managed multi-agent team. It installs and coordinates specialist `agency-*` Hermes profiles, routes work by skill, tracks execution through Kanban when available, manages model-set strategies, exposes Hermes CLI/slash/model-tool surfaces, and uses **Keryx** as its primary transport foundation.
 
 Hermes Agency is the product in this repository.
 
 - Primary transport SDK: `src/keryx/` (Python package/import `keryx`)
 - Legacy fallback transport: `src/agentanycast/`
-- External Rust runtime (daemon/relay/CLI): separate `hermes-keryx` repository
+- External Rust runtime (daemon/relay/edge-node/CLI): separate `hermes-keryx` repository
 
 ## Primary capabilities
 
 - Packaged specialist staff roster under `hermes-agency/default_staff/`
 - Per-profile AgentCards from `SOUL.md`, installed skills, and non-secret config metadata
 - Per-profile node lifecycle and task queue management
-- Skill-based discovery and task sending through Keryx (`KeryxNode`)
+- Skill-based registry discovery through Keryx
+- Managed routing with offline wake attempts and persistent queue fallback
 - Safe incoming task handling with conservative defaults
 - Kanban-aware task routing and reconciliation when Hermes Kanban is available
 - Team/orchestrator context injection through Hermes plugin hooks
 - Model-set management for bulk provider/model strategy changes
 - Orchestrator-only `orch_*` tools for promoted agency coordinators
 - Headless Docker setup/node runtime
+
+## Evidence and current transport boundary
+
+`hermes-agency/tests/test_golden_path.py` is the permanent Agency integration proof. It exercises the real roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, local orchestrator-state, and Kanban reconciliation seams.
+
+It proves:
+
+- offline specialist selection and wake
+- allowlist/trust verification
+- incoming Hermes delegation
+- artifact return
+- completed local orchestrator state
+- Kanban running/done/pending-review reconciliation
+- persistent queue fallback when wake fails
+
+This is an in-process loopback integration proof using an in-memory transport adapter and board adapter. It is not a live multi-process Keryx network proof.
+
+Keryx currently implements the transport foundation from sender daemon routing through relay publication/mailbox and destination edge-node delivery into a destination daemon lifecycle row. The complete remote Agency round trip is not implemented yet. Missing Phase 17 work includes durable full-envelope retention, claim-next worker delivery, Python handler dispatch, terminal result/artifact return, and remote `TaskHandle.wait()` completion.
+
+Tracking:
+
+- `docs/keryx-cross-node-boundary.md`
+- `DeployFaith/hermes-keryx#10`
+- `DeployFaith/Hermes_Agency#81`
+
+Do not claim that a remote Hermes Agency profile automatically consumes a relay-delivered Keryx task and sends its final artifact back until the Phase 17 cross-process E2E passes.
 
 ## Transport configuration
 
@@ -38,6 +65,8 @@ Typical Keryx dual-run ports (loopback):
 - relay health gRPC: `51052`
 - registry gRPC: `51053`
 - libp2p: `4101`
+
+Dual-run starts one daemon and one relay. It validates infrastructure health, not a two-profile remote execution/result round trip.
 
 ## Important command surfaces
 
@@ -82,7 +111,7 @@ Model tool names use the `agency_*` prefix. Legacy `a2a_*` tool names may exist 
 
 ## Docker
 
-The current Docker compose setup is headless. It runs setup and/or the local agency node manager; it is not a dashboard service.
+The current Docker compose setup is headless. It runs setup and/or the local agency node manager; it is not a dashboard service or a complete remote Keryx topology.
 
 ```bash
 docker compose up --build
@@ -106,11 +135,12 @@ HERMES_KERYX_REGISTRY_ENDPOINT=127.0.0.1:51053
 
 - `allow_remote_tasks: false`
 - `incoming.tool_access: safe`
+- incoming work must pass allowlist/trust verification
 - plugin load must not require a live daemon
 - keep responses compact; use compact health endpoints for frequent checks
 - never embed secrets, private hostnames, real peer IDs, or local absolute paths in docs/examples
 
 ## Related repositories
 
-- `hermes-keryx` — Rust runtime (`keryxd`, `keryx-relay`, CLI) + migration/dual-run scripts
-- Hermes Agent core — host runtime that loads this plugin
+- `hermes-keryx`: Rust runtime (`keryxd`, `keryx-relay`, `keryx-node`, CLI) + migration/dual-run scripts
+- Hermes Agent core: host runtime that loads this plugin
