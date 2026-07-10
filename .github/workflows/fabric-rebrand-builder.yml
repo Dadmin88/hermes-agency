@@ -36,6 +36,7 @@ jobs:
           python scripts/fix_fabric_rebrand_semantics.py
           python scripts/fix_fabric_cli_alias.py
           python scripts/fix_fabric_final_contracts.py
+          python scripts/fix_fabric_ui_contracts.py
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
@@ -53,6 +54,7 @@ jobs:
             ':!scripts/fix_fabric_rebrand_semantics.py' \
             ':!scripts/fix_fabric_cli_alias.py' \
             ':!scripts/fix_fabric_final_contracts.py' \
+            ':!scripts/fix_fabric_ui_contracts.py' \
             ':!.github/workflows/fabric-rebrand-builder.yml' \
             | tee -a fabric-rebrand-scan.log
           content_status=${PIPESTATUS[0]}
