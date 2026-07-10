@@ -33,6 +33,14 @@ text = text.replace(
     '        updated = polish_code_strings(replace_technical(original))',
     '        updated = replace_technical(original)\n        updated = updated.replace(\'"HermesFabric"\', \'"Hermes Fabric"\')\n        updated = updated.replace("\'HermesFabric\'", "\'Hermes Fabric\'")\n        updated = updated.replace("`HermesFabric`", "`Hermes Fabric`")\n        updated = updated.replace(">HermesFabric<", ">Hermes Fabric<")',
 )
+text = text.replace(
+    '\ndef rewrite_brand_guard() -> None:\n',
+    '''\ndef prune_empty_directories() -> None:\n    directories = [\n        candidate\n        for candidate in ROOT.rglob("*")\n        if candidate.is_dir() and ".git" not in candidate.relative_to(ROOT).parts\n    ]\n    for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):\n        try:\n            directory.rmdir()\n        except OSError:\n            pass\n\n\ndef rewrite_brand_guard() -> None:\n''',
+)
+text = text.replace(
+    '    rename_tracked_paths()\n    # Re-run content migration',
+    '    rename_tracked_paths()\n    prune_empty_directories()\n    # Re-run content migration',
+)
 path.write_text(text)
 
 normalizer = ROOT / "apps/fabric/scripts/normalize-upstream-import.py"
