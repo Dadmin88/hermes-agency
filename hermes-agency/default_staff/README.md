@@ -1,142 +1,116 @@
 # Default Staff Profiles
 
-Hermes Agency ships with a built-in roster of **84 AI agency staff profiles** covering leadership, product, engineering, design, content, marketing, QA, and support roles.
+Hermes Agency ships with a built-in roster of **83 AI agency staff profiles** covering leadership, product, engineering, design, content, marketing, QA, and support roles.
 
-## What Are Default Staff Profiles?
+The machine-readable `manifest.json` is the canonical source for the roster count and packaged profile metadata. The pool registry in `../pool/registry_definition.json` provides the runtime capability roster used for wake, queue, and routing behavior.
 
-Default staff profiles are pre-configured Hermes profiles that come packaged with the Hermes Agency plugin. Each profile has:
+## Profile contract
 
-- **SOUL.md** — Identity, mission, operating principles, responsibilities, and behavior rules
-- **ROUTING.md** — Ownership boundaries, delegation rules, escalation triggers, and handoff formats
-- **profile.yaml** — Metadata including category, tools, tags, and agency configuration
-- **skills/** — Curated, role-specific skills that ship with that staff profile
-- **.no-bundled-skills** — Marker that prevents generic bundled skills from being reseeded into Agency profiles
+Each packaged profile includes:
 
-These profiles are designed to work together as a coordinated agency team. They follow the [STAFF_CONTRACT.md](STAFF_CONTRACT.md) — a universal operating contract that governs all default staff behavior.
+- `SOUL.md` — identity, mission, principles, responsibilities, and behavior rules
+- `ROUTING.md` — ownership boundaries, delegation rules, escalation triggers, and handoff formats
+- `profile.yaml` — category, tools, tags, model family, and Agency configuration
+- `skills/` — curated role-specific Hermes skills
+- `.no-bundled-skills` — prevents generic bundled skills from being reseeded into Agency profiles
 
-## Where They Live
+All packaged profiles follow `STAFF_CONTRACT.md`, the shared operating contract for the default workforce.
 
-```
+## Layout
+
+```text
 hermes-agency/default_staff/
-  STAFF_CONTRACT.md          # Universal operating rules
-  manifest.json              # Machine-readable profile registry
-  README.md                  # This file
-  __init__.py                # Discovery/install code
-  profiles/
-    agency-orchestrator/
-      SOUL.md
-      ROUTING.md
-      profile.yaml
-      skills/
-      .no-bundled-skills
-    agency-frontend-engineer/
-      SOUL.md
-      ROUTING.md
-      profile.yaml
-    ... (84 profiles total)
+├── STAFF_CONTRACT.md
+├── manifest.json
+├── README.md
+├── __init__.py
+└── profiles/
+    ├── agency-orchestrator/
+    │   ├── SOUL.md
+    │   ├── ROUTING.md
+    │   ├── profile.yaml
+    │   ├── skills/
+    │   └── .no-bundled-skills
+    ├── agency-frontend-engineer/
+    └── ... 83 profiles total
 ```
 
-## Profile Categories
+## Categories
 
-| Category | Count | Description |
-|----------|-------|-------------|
+| Category | Count | Examples |
+|---|---:|---|
 | Leadership | 6 | Orchestrator, Chief of Staff, Project Manager, Traffic Manager, Scrum Master, Operations Manager |
-| Product | 8 | Product Manager, Strategist, Business Analyst, Requirements Analyst, User/Market/Competitive Researchers, Monetization Strategist |
-| Engineering | 18 | Architects, Leads, Fullstack/Frontend/Backend Engineers, DevOps, Security, Data, AI, Godot, and more |
-| Design | 14 | Creative/Art Directors, UI/UX, Brand, Game Design, Worldbuilder, Technical Artist, Motion, Audio |
-| Content | 9 | Editor-in-Chief, Copywriter, Technical Writer, Lore Writer, Dialogue Writer, Scriptwriter, and more |
-| Marketing | 10 | Strategist, Growth, Launch, Social Media, Community, Partnerships, SEO, Email, Analytics, PR |
-| QA | 10 | QA Lead/Tester, Code/Design/Security/Accessibility/Compliance Reviewers, Red Team, Release Manager, Git Steward |
-| Support | 9 | Support Specialist, Customer Success, Onboarding, Training, Knowledge Manager, Finance, Procurement, Legal, GPT Bridge |
+| Product | 8 | Product Manager, Strategist, Business Analyst, Requirements Analyst, user/market/competitive researchers |
+| Engineering | 18 | Architects, leads, frontend/backend/fullstack, DevOps, security, data, AI, Godot |
+| Design | 14 | Creative and art direction, UI/UX, brand, game design, worldbuilding, technical art, motion, audio |
+| Content | 9 | Editor-in-Chief, copywriting, technical writing, lore, dialogue, scripting |
+| Marketing | 10 | Strategy, growth, launch, social, community, partnerships, SEO, email, analytics, PR |
+| QA | 10 | QA lead/tester, code/design/security/accessibility/compliance review, red team, release, Git stewardship |
+| Support | 8 | Support, customer success, onboarding, training, knowledge, finance, procurement, legal |
 
-## How Hermes Agency Discovers Them
+The category totals above must sum to the manifest total. Update this table, `manifest.json`, and the runtime pool registry together when adding or removing packaged staff.
 
-The `hermes-agency/default_staff/__init__.py` module provides discovery functions:
+## Discovering packaged staff
 
 ```python
 from hermes_agency.default_staff import list_default_staff, load_manifest
 
-# List all available default staff profiles
 profiles = list_default_staff()
-
-# Load the full manifest
 manifest = load_manifest()
 ```
 
-The manifest (`manifest.json`) is a machine-readable registry of all profiles with metadata, categories, tags, and delegation maps.
+`manifest.json` records profile names, categories, tags, paths, and delegation metadata.
 
-## Installing Default Staff Profiles
+## Installing staff
 
-Default staff profiles are **not automatically installed** into your local `~/.hermes/profiles/`. They are shipped as a library within the plugin. To install them:
-
-### Via CLI (recommended)
+Packaged profiles are shipped as a library and are not automatically copied into `~/.hermes/profiles/`.
 
 ```bash
-# Install all default staff profiles
-hermes agency staff install
-
-# Install specific profiles
-hermes agency staff install agency-orchestrator agency-frontend-engineer
-
-# Dry run (see what would happen)
+# Preview all changes
 hermes agency staff install --dry-run
 
-# Force overwrite existing profiles
+# Install all packaged profiles
+hermes agency staff install
+
+# Install selected profiles
+hermes agency staff install agency-orchestrator agency-frontend-engineer
+
+# Replace existing profiles with packaged versions
 hermes agency staff install --force
 ```
 
-### Via Python API
+Equivalent standalone commands are available through `hermes-agency staff ...`.
 
-```python
-from hermes_agency.default_staff import install_default_staff
+## Installation safety
 
-# Install all
-result = install_default_staff()
+The installer follows these rules:
 
-# Install specific profiles
-result = install_default_staff(names=["agency-orchestrator", "agency-qa-lead"])
+1. Existing profiles are never overwritten without `--force`.
+2. Only `agency-*` profiles are managed by bulk staff operations.
+3. Dry-run is available before installation.
+4. The `agency-` namespace prevents collisions with personal Hermes profiles.
+5. Custom profiles are not overwritten unless their exact names are explicitly forced.
 
-# Dry run
-result = install_default_staff(dry_run=True)
+## Model families and Model Sets
 
-# Force overwrite
-result = install_default_staff(force=True)
+Profiles may declare a `model_family` in `profile.yaml`. Model Sets resolve the effective provider/model in this order:
+
+1. Explicit profile mapping in the selected Model Set
+2. Profile `model_family`
+3. Category-to-family mapping
+4. Model Set default family
+
+This lets Hermes Agency apply one model strategy across the entire installed workforce without editing 83 profile configs by hand.
+
+```bash
+hermes agency models plan economic
+hermes agency models apply economic --dry-run
+hermes agency models apply economic --yes --backup
 ```
 
-## Safety: No Existing Profiles Are Touched
+## Runtime defaults
 
-The installation system has strict safety rules:
-
-1. **Never overwrites without `--force`** — If a profile with the same name already exists, it is skipped.
-2. **Never touches non-agency profiles** — Only `agency-*` profiles are created. Your existing `example-profile`, other non-agency profiles are never modified.
-3. **Dry-run support** — Always preview before installing.
-4. **Namespace isolation** — The `agency-` prefix prevents collision with user-created profiles.
-
-## Why the `agency-` Namespace?
-
-The `agency-` prefix serves several purposes:
-
-- **Collision prevention** — Won't conflict with your existing Hermes profiles
-- **Identification** — Instantly distinguishes built-in agency staff from custom profiles
-- **Safe bulk operations** — Enables install/update/disable all agency profiles at once
-- **Contract compliance** — Signals that these profiles follow the STAFF_CONTRACT.md rules
-
-## Model Families
-
-Default staff profiles can optionally declare `model_family` in `profile.yaml`. Model-set presets still win when they explicitly map a profile.
-
-Resolution order is:
-
-1. Explicit mapping in the selected model-set preset.
-2. `profile.yaml` `model_family`, when present.
-3. Manifest category mapped to a family.
-4. Preset `defaults.family`.
-
-This lets Hermes Agency switch model strategy across the full roster without hand-editing 83 installed profile configs. Individual `config.yaml` files can still be manually customized, but `hermes agency models plan <set>` will report drift from the selected preset.
-
-## Configuration
-
-Each installed profile uses these defaults (in `profile.yaml`):
+Installed profiles use conservative defaults:
 
 ```yaml
 agency:
@@ -146,35 +120,15 @@ agency:
   skills_from_profile: true
 ```
 
-### Customizing Profiles
+Remote execution and automatic node startup remain opt-in per profile.
 
-After installation, you can customize any profile by editing its files in `~/.hermes/profiles/agency-*/`:
+## Orchestrator and specialists
 
-- Edit `SOUL.md` to change identity, principles, or responsibilities
-- Edit `ROUTING.md` to change ownership or delegation rules
-- Edit `config.yaml` to change model, toolset, or agency settings
+`agency-orchestrator` is the primary coordinator. It can decompose work, route subtasks, track dependencies, and escalate blockers.
 
-### Auto-Start
+The remaining profiles are specialists. They own work within their role boundaries, delegate cross-domain work, and report results or blockers back to the orchestrator.
 
-To make a profile start its P2P node automatically on session start:
-
-```yaml
-agency:
-  auto_start: true
-```
-
-### Remote Tasks
-
-To allow a profile to process incoming A2A tasks:
-
-```yaml
-agency:
-  allow_remote_tasks: true
-```
-
-### Orchestrator Role
-
-Only `agency-orchestrator` should be configured as the primary coordinator:
+Only the configured orchestrator profile should enable the orchestrator tool surface:
 
 ```yaml
 agency:
@@ -184,26 +138,6 @@ agency:
     auto_decompose: true
 ```
 
-## The Orchestrator vs Specialists
+## Extending the workforce
 
-**agency-orchestrator** is the primary coordinator. It:
-- Decomposes complex tasks into subtasks
-- Routes subtasks to specialist profiles
-- Tracks progress and manages dependencies
-- Escalates blockers to the operator
-
-**Specialist profiles** (all others) are domain experts. They:
-- Execute specific tasks within their domain
-- Delegate cross-domain work to other specialists
-- Escalate when work falls outside their boundaries
-- Report results back to the orchestrator
-
-## Extending the Staff
-
-You can create custom agency profiles by:
-
-1. Creating a new directory under `~/.hermes/profiles/` with the `agency-` prefix
-2. Adding `SOUL.md`, `ROUTING.md`, and `config.yaml`
-3. Following the STAFF_CONTRACT.md rules
-
-Custom profiles will not be overwritten by default staff installation.
+Custom profiles can be added under `~/.hermes/profiles/agency-<name>/` with a `SOUL.md`, `ROUTING.md`, `profile.yaml` or `config.yaml`, and role-specific skills. Follow `STAFF_CONTRACT.md` so custom staff participate cleanly in routing, delegation, and escalation.
