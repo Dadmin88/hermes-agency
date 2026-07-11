@@ -40,7 +40,7 @@ describe("skills catalog package artifacts", () => {
     if (!metadata.files.some((entry) => entry.path === "dist/generated/catalog.json")) {
       execFileSync("pnpm", ["--filter", "@paperclipai/skills-catalog", "build"], {
         cwd: packageRoot,
-        stdio: "ignore",
+        stdio: "inherit",
       });
       metadata = readPackMetadata(createPackDestination());
     }
