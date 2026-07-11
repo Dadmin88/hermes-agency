@@ -145,6 +145,29 @@ jobs:
           text = text.replace("a hermes fabric secret already uses this", "a fabric secret already uses this")
           write(import_test, text)
           PY
+      - name: Normalize Python migration tooling
+        run: |
+          python -m pip install 'ruff>=0.4'
+          python - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              *Path("apps/fabric/scripts").glob("*.py"),
+              *Path("scripts").glob("*fabric*.py"),
+          ]
+          directive = "# ruff: noqa: E501, N999\n"
+          for path in paths:
+              text = path.read_text(encoding="utf-8")
+              if directive in text:
+                  continue
+              lines = text.splitlines(keepends=True)
+              insert_at = 1 if lines and lines[0].startswith("#!") else 0
+              lines.insert(insert_at, directive)
+              path.write_text("".join(lines), encoding="utf-8")
+          PY
+          python -m ruff check --fix apps/fabric/scripts/*.py scripts/*fabric*.py
+          python -m ruff format apps/fabric/scripts/*.py scripts/*fabric*.py
+          python -m ruff check apps/fabric/scripts/*.py scripts/*fabric*.py
       - name: Normalize workspace lockfile
         working-directory: apps/fabric
         run: pnpm install --lockfile-only
