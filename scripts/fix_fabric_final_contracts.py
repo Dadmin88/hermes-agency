@@ -90,10 +90,30 @@ def stabilize_skills_catalog_package_test() -> None:
     test_path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+def normalize_skills_catalog_keys() -> None:
+    catalog_root = FABRIC / "packages/skills-catalog/catalog"
+    for skill_path in sorted(catalog_root.rglob("SKILL.md")):
+        relative = skill_path.parent.relative_to(catalog_root).as_posix()
+        expected_key = f"hermes-fabric/{relative}"
+        text = skill_path.read_text(encoding="utf-8")
+        updated, count = re.subn(
+            r"^key:\s*.*$",
+            f"key: {expected_key}",
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        if count != 1:
+            raise RuntimeError(f"catalog skill key missing: {skill_path}")
+        if updated != text:
+            skill_path.write_text(updated, encoding="utf-8")
+
+
 def main() -> None:
     stabilize_plugin_constraints()
     normalize_worktree_test_contract()
     stabilize_skills_catalog_package_test()
+    normalize_skills_catalog_keys()
     print("Stabilized final Hermes Fabric migration contracts")
 
 
