@@ -1,0 +1,30 @@
+name: One-shot Fabric Builder Unblock
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  unblock:
+    if: github.head_ref == 'feat/fabric-remove-paperclip-brand'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Patch builder and lint boundary
+        run: python scripts/unblock_fabric_builder.py
+      - name: Commit and push unblock
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(fabric): unblock final rebrand build'
+          git push origin HEAD:${{ github.head_ref }}
