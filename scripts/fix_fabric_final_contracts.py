@@ -80,9 +80,20 @@ def normalize_worktree_test_contract() -> None:
     test_path.write_text(text, encoding="utf-8")
 
 
+def stabilize_skills_catalog_package_test() -> None:
+    test_path = FABRIC / "packages/skills-catalog/src/packaged-artifacts.test.ts"
+    text = test_path.read_text(encoding="utf-8")
+    old = 'execFileSync("pnpm", ["--filter", "@hermes-fabric/skills-catalog", "build"], {'
+    new = 'execFileSync("pnpm", ["run", "build"], {'
+    if old not in text and new not in text:
+        raise RuntimeError("skills catalog package build anchor missing")
+    test_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
 def main() -> None:
     stabilize_plugin_constraints()
     normalize_worktree_test_contract()
+    stabilize_skills_catalog_package_test()
     print("Stabilized final Hermes Fabric migration contracts")
 
 
