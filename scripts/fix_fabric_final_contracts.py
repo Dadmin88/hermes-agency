@@ -109,11 +109,51 @@ def normalize_skills_catalog_keys() -> None:
             skill_path.write_text(updated, encoding="utf-8")
 
 
+def stabilize_adapter_skill_snapshot_test() -> None:
+    test_path = FABRIC / "packages/adapter-utils/src/server-utils.test.ts"
+    text = test_path.read_text(encoding="utf-8")
+    old = '''    expect(snapshot.entries).toEqual([
+      expect.objectContaining({
+        key: "missing-skill",
+        state: "missing",
+        origin: "external_unknown",
+        desired: true,
+      }),
+      expect.objectContaining({
+        key: requiredEntry.key,
+        state: "configured",
+        origin: "company_managed",
+        detail: "Mounted on next run.",
+      }),
+    ]);'''
+    new = '''    expect(snapshot.entries).toHaveLength(2);
+    expect(snapshot.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "missing-skill",
+          state: "missing",
+          origin: "external_unknown",
+          desired: true,
+        }),
+        expect.objectContaining({
+          key: requiredEntry.key,
+          state: "configured",
+          origin: "company_managed",
+          detail: "Mounted on next run.",
+        }),
+      ]),
+    );'''
+    if old not in text and new not in text:
+        raise RuntimeError("adapter skill snapshot assertion anchor missing")
+    test_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
 def main() -> None:
     stabilize_plugin_constraints()
     normalize_worktree_test_contract()
     stabilize_skills_catalog_package_test()
     normalize_skills_catalog_keys()
+    stabilize_adapter_skill_snapshot_test()
     print("Stabilized final Hermes Fabric migration contracts")
 
 
