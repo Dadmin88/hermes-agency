@@ -548,67 +548,70 @@ class NodeManager(
         """Stop whichever transport node is active and tear down runtime tasks."""
 
         current_stop_task = asyncio.current_task()
-        if self._stop_task is None or self._stop_task.done():
-            self._stop_task = current_stop_task
+        stop_task = self._stop_task
+        if stop_task is current_stop_task:
+            raise RuntimeError("Current task already owns node teardown")
+        if stop_task is not None and not stop_task.done():
+            return await asyncio.shield(stop_task)
+        self._stop_task = current_stop_task
         try:
-            startup_task = self._startup_task
-            if startup_task is not None:
-                await asyncio.shield(startup_task)
+            try:
+                startup_task = self._startup_task
+                if startup_task is not None:
+                    await asyncio.shield(startup_task)
 
-            if self._serve_task is not None and not self._serve_task.done():
-                self._serve_task.cancel()
-                await asyncio.gather(self._serve_task, return_exceptions=True)
+                if self._serve_task is not None and not self._serve_task.done():
+                    self._serve_task.cancel()
+                    await asyncio.gather(self._serve_task, return_exceptions=True)
+                if self._incoming_worker_task is not None and not self._incoming_worker_task.done():
+                    self._incoming_worker_task.cancel()
+                    await asyncio.gather(self._incoming_worker_task, return_exceptions=True)
+                if self._team_refresh_task is not None and not self._team_refresh_task.done():
+                    self._team_refresh_task.cancel()
+                    await asyncio.gather(self._team_refresh_task, return_exceptions=True)
+                if (
+                    self._registry_reregister_task is not None
+                    and not self._registry_reregister_task.done()
+                ):
+                    self._registry_reregister_task.cancel()
+                    await asyncio.gather(self._registry_reregister_task, return_exceptions=True)
 
-            if self._incoming_worker_task is not None and not self._incoming_worker_task.done():
-                self._incoming_worker_task.cancel()
-                await asyncio.gather(self._incoming_worker_task, return_exceptions=True)
-
-            if self._team_refresh_task is not None and not self._team_refresh_task.done():
-                self._team_refresh_task.cancel()
-                await asyncio.gather(self._team_refresh_task, return_exceptions=True)
-
-            if (
-                self._registry_reregister_task is not None
-                and not self._registry_reregister_task.done()
-            ):
-                self._registry_reregister_task.cancel()
-                await asyncio.gather(self._registry_reregister_task, return_exceptions=True)
-
-            if self._node is not None:
-                try:
-                    if self._nm().get_config().team.auto_register:
-                        card = getattr(self._node, "card", None)
-                        if _transport_backend_for_config(self.state.config) == "keryx" and hasattr(
-                            self._node, "deregister_skills"
-                        ):
-                            await self._node.deregister_skills(card)
-                        await self._nm().deregister_agent(self._node, card=card)
-                        self._nm().announce_registration(
-                            self.state.card_name or self._nm().current_profile_name(),
-                            "deregistered",
-                            peer_id=self.state.peer_id,
-                        )
-                except Exception:
-                    pass
-                await self._node.stop()
-        except Exception as exc:
-            self.state.error = f"{type(exc).__name__}: {exc}"
+                if self._node is not None:
+                    try:
+                        if self._nm().get_config().team.auto_register:
+                            card = getattr(self._node, "card", None)
+                            if _transport_backend_for_config(
+                                self.state.config
+                            ) == "keryx" and hasattr(self._node, "deregister_skills"):
+                                await self._node.deregister_skills(card)
+                            await self._nm().deregister_agent(self._node, card=card)
+                            self._nm().announce_registration(
+                                self.state.card_name or self._nm().current_profile_name(),
+                                "deregistered",
+                                peer_id=self.state.peer_id,
+                            )
+                    except Exception:
+                        pass
+                    await self._node.stop()
+            except Exception as exc:
+                self.state.error = f"{type(exc).__name__}: {exc}"
+            finally:
+                self._serve_task = None
+                self._incoming_worker_task = None
+                self._team_refresh_task = None
+                self._registry_reregister_task = None
+                self._incoming_queue = None
+                self._queued_incoming_task_ids.clear()
+                self._node = None
+                self._task_handles.clear()
+                self.state.started = False
+                self.state.peer_id = None
+                self.state.serve_task_running = False
+                self.state.next_retry_at = None
+                self._refresh_registration_health()
+                self.state.stopped_at = time.time()
+                self._refresh_incoming_state()
         finally:
-            self._serve_task = None
-            self._incoming_worker_task = None
-            self._team_refresh_task = None
-            self._registry_reregister_task = None
-            self._incoming_queue = None
-            self._queued_incoming_task_ids.clear()
-            self._node = None
-            self._task_handles.clear()
-            self.state.started = False
-            self.state.peer_id = None
-            self.state.serve_task_running = False
-            self.state.next_retry_at = None
-            self._refresh_registration_health()
-            self.state.stopped_at = time.time()
-            self._refresh_incoming_state()
             if self._stop_task is current_stop_task:
                 self._stop_task = None
         return self.state

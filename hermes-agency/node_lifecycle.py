@@ -57,7 +57,15 @@ class NodeLifecycleMixin:
         with self._thread_lock:
             loop = self._loop
             thread = self._thread
-            if loop is None or self.state.started:
+            active_transition = any(
+                task is not None and not task.done()
+                for task in (
+                    getattr(self, "_startup_task", None),
+                    getattr(self, "_stop_task", None),
+                    getattr(self, "_start_future", None),
+                )
+            )
+            if loop is None or self.state.started or active_transition:
                 return
             loop.call_soon_threadsafe(loop.stop)
 
