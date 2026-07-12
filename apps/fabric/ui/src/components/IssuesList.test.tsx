@@ -4,7 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Issue, Project } from "@paperclipai/shared";
+import type { Issue, Project } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IssuesList } from "./IssuesList";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -327,7 +327,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -384,7 +384,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -406,7 +406,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -431,7 +431,7 @@ describe("IssuesList", () => {
     const failedIssue = createIssue({ id: "issue-failed", identifier: "PAP-10", title: "Failed external object" });
     const freshIssue = createIssue({ id: "issue-fresh", identifier: "PAP-11", title: "Fresh external object" });
     const noObjectIssue = createIssue({ id: "issue-none", identifier: "PAP-12", title: "No external object" });
-    localStorage.setItem("paperclip:test-issues:company-1", JSON.stringify({ externalObjectStatuses: ["failed"] }));
+    localStorage.setItem("fabric:test-issues:company-1", JSON.stringify({ externalObjectStatuses: ["failed"] }));
     mockExternalObjectsApi.getIssueSummaries.mockResolvedValue({
       summaries: {
         "issue-failed": {
@@ -462,7 +462,7 @@ describe("IssuesList", () => {
         issues={[failedIssue, freshIssue, noObjectIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -494,7 +494,7 @@ describe("IssuesList", () => {
         issues={[localIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialSearch="server"
         onUpdateIssue={() => undefined}
       />,
@@ -527,7 +527,7 @@ describe("IssuesList", () => {
         issues={[localIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialSearch="server"
         searchFilters={{ parentId: "parent-1" }}
         onUpdateIssue={() => undefined}
@@ -557,7 +557,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         baseCreateIssueDefaults={{ parentId: "parent-1", projectId: "project-1" }}
         createIssueLabel="Sub-issue"
         onUpdateIssue={() => undefined}
@@ -592,7 +592,7 @@ describe("IssuesList", () => {
 
   it("uses workspace group defaults when creating an issue from a grouped section", async () => {
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ groupBy: "workspace", sortField: "updated", sortDir: "desc" }),
     );
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: true });
@@ -613,7 +613,7 @@ describe("IssuesList", () => {
     });
     const project = {
       id: "project-1",
-      name: "Paperclip App",
+      name: "HermesFabric App",
       color: null,
       workspaces: [{ id: "project-workspace-1", name: "Primary workspace" }],
       primaryWorkspace: { id: "project-workspace-1" },
@@ -625,7 +625,7 @@ describe("IssuesList", () => {
         issues={[issue]}
         agents={[]}
         projects={[project]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -698,7 +698,7 @@ describe("IssuesList", () => {
         issues={[cancelledIssue, blockedIssue, nextIssue, doneIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         showProgressSummary
         onUpdateIssue={() => undefined}
       />,
@@ -754,7 +754,7 @@ describe("IssuesList", () => {
         issues={[issueBlocked, issueActive, issueDone]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         defaultSortField="workflow"
         onUpdateIssue={() => undefined}
       />,
@@ -812,7 +812,7 @@ describe("IssuesList", () => {
         issues={[secondChild, firstChild]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         defaultSortField="workflow"
         onUpdateIssue={() => undefined}
       />,
@@ -902,7 +902,7 @@ describe("IssuesList", () => {
         issues={[issueBlocked, thirdBlocker, secondBlocker, firstBlocker, issueDone]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         defaultSortField="workflow"
         onUpdateIssue={() => undefined}
       />,
@@ -961,7 +961,7 @@ describe("IssuesList", () => {
         issues={[grandchild, nextRoot, firstRoot, parent]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         defaultSortField="workflow"
         onUpdateIssue={() => undefined}
       />,
@@ -991,7 +991,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         showProgressSummary
         onUpdateIssue={() => undefined}
       />,
@@ -1028,7 +1028,7 @@ describe("IssuesList", () => {
         ]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         showProgressSummary
         onUpdateIssue={() => undefined}
       />,
@@ -1057,7 +1057,7 @@ describe("IssuesList", () => {
         issues={[localIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onSearchChange={onSearchChange}
         onUpdateIssue={() => undefined}
       />,
@@ -1108,7 +1108,7 @@ describe("IssuesList", () => {
     );
 
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ statuses: ["done"] }),
     );
     mockIssuesApi.list.mockResolvedValue(serverIssues);
@@ -1118,7 +1118,7 @@ describe("IssuesList", () => {
         issues={[]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialSearch="server"
         onUpdateIssue={() => undefined}
       />,
@@ -1136,7 +1136,7 @@ describe("IssuesList", () => {
 
   it("loads board issues with a separate result limit for each status column", async () => {
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ viewMode: "board" }),
     );
 
@@ -1167,7 +1167,7 @@ describe("IssuesList", () => {
         issues={[parentIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         enableRoutineVisibilityFilter
         onUpdateIssue={() => undefined}
       />,
@@ -1203,7 +1203,7 @@ describe("IssuesList", () => {
 
   it("uses compact cards and collapsed cold lanes for high-volume boards", async () => {
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ viewMode: "board" }),
     );
 
@@ -1226,7 +1226,7 @@ describe("IssuesList", () => {
         issues={[]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1248,7 +1248,7 @@ describe("IssuesList", () => {
 
   it("lets board users choose the per-column page size", async () => {
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ viewMode: "board" }),
     );
 
@@ -1257,7 +1257,7 @@ describe("IssuesList", () => {
         issues={[createIssue({ id: "issue-page-size", title: "Page size issue" })]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1298,7 +1298,7 @@ describe("IssuesList", () => {
       }));
     });
 
-    expect(localStorage.getItem("paperclip:test-issues:company-1")).toContain("\"boardColumnPageSize\":25");
+    expect(localStorage.getItem("fabric:test-issues:company-1")).toContain("\"boardColumnPageSize\":25");
 
     act(() => {
       root.unmount();
@@ -1307,7 +1307,7 @@ describe("IssuesList", () => {
 
   it("shows a refinement hint when a board column hits its server cap", async () => {
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ viewMode: "board" }),
     );
 
@@ -1330,7 +1330,7 @@ describe("IssuesList", () => {
         issues={[]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1359,7 +1359,7 @@ describe("IssuesList", () => {
         issues={manyIssues}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1389,7 +1389,7 @@ describe("IssuesList", () => {
         issues={manyIssues}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1437,7 +1437,7 @@ describe("IssuesList", () => {
         issues={manyIssues}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1481,7 +1481,7 @@ describe("IssuesList", () => {
         issues={visibleIssues}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         hasMoreIssues
         onLoadMoreIssues={onLoadMoreIssues}
         onUpdateIssue={() => undefined}
@@ -1530,7 +1530,7 @@ describe("IssuesList", () => {
         issues={[parentIssue, childIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1554,7 +1554,7 @@ describe("IssuesList", () => {
   });
 
   it("uses context-scoped persisted column visibility", async () => {
-    localStorage.setItem("paperclip:test-issues:company-1:issue-columns", JSON.stringify(["id", "assignee"]));
+    localStorage.setItem("fabric:test-issues:company-1:issue-columns", JSON.stringify(["id", "assignee"]));
 
     const assignedIssue = createIssue({
       id: "issue-assigned",
@@ -1568,7 +1568,7 @@ describe("IssuesList", () => {
         issues={[assignedIssue]}
         agents={[{ id: "agent-1", name: "Agent One" }]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1590,7 +1590,7 @@ describe("IssuesList", () => {
   });
 
   it("shows human assignee names from company member profiles", async () => {
-    localStorage.setItem("paperclip:test-issues:company-1:issue-columns", JSON.stringify(["id", "assignee"]));
+    localStorage.setItem("fabric:test-issues:company-1:issue-columns", JSON.stringify(["id", "assignee"]));
     mockAccessApi.listUserDirectory.mockResolvedValue({
       users: [
         {
@@ -1618,7 +1618,7 @@ describe("IssuesList", () => {
         issues={[assignedIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1635,7 +1635,7 @@ describe("IssuesList", () => {
 
   it("preserves stored grouping across refresh when initial assignees are applied", async () => {
     localStorage.setItem(
-      "paperclip:test-issues:company-1",
+      "fabric:test-issues:company-1",
       JSON.stringify({ groupBy: "status", sortField: "updated", sortDir: "desc" }),
     );
 
@@ -1647,7 +1647,7 @@ describe("IssuesList", () => {
         issues={[todoIssue, doneIssue]}
         agents={[{ id: "agent-1", name: "Agent One" }]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialAssignees={["agent-1"]}
         onUpdateIssue={() => undefined}
       />,
@@ -1667,7 +1667,7 @@ describe("IssuesList", () => {
   });
 
   it("filters the list to a single workspace when a workspace name is clicked", async () => {
-    localStorage.setItem("paperclip:test-issues:company-1:issue-columns", JSON.stringify(["id", "workspace"]));
+    localStorage.setItem("fabric:test-issues:company-1:issue-columns", JSON.stringify(["id", "workspace"]));
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: true });
     mockExecutionWorkspacesApi.listSummaries.mockResolvedValue([
       {
@@ -1704,7 +1704,7 @@ describe("IssuesList", () => {
         issues={[alphaIssue, betaIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1756,7 +1756,7 @@ describe("IssuesList", () => {
         issues={[alphaIssue, betaIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialWorkspaces={["workspace-alpha"]}
         onUpdateIssue={() => undefined}
       />,
@@ -1792,7 +1792,7 @@ describe("IssuesList", () => {
         issues={[manualIssue, routineIssue]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         enableRoutineVisibilityFilter
         onUpdateIssue={() => undefined}
       />,
@@ -1842,7 +1842,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialSearch="bug"
         onUpdateIssue={() => undefined}
       />,
@@ -1878,7 +1878,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         initialSearch=""
         onUpdateIssue={() => undefined}
       />,
@@ -1916,7 +1916,7 @@ describe("IssuesList", () => {
         issues={[createIssue()]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,
@@ -1943,7 +1943,7 @@ describe("IssuesList", () => {
         issues={[createIssue({ status: "in_progress" })]}
         agents={[]}
         projects={[]}
-        viewStateKey="paperclip:test-issues"
+        viewStateKey="fabric:test-issues"
         onUpdateIssue={() => undefined}
       />,
       container,

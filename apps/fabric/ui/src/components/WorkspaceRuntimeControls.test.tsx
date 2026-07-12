@@ -2,7 +2,7 @@
 
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import type { WorkspaceRuntimeService } from "@paperclipai/shared";
+import type { WorkspaceRuntimeService } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildWorkspaceRuntimeControlItems,

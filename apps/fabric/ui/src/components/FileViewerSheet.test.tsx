@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { WorkspaceFileContent } from "@paperclipai/shared";
+import type { WorkspaceFileContent } from "@hermes-fabric/shared";
 import type { FileViewerUrlState } from "@/context/FileViewerContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { describeDenial, FileContentViewer, FileViewerMetadataRow } from "./FileViewerSheet";
@@ -154,7 +154,7 @@ describe("FileContentViewer", () => {
 
 describe("FileViewerMetadataRow", () => {
   const state: FileViewerUrlState = {
-    path: "videos/90-days-paperclip/tweet.md",
+    path: "videos/90-days-fabric/tweet.md",
     workspace: "auto",
     line: null,
     column: null,

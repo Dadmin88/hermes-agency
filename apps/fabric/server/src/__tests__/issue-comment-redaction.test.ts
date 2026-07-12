@@ -10,8 +10,8 @@ import {
   issueComments,
   issueReferenceMentions,
   issues,
-} from "@paperclipai/db";
-import { companySearchQuerySchema } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import { companySearchQuerySchema } from "@hermes-fabric/shared";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -19,7 +19,7 @@ import {
 import { errorHandler } from "../middleware/index.js";
 import { issueRoutes } from "../routes/issues.js";
 import { companySearchService } from "../services/company-search.js";
-import { buildPaperclipWakePayload } from "../services/heartbeat.js";
+import { buildHermesFabricWakePayload } from "../services/heartbeat.js";
 import { issueReferenceService } from "../services/issue-references.js";
 import { issueService } from "../services/issues.js";
 import type { StorageService } from "../storage/types.js";
@@ -38,7 +38,7 @@ describeEmbeddedPostgres("deleted issue comment redaction", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-comment-redaction-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-comment-redaction-");
     db = createDb(tempDb.connectionString);
     await db.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pg_trgm"));
   }, 20_000);
@@ -161,7 +161,7 @@ describeEmbeddedPostgres("deleted issue comment redaction", () => {
     expect(JSON.stringify(heartbeatContext.body)).not.toContain("secret deleted body");
     expect(JSON.stringify(heartbeatContext.body)).not.toContain("secret metadata");
 
-    const wakePayload = await buildPaperclipWakePayload({
+    const wakePayload = await buildHermesFabricWakePayload({
       db,
       companyId,
       contextSnapshot: {

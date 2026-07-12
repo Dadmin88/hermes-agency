@@ -8,7 +8,7 @@ import {
   type ExternalObjectMention,
   type ExternalObjectStatusCategory,
   type ExternalObjectSummary,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { ExternalObjectPill } from "@/components/ExternalObjectPill";
 import { ExternalObjectStatusIcon } from "@/components/ExternalObjectStatusIcon";
 import { ExternalObjectStatusSummary } from "@/components/ExternalObjectStatusSummary";
@@ -36,7 +36,7 @@ import {
   storybookIssueLabels,
   storybookIssues,
   storybookProjects,
-} from "../fixtures/paperclipData";
+} from "../fixtures/fabricData";
 
 function makeObject(args: {
   id: string;
@@ -135,7 +135,7 @@ function makeGroup(args: {
 
 function StateMatrix() {
   return (
-    <div className="paperclip-story space-y-8">
+    <div className="fabric-story space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">External object status matrix</h1>
         <p className="text-sm text-muted-foreground">
@@ -277,7 +277,7 @@ function inlineMarkdownStory() {
   };
   const markdown = `Status of recent integrations:\n\n- Merged PR: https://github.com/acme/web/pull/241\n- Stale failed CI: https://github.com/acme/web/pull/242\n- Awaiting review: https://github.com/acme/web/pull/243\n- Auth required: https://app.hubspot.com/leads/99\n- Unreachable deploy: https://ci.example.com/runs/88421\n- Unrelated control link: https://random.example.com/path\n\n\`\`\`\n# Code blocks must be left alone — https://github.com/acme/web/pull/241\n\`\`\`\n\nInline code stays plain too: \`https://github.com/acme/web/pull/241\`.`;
   return (
-    <div className="paperclip-story space-y-4 text-sm">
+    <div className="fabric-story space-y-4 text-sm">
       <h2 className="text-lg font-medium">Inline markdown decoration</h2>
       <MarkdownBody externalReferences={references}>{markdown}</MarkdownBody>
     </div>
@@ -404,13 +404,13 @@ function projectsRollupStory() {
   }
 
   const projects = [
-    { name: "Paperclip App", color: "#6366f1", summary: summary({ failed: 3, running: 12 }) },
+    { name: "HermesFabric App", color: "#6366f1", summary: summary({ failed: 3, running: 12 }) },
     { name: "Marketing site", color: "#22c55e", summary: summary({ waiting: 2 }) },
     { name: "Experimental", color: "#a855f7", summary: summary({ succeeded: 6 }) },
     { name: "Auth provider", color: "#f97316", summary: summary({ auth: 1 }) },
   ];
   return (
-    <div className="paperclip-story w-72 rounded border border-border bg-background p-2">
+    <div className="fabric-story w-72 rounded border border-border bg-background p-2">
       <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Projects (sidebar)</div>
       <ul className="flex flex-col">
         {projects.map((project) => (
@@ -430,7 +430,7 @@ function projectsRollupStory() {
 
 function StateMatrixStory() {
   return (
-    <div className="paperclip-story space-y-12 p-6">
+    <div className="fabric-story space-y-12 p-6">
       <StateMatrix />
       {inlineMarkdownStory()}
       {relatedWorkStory()}
@@ -526,7 +526,7 @@ function makeIntegrationSummary(): ExternalObjectSummary {
 function PropertiesPanelDesktop() {
   const issue = storybookIssues[0]!;
   return (
-    <div className="paperclip-story w-[420px] rounded-lg border border-border bg-background/70 p-4">
+    <div className="fabric-story w-[420px] rounded-lg border border-border bg-background/70 p-4">
       <div className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
         Issue properties — desktop @ 1440×900
       </div>
@@ -544,7 +544,7 @@ function PropertiesPanelDesktop() {
 function PropertiesPanelMobile() {
   const issue = storybookIssues[0]!;
   return (
-    <div className="paperclip-story mx-auto w-[358px] rounded-lg border border-border bg-background/70 p-3">
+    <div className="fabric-story mx-auto w-[358px] rounded-lg border border-border bg-background/70 p-3">
       <div className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
         Issue properties — mobile sheet @ 390×844
       </div>
@@ -562,7 +562,7 @@ function PropertiesPanelMobile() {
 
 function RelatedWorkEmptyDesktop() {
   return (
-    <div className="paperclip-story space-y-3 p-6">
+    <div className="fabric-story space-y-3 p-6">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">
         Related work — empty external objects (zero refs, empty copy visible)
       </div>
@@ -577,11 +577,11 @@ function RelatedWorkEmptyDesktop() {
 function SidebarMobileDrawer() {
   const summary = makeIntegrationSummary();
   return (
-    <div className="paperclip-story mx-auto w-[320px] rounded border border-border bg-background p-2">
+    <div className="fabric-story mx-auto w-[320px] rounded border border-border bg-background p-2">
       <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Projects (mobile drawer)</div>
       <ul className="flex flex-col">
         {[
-          { name: "Paperclip App", color: "#6366f1", summary },
+          { name: "HermesFabric App", color: "#6366f1", summary },
           { name: "Marketing site", color: "#22c55e", summary: { ...summary, highestSeverity: "warning", byStatusCategory: { waiting: 2 }, total: 2, objects: [] } },
           { name: "Experimental", color: "#a855f7", summary: { ...summary, highestSeverity: "muted", byStatusCategory: {}, total: 0, objects: [] } },
         ].map((project) => (
@@ -602,7 +602,7 @@ function SidebarMobileDrawer() {
 function IssueListWithBadge() {
   const summary = makeIntegrationSummary();
   return (
-    <div className="paperclip-story p-6">
+    <div className="fabric-story p-6">
       <div className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
         Issue list — desktop @ 1440×900 (badge + control row)
       </div>
@@ -637,7 +637,7 @@ function FilterPopoverWithExternalChecked() {
   }, []);
 
   return (
-    <div className="paperclip-story flex min-h-[640px] items-start justify-end p-6">
+    <div className="fabric-story flex min-h-[640px] items-start justify-end p-6">
       <div ref={triggerRef}>
         <IssueFiltersPopover
           state={state}
@@ -661,7 +661,7 @@ function FilterPopoverWithExternalChecked() {
 
 function IntegrationSurfacesStory() {
   return (
-    <div className="paperclip-story space-y-10 p-6">
+    <div className="fabric-story space-y-10 p-6">
       <PropertiesPanelDesktop />
       <PropertiesPanelMobile />
       <RelatedWorkEmptyDesktop />

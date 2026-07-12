@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { IssueAttachment } from "@paperclipai/shared";
+import type { IssueAttachment } from "@hermes-fabric/shared";
 import type { ComponentProps, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -147,7 +147,7 @@ describe("IssueAttachmentsSection", () => {
       expect(container.querySelector('[data-testid="fold-curtain"]')).toBeTruthy();
       const markdownBody = container.querySelector('[data-testid="markdown-body"]');
       expect(markdownBody?.textContent).toContain("Imported plan");
-      expect(markdownBody?.className).toContain("paperclip-edit-in-place-content");
+      expect(markdownBody?.className).toContain("fabric-edit-in-place-content");
     });
   });
 

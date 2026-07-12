@@ -12,7 +12,7 @@ import {
   createDb,
   invites,
   joinRequests,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   buildJoinDefaultsPayloadForAccept,
   normalizeAgentDefaultsForJoin,
@@ -255,12 +255,12 @@ describe("normalizeAgentDefaultsForJoin (hermes_gateway)", () => {
 describeEmbeddedPostgres("prepareAgentDefaultsPayloadForJoinPersistence (hermes_gateway)", () => {
   let stopDb: (() => Promise<void>) | null = null;
   let db!: ReturnType<typeof createDb>;
-  const previousKeyFile = process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE;
-  const secretsTmpDir = path.join(os.tmpdir(), `paperclip-hermes-join-defaults-${randomUUID()}`);
+  const previousKeyFile = process.env.HERMES_FABRIC_SECRETS_MASTER_KEY_FILE;
+  const secretsTmpDir = path.join(os.tmpdir(), `fabric-hermes-join-defaults-${randomUUID()}`);
 
   beforeAll(async () => {
     mkdirSync(secretsTmpDir, { recursive: true });
-    process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE = path.join(secretsTmpDir, "master.key");
+    process.env.HERMES_FABRIC_SECRETS_MASTER_KEY_FILE = path.join(secretsTmpDir, "master.key");
     const started = await startEmbeddedPostgresTestDatabase("hermes-join-defaults");
     stopDb = started.cleanup;
     db = createDb(started.connectionString);
@@ -278,9 +278,9 @@ describeEmbeddedPostgres("prepareAgentDefaultsPayloadForJoinPersistence (hermes_
   afterAll(async () => {
     await stopDb?.();
     if (previousKeyFile === undefined) {
-      delete process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE;
+      delete process.env.HERMES_FABRIC_SECRETS_MASTER_KEY_FILE;
     } else {
-      process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE = previousKeyFile;
+      process.env.HERMES_FABRIC_SECRETS_MASTER_KEY_FILE = previousKeyFile;
     }
     rmSync(secretsTmpDir, { recursive: true, force: true });
   });
@@ -293,7 +293,7 @@ describeEmbeddedPostgres("prepareAgentDefaultsPayloadForJoinPersistence (hermes_
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -312,7 +312,7 @@ describeEmbeddedPostgres("prepareAgentDefaultsPayloadForJoinPersistence (hermes_
       defaultsPayload: {
         apiBaseUrl: "https://hermes.example",
         apiKey: literalApiKey,
-        paperclipApiUrl: "https://paperclip.example",
+        fabricApiUrl: "https://fabric.example",
       },
       deploymentMode: "authenticated",
       deploymentExposure: "private",

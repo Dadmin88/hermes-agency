@@ -1,6 +1,6 @@
 # OpenClaw Gateway Adapter
 
-This document describes how `@paperclipai/adapter-openclaw-gateway` invokes OpenClaw over the Gateway protocol.
+This document describes how `@hermes-fabric/adapter-openclaw-gateway` invokes OpenClaw over the Gateway protocol.
 
 ## Transport
 
@@ -12,7 +12,7 @@ This adapter always uses WebSocket gateway transport.
 2. send `req connect` (protocol/client/auth/device payload)
 3. send `req agent`
 4. wait for completion via `req agent.wait`
-5. stream `event agent` frames into Paperclip logs/transcript parsing
+5. stream `event agent` frames into Hermes Fabric logs/transcript parsing
 
 ## Auth Modes
 
@@ -49,7 +49,7 @@ The agent request is built as:
 
 - required fields:
   - `message` (wake text plus optional `payloadTemplate.message`/`payloadTemplate.text` prefix)
-  - `idempotencyKey` (Paperclip `runId`)
+  - `idempotencyKey` (Hermes Fabric `runId`)
   - `sessionKey` (resolved strategy)
 - optional additions:
   - all `payloadTemplate` fields merged in
@@ -73,11 +73,11 @@ UI/CLI parsers consume these lines to render transcript updates.
 
 ## No-remote-git contract
 
-Like every Paperclip adapter, this one must treat the local execution-workspace
+Like every Hermes Fabric adapter, this one must treat the local execution-workspace
 cwd as the only persistence boundary across runs — no `git push` from runtime
 code, no assuming a `git remote` exists. The gateway transport here doesn't
 touch the workspace directly, but if you extend the adapter to ship code to
-the OpenClaw side, use the round-trip helpers in `@paperclipai/adapter-utils`
+the OpenClaw side, use the round-trip helpers in `@hermes-fabric/adapter-utils`
 (`prepareWorkspaceForSshExecution` → `restoreWorkspaceFromSshExecution`)
 rather than reaching for a git remote. See
 [`packages/adapters/AUTHORING.md`](../AUTHORING.md#no-remote-git-contract-cross-run-persistence)

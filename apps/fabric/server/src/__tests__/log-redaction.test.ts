@@ -7,12 +7,12 @@ import {
 
 describe("log redaction", () => {
   it("redacts the active username inside home-directory paths", () => {
-    const userName = "paperclipuser";
+    const userName = "fabricuser";
     const maskedUserName = maskUserNameForLogs(userName);
     const input = [
-      `cwd=/Users/${userName}/paperclip`,
+      `cwd=/Users/${userName}/fabric`,
       `home=/home/${userName}/workspace`,
-      `win=C:\\Users\\${userName}\\paperclip`,
+      `win=C:\\Users\\${userName}\\fabric`,
     ].join("\n");
 
     const result = redactCurrentUserText(input, {
@@ -20,17 +20,17 @@ describe("log redaction", () => {
       homeDirs: [`/Users/${userName}`, `/home/${userName}`, `C:\\Users\\${userName}`],
     });
 
-    expect(result).toContain(`cwd=/Users/${maskedUserName}/paperclip`);
+    expect(result).toContain(`cwd=/Users/${maskedUserName}/fabric`);
     expect(result).toContain(`home=/home/${maskedUserName}/workspace`);
-    expect(result).toContain(`win=C:\\Users\\${maskedUserName}\\paperclip`);
+    expect(result).toContain(`win=C:\\Users\\${maskedUserName}\\fabric`);
     expect(result).not.toContain(userName);
   });
 
   it("redacts standalone username mentions without mangling larger tokens", () => {
-    const userName = "paperclipuser";
+    const userName = "fabricuser";
     const maskedUserName = maskUserNameForLogs(userName);
     const result = redactCurrentUserText(
-      `user ${userName} said ${userName}/project should stay but apaperclipuserz should not change`,
+      `user ${userName} said ${userName}/project should stay but afabricuserz should not change`,
       {
         userNames: [userName],
         homeDirs: [],
@@ -38,16 +38,16 @@ describe("log redaction", () => {
     );
 
     expect(result).toBe(
-      `user ${maskedUserName} said ${maskedUserName}/project should stay but apaperclipuserz should not change`,
+      `user ${maskedUserName} said ${maskedUserName}/project should stay but afabricuserz should not change`,
     );
   });
 
   it("recursively redacts nested event payloads", () => {
-    const userName = "paperclipuser";
+    const userName = "fabricuser";
     const maskedUserName = maskUserNameForLogs(userName);
     const result = redactCurrentUserValue({
-      cwd: `/Users/${userName}/paperclip`,
-      prompt: `open /Users/${userName}/paperclip/ui`,
+      cwd: `/Users/${userName}/fabric`,
+      prompt: `open /Users/${userName}/fabric/ui`,
       nested: {
         author: userName,
       },
@@ -58,8 +58,8 @@ describe("log redaction", () => {
     });
 
     expect(result).toEqual({
-      cwd: `/Users/${maskedUserName}/paperclip`,
-      prompt: `open /Users/${maskedUserName}/paperclip/ui`,
+      cwd: `/Users/${maskedUserName}/fabric`,
+      prompt: `open /Users/${maskedUserName}/fabric/ui`,
       nested: {
         author: maskedUserName,
       },
@@ -68,7 +68,7 @@ describe("log redaction", () => {
   });
 
   it("skips redaction when disabled", () => {
-    const input = "cwd=/Users/paperclipuser/paperclip";
+    const input = "cwd=/Users/fabricuser/fabric";
     expect(redactCurrentUserText(input, { enabled: false })).toBe(input);
   });
 });

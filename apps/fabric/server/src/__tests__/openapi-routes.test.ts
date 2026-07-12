@@ -181,7 +181,7 @@ describe("openapi routes", () => {
       { BoardSessionAuth: [] },
       { BoardApiKeyAuth: [] },
     ]);
-    expect(spec.paths["/api/plugins/install"].post["x-paperclip-authorization"]).toEqual({
+    expect(spec.paths["/api/plugins/install"].post["x-fabric-authorization"]).toEqual({
       actor: "board",
       instanceAdmin: true,
     });

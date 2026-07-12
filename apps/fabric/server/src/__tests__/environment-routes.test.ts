@@ -109,7 +109,7 @@ let currentActor: Record<string, unknown> = {
   source: "local_implicit",
 };
 const routeOptions: Record<string, unknown> = {};
-const originalSecretsProviderEnv = process.env.PAPERCLIP_SECRETS_PROVIDER;
+const originalSecretsProviderEnv = process.env.HERMES_FABRIC_SECRETS_PROVIDER;
 
 function createApp(actor: Record<string, unknown>, options: Record<string, unknown> = {}) {
   currentActor = actor;
@@ -134,9 +134,9 @@ function createApp(actor: Record<string, unknown>, options: Record<string, unkno
 describe("environment routes", () => {
   afterAll(async () => {
     if (originalSecretsProviderEnv === undefined) {
-      delete process.env.PAPERCLIP_SECRETS_PROVIDER;
+      delete process.env.HERMES_FABRIC_SECRETS_PROVIDER;
     } else {
-      process.env.PAPERCLIP_SECRETS_PROVIDER = originalSecretsProviderEnv;
+      process.env.HERMES_FABRIC_SECRETS_PROVIDER = originalSecretsProviderEnv;
     }
     if (!server) return;
     await new Promise<void>((resolve, reject) => {
@@ -183,7 +183,7 @@ describe("environment routes", () => {
     mockSecretService.syncSecretRefsForTarget.mockResolvedValue([]);
     mockSecretService.remove.mockResolvedValue(null);
     mockSecretService.resolveSecretValueForEphemeralAccess.mockResolvedValue("resolved-provider-key");
-    delete process.env.PAPERCLIP_SECRETS_PROVIDER;
+    delete process.env.HERMES_FABRIC_SECRETS_PROVIDER;
     mockValidatePluginEnvironmentDriverConfig.mockReset();
     mockValidatePluginEnvironmentDriverConfig.mockImplementation(async ({ config }) => config);
     mockValidatePluginSandboxProviderConfig.mockReset();
@@ -575,7 +575,7 @@ describe("environment routes", () => {
         host: "ssh.example.test",
         port: 22,
         username: "ssh-user",
-        remoteWorkspacePath: "/srv/paperclip/workspace",
+        remoteWorkspacePath: "/srv/fabric/workspace",
         privateKey: null,
         privateKeySecretRef: {
           type: "secret_ref",
@@ -602,7 +602,7 @@ describe("environment routes", () => {
         config: {
           host: "ssh.example.test",
           username: "ssh-user",
-          remoteWorkspacePath: "/srv/paperclip/workspace",
+          remoteWorkspacePath: "/srv/fabric/workspace",
           privateKey: "  super-secret-key  ",
         },
       });
@@ -631,7 +631,7 @@ describe("environment routes", () => {
   });
 
   it("uses the configured provider for SSH private key secret materialization", async () => {
-    process.env.PAPERCLIP_SECRETS_PROVIDER = "aws_secrets_manager";
+    process.env.HERMES_FABRIC_SECRETS_PROVIDER = "aws_secrets_manager";
     const environment = {
       ...createEnvironment(),
       id: "env-ssh",
@@ -641,7 +641,7 @@ describe("environment routes", () => {
         host: "ssh.example.test",
         port: 22,
         username: "ssh-user",
-        remoteWorkspacePath: "/srv/paperclip/workspace",
+        remoteWorkspacePath: "/srv/fabric/workspace",
         privateKey: null,
         privateKeySecretRef: {
           type: "secret_ref",
@@ -667,7 +667,7 @@ describe("environment routes", () => {
         config: {
           host: "ssh.example.test",
           username: "ssh-user",
-          remoteWorkspacePath: "/srv/paperclip/workspace",
+          remoteWorkspacePath: "/srv/fabric/workspace",
           privateKey: "super-secret-key",
         },
       });
@@ -863,7 +863,7 @@ describe("environment routes", () => {
   });
 
   it("uses the configured provider for schema-driven sandbox secret fields", async () => {
-    process.env.PAPERCLIP_SECRETS_PROVIDER = "aws_secrets_manager";
+    process.env.HERMES_FABRIC_SECRETS_PROVIDER = "aws_secrets_manager";
     const environment = {
       ...createEnvironment(),
       id: "env-sandbox-secure-plugin",
@@ -1159,7 +1159,7 @@ describe("environment routes", () => {
         host: "ssh.example.test",
         port: 22,
         username: "ssh-user",
-        remoteWorkspacePath: "/srv/paperclip/workspace",
+        remoteWorkspacePath: "/srv/fabric/workspace",
         privateKey: "super-secret-key",
         knownHosts: "known-host",
         strictHostKeyChecking: true,
@@ -1260,7 +1260,7 @@ describe("environment routes", () => {
         host: "ssh.example.test",
         port: 22,
         username: "ssh-user",
-        remoteWorkspacePath: "/srv/paperclip/workspace",
+        remoteWorkspacePath: "/srv/fabric/workspace",
         privateKey: null,
         knownHosts: null,
         strictHostKeyChecking: true,
@@ -1315,7 +1315,7 @@ describe("environment routes", () => {
         host: "ssh.example.test",
         port: 22,
         username: "ssh-user",
-        remoteWorkspacePath: "/srv/paperclip/workspace",
+        remoteWorkspacePath: "/srv/fabric/workspace",
         privateKey: null,
         privateKeySecretRef: {
           type: "secret_ref",

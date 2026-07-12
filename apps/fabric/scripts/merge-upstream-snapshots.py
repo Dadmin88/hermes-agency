@@ -4,6 +4,7 @@
 The normalized baseline is the merge ancestor, the normalized incoming snapshot
 is "theirs", and apps/fabric is "ours". Local-only Hermes files are untouched.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,7 +39,10 @@ def file_map(root: Path) -> dict[str, Path]:
         relative_text = relative.as_posix()
         if any(part in SKIP_DIRS for part in relative.parts):
             continue
-        if any(relative_text == prefix.rstrip("/") or relative_text.startswith(prefix) for prefix in LOCAL_ONLY_PREFIXES):
+        if any(
+            relative_text == prefix.rstrip("/") or relative_text.startswith(prefix)
+            for prefix in LOCAL_ONLY_PREFIXES
+        ):
             continue
         if path.is_symlink():
             result[relative_text] = path
@@ -125,7 +129,8 @@ def main() -> None:
     changed_paths = sorted(
         path
         for path in set(base_files) | set(incoming_files)
-        if digest(bytes_or_none(base_files.get(path))) != digest(bytes_or_none(incoming_files.get(path)))
+        if digest(bytes_or_none(base_files.get(path)))
+        != digest(bytes_or_none(incoming_files.get(path)))
         or (base_files.get(path) is not None and base_files[path].is_symlink())
         or (incoming_files.get(path) is not None and incoming_files[path].is_symlink())
     )
@@ -141,7 +146,10 @@ def main() -> None:
         current_path = current_files.get(relative)
         output_path = current_root / relative
 
-        if any(path is not None and path.is_symlink() for path in (base_path, incoming_path, current_path)):
+        if any(
+            path is not None and path.is_symlink()
+            for path in (base_path, incoming_path, current_path)
+        ):
             artifact = write_conflict_artifact(
                 conflict_root,
                 relative,
@@ -165,7 +173,9 @@ def main() -> None:
                 unchanged.append(relative)
             else:
                 artifact = write_conflict_artifact(conflict_root, relative, current, base, incoming)
-                conflicts.append(Conflict(relative, "upstream addition collides with local file", artifact))
+                conflicts.append(
+                    Conflict(relative, "upstream addition collides with local file", artifact)
+                )
             continue
 
         if base is not None and incoming is None:
@@ -176,13 +186,17 @@ def main() -> None:
                 deleted.append(relative)
             else:
                 artifact = write_conflict_artifact(conflict_root, relative, current, base, incoming)
-                conflicts.append(Conflict(relative, "upstream deleted a locally modified file", artifact))
+                conflicts.append(
+                    Conflict(relative, "upstream deleted a locally modified file", artifact)
+                )
             continue
 
         assert base is not None and incoming is not None
         if current is None:
             artifact = write_conflict_artifact(conflict_root, relative, current, base, incoming)
-            conflicts.append(Conflict(relative, "local file is missing while upstream modified it", artifact))
+            conflicts.append(
+                Conflict(relative, "local file is missing while upstream modified it", artifact)
+            )
             continue
         if current == base:
             output_path.write_bytes(incoming)
@@ -216,7 +230,11 @@ def main() -> None:
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({key: len(value) for key, value in report.items() if isinstance(value, list)}, indent=2))
+    print(
+        json.dumps(
+            {key: len(value) for key, value in report.items() if isinstance(value, list)}, indent=2
+        )
+    )
     if conflicts:
         raise SystemExit(2)
 

@@ -13,7 +13,7 @@ describe("external object references", () => {
   it("extracts external urls without changing internal issue reference behavior", () => {
     const externalUrl = "https://github.com/acme/app/pull/4";
     const source =
-      "See PAP-1, /issues/PAP-2, https://paperclip.ing/PAP/issues/PAP-3, and " +
+      "See PAP-1, /issues/PAP-2, https://fabric.ing/PAP/issues/PAP-3, and " +
       `${externalUrl}.`;
 
     expect(findExternalObjectUrlMatches(source)).toEqual([

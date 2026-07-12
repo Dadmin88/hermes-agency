@@ -1,7 +1,7 @@
 ---
 name: agent-browser
 description: Drive a real browser to inspect or interact with a web page or app — navigate, take screenshots, read console and network, fill simple forms — for verification tasks, not unattended automation.
-key: paperclipai/optional/browser/agent-browser
+key: hermes-fabric/optional/browser/agent-browser
 recommendedForRoles:
   - qa
   - engineer

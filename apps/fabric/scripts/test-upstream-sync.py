@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic tests for Hermes Fabric upstream sync tooling."""
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,9 @@ NORMALIZER = SCRIPT_DIR / "normalize-upstream-import.py"
 MERGER = SCRIPT_DIR / "merge-upstream-snapshots.py"
 
 
-def run(command: list[str], *, env: dict[str, str] | None = None, expected: int = 0) -> subprocess.CompletedProcess[str]:
+def run(
+    command: list[str], *, env: dict[str, str] | None = None, expected: int = 0
+) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(command, text=True, capture_output=True, env=env)
     if completed.returncode != expected:
         raise AssertionError(
@@ -40,16 +43,15 @@ def test_normalizer() -> None:
             encoding="utf-8",
         )
         (root / "package.json").write_text(
-            json.dumps({"name": "@legacyboard/server", "description": "LegacyBoard operator UI"}) + "\n",
+            json.dumps({"name": "@legacyboard/server", "description": "LegacyBoard operator UI"})
+            + "\n",
             encoding="utf-8",
         )
         run([sys.executable, str(NORMALIZER), "--root", str(root)], env=normalizer_env())
         paths = [path.relative_to(root).as_posix() for path in root.rglob("*")]
         assert not any("legacyboard" in path.lower() for path in paths)
         content = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in root.rglob("*")
-            if path.is_file()
+            path.read_text(encoding="utf-8") for path in root.rglob("*") if path.is_file()
         )
         assert "LegacyBoard" not in content
         assert "legacyboard" not in content.lower()
@@ -73,20 +75,38 @@ def test_clean_three_way_merge() -> None:
         current = temp_root / "current"
         for root in (base, incoming, current):
             root.mkdir()
-        write_snapshot(base, {"src/value.txt": "header\nmiddle\nfooter\n", "delete.txt": "delete me\n"})
-        write_snapshot(incoming, {"src/value.txt": "header\nmiddle\nupstream footer\n", "added.txt": "new\n"})
-        write_snapshot(current, {"src/value.txt": "local header\nmiddle\nfooter\n", "delete.txt": "delete me\n", "local.txt": "keep\n"})
+        write_snapshot(
+            base, {"src/value.txt": "header\nmiddle\nfooter\n", "delete.txt": "delete me\n"}
+        )
+        write_snapshot(
+            incoming, {"src/value.txt": "header\nmiddle\nupstream footer\n", "added.txt": "new\n"}
+        )
+        write_snapshot(
+            current,
+            {
+                "src/value.txt": "local header\nmiddle\nfooter\n",
+                "delete.txt": "delete me\n",
+                "local.txt": "keep\n",
+            },
+        )
         report = temp_root / "report.json"
         conflicts = temp_root / "conflicts"
-        run([
-            sys.executable,
-            str(MERGER),
-            "--base", str(base),
-            "--incoming", str(incoming),
-            "--current", str(current),
-            "--report", str(report),
-            "--conflict-root", str(conflicts),
-        ])
+        run(
+            [
+                sys.executable,
+                str(MERGER),
+                "--base",
+                str(base),
+                "--incoming",
+                str(incoming),
+                "--current",
+                str(current),
+                "--report",
+                str(report),
+                "--conflict-root",
+                str(conflicts),
+            ]
+        )
         merged = (current / "src/value.txt").read_text(encoding="utf-8")
         assert "local header" in merged
         assert "upstream footer" in merged
@@ -109,15 +129,23 @@ def test_conflict_report() -> None:
         write_snapshot(current, {"same.txt": "value=current\n"})
         report = temp_root / "report.json"
         conflicts = temp_root / "conflicts"
-        run([
-            sys.executable,
-            str(MERGER),
-            "--base", str(base),
-            "--incoming", str(incoming),
-            "--current", str(current),
-            "--report", str(report),
-            "--conflict-root", str(conflicts),
-        ], expected=2)
+        run(
+            [
+                sys.executable,
+                str(MERGER),
+                "--base",
+                str(base),
+                "--incoming",
+                str(incoming),
+                "--current",
+                str(current),
+                "--report",
+                str(report),
+                "--conflict-root",
+                str(conflicts),
+            ],
+            expected=2,
+        )
         payload = json.loads(report.read_text())
         assert len(payload["conflicts"]) == 1
         assert payload["conflicts"][0]["path"] == "same.txt"

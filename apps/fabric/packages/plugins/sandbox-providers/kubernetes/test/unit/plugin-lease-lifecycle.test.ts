@@ -15,7 +15,7 @@ const CONFIG = { inCluster: true, backend: "sandbox-cr" };
 
 function leaseMetadata(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    namespace: "paperclip-acme",
+    namespace: "fabric-acme",
     jobName: "pc-abc",
     podName: "pc-abc-pod",
     secretName: "pc-abc-env",
@@ -74,7 +74,7 @@ describe("onEnvironmentResumeLease", () => {
     expect(lease.providerLeaseId).toBe("pc-abc");
     expect(lease.metadata).toEqual(
       expect.objectContaining({
-        namespace: "paperclip-acme",
+        namespace: "fabric-acme",
         jobName: "pc-abc",
         podName: "pc-abc-pod",
         secretName: "pc-abc-env",
@@ -148,14 +148,14 @@ describe("onEnvironmentDestroyLease", () => {
     });
 
     expect(deleteCr).toHaveBeenCalledWith(
-      expect.objectContaining({ namespace: "paperclip-acme", name: "pc-abc" }),
+      expect.objectContaining({ namespace: "fabric-acme", name: "pc-abc" }),
     );
     expect(deletePod).toHaveBeenCalledWith({
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc-pod",
     });
     expect(deleteSecret).toHaveBeenCalledWith({
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc-env",
     });
   });
@@ -224,7 +224,7 @@ describe("onEnvironmentDestroyLease", () => {
     });
 
     expect(deleteJob).toHaveBeenCalledWith(
-      expect.objectContaining({ namespace: "paperclip-acme", name: "pc-job" }),
+      expect.objectContaining({ namespace: "fabric-acme", name: "pc-job" }),
     );
     expect(deleteCr).not.toHaveBeenCalled();
   });

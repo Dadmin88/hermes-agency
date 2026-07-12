@@ -149,7 +149,7 @@ import {
   MoreHorizontal,
   MoreVertical,
   PauseCircle,
-  Paperclip,
+  Link2,
   PlayCircle,
   Plus,
   Repeat,
@@ -177,7 +177,7 @@ import {
   type IssueTreeControlMode,
   type WorkspaceFileRef,
   workspaceFileRefSchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 type StopAndFinalizeRunError = Error & {
   runCancelledBeforeStatusUpdateFailed?: boolean;
@@ -212,7 +212,7 @@ type IssueDetailComment = (IssueComment | OptimisticIssueComment) & {
   queueReason?: "hold" | "active_run" | "other";
 };
 
-const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
+const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://fabric.ing/tos";
 const ISSUE_COMMENT_PAGE_SIZE = 50;
 const ISSUE_COMMENT_AUTOLOAD_LIMIT = ISSUE_COMMENT_PAGE_SIZE * 3;
 const JUMP_TO_LATEST_MAX_COMMENT_PAGES = 10;
@@ -3097,10 +3097,10 @@ export function IssueDetail() {
     const handleOpenFileViewer = () => {
       setFileViewerPromptOpen(true);
     };
-    window.addEventListener("paperclip:open-file-viewer", handleOpenFileViewer as EventListener);
+    window.addEventListener("fabric:open-file-viewer", handleOpenFileViewer as EventListener);
     return () => {
       window.removeEventListener(
-        "paperclip:open-file-viewer",
+        "fabric:open-file-viewer",
         handleOpenFileViewer as EventListener,
       );
     };
@@ -3548,7 +3548,7 @@ export function IssueDetail() {
           attachmentDragActive && "border-primary bg-primary/5",
         )}
       >
-        <Paperclip className="h-3.5 w-3.5 mr-1.5" />
+        <Link2 className="h-3.5 w-3.5 mr-1.5" />
         {uploadAttachment.isPending || importMarkdownDocument.isPending ? "Uploading..." : (
           <>
             <span className="hidden sm:inline">Upload attachment</span>
@@ -4062,7 +4062,7 @@ export function IssueDetail() {
             mutedIssueIds={mutedChildIssueIds}
             issueBadgeById={childPauseBadgeById}
             projectId={issue.projectId ?? undefined}
-            viewStateKey={`paperclip:issue-detail:${issue.id}:subissues-view`}
+            viewStateKey={`fabric:issue-detail:${issue.id}:subissues-view`}
             issueLinkState={resolvedIssueDetailState ?? location.state}
             searchFilters={{ descendantOf: issue.id, includeBlockedBy: true }}
             searchWithinLoadedIssues
@@ -4255,7 +4255,7 @@ export function IssueDetail() {
               currentUserId={currentUserId}
               userLabelMap={userLabelMap}
               userProfileMap={userProfileMap}
-              draftKey={`paperclip:issue-comment-draft:${issue.id}`}
+              draftKey={`fabric:issue-comment-draft:${issue.id}`}
               reassignOptions={commentReassignOptions}
               currentAssigneeValue={actualAssigneeValue}
               suggestedAssigneeValue={suggestedAssigneeValue}

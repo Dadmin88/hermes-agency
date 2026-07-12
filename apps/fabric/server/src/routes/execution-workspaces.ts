@@ -1,15 +1,15 @@
 import { and, eq } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
-import type { Db } from "@paperclipai/db";
-import { issues, projects, projectWorkspaces } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { issues, projects, projectWorkspaces } from "@hermes-fabric/db";
 import {
   findWorkspaceCommandDefinition,
   matchWorkspaceRuntimeServiceToCommand,
   updateExecutionWorkspaceSchema,
   workspaceOverviewQuerySchema,
   workspaceRuntimeControlTargetSchema,
-} from "@paperclipai/shared";
-import type { WorkspaceRuntimeDesiredState, WorkspaceRuntimeServiceStateMap } from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
+import type { WorkspaceRuntimeDesiredState, WorkspaceRuntimeServiceStateMap } from "@hermes-fabric/shared";
 import { validate } from "../middleware/validate.js";
 import { accessService, executionWorkspaceService, logActivity, workspaceOperationService } from "../services/index.js";
 import { mergeExecutionWorkspaceConfig, readExecutionWorkspaceConfig } from "../services/execution-workspaces.js";

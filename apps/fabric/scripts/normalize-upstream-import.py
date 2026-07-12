@@ -4,6 +4,7 @@
 The legacy source identity is provided through environment variables so this
 repository never needs to hardcode inherited product names.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -12,12 +13,46 @@ import re
 from pathlib import Path
 
 TEXT_SUFFIXES = {
-    ".cjs", ".css", ".csv", ".env", ".example", ".go", ".html", ".js",
-    ".json", ".jsx", ".lock", ".md", ".mdx", ".mjs", ".mts", ".py",
-    ".rs", ".sh", ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt",
-    ".yaml", ".yml",
+    ".cjs",
+    ".css",
+    ".csv",
+    ".env",
+    ".example",
+    ".go",
+    ".html",
+    ".js",
+    ".json",
+    ".jsx",
+    ".lock",
+    ".md",
+    ".mdx",
+    ".mjs",
+    ".mts",
+    ".py",
+    ".rs",
+    ".sh",
+    ".sql",
+    ".svg",
+    ".toml",
+    ".ts",
+    ".tsx",
+    ".txt",
+    ".hcl",
+    ".mod",
+    ".webmanifest",
+    ".jsonc",
+    ".yaml",
+    ".yml",
 }
-TEXT_BASENAMES = {"Dockerfile", "LICENSE", "NOTICE", "Makefile", "Procfile"}
+TEXT_BASENAMES = {
+    "Dockerfile",
+    "LICENSE",
+    "NOTICE",
+    "Makefile",
+    "Procfile",
+    ".gitignore",
+    ".dockerignore",
+}
 PROSE_SUFFIXES = {".md", ".mdx", ".rst", ".txt"}
 SKIP_DIRS = {".git", "node_modules", "dist", "build", "coverage", ".turbo", ".next"}
 
@@ -36,7 +71,13 @@ def package_scopes_from_env() -> list[str]:
 
 
 def is_text(path: Path) -> bool:
-    return path.suffix.lower() in TEXT_SUFFIXES or path.name in TEXT_BASENAMES or ".env" in path.name
+    return (
+        path.suffix.lower() in TEXT_SUFFIXES
+        or path.name in TEXT_BASENAMES
+        or path.name.startswith("Dockerfile")
+        or not path.suffix
+        or ".env" in path.name
+    )
 
 
 def walk_files(root: Path) -> list[Path]:
@@ -81,7 +122,7 @@ def alias_variants(alias: str) -> list[tuple[str, str, str]]:
         elif "_" in value:
             result.append((value, "hermes_fabric", "Hermes Fabric"))
         elif value[:1].isupper():
-            result.append((value, "HermesFabric", "Hermes Fabric"))
+            result.append((value, "Hermes Fabric", "Hermes Fabric"))
         else:
             result.append((value, "hermesFabric", "Hermes Fabric"))
     return result
@@ -104,7 +145,7 @@ def replace_technical(value: str, table: list[tuple[str, str, str]], scopes: lis
         value = value.replace(scope, "@hermes-fabric")
     for old, technical, _ in table:
         value = value.replace(old, technical)
-    value = value.replace("HermesFabric Agency", "Hermes Agency")
+    value = value.replace("Hermes Agency", "Hermes Agency")
     value = value.replace("HermesFabric roster", "Hermes Agency roster")
     value = value.replace("HermesFabric team", "Hermes Agency team")
     return value
@@ -130,9 +171,9 @@ def replace_markdown(value: str, table: list[tuple[str, str, str]], scopes: list
                     part = part.replace(scope, "Hermes Fabric")
                 for old, _, prose in table:
                     part = part.replace(old, prose)
-                part = part.replace("Hermes Fabric Agency", "Hermes Agency")
-                part = part.replace("Hermes Fabric roster", "Hermes Agency roster")
-                part = part.replace("Hermes Fabric team", "Hermes Agency team")
+                part = part.replace("Hermes Agency", "Hermes Agency")
+                part = part.replace("Hermes Agency roster", "Hermes Agency roster")
+                part = part.replace("Hermes Agency team", "Hermes Agency team")
                 parts[index] = part
         lines.append("`".join(parts))
     return "".join(lines)
@@ -147,7 +188,8 @@ def rename_component(name: str, table: list[tuple[str, str, str]]) -> str:
 
 def rename_paths(root: Path, table: list[tuple[str, str, str]]) -> None:
     candidates = [
-        path for path in root.rglob("*")
+        path
+        for path in root.rglob("*")
         if not any(part in SKIP_DIRS for part in path.relative_to(root).parts)
         and any(old in path.name for old, _, _ in table)
     ]
@@ -165,6 +207,8 @@ def rename_paths(root: Path, table: list[tuple[str, str, str]]) -> None:
 def normalize(root: Path, aliases: list[str], scopes: list[str]) -> None:
     table = replacement_table(aliases)
     for path in walk_files(root):
+        if path.name in {"LICENSE", "NOTICE"}:
+            continue
         try:
             original = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -181,6 +225,8 @@ def normalize(root: Path, aliases: list[str], scopes: list[str]) -> None:
     rename_paths(root, table)
     # Renaming directories can expose final paths that need one last content pass.
     for path in walk_files(root):
+        if path.name in {"LICENSE", "NOTICE"}:
+            continue
         try:
             original = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -206,6 +252,8 @@ def assert_clean(root: Path, aliases: list[str], scopes: list[str]) -> None:
         if any(needle in relative.lower() for needle in lowered):
             path_hits.append(relative)
         if path.is_symlink() or not path.is_file() or not is_text(path):
+            continue
+        if path.name in {"LICENSE", "NOTICE"}:
             continue
         try:
             content = path.read_text(encoding="utf-8").lower()

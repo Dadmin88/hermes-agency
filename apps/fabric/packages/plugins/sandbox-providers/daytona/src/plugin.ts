@@ -9,7 +9,7 @@ import type {
   Resources,
   Sandbox,
 } from "@daytonaio/sdk";
-import { definePlugin } from "@paperclipai/plugin-sdk";
+import { definePlugin } from "@hermes-fabric/plugin-sdk";
 import type {
   PluginEnvironmentAcquireLeaseParams,
   PluginEnvironmentDestroyLeaseParams,
@@ -24,7 +24,7 @@ import type {
   PluginEnvironmentResumeLeaseParams,
   PluginEnvironmentValidateConfigParams,
   PluginEnvironmentValidationResult,
-} from "@paperclipai/plugin-sdk";
+} from "@hermes-fabric/plugin-sdk";
 
 interface DaytonaDriverConfig {
   apiKey: string | null;
@@ -50,7 +50,7 @@ type WorkspaceSentinelResult = {
   result: "written" | "matched" | "missing" | "mismatch" | "skipped";
 };
 
-const WORKSPACE_SENTINEL_RELATIVE_PATH = ".paperclip-runtime/reusable-sandbox-lease.json";
+const WORKSPACE_SENTINEL_RELATIVE_PATH = ".fabric-runtime/reusable-sandbox-lease.json";
 
 // Quota-safety defaults (minutes). Daytona counts *stopped* sandboxes against
 // the storage quota; only *archived* sandboxes move to cold object storage and
@@ -176,11 +176,11 @@ function buildSandboxLabels(input: {
   reuseLease: boolean;
 }): Record<string, string> {
   return {
-    "paperclip-provider": "daytona",
-    "paperclip-company-id": input.companyId,
-    "paperclip-environment-id": input.environmentId,
-    "paperclip-reuse-lease": input.reuseLease ? "true" : "false",
-    ...(input.runId ? { "paperclip-run-id": input.runId } : {}),
+    "fabric-provider": "daytona",
+    "fabric-company-id": input.companyId,
+    "fabric-environment-id": input.environmentId,
+    "fabric-reuse-lease": input.reuseLease ? "true" : "false",
+    ...(input.runId ? { "fabric-run-id": input.runId } : {}),
   };
 }
 
@@ -237,7 +237,7 @@ async function resolveSandboxWorkingDirectory(sandbox: Sandbox): Promise<string>
   const root = (await sandbox.getWorkDir())?.trim()
     || (await sandbox.getUserHomeDir())?.trim()
     || "/home/daytona";
-  const remoteCwd = path.posix.join(root, "paperclip-workspace");
+  const remoteCwd = path.posix.join(root, "fabric-workspace");
   await sandbox.fs.createFolder(remoteCwd, "755");
   return remoteCwd;
 }
@@ -380,7 +380,7 @@ function leaseMetadata(input: {
     reuseLease: input.config.reuseLease,
     remoteCwd: input.remoteCwd,
     resumedLease: input.resumedLease,
-    // Record the resources Paperclip attempted to request so future diagnosis
+    // Record the resources HermesFabric attempted to request so future diagnosis
     // can compare requested allocation against what Daytona provisioned.
     ...(input.config.cpu != null ? { cpu: input.config.cpu } : {}),
     ...(input.config.memory != null ? { memory: input.config.memory } : {}),
@@ -502,7 +502,7 @@ async function executeOneShot(
 ): Promise<PluginEnvironmentExecuteResult> {
   const timeoutMs = resolveTimeoutMs(params.timeoutMs, config);
   const timeoutSeconds = toTimeoutSeconds(timeoutMs);
-  const stdinPath = params.stdin != null ? `/tmp/paperclip-stdin-${randomUUID()}` : null;
+  const stdinPath = params.stdin != null ? `/tmp/fabric-stdin-${randomUUID()}` : null;
 
   try {
     if (stdinPath) {
@@ -761,7 +761,7 @@ const plugin = definePlugin({
       typeof params.lease.metadata?.remoteCwd === "string" &&
       params.lease.metadata.remoteCwd.trim().length > 0
         ? params.lease.metadata.remoteCwd.trim()
-        : params.workspace.remotePath ?? params.workspace.localPath ?? "/paperclip-workspace";
+        : params.workspace.remotePath ?? params.workspace.localPath ?? "/fabric-workspace";
 
     if (params.lease.providerLeaseId) {
       const sandbox = await getSandbox(config, params.lease.providerLeaseId);

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { agents, companies, createDb, environmentLeases, environments, heartbeatRuns } from "@paperclipai/db";
+import { agents, companies, createDb, environmentLeases, environments, heartbeatRuns } from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -76,7 +76,7 @@ describeEmbeddedPostgres("environmentService leases", () => {
         host: "fixture.example.test",
         port: 22,
         username: "fixture",
-        remoteWorkspacePath: "/srv/paperclip",
+        remoteWorkspacePath: "/srv/fabric",
       },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -314,7 +314,7 @@ describeEmbeddedPostgres("environmentService leases", () => {
         host: "fixture.example.test",
         port: 22,
         username: "fixture",
-        remoteWorkspacePath: "/srv/paperclip",
+        remoteWorkspacePath: "/srv/fabric",
       },
     });
 
@@ -379,13 +379,13 @@ describeEmbeddedPostgres("environmentService leases", () => {
       driver: "sandbox",
       status: "active",
       config: { provider: "kubernetes" },
-      metadata: { managedByPaperclip: true, managedKubernetesSandbox: true },
+      metadata: { managedByHermesFabric: true, managedKubernetesSandbox: true },
       createdAt: now,
       updatedAt: now,
     });
 
     // Partial unique index environments_company_managed_sandbox_idx rejects a
-    // second row matching driver='sandbox' AND managedByPaperclip=true for the
+    // second row matching driver='sandbox' AND managedByHermesFabric=true for the
     // same company. This is the DB-level invariant that replaced the previous
     // application-side post-insert convergence loop.
     const secondInsert = db.insert(environments).values({
@@ -393,7 +393,7 @@ describeEmbeddedPostgres("environmentService leases", () => {
       driver: "sandbox",
       status: "active",
       config: { provider: "kubernetes" },
-      metadata: { managedByPaperclip: true, managedKubernetesSandbox: true },
+      metadata: { managedByHermesFabric: true, managedKubernetesSandbox: true },
       createdAt: new Date(now.getTime() + 1),
       updatedAt: new Date(now.getTime() + 1),
     });
@@ -409,7 +409,7 @@ describeEmbeddedPostgres("environmentService leases", () => {
     }
     expect(raisedConstraint).toBe("environments_managed_sandbox_idx");
 
-    // Index does NOT cover tenant-created sandbox rows (no managedByPaperclip
+    // Index does NOT cover tenant-created sandbox rows (no managedByHermesFabric
     // marker) — operators must be able to keep multiple tenant sandbox envs.
     await db.insert(environments).values({
       name: "Tenant Sandbox",

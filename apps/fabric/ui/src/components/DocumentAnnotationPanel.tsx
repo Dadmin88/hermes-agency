@@ -4,7 +4,7 @@ import type {
   DocumentAnnotationComment,
   DocumentAnnotationThreadStatus,
   DocumentAnnotationThreadWithComments,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   Check,
   Copy,
@@ -30,7 +30,7 @@ import { AgentIcon } from "./AgentIconPicker";
 import { deriveInitials } from "./Identity";
 import { MarkdownBody } from "./MarkdownBody";
 import type { PendingAnchor } from "./DocumentAnnotationLayer";
-import type { Agent } from "@paperclipai/shared";
+import type { Agent } from "@hermes-fabric/shared";
 import type { CompanyUserProfile } from "@/lib/company-members";
 
 export interface AnnotationPanelProps {
@@ -71,7 +71,7 @@ export function DocumentAnnotationPanel(props: AnnotationPanelProps) {
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className="paperclip-doc-annotation-sheet z-[60] flex max-h-[88vh] flex-col rounded-none border-t border-border bg-popover p-0 text-popover-foreground shadow-2xl"
+          className="fabric-doc-annotation-sheet z-[60] flex max-h-[88vh] flex-col rounded-none border-t border-border bg-popover p-0 text-popover-foreground shadow-2xl"
         >
           <SheetTitle className="sr-only">
             Comments on {props.documentKey} revision {props.documentRevisionNumber}

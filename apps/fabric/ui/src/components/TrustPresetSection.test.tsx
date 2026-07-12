@@ -2,7 +2,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AgentPermissions } from "@paperclipai/shared";
+import type { AgentPermissions } from "@hermes-fabric/shared";
 import { TrustPresetSection } from "./TrustPresetSection";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -24,7 +24,7 @@ function renderSection(permissions: Partial<AgentPermissions>) {
           permissions={permissions}
           onChange={onChange}
           companyId="company-1"
-          projectCandidates={[{ id: "project-1", label: "Paperclip App" }]}
+          projectCandidates={[{ id: "project-1", label: "HermesFabric App" }]}
           issueCandidates={[{ id: "issue-1", label: "PAP-1 · Review PR" }]}
         />
       </TooltipProvider>,
@@ -67,7 +67,7 @@ describe("TrustPresetSection", () => {
 
     expect(view.text()).toContain("Containment active");
     expect(view.text()).toContain("Boundary type");
-    expect(view.text()).toContain("Paperclip App");
+    expect(view.text()).toContain("HermesFabric App");
     expect(view.text()).toContain("Review upstream advanced policy options.");
     expect(view.text()).not.toContain("Managed by EE/API");
   });

@@ -3,9 +3,9 @@ import {
   isGeminiTurnLimitResult,
   isGeminiSessionUnrecoverableError,
   parseGeminiJsonl,
-} from "@paperclipai/adapter-gemini-local/server";
-import { parseGeminiStdoutLine } from "@paperclipai/adapter-gemini-local/ui";
-import { printGeminiStreamEvent } from "@paperclipai/adapter-gemini-local/cli";
+} from "@hermes-fabric/adapter-gemini-local/server";
+import { parseGeminiStdoutLine } from "@hermes-fabric/adapter-gemini-local/ui";
+import { printGeminiStreamEvent } from "@hermes-fabric/adapter-gemini-local/cli";
 
 describe("gemini_local parser", () => {
   it("extracts session, summary, usage, cost, and terminal error message from v0.38 stream-json output", () => {

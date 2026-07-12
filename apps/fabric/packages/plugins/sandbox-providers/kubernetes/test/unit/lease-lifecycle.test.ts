@@ -49,7 +49,7 @@ describe("checkLeaseResumable (sandbox-cr backend)", () => {
       },
     };
     const result = await checkLeaseResumable(clients as never, {
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc",
       backend: "sandbox-cr",
       readyTimeoutMs: 1_000,
@@ -57,7 +57,7 @@ describe("checkLeaseResumable (sandbox-cr backend)", () => {
     });
     expect(result).toEqual({ resumable: true, podName: "pc-abc-pod", phase: "Running" });
     expect(clients.core.readNamespacedPod).toHaveBeenCalledWith({
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc-pod",
     });
   });
@@ -257,7 +257,7 @@ describe("destroyLeaseResources", () => {
   it("deletes the Sandbox CR, pod, and per-run Secret (sandbox-cr backend)", async () => {
     const clients = makeClients();
     await destroyLeaseResources(clients as never, {
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc",
       backend: "sandbox-cr",
       podName: "pc-abc-pod",
@@ -266,17 +266,17 @@ describe("destroyLeaseResources", () => {
     expect(clients.custom.deleteNamespacedCustomObject).toHaveBeenCalledWith({
       group: SANDBOX_GROUP,
       version: SANDBOX_VERSION,
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       plural: SANDBOX_PLURAL,
       name: "pc-abc",
       propagationPolicy: "Foreground",
     });
     expect(clients.core.deleteNamespacedPod).toHaveBeenCalledWith({
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc-pod",
     });
     expect(clients.core.deleteNamespacedSecret).toHaveBeenCalledWith({
-      namespace: "paperclip-acme",
+      namespace: "fabric-acme",
       name: "pc-abc-env",
     });
     expect(clients.batch.deleteNamespacedJob).not.toHaveBeenCalled();

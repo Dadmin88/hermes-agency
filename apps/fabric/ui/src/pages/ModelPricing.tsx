@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/lib/router";
 import { ArrowLeft, Loader2, RefreshCw, Save } from "lucide-react";
-import type { ModelPricingItem } from "@paperclipai/shared";
-import { MODEL_PRICING_TYPES } from "@paperclipai/shared";
+import type { ModelPricingItem } from "@hermes-fabric/shared";
+import { MODEL_PRICING_TYPES } from "@hermes-fabric/shared";
 import { modelSetsApi, type ModelPricingRow } from "@/api/model-sets";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useToastActions } from "@/context/ToastContext";
@@ -70,7 +70,7 @@ export function ModelPricing() {
       pushToast({ title: "Pricing saved", tone: "success" });
     },
     onError: (error: Error) => {
-      pushToast({ title: "Save failed", description: error.message, tone: "error" });
+      pushToast({ title: "Save failed", body: error.message, tone: "error" });
     },
   });
 
@@ -80,12 +80,12 @@ export function ModelPricing() {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.pricing });
       pushToast({
         title: "OpenRouter pricing refreshed",
-        description: `${result.discovered} models discovered`,
+        body: `${result.discovered} models discovered`,
         tone: "success",
       });
     },
     onError: (error: Error) => {
-      pushToast({ title: "Auto-detect failed", description: error.message, tone: "error" });
+      pushToast({ title: "Auto-detect failed", body: error.message, tone: "error" });
     },
   });
 

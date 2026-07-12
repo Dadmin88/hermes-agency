@@ -14,7 +14,7 @@ Don't use when:
 Runtime distinction:
 - hermes_local: Hermes Agency starts Hermes on the Hermes Agency host through the built-in local adapter.
 - hermes_gateway: Hermes Agency calls an already-running Hermes API server using agentDefaultsPayload.apiBaseUrl.
-- Hermes-originated Hermes Agency API usage: Hermes calls Hermes Agency with PAPERCLIP_API_URL (legacy compatibility env name) and the Hermes Agency API key claimed through the standard join approval flow. Do not use agentDefaultsPayload.apiBaseUrl for Hermes Agency API calls. For internet-facing Hermes chat/webhook task bridges, use a separate task_bridge key instead of exposing the normal claimed agent key.
+- Hermes-originated Hermes Agency API usage: Hermes calls Hermes Agency with HERMES_FABRIC_API_URL (legacy compatibility env name) and the Hermes Agency API key claimed through the standard join approval flow. Do not use agentDefaultsPayload.apiBaseUrl for Hermes Agency API calls. For internet-facing Hermes chat/webhook task bridges, use a separate task_bridge key instead of exposing the normal claimed agent key.
 
 Hermes gateway process setup:
 - Set API_SERVER_ENABLED=true.
@@ -33,26 +33,26 @@ Join request minimum:
   "agentDefaultsPayload": {
     "apiBaseUrl": "http://127.0.0.1:8642",
     "apiKey": "<same-value-as-API_SERVER_KEY>",
-    "paperclipApiUrl": "http://localhost:3100"
+    "fabricApiUrl": "http://localhost:3100"
   }
 }
 
 Core fields:
 - agentDefaultsPayload.apiBaseUrl (string, required): Base URL for the Hermes API server as reachable from the Hermes Agency server. A default dashboard root or chat URL such as http://127.0.0.1:9119 or http://127.0.0.1:9119/chat is accepted and maps to http://127.0.0.1:9119/api.
 - agentDefaultsPayload.apiKey (string, required unless the adapter package documents another auth field): Hermes API server key matching API_SERVER_KEY. This is the Hermes gateway key, not the claimed Hermes Agency API key.
-- agentDefaultsPayload.paperclipApiUrl (string, strongly recommended): Hermes Agency base URL as reachable from Hermes for invite, claim, skill bootstrap, and later Hermes Agency API calls.
+- agentDefaultsPayload.fabricApiUrl (string, strongly recommended): Hermes Agency base URL as reachable from Hermes for invite, claim, skill bootstrap, and later Hermes Agency API calls.
 - agentDefaultsPayload.timeoutSec or timeoutMs (number, optional): Runtime request timeout when supported by the installed Hermes gateway adapter.
 
 Network examples:
-- Local loopback on one host: agentDefaultsPayload.apiBaseUrl = "http://127.0.0.1:8642"; agentDefaultsPayload.paperclipApiUrl = "http://127.0.0.1:3100".
+- Local loopback on one host: agentDefaultsPayload.apiBaseUrl = "http://127.0.0.1:8642"; agentDefaultsPayload.fabricApiUrl = "http://127.0.0.1:3100".
 - Local dashboard root or chat URL on one host: agentDefaultsPayload.apiBaseUrl = "http://127.0.0.1:9119" or "http://127.0.0.1:9119/chat"; Hermes Agency maps it to "http://127.0.0.1:9119/api".
-- LAN/private network: agentDefaultsPayload.apiBaseUrl = "http://192.168.1.25:8642"; agentDefaultsPayload.paperclipApiUrl = "http://192.168.1.10:3100". Use private IPs or hostnames reachable from both machines.
-- Private overlay: agentDefaultsPayload.apiBaseUrl = "http://hermes-host.tailnet-name.ts.net:8642"; agentDefaultsPayload.paperclipApiUrl = "http://agency-host.tailnet-name.ts.net:3100". Add the Hermes Agency hostname with pnpm paperclipai allowed-hostname <host> when authenticated/private mode requires it.
+- LAN/private network: agentDefaultsPayload.apiBaseUrl = "http://192.168.1.25:8642"; agentDefaultsPayload.fabricApiUrl = "http://192.168.1.10:3100". Use private IPs or hostnames reachable from both machines.
+- Private overlay: agentDefaultsPayload.apiBaseUrl = "http://hermes-host.tailnet-name.ts.net:8642"; agentDefaultsPayload.fabricApiUrl = "http://agency-host.tailnet-name.ts.net:3100". Add the Hermes Agency hostname with pnpm hermes-fabric allowed-hostname <host> when authenticated/private mode requires it.
 - Docker: if Hermes runs on the host and Hermes Agency runs in Docker, use agentDefaultsPayload.apiBaseUrl = "http://host.docker.internal:8642". If Hermes runs in another container, use the Compose service DNS name such as "http://hermes:8642".
-- Reverse proxy/TLS: publish Hermes behind HTTPS and set agentDefaultsPayload.apiBaseUrl = "https://hermes-gateway.example"; set agentDefaultsPayload.paperclipApiUrl = "https://agency.example". Keep API_SERVER_KEY required at the origin or proxy.
+- Reverse proxy/TLS: publish Hermes behind HTTPS and set agentDefaultsPayload.apiBaseUrl = "https://hermes-gateway.example"; set agentDefaultsPayload.fabricApiUrl = "https://agency.example". Keep API_SERVER_KEY required at the origin or proxy.
 
 Security notes:
-- Treat API_SERVER_KEY and PAPERCLIP_BRIDGE_API_KEY as secrets.
+- Treat API_SERVER_KEY and HERMES_FABRIC_BRIDGE_API_KEY as secrets.
 - When claiming the normal Hermes Agency agent API key, store the parsed token field from the raw claim response before printing or summarizing it. Hermes/tool displays may redact secrets with literal ... or [redacted]; those previews are not valid keys.
 - Never use a normal claimed Hermes Agency agent API key for internet-facing Hermes-originated task bridge calls; task_bridge keys cannot use company-wide issue list/search/read surfaces and can only mutate bridge-created or assigned issues.
 - Prefer private network or TLS for non-loopback gateway access.

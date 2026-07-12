@@ -1,21 +1,21 @@
 {
-  "name": "@paperclipai/adapter-hermes-gateway",
+  "name": "@hermes-fabric/adapter-hermes-gateway",
   "version": "0.1.0",
-  "description": "Deprecated compatibility shim for Hermes Gateway; use @paperclipai/hermes-paperclip-adapter/gateway",
+  "description": "Deprecated compatibility shim for Hermes Gateway; use @hermes-fabric/hermes-fabric-adapter/gateway",
   "type": "module",
   "license": "MIT",
-  "author": "Paperclip",
+  "author": "Hermes Fabric",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
+    "url": "https://github.com/DeployFaith/Hermes_Agency",
     "directory": "packages/adapters/hermes-gateway"
   },
   "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
+    "url": "https://github.com/DeployFaith/Hermes_Agency/issues"
   },
-  "homepage": "https://github.com/paperclipai/paperclip/tree/master/packages/adapters/hermes#readme",
+  "homepage": "https://github.com/DeployFaith/Hermes_Agency/tree/master/packages/adapters/hermes#readme",
   "keywords": [
-    "paperclip",
+    "fabric",
     "hermes",
     "gateway",
     "adapter",
@@ -28,7 +28,7 @@
     "./cli": "./src/cli/index.ts",
     "./ui-parser": "./ui-parser.cjs"
   },
-  "paperclip": {
+  "fabric": {
     "adapterUiParser": "1.0.0"
   },
   "publishConfig": {
@@ -68,7 +68,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@paperclipai/hermes-paperclip-adapter": "workspace:*"
+    "@hermes-fabric/hermes-fabric-adapter": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

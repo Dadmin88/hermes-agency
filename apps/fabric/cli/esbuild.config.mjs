@@ -1,7 +1,7 @@
 /**
- * esbuild configuration for building the paperclipai CLI for npm.
+ * esbuild configuration for building the hermes-fabric CLI for npm.
  *
- * Bundles all workspace packages (@paperclipai/*) into a single file.
+ * Bundles all workspace packages (@hermes-fabric/*) into a single file.
  * External npm packages remain as regular dependencies.
  */
 
@@ -27,9 +27,9 @@ const workspacePaths = [
 ];
 
 // Workspace packages that should NOT be bundled — they'll be published
-// to npm and resolved at runtime (e.g. @paperclipai/server uses dynamic import).
+// to npm and resolved at runtime (e.g. @hermes-fabric/server uses dynamic import).
 const externalWorkspacePackages = new Set([
-  "@paperclipai/server",
+  "@hermes-fabric/server",
 ]);
 
 // Collect all external (non-workspace) npm package names
@@ -39,7 +39,7 @@ for (const p of workspacePaths) {
   for (const name of Object.keys(pkg.dependencies || {})) {
     if (externalWorkspacePackages.has(name)) {
       externals.add(name);
-    } else if (!name.startsWith("@paperclipai/")) {
+    } else if (!name.startsWith("@hermes-fabric/")) {
       externals.add(name);
     }
   }

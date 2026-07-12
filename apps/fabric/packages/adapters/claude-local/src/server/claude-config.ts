@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
-import { resolvePaperclipInstanceRootForAdapter } from "@paperclipai/adapter-utils/server-utils";
+import type { AdapterExecutionContext } from "@hermes-fabric/adapter-utils";
+import { resolveHermesFabricInstanceRootForAdapter } from "@hermes-fabric/adapter-utils/server-utils";
 
 const SEEDED_SHARED_FILES = ["settings.json", "CLAUDE.md"] as const;
 
@@ -117,9 +117,9 @@ export function resolveManagedClaudeConfigSeedDir(
   env: NodeJS.ProcessEnv,
   companyId?: string,
 ): string {
-  const instanceRoot = resolvePaperclipInstanceRootForAdapter({
-    homeDir: nonEmpty(env.PAPERCLIP_HOME) ?? undefined,
-    instanceId: nonEmpty(env.PAPERCLIP_INSTANCE_ID) ?? undefined,
+  const instanceRoot = resolveHermesFabricInstanceRootForAdapter({
+    homeDir: nonEmpty(env.HERMES_FABRIC_HOME) ?? undefined,
+    instanceId: nonEmpty(env.HERMES_FABRIC_INSTANCE_ID) ?? undefined,
     env,
   });
   return companyId
@@ -150,12 +150,12 @@ export async function prepareClaudeConfigSeed(
   if (copiedFiles.length > 0) {
     await onLog(
       "stdout",
-      `[paperclip] Prepared Claude config seed "${targetDir}" from "${sourceDir}" (${copiedFiles.map((file) => file.name).join(", ")}).\n`,
+      `[fabric] Prepared Claude config seed "${targetDir}" from "${sourceDir}" (${copiedFiles.map((file) => file.name).join(", ")}).\n`,
     );
   } else {
     await onLog(
       "stdout",
-      `[paperclip] No local Claude config seed files were found in "${sourceDir}". Remote Claude auth may still require login.\n`,
+      `[fabric] No local Claude config seed files were found in "${sourceDir}". Remote Claude auth may still require login.\n`,
     );
   }
 

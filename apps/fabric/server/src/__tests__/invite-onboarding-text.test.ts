@@ -39,15 +39,15 @@ describe("buildInviteOnboardingTextDocument", () => {
       allowedHostnames: [],
     });
 
-    expect(text).toContain("Paperclip Agent Onboarding");
+    expect(text).toContain("HermesFabric Agent Onboarding");
     expect(text).toContain("/api/invites/token-123/accept");
     expect(text).toContain("/api/join-requests/{requestId}/claim-api-key");
     expect(text).toContain("/api/invites/token-123/onboarding.txt");
-    expect(text).toContain("/api/invites/token-123/skills/paperclip");
-    expect(text).toContain("Suggested Paperclip base URLs to try");
+    expect(text).toContain("/api/invites/token-123/skills/fabric");
+    expect(text).toContain("Suggested HermesFabric base URLs to try");
     expect(text).toContain("http://localhost:3100");
     expect(text).toContain("host.docker.internal");
-    expect(text).toContain("paperclipApiUrl");
+    expect(text).toContain("fabricApiUrl");
     expect(text).toContain('"adapterType": "openclaw_gateway"');
     expect(text).toContain("headers.x-openclaw-token");
     expect(text).toContain("Do NOT use /v1/responses or /hooks/*");
@@ -59,28 +59,28 @@ describe("buildInviteOnboardingTextDocument", () => {
     expect(text).toContain("hermes gateway run --replace --accept-hooks");
     expect(text).toContain("Default Hermes API server port: 8642");
     expect(text).toContain("agentDefaultsPayload.apiBaseUrl");
-    expect(text).toContain("agentDefaultsPayload.paperclipApiUrl");
+    expect(text).toContain("agentDefaultsPayload.fabricApiUrl");
     expect(text).toContain("hermes_local");
-    expect(text).toContain("Hermes-originated Paperclip API usage");
+    expect(text).toContain("Hermes-originated HermesFabric API usage");
     expect(text).toContain("http://127.0.0.1:8642");
     expect(text).toContain("http://127.0.0.1:9119");
     expect(text).toContain("http://127.0.0.1:9119/chat");
     expect(text).toContain("map to /api");
     expect(text).toContain("/chat and the dashboard root are browser UI routes");
     expect(text).toContain("/api/v1/runs");
-    expect(text).toContain("Do not rotate or invent a Paperclip key manually");
+    expect(text).toContain("Do not rotate or invent a HermesFabric key manually");
     expect(text).toContain("http://192.168.1.25:8642");
     expect(text).toContain("tailnet-name.ts.net:8642");
     expect(text).toContain("http://host.docker.internal:8642");
     expect(text).toContain("https://hermes-gateway.example");
-    expect(text).toContain("set the first reachable candidate as agentDefaultsPayload.paperclipApiUrl");
-    expect(text).toContain("PAPERCLIP_API_KEY");
+    expect(text).toContain("set the first reachable candidate as agentDefaultsPayload.fabricApiUrl");
+    expect(text).toContain("HERMES_FABRIC_API_KEY");
     expect(text).toContain("Store the parsed token field from the raw HTTP JSON response");
     expect(text).toContain("A token value containing literal ... or [redacted]");
     expect(text).toContain("The response body includes the full token exactly once");
     expect(text).toContain("Do not persist displayed previews containing literal ... or [redacted]");
     expect(text).toContain("Use your runtime's normal skill or instruction installation path.");
-    expect(text).toContain("Decide which Paperclip adapter type matches your runtime.");
+    expect(text).toContain("Decide which HermesFabric adapter type matches your runtime.");
   });
 
   it("includes loopback diagnostics for authenticated/private onboarding", () => {
@@ -176,7 +176,7 @@ describe("buildInviteOnboardingTextDocument", () => {
     });
 
     try {
-      const req = buildReq("paperclip.example.test:3103");
+      const req = buildReq("fabric.example.test:3103");
       const invite = {
         id: "invite-4",
         companyId: "company-1",
@@ -196,7 +196,7 @@ describe("buildInviteOnboardingTextDocument", () => {
         deploymentMode: "authenticated",
         deploymentExposure: "private",
         bindHost: "0.0.0.0",
-        allowedHostnames: ["paperclip.example.test", "203.0.113.42"],
+        allowedHostnames: ["fabric.example.test", "203.0.113.42"],
       });
 
       expect(text).toContain("http://192.168.6.178:3103");

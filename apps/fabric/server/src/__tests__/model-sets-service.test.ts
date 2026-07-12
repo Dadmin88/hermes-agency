@@ -14,8 +14,8 @@ import {
   modelPricing,
   modelProfileOverrides,
   modelSets,
-} from "@paperclipai/db";
-import { type ModelSetDefinition } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import { type ModelSetDefinition } from "@hermes-fabric/shared";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -50,7 +50,7 @@ describeEmbeddedPostgres("model set service", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-model-sets-service-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-model-sets-service-");
     db = createDb(tempDb.connectionString);
     svc = modelSetService(db);
   }, 20_000);

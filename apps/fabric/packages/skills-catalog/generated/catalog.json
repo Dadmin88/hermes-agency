@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "packageName": "@paperclipai/skills-catalog",
+  "packageName": "@hermes-fabric/skills-catalog",
   "packageVersion": "0.3.1",
   "generatedAt": "2026-06-26T18:26:43.763Z",
   "skills": [
     {
-      "id": "paperclipai:bundled:docs:doc-maintenance",
-      "key": "paperclipai/bundled/docs/doc-maintenance",
+      "id": "hermes-fabric:bundled:docs:doc-maintenance",
+      "key": "hermes-fabric/bundled/docs/doc-maintenance",
       "kind": "bundled",
       "category": "docs",
       "slug": "doc-maintenance",
@@ -39,14 +39,14 @@
       "contentHash": "sha256:2e02299210fd17c1fe1867b4ee8c144a11b6fe1fe481f83b8268cfbaaf10f9aa"
     },
     {
-      "id": "paperclipai:bundled:paperclip-operations:issue-triage",
-      "key": "paperclipai/bundled/paperclip-operations/issue-triage",
+      "id": "hermes-fabric:bundled:fabric-operations:issue-triage",
+      "key": "hermes-fabric/bundled/fabric-operations/issue-triage",
       "kind": "bundled",
-      "category": "paperclip-operations",
+      "category": "fabric-operations",
       "slug": "issue-triage",
       "name": "issue-triage",
-      "description": "Triage Paperclip inbox issues that are stale, blocked, in-review, or assigned-but-not-progressing, and decide a single next action per issue (resume, reassign, unblock, escalate, or close).",
-      "path": "catalog/bundled/paperclip-operations/issue-triage",
+      "description": "Triage HermesFabric inbox issues that are stale, blocked, in-review, or assigned-but-not-progressing, and decide a single next action per issue (resume, reassign, unblock, escalate, or close).",
+      "path": "catalog/bundled/fabric-operations/issue-triage",
       "entrypoint": "SKILL.md",
       "trustLevel": "markdown_only",
       "compatibility": "compatible",
@@ -58,7 +58,7 @@
       ],
       "requires": [],
       "tags": [
-        "paperclip",
+        "fabric",
         "triage",
         "inbox",
         "workflow"
@@ -74,14 +74,14 @@
       "contentHash": "sha256:88dc13560371fb364963782cb4f6eeb4090fcde92ee3774479428ed6b90e11c1"
     },
     {
-      "id": "paperclipai:bundled:paperclip-operations:task-planning",
-      "key": "paperclipai/bundled/paperclip-operations/task-planning",
+      "id": "hermes-fabric:bundled:fabric-operations:task-planning",
+      "key": "hermes-fabric/bundled/fabric-operations/task-planning",
       "kind": "bundled",
-      "category": "paperclip-operations",
+      "category": "fabric-operations",
       "slug": "task-planning",
       "name": "task-planning",
-      "description": "Turn a Paperclip issue or request into a structured implementation plan with child task graph, blockers, owners, and acceptance criteria, then save it as the issue `plan` document.",
-      "path": "catalog/bundled/paperclip-operations/task-planning",
+      "description": "Turn a HermesFabric issue or request into a structured implementation plan with child task graph, blockers, owners, and acceptance criteria, then save it as the issue `plan` document.",
+      "path": "catalog/bundled/fabric-operations/task-planning",
       "entrypoint": "SKILL.md",
       "trustLevel": "markdown_only",
       "compatibility": "compatible",
@@ -93,7 +93,7 @@
       ],
       "requires": [],
       "tags": [
-        "paperclip",
+        "fabric",
         "planning",
         "issues",
         "delegation"
@@ -109,14 +109,14 @@
       "contentHash": "sha256:487c3116eead89fef4f71c984329c41836bd69951b7ef9ed8736c69435e02438"
     },
     {
-      "id": "paperclipai:bundled:product:paperclip-capsules",
-      "key": "paperclipai/bundled/product/paperclip-capsules",
+      "id": "hermes-fabric:bundled:product:fabric-capsules",
+      "key": "hermes-fabric/bundled/product/fabric-capsules",
       "kind": "bundled",
       "category": "product",
-      "slug": "paperclip-capsules",
-      "name": "paperclip-capsules",
-      "description": "Generate, implement, or review Paperclip capsule visuals. Use when the user asks for Paperclip capsule art, capsule banks, agent capsule visuals, heartbeat status capsules, capsule identicons, capsule graphic-generator output, or validation of Paperclip capsule brand usage.",
-      "path": "catalog/bundled/product/paperclip-capsules",
+      "slug": "fabric-capsules",
+      "name": "fabric-capsules",
+      "description": "Generate, implement, or review HermesFabric capsule visuals. Use when the user asks for HermesFabric capsule art, capsule banks, agent capsule visuals, heartbeat status capsules, capsule identicons, capsule graphic-generator output, or validation of HermesFabric capsule brand usage.",
+      "path": "catalog/bundled/product/fabric-capsules",
       "entrypoint": "SKILL.md",
       "trustLevel": "markdown_only",
       "compatibility": "compatible",
@@ -129,7 +129,7 @@
       ],
       "requires": [],
       "tags": [
-        "paperclip",
+        "fabric",
         "brand",
         "capsules",
         "agents",
@@ -171,8 +171,8 @@
       "contentHash": "sha256:e8f502f9556103bd575bb664a9d21b1004869990802e639a188a720012116909"
     },
     {
-      "id": "paperclipai:bundled:product:wireframe",
-      "key": "paperclipai/bundled/product/wireframe",
+      "id": "hermes-fabric:bundled:product:wireframe",
+      "key": "hermes-fabric/bundled/product/wireframe",
       "kind": "bundled",
       "category": "product",
       "slug": "wireframe",
@@ -243,8 +243,8 @@
       "contentHash": "sha256:0bd9a9fdc656d529e3f97c00cd504dcf72d3a4fecb8b0504ca2fe3e00d63287f"
     },
     {
-      "id": "paperclipai:bundled:quality:qa-acceptance",
-      "key": "paperclipai/bundled/quality/qa-acceptance",
+      "id": "hermes-fabric:bundled:quality:qa-acceptance",
+      "key": "hermes-fabric/bundled/quality/qa-acceptance",
       "kind": "bundled",
       "category": "quality",
       "slug": "qa-acceptance",
@@ -278,8 +278,8 @@
       "contentHash": "sha256:32372dacaf62e93454b9855968c4eec96456ba78b509f450b3dfaa48e31ef356"
     },
     {
-      "id": "paperclipai:bundled:software-development:github-pr-workflow",
-      "key": "paperclipai/bundled/software-development/github-pr-workflow",
+      "id": "hermes-fabric:bundled:software-development:github-pr-workflow",
+      "key": "hermes-fabric/bundled/software-development/github-pr-workflow",
       "kind": "bundled",
       "category": "software-development",
       "slug": "github-pr-workflow",
@@ -311,8 +311,8 @@
       "contentHash": "sha256:90f278c89aa0711be150c1cd2456ca25620d02f36995b113ca9837d756a37f6c"
     },
     {
-      "id": "paperclipai:optional:browser:agent-browser",
-      "key": "paperclipai/optional/browser/agent-browser",
+      "id": "hermes-fabric:optional:browser:agent-browser",
+      "key": "hermes-fabric/optional/browser/agent-browser",
       "kind": "optional",
       "category": "browser",
       "slug": "agent-browser",
@@ -346,8 +346,8 @@
       "contentHash": "sha256:eabb2c9f7b5e1a27ebb1e05a711d61433a266478154cd671a685e99e67aadea2"
     },
     {
-      "id": "paperclipai:optional:content:release-announcement",
-      "key": "paperclipai/optional/content/release-announcement",
+      "id": "hermes-fabric:optional:content:release-announcement",
+      "key": "hermes-fabric/optional/content/release-announcement",
       "kind": "optional",
       "category": "content",
       "slug": "release-announcement",
@@ -381,8 +381,8 @@
       "contentHash": "sha256:f22a9ed696e6614c6db2757a149f48b3295e81f78c27d065d9cb164cf4f8a9bd"
     },
     {
-      "id": "paperclipai:optional:product:design-critique",
-      "key": "paperclipai/optional/product/design-critique",
+      "id": "hermes-fabric:optional:product:design-critique",
+      "key": "hermes-fabric/optional/product/design-critique",
       "kind": "optional",
       "category": "product",
       "slug": "design-critique",
@@ -416,8 +416,8 @@
       "contentHash": "sha256:429f94df398a0697042b5bbe4755b1ff1a230aa5f41d99118ad37493ac65d21c"
     },
     {
-      "id": "paperclipai:optional:research:last30days",
-      "key": "paperclipai/optional/research/last30days",
+      "id": "hermes-fabric:optional:research:last30days",
+      "key": "hermes-fabric/optional/research/last30days",
       "kind": "optional",
       "category": "research",
       "slug": "last30days",

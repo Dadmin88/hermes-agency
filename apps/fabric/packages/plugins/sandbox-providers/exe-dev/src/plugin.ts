@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
-import { definePlugin } from "@paperclipai/plugin-sdk";
+import { definePlugin } from "@hermes-fabric/plugin-sdk";
 import type {
   PluginEnvironmentAcquireLeaseParams,
   PluginEnvironmentDestroyLeaseParams,
@@ -18,7 +18,7 @@ import type {
   PluginEnvironmentResumeLeaseParams,
   PluginEnvironmentValidateConfigParams,
   PluginEnvironmentValidationResult,
-} from "@paperclipai/plugin-sdk";
+} from "@hermes-fabric/plugin-sdk";
 
 interface ExeDevDriverConfig {
   apiKey: string | null;
@@ -72,10 +72,10 @@ const EXE_DEV_SSH_INVALID_KEY_FORMAT = /Load key [^\n]*invalid format/i;
 const UUID_SECRET_REF_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // exe.dev's `--setup-script` runs at VM init as the unprivileged `exedev` user, which
-// has passwordless sudo. The Paperclip sandbox callback bridge is a Node script, so
-// every Paperclip workload on this provider needs node on PATH before the bridge can
+// has passwordless sudo. The HermesFabric sandbox callback bridge is a Node script, so
+// every HermesFabric workload on this provider needs node on PATH before the bridge can
 // start. When the operator hasn't supplied their own setup script, install Node 20 via
-// nodesource so the VM comes up ready for Paperclip out of the box.
+// nodesource so the VM comes up ready for HermesFabric out of the box.
 const DEFAULT_SETUP_SCRIPT =
   "command -v node >/dev/null 2>&1 || " +
   "(curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && " +
@@ -228,12 +228,12 @@ function normalizeApiUrl(value: string | null): string {
 }
 
 function normalizeNamePrefix(value: string | null): string {
-  const normalized = (value ?? "paperclip")
+  const normalized = (value ?? "fabric")
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
-  return normalized.length > 0 ? normalized.slice(0, 24) : "paperclip";
+  return normalized.length > 0 ? normalized.slice(0, 24) : "fabric";
 }
 
 function parseDriverConfig(raw: Record<string, unknown>): ExeDevDriverConfig {
@@ -501,7 +501,7 @@ async function prepareSshIdentity(config: ExeDevDriverConfig): Promise<{
     };
   }
 
-  const tempDir = await mkdtemp(path.join(tmpdir(), "paperclip-exe-dev-ssh-"));
+  const tempDir = await mkdtemp(path.join(tmpdir(), "fabric-exe-dev-ssh-"));
   const sshIdentityFile = path.join(tempDir, "id_ed25519");
   const privateKey = config.sshPrivateKey.endsWith("\n")
     ? config.sshPrivateKey
@@ -563,7 +563,7 @@ function formatSshFailure(
     || combinedOutput.includes(EXE_DEV_SSH_EMAIL_PROMPT)
   ) {
     return [
-      `Failed to ${action} exe.dev VM ${vmName}: the Paperclip host SSH key is not registered with exe.dev.`,
+      `Failed to ${action} exe.dev VM ${vmName}: the HermesFabric host SSH key is not registered with exe.dev.`,
       "Complete exe.dev's one-time SSH onboarding on this host by running `ssh exe.dev` and following the email verification prompt, then retry.",
     ].join(" ");
   }
@@ -684,7 +684,7 @@ async function buildLease(
   resumedLease: boolean,
 ): Promise<PluginEnvironmentLease> {
   const remote = await detectRemoteContext(config, vm);
-  const remoteCwd = requestedCwd?.trim() || path.posix.join(remote.homeDir, "paperclip-workspace");
+  const remoteCwd = requestedCwd?.trim() || path.posix.join(remote.homeDir, "fabric-workspace");
   await ensureRemoteWorkspace(config, vm, remoteCwd);
 
   return {
@@ -769,7 +769,7 @@ const plugin = definePlugin({
     }
 
     warnings.push(
-      "The Paperclip host must have SSH access to the created exe.dev VM, and its SSH key must be registered with exe.dev. The API token only covers provisioning.",
+      "The HermesFabric host must have SSH access to the created exe.dev VM, and its SSH key must be registered with exe.dev. The API token only covers provisioning.",
     );
     if (config.reuseLease) {
       warnings.push("reuseLease keeps the VM alive between runs; this provider does not suspend retained VMs.");
@@ -876,7 +876,7 @@ const plugin = definePlugin({
       parseOptionalString(params.lease.metadata?.remoteCwd)
       ?? params.workspace.remotePath
       ?? params.workspace.localPath
-      ?? "/tmp/paperclip-workspace";
+      ?? "/tmp/fabric-workspace";
 
     const vm = metadataVmRecord({
       providerLeaseId: params.lease.providerLeaseId,

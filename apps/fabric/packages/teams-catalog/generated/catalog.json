@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "packageName": "@paperclipai/teams-catalog",
+  "packageName": "@hermes-fabric/teams-catalog",
   "packageVersion": "0.1.0",
   "generatedAt": "2026-06-04T18:03:41.262Z",
   "teams": [
     {
-      "id": "paperclipai:bundled:company-defaults:core-exec-team",
-      "key": "paperclipai/bundled/company-defaults/core-exec-team",
+      "id": "hermes-fabric:bundled:company-defaults:core-exec-team",
+      "key": "hermes-fabric/bundled/company-defaults/core-exec-team",
       "kind": "bundled",
       "category": "company-defaults",
       "slug": "core-exec-team",
       "name": "Core Exec Team",
-      "description": "Default leadership and engineering team for bootstrapping a Paperclip company with a CEO, CTO, QA Engineer, starter project, and a recurring CEO heartbeat review task.",
+      "description": "Default leadership and engineering team for bootstrapping a HermesFabric company with a CEO, CTO, QA Engineer, starter project, and a recurring CEO heartbeat review task.",
       "path": "catalog/bundled/company-defaults/core-exec-team",
       "entrypoint": "TEAM.md",
       "schema": "agentcompanies/v1",
@@ -55,8 +55,8 @@
             "cto"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:software-development:github-pr-workflow",
-          "catalogSkillKey": "paperclipai/bundled/software-development/github-pr-workflow"
+          "catalogSkillId": "hermes-fabric:bundled:software-development:github-pr-workflow",
+          "catalogSkillKey": "hermes-fabric/bundled/software-development/github-pr-workflow"
         },
         {
           "type": "catalog",
@@ -65,8 +65,8 @@
             "ceo"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:paperclip-operations:issue-triage",
-          "catalogSkillKey": "paperclipai/bundled/paperclip-operations/issue-triage"
+          "catalogSkillId": "hermes-fabric:bundled:fabric-operations:issue-triage",
+          "catalogSkillKey": "hermes-fabric/bundled/fabric-operations/issue-triage"
         },
         {
           "type": "catalog",
@@ -75,8 +75,8 @@
             "qa"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:quality:qa-acceptance",
-          "catalogSkillKey": "paperclipai/bundled/quality/qa-acceptance"
+          "catalogSkillId": "hermes-fabric:bundled:quality:qa-acceptance",
+          "catalogSkillKey": "hermes-fabric/bundled/quality/qa-acceptance"
         },
         {
           "type": "catalog",
@@ -86,8 +86,8 @@
             "cto"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:paperclip-operations:task-planning",
-          "catalogSkillKey": "paperclipai/bundled/paperclip-operations/task-planning"
+          "catalogSkillId": "hermes-fabric:bundled:fabric-operations:task-planning",
+          "catalogSkillKey": "hermes-fabric/bundled/fabric-operations/task-planning"
         }
       ],
       "envInputs": [],
@@ -135,8 +135,8 @@
       "contentHash": "sha256:0f20e9d56124c1dc90a1e4b128fabd863538bcc935117220f719d9620f7c89f1"
     },
     {
-      "id": "paperclipai:bundled:product:product-design",
-      "key": "paperclipai/bundled/product/product-design",
+      "id": "hermes-fabric:bundled:product:product-design",
+      "key": "hermes-fabric/bundled/product/product-design",
       "kind": "bundled",
       "category": "product",
       "slug": "product-design",
@@ -182,8 +182,8 @@
             "ux-designer"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:optional:product:design-critique",
-          "catalogSkillKey": "paperclipai/optional/product/design-critique"
+          "catalogSkillId": "hermes-fabric:optional:product:design-critique",
+          "catalogSkillKey": "hermes-fabric/optional/product/design-critique"
         },
         {
           "type": "catalog",
@@ -192,8 +192,8 @@
             "ux-designer"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:paperclip-operations:task-planning",
-          "catalogSkillKey": "paperclipai/bundled/paperclip-operations/task-planning"
+          "catalogSkillId": "hermes-fabric:bundled:fabric-operations:task-planning",
+          "catalogSkillKey": "hermes-fabric/bundled/fabric-operations/task-planning"
         },
         {
           "type": "catalog",
@@ -202,8 +202,8 @@
             "ux-designer"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:product:wireframe",
-          "catalogSkillKey": "paperclipai/bundled/product/wireframe"
+          "catalogSkillId": "hermes-fabric:bundled:product:wireframe",
+          "catalogSkillKey": "hermes-fabric/bundled/product/wireframe"
         }
       ],
       "envInputs": [],
@@ -239,8 +239,8 @@
       "contentHash": "sha256:15a04b36f31d4c9a391bb499c92e91fedfcc237cfa6c3d41ea3ddb441bc85c5b"
     },
     {
-      "id": "paperclipai:bundled:software-development:product-engineering",
-      "key": "paperclipai/bundled/software-development/product-engineering",
+      "id": "hermes-fabric:bundled:software-development:product-engineering",
+      "key": "hermes-fabric/bundled/software-development/product-engineering",
       "kind": "bundled",
       "category": "software-development",
       "slug": "product-engineering",
@@ -290,8 +290,8 @@
             "senior-coder"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:docs:doc-maintenance",
-          "catalogSkillKey": "paperclipai/bundled/docs/doc-maintenance"
+          "catalogSkillId": "hermes-fabric:bundled:docs:doc-maintenance",
+          "catalogSkillKey": "hermes-fabric/bundled/docs/doc-maintenance"
         },
         {
           "type": "catalog",
@@ -301,8 +301,8 @@
             "senior-coder"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:software-development:github-pr-workflow",
-          "catalogSkillKey": "paperclipai/bundled/software-development/github-pr-workflow"
+          "catalogSkillId": "hermes-fabric:bundled:software-development:github-pr-workflow",
+          "catalogSkillKey": "hermes-fabric/bundled/software-development/github-pr-workflow"
         },
         {
           "type": "catalog",
@@ -311,8 +311,8 @@
             "qa"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:quality:qa-acceptance",
-          "catalogSkillKey": "paperclipai/bundled/quality/qa-acceptance"
+          "catalogSkillId": "hermes-fabric:bundled:quality:qa-acceptance",
+          "catalogSkillKey": "hermes-fabric/bundled/quality/qa-acceptance"
         },
         {
           "type": "catalog",
@@ -321,8 +321,8 @@
             "cto"
           ],
           "resolved": true,
-          "catalogSkillId": "paperclipai:bundled:paperclip-operations:task-planning",
-          "catalogSkillKey": "paperclipai/bundled/paperclip-operations/task-planning"
+          "catalogSkillId": "hermes-fabric:bundled:fabric-operations:task-planning",
+          "catalogSkillKey": "hermes-fabric/bundled/fabric-operations/task-planning"
         }
       ],
       "envInputs": [],
@@ -335,7 +335,7 @@
           "sha256": "7204eeef78a48714dd3f82b82e171a4039adc6325e91a6bdf51a442105ee33b0"
         },
         {
-          "path": ".paperclip.yaml",
+          "path": ".fabric.yaml",
           "kind": "extension",
           "sizeBytes": 81,
           "sha256": "54babf05ba130ec54a143abf01581d99c0ac2936fd0d929bf0e0edd00e29d861"
@@ -376,8 +376,8 @@
       "contentHash": "sha256:74ddeaeb11805835a4a67fc4530b048ab7f8aa1dc7d2b80acea139a933d158d3"
     },
     {
-      "id": "paperclipai:optional:content:content-machine",
-      "key": "paperclipai/optional/content/content-machine",
+      "id": "hermes-fabric:optional:content:content-machine",
+      "key": "hermes-fabric/optional/content/content-machine",
       "kind": "optional",
       "category": "content",
       "slug": "content-machine",

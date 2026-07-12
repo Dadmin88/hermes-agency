@@ -4,22 +4,22 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  applyPaperclipWorkspaceEnv,
+  applyHermesFabricWorkspaceEnv,
   appendWithByteCap,
   buildPersistentSkillSnapshot,
   buildRuntimeMountedSkillSnapshot,
   buildInvocationEnvForLogs,
-  DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE,
-  materializePaperclipSkillCopy,
-  refreshPaperclipWorkspaceEnvForExecution,
-  renderPaperclipWakePrompt,
+  DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE,
+  materializeHermesFabricSkillCopy,
+  refreshHermesFabricWorkspaceEnvForExecution,
+  renderHermesFabricWakePrompt,
   runningProcesses,
   runChildProcess,
   sanitizeInheritedRuntimeEnv,
   sanitizeSshRemoteEnv,
-  shapePaperclipWorkspaceEnvForExecution,
+  shapeHermesFabricWorkspaceEnvForExecution,
   rewriteWorkspaceCwdEnvVarsForExecution,
-  stringifyPaperclipWakePayload,
+  stringifyHermesFabricWakePayload,
   WATCHDOG_DEFAULT_MANDATE,
 } from "./server-utils.js";
 
@@ -58,28 +58,28 @@ describe("buildInvocationEnvForLogs", () => {
       { SAFE_VALUE: "visible" },
       {
         resolvedCommand:
-          "env OPENAI_API_KEY=sk-live-example PAPERCLIP_API_KEY='paperclip-quoted-secret' custom-acp --paperclip-api-key=paperclip-flag-secret --token ghp_example_secret",
+          "env OPENAI_API_KEY=sk-live-example HERMES_FABRIC_API_KEY='fabric-quoted-secret' custom-acp --fabric-api-key=fabric-flag-secret --token ghp_example_secret",
       },
     );
 
     expect(loggedEnv.SAFE_VALUE).toBe("visible");
-    expect(loggedEnv.PAPERCLIP_RESOLVED_COMMAND).toBe(
-      "env OPENAI_API_KEY=***REDACTED*** PAPERCLIP_API_KEY='***REDACTED***' custom-acp --paperclip-api-key=***REDACTED*** --token ***REDACTED***",
+    expect(loggedEnv.HERMES_FABRIC_RESOLVED_COMMAND).toBe(
+      "env OPENAI_API_KEY=***REDACTED*** HERMES_FABRIC_API_KEY='***REDACTED***' custom-acp --fabric-api-key=***REDACTED*** --token ***REDACTED***",
     );
   });
 });
 
 describe("sanitizeInheritedRuntimeEnv", () => {
-  it("drops inherited Paperclip and Fabric secrets while preserving runtime connection variables", () => {
+  it("drops inherited HermesFabric and Fabric secrets while preserving runtime connection variables", () => {
     expect(
       sanitizeInheritedRuntimeEnv({
         SAFE_VALUE: "visible",
-        PAPERCLIP_AGENT_JWT_SECRET: "paperclip-jwt-secret",
-        PAPERCLIP_SECRETS_MASTER_KEY: "paperclip-master-key",
-        PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN: "paperclip-cloud-token",
-        PAPERCLIP_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
-        PAPERCLIP_LISTEN_HOST: "127.0.0.1",
-        PAPERCLIP_LISTEN_PORT: "3100",
+        HERMES_FABRIC_AGENT_JWT_SECRET: "fabric-jwt-secret",
+        HERMES_FABRIC_SECRETS_MASTER_KEY: "fabric-master-key",
+        HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN: "fabric-cloud-token",
+        HERMES_FABRIC_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
+        HERMES_FABRIC_LISTEN_HOST: "127.0.0.1",
+        HERMES_FABRIC_LISTEN_PORT: "3100",
         FABRIC_AGENT_JWT_SECRET: "fabric-jwt-secret",
         FABRIC_SECRETS_MASTER_KEY: "fabric-master-key",
         FABRIC_CLOUD_TENANT_SERVER_TOKEN: "fabric-cloud-token",
@@ -89,9 +89,9 @@ describe("sanitizeInheritedRuntimeEnv", () => {
       }),
     ).toEqual({
       SAFE_VALUE: "visible",
-      PAPERCLIP_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
-      PAPERCLIP_LISTEN_HOST: "127.0.0.1",
-      PAPERCLIP_LISTEN_PORT: "3100",
+      HERMES_FABRIC_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
+      HERMES_FABRIC_LISTEN_HOST: "127.0.0.1",
+      HERMES_FABRIC_LISTEN_PORT: "3100",
       FABRIC_RUNTIME_API_URL: "http://127.0.0.1:3100/api",
       FABRIC_LISTEN_HOST: "127.0.0.1",
       FABRIC_LISTEN_PORT: "3100",
@@ -179,15 +179,15 @@ describe("sanitizeSshRemoteEnv", () => {
   });
 });
 
-describe("materializePaperclipSkillCopy", () => {
+describe("materializeHermesFabricSkillCopy", () => {
   it("refuses to materialize into an ancestor of the source", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skill-copy-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-skill-copy-"));
     try {
       const source = path.join(root, "parent", "skill");
       await fs.mkdir(source, { recursive: true });
       await fs.writeFile(path.join(source, "SKILL.md"), "# skill\n", "utf8");
 
-      await expect(materializePaperclipSkillCopy(source, path.join(root, "parent"))).rejects.toThrow(
+      await expect(materializeHermesFabricSkillCopy(source, path.join(root, "parent"))).rejects.toThrow(
         /ancestor/,
       );
       await expect(fs.readFile(path.join(source, "SKILL.md"), "utf8")).resolves.toBe("# skill\n");
@@ -197,18 +197,18 @@ describe("materializePaperclipSkillCopy", () => {
   });
 
   it("does not delete and recopy an unchanged materialized skill target", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skill-copy-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-skill-copy-"));
     try {
       const source = path.join(root, "source");
       const target = path.join(root, "target");
       await fs.mkdir(source, { recursive: true });
       await fs.writeFile(path.join(source, "SKILL.md"), "# skill\n", "utf8");
 
-      const first = await materializePaperclipSkillCopy(source, target);
+      const first = await materializeHermesFabricSkillCopy(source, target);
       expect(first.copiedFiles).toBe(1);
       await fs.writeFile(path.join(target, "local-marker.txt"), "keep\n", "utf8");
 
-      const second = await materializePaperclipSkillCopy(source, target);
+      const second = await materializeHermesFabricSkillCopy(source, target);
       expect(second.copiedFiles).toBe(0);
       await expect(fs.readFile(path.join(target, "local-marker.txt"), "utf8")).resolves.toBe("keep\n");
     } finally {
@@ -217,7 +217,7 @@ describe("materializePaperclipSkillCopy", () => {
   });
 
   it("breaks stale materialization locks left by dead processes", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skill-copy-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-skill-copy-"));
     try {
       const source = path.join(root, "source");
       const target = path.join(root, "target");
@@ -231,7 +231,7 @@ describe("materializePaperclipSkillCopy", () => {
         "utf8",
       );
 
-      await expect(materializePaperclipSkillCopy(source, target)).resolves.toMatchObject({ copiedFiles: 1 });
+      await expect(materializeHermesFabricSkillCopy(source, target)).resolves.toMatchObject({ copiedFiles: 1 });
       await expect(fs.readFile(path.join(target, "SKILL.md"), "utf8")).resolves.toBe("# skill\n");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -241,9 +241,9 @@ describe("materializePaperclipSkillCopy", () => {
 
 describe("adapter skill snapshots", () => {
   const requiredEntry = {
-    key: "paperclipai/paperclip/paperclip",
-    runtimeName: "paperclip",
-    source: "/runtime/paperclip",
+    key: "hermes-fabric/fabric/fabric",
+    runtimeName: "fabric",
+    source: "/runtime/fabric",
   };
   const optionalEntry = {
     key: "company/ascii-heart",
@@ -264,20 +264,23 @@ describe("adapter skill snapshots", () => {
       mode: "ephemeral",
       desiredSkills: [requiredEntry.key, "missing-skill"],
     });
-    expect(snapshot.entries).toEqual([
-      expect.objectContaining({
-        key: "missing-skill",
-        state: "missing",
-        origin: "external_unknown",
-        desired: true,
-      }),
-      expect.objectContaining({
-        key: requiredEntry.key,
-        state: "configured",
-        origin: "company_managed",
-        detail: "Mounted on next run.",
-      }),
-    ]);
+    expect(snapshot.entries).toHaveLength(2);
+    expect(snapshot.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "missing-skill",
+          state: "missing",
+          origin: "external_unknown",
+          desired: true,
+        }),
+        expect.objectContaining({
+          key: requiredEntry.key,
+          state: "configured",
+          origin: "company_managed",
+          detail: "Mounted on next run.",
+        }),
+      ]),
+    );
   });
 
   it("reports source-missing company runtime skills without orphan warnings", () => {
@@ -286,7 +289,7 @@ describe("adapter skill snapshots", () => {
       availableEntries: [{
         key: "company/example/reflection-coach",
         runtimeName: "reflection-coach--abc123",
-        source: "/paperclip/skills/example/__runtime__/reflection-coach--abc123",
+        source: "/fabric/skills/example/__runtime__/reflection-coach--abc123",
         sourceStatus: "missing",
         missingDetail: "Company skill exists, but its local source is missing.",
       }],
@@ -336,7 +339,7 @@ describe("adapter skill snapshots", () => {
         ["crack-python", { targetPath: "/home/me/.claude/skills/crack-python", kind: "directory" }],
       ]),
       externalLocationLabel: "~/.claude/skills",
-      externalDetail: "Installed outside Paperclip management in the Claude skills home.",
+      externalDetail: "Installed outside HermesFabric management in the Claude skills home.",
     });
 
     expect(snapshot.entries).toContainEqual(expect.objectContaining({
@@ -356,7 +359,7 @@ describe("adapter skill snapshots", () => {
       availableEntries: [requiredEntry, optionalEntry],
       desiredSkills: [requiredEntry.key, "missing-skill"],
       installed: new Map([
-        ["paperclip", { targetPath: "/runtime/paperclip", kind: "symlink" }],
+        ["fabric", { targetPath: "/runtime/fabric", kind: "symlink" }],
         ["ascii-heart", { targetPath: "/other/ascii-heart", kind: "directory" }],
         ["old-managed", { targetPath: "/runtime/old-managed", kind: "symlink" }],
       ]),
@@ -365,7 +368,7 @@ describe("adapter skill snapshots", () => {
       installedDetail: "Installed in the Cursor skills home.",
       missingDetail: "Configured but not linked.",
       externalConflictDetail: "Name occupied externally.",
-      externalDetail: "Installed outside Paperclip management.",
+      externalDetail: "Installed outside HermesFabric management.",
     });
 
     expect(snapshot.mode).toBe("persistent");
@@ -379,7 +382,7 @@ describe("adapter skill snapshots", () => {
       key: optionalEntry.key,
       state: "external",
       managed: false,
-      detail: "Installed outside Paperclip management.",
+      detail: "Installed outside HermesFabric management.",
     }));
     expect(snapshot.entries).toContainEqual(expect.objectContaining({
       key: "missing-skill",
@@ -393,7 +396,7 @@ describe("adapter skill snapshots", () => {
     }));
   });
 
-  it("reports stale managed persistent skills when Paperclip owns an undesired available skill", () => {
+  it("reports stale managed persistent skills when HermesFabric owns an undesired available skill", () => {
     const snapshot = buildPersistentSkillSnapshot({
       adapterType: "cursor",
       availableEntries: [optionalEntry],
@@ -404,7 +407,7 @@ describe("adapter skill snapshots", () => {
       skillsHome: "/home/me/.cursor/skills",
       missingDetail: "Configured but not linked.",
       externalConflictDetail: "Name occupied externally.",
-      externalDetail: "Installed outside Paperclip management.",
+      externalDetail: "Installed outside HermesFabric management.",
     });
 
     expect(snapshot.entries).toContainEqual(expect.objectContaining({
@@ -628,28 +631,28 @@ describe("runChildProcess", () => {
   });
 });
 
-describe("renderPaperclipWakePrompt", () => {
+describe("renderHermesFabricWakePrompt", () => {
   it("keeps the default local-agent prompt action-oriented", () => {
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("Start actionable work in this heartbeat");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("do not stop at a plan");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("clear final disposition");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("evidence, not valid liveness paths by themselves");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("keep `in_progress` only when a live continuation path exists");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("Prefer the smallest verification that proves the change");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("Use child issues");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("instead of polling agents, sessions, or processes");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("Create child issues directly when you know what needs to be done");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("POST /api/issues/{issueId}/interactions");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("kind suggest_tasks, ask_user_questions, or request_confirmation");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("confirmation:{issueId}:plan:{revisionId}");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain("Wait for acceptance before creating implementation subtasks");
-    expect(DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE).toContain(
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("Start actionable work in this heartbeat");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("do not stop at a plan");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("clear final disposition");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("evidence, not valid liveness paths by themselves");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("keep `in_progress` only when a live continuation path exists");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("Prefer the smallest verification that proves the change");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("Use child issues");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("instead of polling agents, sessions, or processes");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("Create child issues directly when you know what needs to be done");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("POST /api/issues/{issueId}/interactions");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("kind suggest_tasks, ask_user_questions, or request_confirmation");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("confirmation:{issueId}:plan:{revisionId}");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain("Wait for acceptance before creating implementation subtasks");
+    expect(DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE).toContain(
       "Respect budget, pause/cancel, approval gates, and company boundaries",
     );
   });
 
   it("adds the execution contract to scoped wake prompts", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "issue_assigned",
       issue: {
         id: "issue-1",
@@ -666,7 +669,7 @@ describe("renderPaperclipWakePrompt", () => {
       fallbackFetchNeeded: false,
     });
 
-    expect(prompt).toContain("## Paperclip Wake Payload");
+    expect(prompt).toContain("## HermesFabric Wake Payload");
     expect(prompt).toContain("Execution contract: take concrete action in this heartbeat");
     expect(prompt).toContain("clear final disposition");
     expect(prompt).toContain("evidence, not valid liveness paths by themselves");
@@ -704,7 +707,7 @@ describe("renderPaperclipWakePrompt", () => {
       fallbackFetchNeeded: false,
     };
 
-    const serialized = stringifyPaperclipWakePayload(payload);
+    const serialized = stringifyHermesFabricWakePayload(payload);
     expect(serialized).toContain(title);
     expect(serialized).toContain("日本語");
     expect(serialized).toContain("हिन्दी");
@@ -713,13 +716,13 @@ describe("renderPaperclipWakePrompt", () => {
       comments: [{ body: commentBody }],
     });
 
-    const prompt = renderPaperclipWakePrompt(payload);
+    const prompt = renderHermesFabricWakePrompt(payload);
     expect(prompt).toContain(`- issue: PAP-9452 ${title}`);
     expect(prompt).toContain(commentBody);
   });
 
   it("renders planning-mode directives for assignment and comment wakes", () => {
-    const assignmentPrompt = renderPaperclipWakePrompt({
+    const assignmentPrompt = renderHermesFabricWakePrompt({
       reason: "issue_assigned",
       issue: {
         id: "issue-1",
@@ -736,7 +739,7 @@ describe("renderPaperclipWakePrompt", () => {
     expect(assignmentPrompt).toContain("- issue work mode: planning");
     expect(assignmentPrompt).toContain("Make the plan only. Do not write code or perform implementation work.");
 
-    const commentPrompt = renderPaperclipWakePrompt({
+    const commentPrompt = renderHermesFabricWakePrompt({
       reason: "issue_commented",
       issue: {
         id: "issue-1",
@@ -756,7 +759,7 @@ describe("renderPaperclipWakePrompt", () => {
   });
 
   it("does not render stale accepted-plan continuation guidance for later planning comment wakes", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "issue_commented",
       issue: {
         id: "issue-1",
@@ -780,7 +783,7 @@ describe("renderPaperclipWakePrompt", () => {
   });
 
   it("renders accepted-plan continuation guidance for planning issues", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "issue_commented",
       issue: {
         id: "issue-1",
@@ -803,7 +806,7 @@ describe("renderPaperclipWakePrompt", () => {
   });
 
   it("keeps accepted-plan guidance when stale comment ids have no loaded comments", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "issue_commented",
       issue: {
         id: "issue-1",
@@ -827,7 +830,7 @@ describe("renderPaperclipWakePrompt", () => {
   });
 
   it("renders dependency-blocked interaction guidance", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "issue_commented",
       issue: {
         id: "issue-1",
@@ -863,7 +866,7 @@ describe("renderPaperclipWakePrompt", () => {
   });
 
   it("renders loose review request instructions for execution handoffs", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "execution_review_requested",
       issue: {
         id: "issue-1",
@@ -926,7 +929,7 @@ describe("renderPaperclipWakePrompt", () => {
       ],
     };
 
-    expect(JSON.parse(stringifyPaperclipWakePayload(payload) ?? "{}")).toMatchObject({
+    expect(JSON.parse(stringifyHermesFabricWakePayload(payload) ?? "{}")).toMatchObject({
       continuationSummary: {
         body: expect.stringContaining("Continuation Summary"),
       },
@@ -945,7 +948,7 @@ describe("renderPaperclipWakePrompt", () => {
       ],
     });
 
-    const prompt = renderPaperclipWakePrompt(payload);
+    const prompt = renderHermesFabricWakePrompt(payload);
     expect(prompt).toContain("Issue continuation summary:");
     expect(prompt).toContain("Integrate child outputs.");
     expect(prompt).toContain("Run liveness continuation:");
@@ -1010,7 +1013,7 @@ describe("WATCHDOG_DEFAULT_MANDATE", () => {
   });
 });
 
-describe("renderPaperclipWakePrompt - task watchdog", () => {
+describe("renderHermesFabricWakePrompt - task watchdog", () => {
   const baseWatchdogPayload = {
     reason: "task_watchdog_subtree_stopped",
     issue: {
@@ -1026,7 +1029,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
   };
 
   it("injects the watchdog mandate, watched-issue header, and stop fingerprint when taskWatchdog is present", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       ...baseWatchdogPayload,
       taskWatchdog: {
         watchedIssueId: "watched-issue-1",
@@ -1092,7 +1095,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
   });
 
   it("appends board-supplied custom instructions after the default mandate with an explicit non-override reminder", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       ...baseWatchdogPayload,
       taskWatchdog: {
         watchedIssueId: "watched-issue-1",
@@ -1126,7 +1129,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
   });
 
   it("renders the watchdog header even when the watched issue identifier is missing", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       ...baseWatchdogPayload,
       taskWatchdog: {
         watchedIssueId: "watched-issue-1",
@@ -1143,7 +1146,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
   });
 
   it("does not render the watchdog mandate when taskWatchdog context is absent", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       reason: "issue_assigned",
       issue: {
         id: "issue-1",
@@ -1162,7 +1165,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
   });
 
   it("suppresses planning-mode directives on a watchdog wake even if workMode is planning", () => {
-    const prompt = renderPaperclipWakePrompt({
+    const prompt = renderHermesFabricWakePrompt({
       ...baseWatchdogPayload,
       issue: { ...baseWatchdogPayload.issue, workMode: "planning" },
       taskWatchdog: {
@@ -1180,7 +1183,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
     expect(prompt).not.toContain("planning directive:");
   });
 
-  it("survives a JSON round-trip through stringifyPaperclipWakePayload", () => {
+  it("survives a JSON round-trip through stringifyHermesFabricWakePayload", () => {
     const payload = {
       ...baseWatchdogPayload,
       taskWatchdog: {
@@ -1213,7 +1216,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
         customInstructions: "Be skeptical of QA done-claims.",
       },
     };
-    const serialized = stringifyPaperclipWakePayload(payload);
+    const serialized = stringifyHermesFabricWakePayload(payload);
     expect(serialized).not.toBeNull();
     const parsed = JSON.parse(serialized ?? "{}");
     expect(parsed.taskWatchdog).toMatchObject({
@@ -1233,7 +1236,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
       ],
     });
 
-    const prompt = renderPaperclipWakePrompt(parsed);
+    const prompt = renderHermesFabricWakePrompt(parsed);
     expect(prompt).toContain("## Task Watchdog Mandate");
     expect(prompt).toContain("Be skeptical of QA done-claims.");
   });
@@ -1250,7 +1253,7 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
       summary: null,
     }));
 
-    const serialized = stringifyPaperclipWakePayload({
+    const serialized = stringifyHermesFabricWakePayload({
       ...baseWatchdogPayload,
       taskWatchdog: {
         watchedIssueId: "watched-issue-1",
@@ -1267,16 +1270,16 @@ describe("renderPaperclipWakePrompt - task watchdog", () => {
   });
 });
 
-describe("applyPaperclipWorkspaceEnv", () => {
+describe("applyHermesFabricWorkspaceEnv", () => {
   it("adds shared workspace env vars including AGENT_HOME", () => {
-    const env = applyPaperclipWorkspaceEnv(
+    const env = applyHermesFabricWorkspaceEnv(
       {},
       {
         workspaceCwd: "/tmp/workspace",
         workspaceSource: "project_primary",
         workspaceStrategy: "git_worktree",
         workspaceId: "workspace-1",
-        workspaceRepoUrl: "https://github.com/paperclipai/paperclip.git",
+        workspaceRepoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         workspaceRepoRef: "main",
         workspaceBranch: "feature/test",
         workspaceWorktreePath: "/tmp/worktree",
@@ -1285,20 +1288,20 @@ describe("applyPaperclipWorkspaceEnv", () => {
     );
 
     expect(env).toEqual({
-      PAPERCLIP_WORKSPACE_CWD: "/tmp/workspace",
-      PAPERCLIP_WORKSPACE_SOURCE: "project_primary",
-      PAPERCLIP_WORKSPACE_STRATEGY: "git_worktree",
-      PAPERCLIP_WORKSPACE_ID: "workspace-1",
-      PAPERCLIP_WORKSPACE_REPO_URL: "https://github.com/paperclipai/paperclip.git",
-      PAPERCLIP_WORKSPACE_REPO_REF: "main",
-      PAPERCLIP_WORKSPACE_BRANCH: "feature/test",
-      PAPERCLIP_WORKSPACE_WORKTREE_PATH: "/tmp/worktree",
+      HERMES_FABRIC_WORKSPACE_CWD: "/tmp/workspace",
+      HERMES_FABRIC_WORKSPACE_SOURCE: "project_primary",
+      HERMES_FABRIC_WORKSPACE_STRATEGY: "git_worktree",
+      HERMES_FABRIC_WORKSPACE_ID: "workspace-1",
+      HERMES_FABRIC_WORKSPACE_REPO_URL: "https://github.com/DeployFaith/Hermes_Agency.git",
+      HERMES_FABRIC_WORKSPACE_REPO_REF: "main",
+      HERMES_FABRIC_WORKSPACE_BRANCH: "feature/test",
+      HERMES_FABRIC_WORKSPACE_WORKTREE_PATH: "/tmp/worktree",
       AGENT_HOME: "/tmp/agent-home",
     });
   });
 
   it("skips empty workspace env values", () => {
-    const env = applyPaperclipWorkspaceEnv(
+    const env = applyHermesFabricWorkspaceEnv(
       {},
       {
         workspaceCwd: "",
@@ -1311,25 +1314,25 @@ describe("applyPaperclipWorkspaceEnv", () => {
   });
 });
 
-describe("shapePaperclipWorkspaceEnvForExecution", () => {
+describe("shapeHermesFabricWorkspaceEnvForExecution", () => {
   it("rewrites workspace env paths for remote execution", () => {
-    const shaped = shapePaperclipWorkspaceEnvForExecution({
+    const shaped = shapeHermesFabricWorkspaceEnvForExecution({
       workspaceCwd: "/tmp/workspace",
       workspaceWorktreePath: "/tmp/worktree",
       workspaceHints: [
         {
           workspaceId: "workspace-1",
           cwd: "/tmp/workspace",
-          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         },
         {
           workspaceId: "workspace-2",
           cwd: "/tmp/other-workspace",
-          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         },
         {
           workspaceId: "workspace-3",
-          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         },
       ],
       executionTargetIsRemote: true,
@@ -1343,15 +1346,15 @@ describe("shapePaperclipWorkspaceEnvForExecution", () => {
         {
           workspaceId: "workspace-1",
           cwd: "/remote/workspace",
-          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         },
         {
           workspaceId: "workspace-2",
-          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         },
         {
           workspaceId: "workspace-3",
-          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         },
       ],
     });
@@ -1359,7 +1362,7 @@ describe("shapePaperclipWorkspaceEnvForExecution", () => {
 
   it("leaves local execution workspace paths unchanged", () => {
     const workspaceHints = [{ workspaceId: "workspace-1", cwd: "/tmp/workspace" }];
-    const shaped = shapePaperclipWorkspaceEnvForExecution({
+    const shaped = shapeHermesFabricWorkspaceEnvForExecution({
       workspaceCwd: "/tmp/workspace",
       workspaceWorktreePath: "/tmp/worktree",
       workspaceHints,
@@ -1433,19 +1436,19 @@ describe("rewriteWorkspaceCwdEnvVarsForExecution", () => {
   });
 });
 
-describe("refreshPaperclipWorkspaceEnvForExecution", () => {
-  it("rewrites Paperclip workspace env to the prepared remote runtime cwd", () => {
+describe("refreshHermesFabricWorkspaceEnvForExecution", () => {
+  it("rewrites HermesFabric workspace env to the prepared remote runtime cwd", () => {
     const env: Record<string, string> = {
-      PAPERCLIP_WORKSPACE_CWD: "/remote/workspace",
-      PAPERCLIP_WORKSPACE_WORKTREE_PATH: "/host/worktree",
-      PAPERCLIP_WORKSPACES_JSON: JSON.stringify([
+      HERMES_FABRIC_WORKSPACE_CWD: "/remote/workspace",
+      HERMES_FABRIC_WORKSPACE_WORKTREE_PATH: "/host/worktree",
+      HERMES_FABRIC_WORKSPACES_JSON: JSON.stringify([
         { workspaceId: "workspace-1", cwd: "/remote/workspace" },
         { workspaceId: "workspace-2", cwd: "/tmp/other" },
       ]),
       QA_PROJECT_WORKSPACE_CWD: "/remote/workspace",
     };
 
-    const shaped = refreshPaperclipWorkspaceEnvForExecution({
+    const shaped = refreshHermesFabricWorkspaceEnvForExecution({
       env,
       envConfig: {
         QA_PROJECT_WORKSPACE_CWD: "/host/workspace",
@@ -1457,29 +1460,29 @@ describe("refreshPaperclipWorkspaceEnvForExecution", () => {
         { workspaceId: "workspace-2", cwd: "/tmp/other" },
       ],
       executionTargetIsRemote: true,
-      executionCwd: "/remote/workspace/.paperclip-runtime/runs/run-1/workspace",
+      executionCwd: "/remote/workspace/.fabric-runtime/runs/run-1/workspace",
     });
 
     expect(shaped).toEqual({
-      workspaceCwd: "/remote/workspace/.paperclip-runtime/runs/run-1/workspace",
+      workspaceCwd: "/remote/workspace/.fabric-runtime/runs/run-1/workspace",
       workspaceWorktreePath: null,
       workspaceHints: [
         {
           workspaceId: "workspace-1",
-          cwd: "/remote/workspace/.paperclip-runtime/runs/run-1/workspace",
+          cwd: "/remote/workspace/.fabric-runtime/runs/run-1/workspace",
         },
         {
           workspaceId: "workspace-2",
         },
       ],
     });
-    expect(env.PAPERCLIP_WORKSPACE_CWD).toBe("/remote/workspace/.paperclip-runtime/runs/run-1/workspace");
-    expect(env.PAPERCLIP_WORKSPACE_WORKTREE_PATH).toBeUndefined();
-    expect(env.QA_PROJECT_WORKSPACE_CWD).toBe("/remote/workspace/.paperclip-runtime/runs/run-1/workspace");
-    expect(JSON.parse(env.PAPERCLIP_WORKSPACES_JSON ?? "[]")).toEqual([
+    expect(env.HERMES_FABRIC_WORKSPACE_CWD).toBe("/remote/workspace/.fabric-runtime/runs/run-1/workspace");
+    expect(env.HERMES_FABRIC_WORKSPACE_WORKTREE_PATH).toBeUndefined();
+    expect(env.QA_PROJECT_WORKSPACE_CWD).toBe("/remote/workspace/.fabric-runtime/runs/run-1/workspace");
+    expect(JSON.parse(env.HERMES_FABRIC_WORKSPACES_JSON ?? "[]")).toEqual([
       {
         workspaceId: "workspace-1",
-        cwd: "/remote/workspace/.paperclip-runtime/runs/run-1/workspace",
+        cwd: "/remote/workspace/.fabric-runtime/runs/run-1/workspace",
       },
       {
         workspaceId: "workspace-2",

@@ -133,7 +133,7 @@ test('findExistingDraftAdvisory: returns matching draft advisory from paginated 
     return [];
   };
 
-  const advisory = await findExistingDraftAdvisory(fakeFetch, 'token', 'paperclipai/paperclip', 6469);
+  const advisory = await findExistingDraftAdvisory(fakeFetch, 'token', 'hermes-fabric/fabric', 6469);
 
   assert.deepEqual(advisory, { summary: '🚨 Security flag — PR #6469: ci-tampering' });
   assert.equal(calls.length, 2);
@@ -141,7 +141,7 @@ test('findExistingDraftAdvisory: returns matching draft advisory from paginated 
 
 test('findExistingDraftAdvisory: returns null when no matching draft advisory exists', async () => {
   const fakeFetch = async () => [{ summary: 'Completely different advisory' }];
-  const advisory = await findExistingDraftAdvisory(fakeFetch, 'token', 'paperclipai/paperclip', 6469);
+  const advisory = await findExistingDraftAdvisory(fakeFetch, 'token', 'hermes-fabric/fabric', 6469);
   assert.equal(advisory, null);
 });
 
@@ -152,7 +152,7 @@ test('findExistingDraftAdvisory: bails out at the page cap so a large backlog ca
     return Array.from({ length: 100 }, (_, i) => ({ summary: `Unrelated advisory ${pageCount}-${i}` }));
   };
 
-  const advisory = await findExistingDraftAdvisory(fakeFetch, 'token', 'paperclipai/paperclip', 6469);
+  const advisory = await findExistingDraftAdvisory(fakeFetch, 'token', 'hermes-fabric/fabric', 6469);
 
   assert.equal(advisory, null);
   assert.equal(pageCount, 20, `expected pagination to run exactly 20 pages (the cap), got ${pageCount}`);
@@ -171,10 +171,10 @@ test('syncDraftAdvisory: patches an existing advisory with the latest flags', as
       return [{ ghsa_id: 'GHSA-test-1234', summary: '🚨 Security flag — PR #6469: ci-tampering' }];
     }
     return { ok: true };
-  }, 'token', 'paperclipai/paperclip', 6469, 'My PR', flags);
+  }, 'token', 'hermes-fabric/fabric', 6469, 'My PR', flags);
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[1].path, '/repos/paperclipai/paperclip/security-advisories/GHSA-test-1234');
+  assert.equal(calls[1].path, '/repos/hermes-fabric/fabric/security-advisories/GHSA-test-1234');
   assert.equal(calls[1].options.method, 'PATCH');
   const patchBody = JSON.parse(calls[1].options.body);
   const { vulnerabilities, ...expectedPatch } = buildAdvisoryPayload(6469, 'My PR', flags);
@@ -192,10 +192,10 @@ test('syncDraftAdvisory: creates a new advisory when none exists', async () => {
       return [];
     }
     return { ok: true };
-  }, 'token', 'paperclipai/paperclip', 6469, 'My PR', flags);
+  }, 'token', 'hermes-fabric/fabric', 6469, 'My PR', flags);
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[1].path, '/repos/paperclipai/paperclip/security-advisories');
+  assert.equal(calls[1].path, '/repos/hermes-fabric/fabric/security-advisories');
   assert.equal(calls[1].options.method, 'POST');
   assert.deepEqual(JSON.parse(calls[1].options.body), buildAdvisoryPayload(6469, 'My PR', flags));
 });
@@ -206,10 +206,10 @@ test('postSecurityCheckRun: uses the injected fetch implementation', async () =>
   await postSecurityCheckRun(async (path, token, options) => {
     calls.push({ path, token, options });
     return { ok: true };
-  }, 'token', 'paperclipai/paperclip', 'deadbeef', true);
+  }, 'token', 'hermes-fabric/fabric', 'deadbeef', true);
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].path, '/repos/paperclipai/paperclip/check-runs');
+  assert.equal(calls[0].path, '/repos/hermes-fabric/fabric/check-runs');
   assert.equal(calls[0].options.method, 'POST');
   assert.deepEqual(JSON.parse(calls[0].options.body), {
     name: 'security-review',
@@ -227,7 +227,7 @@ test('validateSensitivePaths: checks paths against the resolved base ref instead
   const seenPaths = [];
   const stale = await validateSensitivePaths(
     'token',
-    'paperclipai/paperclip',
+    'hermes-fabric/fabric',
     6469,
     'release/1.2',
     async (path) => {
@@ -245,7 +245,7 @@ test('validateSensitivePaths: returns only 404 paths and rethrows non-404 errors
   let seen404 = false;
   const stale = await validateSensitivePaths(
     'token',
-    'paperclipai/paperclip',
+    'hermes-fabric/fabric',
     6469,
     'main',
     async (path) => {
@@ -262,7 +262,7 @@ test('validateSensitivePaths: returns only 404 paths and rethrows non-404 errors
   await assert.rejects(
     validateSensitivePaths(
       'token',
-      'paperclipai/paperclip',
+      'hermes-fabric/fabric',
       6469,
       'main',
       async () => {

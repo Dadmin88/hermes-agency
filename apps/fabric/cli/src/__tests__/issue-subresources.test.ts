@@ -37,8 +37,8 @@ async function run(args: string[]): Promise<void> {
 describe("issue subresource commands", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -143,7 +143,7 @@ describe("issue subresource commands", () => {
   });
 
   it("wraps interactions, tree holds, labels, feedback votes, and attachments", async () => {
-    const tmp = await mkdtemp(join(tmpdir(), "paperclip-cli-test-"));
+    const tmp = await mkdtemp(join(tmpdir(), "fabric-cli-test-"));
     const filePath = join(tmp, "attachment.txt");
     await writeFile(filePath, "hello", "utf8");
     const fetchMock = vi
@@ -224,10 +224,10 @@ describe("issue subresource commands", () => {
 
   it("forwards the agent run-id header and inferred content-type on attachment:upload", async () => {
     // Regression: the multipart upload uses a hand-rolled fetch (not the JSON
-    // client), so it must forward X-Paperclip-Run-Id itself — otherwise an
+    // client), so it must forward X-HermesFabric-Run-Id itself — otherwise an
     // agent-authenticated upload is rejected with "401 Agent run id required".
     const RUN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-    const tmp = await mkdtemp(join(tmpdir(), "paperclip-cli-test-"));
+    const tmp = await mkdtemp(join(tmpdir(), "fabric-cli-test-"));
     const filePath = join(tmp, "deliverable.html");
     await writeFile(filePath, "<html><body>hi</body></html>", "utf8");
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse()));
@@ -250,7 +250,7 @@ describe("issue subresource commands", () => {
     expect(url).toBe(`http://localhost:3100/api/companies/${COMPANY_ID}/issues/${ISSUE_ID}/attachments`);
     expect(init.method).toBe("POST");
     const headers = init.headers as Record<string, string>;
-    expect(headers["x-paperclip-run-id"]).toBe(RUN_ID);
+    expect(headers["x-fabric-run-id"]).toBe(RUN_ID);
     expect(headers.authorization).toBe("Bearer board-token");
     const file = (init.body as FormData).get("file") as File;
     expect(file.type).toBe("text/html");

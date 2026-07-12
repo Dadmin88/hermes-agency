@@ -4,7 +4,7 @@ import type {
   WorkspaceFileListMode,
   WorkspaceFileListResponse,
   WorkspaceFileSelector,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export interface FileResourceQuery {

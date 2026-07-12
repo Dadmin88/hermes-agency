@@ -75,7 +75,7 @@ test('requires checkbox for feat: prefix', () => {
 test('does not match unrelated checked items mentioning "PR"', () => {
   const body = `
 - [x] I have run tests locally and they pass
-- [x] All Paperclip CI gates are green
+- [x] All HermesFabric CI gates are green
 `;
   assert.equal(checkDedupSearch(body, 'feat: thing').passed, false);
 });

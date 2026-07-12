@@ -23,7 +23,7 @@ import {
   projects,
   routineRuns,
   routines,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -50,7 +50,7 @@ describeEmbeddedPostgres("pipelineService", () => {
   const noopHeartbeat = { wakeup: async () => null };
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-pipelines-service-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-pipelines-service-");
     db = createDb(tempDb.connectionString);
     svc = pipelineService(db, { heartbeat: noopHeartbeat });
   }, 20_000);

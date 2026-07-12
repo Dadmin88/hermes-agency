@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
-import type { PaperclipPluginManifestV1 } from "@paperclipai/shared";
-import { createTestHarness } from "@paperclipai/plugin-sdk/testing";
+import type { HermesFabricPluginManifestV1 } from "@hermes-fabric/shared";
+import { createTestHarness } from "@hermes-fabric/plugin-sdk/testing";
 
 describe("plugin SDK test harness", () => {
   it("returns scoped execution workspace metadata with the read capability", async () => {
-    const manifest: PaperclipPluginManifestV1 = {
-      id: "paperclip.test-execution-workspace-metadata",
+    const manifest: HermesFabricPluginManifestV1 = {
+      id: "fabric.test-execution-workspace-metadata",
       apiVersion: 1,
       version: "0.1.0",
       displayName: "Execution Workspace Metadata",
       description: "Test plugin",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["automation"],
       capabilities: ["execution.workspaces.read"],
       entrypoints: { worker: "./dist/worker.js" },
@@ -22,8 +22,8 @@ describe("plugin SDK test harness", () => {
         companyId: "company-1",
         projectId: "project-1",
         projectWorkspaceId: "project-workspace-1",
-        path: "/tmp/paperclip-test",
-        cwd: "/tmp/paperclip-test",
+        path: "/tmp/fabric-test",
+        cwd: "/tmp/fabric-test",
         repoUrl: "https://example.com/repo.git",
         baseRef: "main",
         branchName: "feature/test",
@@ -34,7 +34,7 @@ describe("plugin SDK test harness", () => {
 
     await expect(harness.ctx.executionWorkspaces.get("workspace-1", "company-1")).resolves.toMatchObject({
       id: "workspace-1",
-      cwd: "/tmp/paperclip-test",
+      cwd: "/tmp/fabric-test",
       branchName: "feature/test",
       providerMetadata: { sandboxId: "sandbox-1" },
     });
@@ -42,13 +42,13 @@ describe("plugin SDK test harness", () => {
   });
 
   it("requires execution.workspaces.read before returning workspace metadata", async () => {
-    const manifest: PaperclipPluginManifestV1 = {
-      id: "paperclip.test-missing-execution-workspace-read",
+    const manifest: HermesFabricPluginManifestV1 = {
+      id: "fabric.test-missing-execution-workspace-read",
       apiVersion: 1,
       version: "0.1.0",
       displayName: "Missing Workspace Read Capability",
       description: "Test plugin",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["automation"],
       capabilities: [],
       entrypoints: { worker: "./dist/worker.js" },
@@ -61,13 +61,13 @@ describe("plugin SDK test harness", () => {
   });
 
   it("requires skills.managed capability before resetting a missing declaration", async () => {
-    const manifest: PaperclipPluginManifestV1 = {
-      id: "paperclip.test-missing-managed-skill-capability",
+    const manifest: HermesFabricPluginManifestV1 = {
+      id: "fabric.test-missing-managed-skill-capability",
       apiVersion: 1,
       version: "0.1.0",
       displayName: "Missing Managed Skill Capability",
       description: "Test plugin",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["automation"],
       capabilities: [],
       entrypoints: { worker: "./dist/worker.js" },
@@ -84,13 +84,13 @@ describe("plugin SDK test harness", () => {
   });
 
   it("requires access and authorization capabilities for permission SDK calls", async () => {
-    const manifest: PaperclipPluginManifestV1 = {
-      id: "paperclip.test-missing-access-authz-capability",
+    const manifest: HermesFabricPluginManifestV1 = {
+      id: "fabric.test-missing-access-authz-capability",
       apiVersion: 1,
       version: "0.1.0",
       displayName: "Missing Access Capability",
       description: "Test plugin",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["automation"],
       capabilities: [],
       entrypoints: { worker: "./dist/worker.js" },
@@ -109,13 +109,13 @@ describe("plugin SDK test harness", () => {
   });
 
   it("returns tombstone-safe deleted comments from the in-memory issue helper", async () => {
-    const manifest: PaperclipPluginManifestV1 = {
-      id: "paperclip.test-comment-redaction",
+    const manifest: HermesFabricPluginManifestV1 = {
+      id: "fabric.test-comment-redaction",
       apiVersion: 1,
       version: "0.1.0",
       displayName: "Comment Redaction",
       description: "Test plugin",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["automation"],
       capabilities: ["issue.comments.read"],
       entrypoints: { worker: "./dist/worker.js" },

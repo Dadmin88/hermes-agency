@@ -1,13 +1,13 @@
 ---
 title: Adapters Overview
-summary: What adapters are and how they connect agents to Paperclip
+summary: What adapters are and how they connect agents to Hermes Fabric
 ---
 
-Adapters are the bridge between Paperclip's orchestration layer and agent runtimes. Each adapter knows how to invoke a specific type of AI agent and capture its results.
+Adapters are the bridge between Hermes Fabric's orchestration layer and agent runtimes. Each adapter knows how to invoke a specific type of AI agent and capture its results.
 
 ## How Adapters Work
 
-When a heartbeat fires, Paperclip:
+When a heartbeat fires, Hermes Fabric:
 
 1. Looks up the agent's `adapterType` and `adapterConfig`
 2. Calls the adapter's `execute()` function with the execution context
@@ -24,23 +24,23 @@ When a heartbeat fires, Paperclip:
 | OpenCode Local | `opencode_local` | Runs OpenCode CLI locally (multi-provider `provider/model`) |
 | Cursor | `cursor` | Runs Cursor in background mode |
 | Pi Local | `pi_local` | Runs an embedded Pi agent locally |
-| Hermes Local | `hermes_local` | Runs the local Hermes CLI through `@paperclipai/hermes-paperclip-adapter` |
-| Hermes Gateway | `hermes_gateway` | Calls an already-running Hermes API server through `@paperclipai/hermes-paperclip-adapter/gateway` |
+| Hermes Local | `hermes_local` | Runs the local Hermes CLI through `@hermes-fabric/hermes-fabric-adapter` |
+| Hermes Gateway | `hermes_gateway` | Calls an already-running Hermes API server through `@hermes-fabric/hermes-fabric-adapter/gateway` |
 | OpenClaw Gateway | `openclaw_gateway` | Connects to an OpenClaw gateway endpoint |
 | [Process](/adapters/process) | `process` | Executes arbitrary shell commands |
 | [HTTP](/adapters/http) | `http` | Sends webhooks to external agents |
 
 ### Hermes local vs gateway
 
-Use `hermes_local` when Paperclip should start the local `hermes` CLI on the
+Use `hermes_local` when Hermes Fabric should start the local `hermes` CLI on the
 same host for each heartbeat. Use `hermes_gateway` when Hermes is already
-running as an HTTP/SSE API server and Paperclip should call that server instead
+running as an HTTP/SSE API server and Hermes Fabric should call that server instead
 of spawning a process. Both type keys are stable built-ins.
 
 The unified Hermes package owns both built-in adapters. The older
-`@paperclipai/adapter-hermes-gateway` package remains only as a deprecated
+`@hermes-fabric/adapter-hermes-gateway` package remains only as a deprecated
 compatibility shim that re-exports the gateway entrypoints for one release.
-New plugin overrides should target `@paperclipai/hermes-paperclip-adapter` and
+New plugin overrides should target `@hermes-fabric/hermes-fabric-adapter` and
 set the desired type key (`hermes_local` or `hermes_gateway`).
 
 ### External (plugin) adapters
@@ -49,16 +49,16 @@ These adapters ship as standalone npm packages and are installed via the plugin 
 
 | Adapter | Package | Type Key | Description |
 |---------|---------|----------|-------------|
-| Droid Local | `@henkey/droid-paperclip-adapter` | `droid_local` | Runs Factory Droid locally |
+| Droid Local | `@henkey/droid-fabric-adapter` | `droid_local` | Runs Factory Droid locally |
 
 ## External Adapters
 
-You can build and distribute adapters as standalone packages — no changes to Paperclip's source code required. External adapters are loaded at startup via the plugin system.
+You can build and distribute adapters as standalone packages — no changes to Hermes Fabric's source code required. External adapters are loaded at startup via the plugin system.
 
 ```sh
 # Install from npm via API
 curl -X POST http://localhost:3102/api/adapters \
-  -d '{"packageName": "my-paperclip-adapter"}'
+  -d '{"packageName": "my-fabric-adapter"}'
 
 # Or link from a local directory
 curl -X POST http://localhost:3102/api/adapters \
@@ -81,7 +81,7 @@ my-adapter/
       test.ts           # Environment diagnostics
     ui-parser.ts        # Self-contained UI transcript parser (for external adapters)
     cli/
-      format-event.ts   # Terminal output for `paperclipai run --watch`
+      format-event.ts   # Terminal output for `hermes-fabric run --watch`
 ```
 
 | Registry | What it does | Source |
@@ -100,4 +100,4 @@ my-adapter/
 
 ## UI Parser Contract
 
-External adapters can ship a self-contained UI parser that tells the Paperclip web UI how to render their stdout. Without it, the UI uses a generic shell parser. See the [UI Parser Contract](/adapters/adapter-ui-parser) for details.
+External adapters can ship a self-contained UI parser that tells the Hermes Fabric web UI how to render their stdout. Without it, the UI uses a generic shell parser. See the [UI Parser Contract](/adapters/adapter-ui-parser) for details.

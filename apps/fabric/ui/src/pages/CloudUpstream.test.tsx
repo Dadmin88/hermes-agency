@@ -2,7 +2,7 @@
 
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { CloudUpstreamRun, CloudUpstreamsState } from "@paperclipai/shared";
+import type { CloudUpstreamRun, CloudUpstreamsState } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CloudUpstream, buildActivationRows } from "./CloudUpstream";
 
@@ -21,7 +21,7 @@ const mockInstanceSettingsApi = vi.hoisted(() => ({
 }));
 const mockSetBreadcrumbs = vi.hoisted(() => vi.fn());
 const mockCompanyState = vi.hoisted(() => ({
-  selectedCompany: { id: "company-1", name: "Paperclip", issuePrefix: "PAP" } as
+  selectedCompany: { id: "company-1", name: "Hermes Fabric", issuePrefix: "PAP" } as
     | { id: string; name: string; issuePrefix: string | null }
     | null,
   selectedCompanyId: "company-1" as string | null,
@@ -83,7 +83,7 @@ describe("CloudUpstream", () => {
   beforeEach(() => {
     container = document.createElement("div");
     document.body.appendChild(container);
-    mockCompanyState.selectedCompany = { id: "company-1", name: "Paperclip", issuePrefix: "PAP" };
+    mockCompanyState.selectedCompany = { id: "company-1", name: "Hermes Fabric", issuePrefix: "PAP" };
     mockCompanyState.selectedCompanyId = "company-1";
     mockLocationState.pathname = "/PAP/company/settings/cloud-upstream";
     mockLocationState.search = "";
@@ -174,7 +174,7 @@ describe("CloudUpstream", () => {
     await flushReact();
     await flushReact();
 
-    const input = container.querySelector<HTMLInputElement>("input[aria-label='Paperclip Cloud stack URL']");
+    const input = container.querySelector<HTMLInputElement>("input[aria-label='Hermes Fabric Cloud stack URL']");
     expect(input).toBeTruthy();
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
@@ -216,11 +216,11 @@ describe("CloudUpstream", () => {
       target: {
         stackId: "stack-1",
         stackSlug: "stack",
-        stackDisplayName: "Paperclip Cloud",
+        stackDisplayName: "Hermes Fabric Cloud",
         companyId: "cloud-company-1",
         primaryHost: "cloud.example",
         origin: "https://cloud.example",
-        product: "Paperclip Cloud",
+        product: "Hermes Fabric Cloud",
         schemaMajor: 1,
         maxChunkBytes: 1024,
       },
@@ -232,7 +232,7 @@ describe("CloudUpstream", () => {
       updatedAt: "2026-05-18T18:00:00.000Z",
       lastRunId: null,
     });
-    window.localStorage.setItem("paperclip-cloud-upstream-pending-connection", "pending-1");
+    window.localStorage.setItem("fabric-cloud-upstream-pending-connection", "pending-1");
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
 
     try {
@@ -261,7 +261,7 @@ describe("CloudUpstream", () => {
       });
     } finally {
       replaceStateSpy.mockRestore();
-      window.localStorage.removeItem("paperclip-cloud-upstream-pending-connection");
+      window.localStorage.removeItem("fabric-cloud-upstream-pending-connection");
     }
   });
 
@@ -270,7 +270,7 @@ describe("CloudUpstream", () => {
     mockLocationState.search = "?code=cb-code&state=cb-state";
     mockCloudUpstreamsApi.list.mockResolvedValue({ connections: [], runs: [] });
     mockCloudUpstreamsApi.finishConnect.mockRejectedValue(new Error("state expired"));
-    window.localStorage.setItem("paperclip-cloud-upstream-pending-connection", "pending-1");
+    window.localStorage.setItem("fabric-cloud-upstream-pending-connection", "pending-1");
 
     try {
       const root = createRoot(container);
@@ -294,7 +294,7 @@ describe("CloudUpstream", () => {
         root.unmount();
       });
     } finally {
-      window.localStorage.removeItem("paperclip-cloud-upstream-pending-connection");
+      window.localStorage.removeItem("fabric-cloud-upstream-pending-connection");
     }
   });
 
@@ -350,15 +350,15 @@ function stateWithRun(run: CloudUpstreamRun): CloudUpstreamsState {
       {
         id: "connection-1",
         companyId: "company-1",
-        remoteUrl: "https://paperclip.example/PAP",
+        remoteUrl: "https://fabric.example/PAP",
         target: {
           stackId: "stack-1",
           stackSlug: "stack",
-          stackDisplayName: "Paperclip Cloud",
+          stackDisplayName: "Hermes Fabric Cloud",
           companyId: "cloud-company-1",
-          primaryHost: "paperclip.example",
-          origin: "https://paperclip.example",
-          product: "Paperclip Cloud",
+          primaryHost: "fabric.example",
+          origin: "https://fabric.example",
+          product: "Hermes Fabric Cloud",
           schemaMajor: 1,
           maxChunkBytes: 1024,
         },
@@ -403,7 +403,7 @@ function buildRun(input: {
         message: input.status === "failed" ? "Push failed." : "Activation checklist is ready.",
       },
     ],
-    targetUrl: "https://paperclip.example",
+    targetUrl: "https://fabric.example",
     report: input.report ?? {},
     retryOfRunId: null,
     createdAt: "2026-05-18T18:00:00.000Z",

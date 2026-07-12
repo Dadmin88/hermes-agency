@@ -11,7 +11,7 @@ import {
 } from "../client/context.js";
 
 function createTempContextPath(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-cli-context-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fabric-cli-context-"));
   return path.join(dir, "context.json");
 }
 
@@ -33,7 +33,7 @@ describe("client context store", () => {
         persona: "agent",
         agentId: "agent-123",
         agentName: "Agent One",
-        apiKeyEnvVarName: "PAPERCLIP_AGENT_TOKEN",
+        apiKeyEnvVarName: "HERMES_FABRIC_AGENT_TOKEN",
       },
       contextPath,
     );
@@ -48,7 +48,7 @@ describe("client context store", () => {
       persona: "agent",
       agentId: "agent-123",
       agentName: "Agent One",
-      apiKeyEnvVarName: "PAPERCLIP_AGENT_TOKEN",
+      apiKeyEnvVarName: "HERMES_FABRIC_AGENT_TOKEN",
     });
   });
 
@@ -92,7 +92,7 @@ describe("client context store", () => {
             apiBase: "http://localhost:3101",
             companyId: "company-legacy",
             persona: "board",
-            apiKeyEnvVarName: "PAPERCLIP_BOARD_TOKEN",
+            apiKeyEnvVarName: "HERMES_FABRIC_BOARD_TOKEN",
           },
         },
       }),
@@ -105,7 +105,7 @@ describe("client context store", () => {
       apiBase: "http://localhost:3101",
       companyId: "company-legacy",
       persona: "board",
-      apiKeyEnvVarName: "PAPERCLIP_BOARD_TOKEN",
+      apiKeyEnvVarName: "HERMES_FABRIC_BOARD_TOKEN",
     });
   });
 

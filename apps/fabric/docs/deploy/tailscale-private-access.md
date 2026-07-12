@@ -1,11 +1,11 @@
 ---
 title: Tailscale Private Access
-summary: Run Paperclip with Tailscale-friendly bind presets and connect from other devices
+summary: Run Hermes Fabric with Tailscale-friendly bind presets and connect from other devices
 ---
 
-Use this when you want to access Paperclip over Tailscale (or a private LAN/VPN) instead of only `localhost`.
+Use this when you want to access Hermes Fabric over Tailscale (or a private LAN/VPN) instead of only `localhost`.
 
-## 1. Start Paperclip in private authenticated mode
+## 1. Start Hermes Fabric in private authenticated mode
 
 ```sh
 pnpm dev --bind tailnet
@@ -13,9 +13,9 @@ pnpm dev --bind tailnet
 
 Recommended behavior:
 
-- `PAPERCLIP_DEPLOYMENT_MODE=authenticated`
-- `PAPERCLIP_DEPLOYMENT_EXPOSURE=private`
-- `PAPERCLIP_BIND=tailnet`
+- `HERMES_FABRIC_DEPLOYMENT_MODE=authenticated`
+- `HERMES_FABRIC_DEPLOYMENT_EXPOSURE=private`
+- `HERMES_FABRIC_BIND=tailnet`
 
 If you want the old broad private-network behavior instead, use:
 
@@ -31,7 +31,7 @@ pnpm dev --tailscale-auth
 
 ## 2. Find your reachable Tailscale address
 
-From the machine running Paperclip:
+From the machine running HermesFabric:
 
 ```sh
 tailscale ip -4
@@ -39,9 +39,9 @@ tailscale ip -4
 
 You can also use your Tailscale MagicDNS hostname (for example `my-macbook.tailnet.ts.net`).
 
-## 3. Open Paperclip from another device
+## 3. Open HermesFabric from another device
 
-Use the Tailscale IP or MagicDNS host with the Paperclip port:
+Use the Tailscale IP or MagicDNS host with the HermesFabric port:
 
 ```txt
 http://<tailscale-host-or-ip>:3100
@@ -55,10 +55,10 @@ http://my-macbook.tailnet.ts.net:3100
 
 ## 4. Allow custom private hostnames when needed
 
-If you access Paperclip with a custom private hostname, add it to the allowlist:
+If you access HermesFabric with a custom private hostname, add it to the allowlist:
 
 ```sh
-pnpm paperclipai allowed-hostname my-macbook.tailnet.ts.net
+pnpm Hermes Fabricai allowed-hostname my-macbook.tailnet.ts.net
 ```
 
 ## 5. Verify the server is reachable
@@ -77,6 +77,6 @@ Expected result:
 
 ## Troubleshooting
 
-- Login or redirect errors on a private hostname: add it with `paperclipai allowed-hostname`.
+- Login or redirect errors on a private hostname: add it with `hermes-fabric allowed-hostname`.
 - App only works on `localhost`: make sure you started with `--bind lan` or `--bind tailnet` instead of plain `pnpm dev`.
 - Can connect locally but not remotely: verify both devices are on the same Tailscale network and port `3100` is reachable.

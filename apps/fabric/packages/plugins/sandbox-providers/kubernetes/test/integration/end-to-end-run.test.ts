@@ -3,20 +3,20 @@
  *
  * PREREQUISITES (operator must perform before running this test):
  *   1. Create the kind cluster:
- *        kind create cluster --name paperclip
+ *        kind create cluster --name fabric
  *   2. Pre-load the alpine image so the Job can start without network access:
  *        docker pull alpine:3.20
- *        docker tag alpine:3.20 localhost/paperclip-agent:latest
- *        kind load docker-image localhost/paperclip-agent:latest --name paperclip
+ *        docker tag alpine:3.20 localhost/fabric-agent:latest
+ *        kind load docker-image localhost/fabric-agent:latest --name fabric
  *   3. For the sandbox-cr backend test, the agent-sandbox controller must be installed:
  *        kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/install.yaml
- *      And a tini-bearing image pre-loaded (e.g. the same localhost/paperclip-agent:latest
+ *      And a tini-bearing image pre-loaded (e.g. the same localhost/fabric-agent:latest
  *      if it includes /usr/bin/tini and /bin/sh).
  *   4. Set the env var and run:
  *        RUN_K8S_INTEGRATION_TESTS=1 pnpm test
  *
  * The namespace is derived from companySlug ("spike-e2e") + namespacePrefix
- * ("paperclip-"), resolving to "paperclip-spike-e2e".
+ * ("fabric-"), resolving to "fabric-spike-e2e".
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -26,7 +26,7 @@ import { execInPod } from "../../src/pod-exec.js";
 import { sandboxCrOrchestrator } from "../../src/sandbox-cr-orchestrator.js";
 import { deleteNamespaceIfExists, kubectl, readKindKubeconfig } from "./_kind-harness.js";
 
-const NAMESPACE = "paperclip-spike-e2e";
+const NAMESPACE = "fabric-spike-e2e";
 
 describe("plugin-kubernetes end-to-end", () => {
   beforeAll(() => {
@@ -74,13 +74,13 @@ describe("plugin-kubernetes end-to-end", () => {
       const all = kubectl(
         `get sa,role,rolebinding,resourcequota,limitrange,networkpolicy -n ${NAMESPACE} -o name`,
       );
-      expect(all).toContain("serviceaccount/paperclip-tenant-sa");
-      expect(all).toContain("role.rbac.authorization.k8s.io/paperclip-tenant-role");
-      expect(all).toContain("rolebinding.rbac.authorization.k8s.io/paperclip-tenant-rb");
-      expect(all).toContain("resourcequota/paperclip-quota");
-      expect(all).toContain("limitrange/paperclip-limits");
-      expect(all).toContain("networkpolicy.networking.k8s.io/paperclip-deny-all");
-      expect(all).toContain("networkpolicy.networking.k8s.io/paperclip-egress-allow");
+      expect(all).toContain("serviceaccount/fabric-tenant-sa");
+      expect(all).toContain("role.rbac.authorization.k8s.io/fabric-tenant-role");
+      expect(all).toContain("rolebinding.rbac.authorization.k8s.io/fabric-tenant-rb");
+      expect(all).toContain("resourcequota/fabric-quota");
+      expect(all).toContain("limitrange/fabric-limits");
+      expect(all).toContain("networkpolicy.networking.k8s.io/fabric-deny-all");
+      expect(all).toContain("networkpolicy.networking.k8s.io/fabric-egress-allow");
 
       // Verify the namespace has PSS-restricted labels
       const ns = kubectl(`get namespace ${NAMESPACE} -o jsonpath='{.metadata.labels}'`);

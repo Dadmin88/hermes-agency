@@ -3,15 +3,15 @@ import path from "node:path";
 import { resolveDefaultConfigPath } from "./home-paths.js";
 import { fabricEnv } from "./fabric-env.js";
 
-const PAPERCLIP_CONFIG_BASENAME = "config.json";
-const PAPERCLIP_ENV_FILENAME = ".env";
+const HERMES_FABRIC_CONFIG_BASENAME = "config.json";
+const HERMES_FABRIC_ENV_FILENAME = ".env";
 
 function findConfigFileFromAncestors(startDir: string): string | null {
   const absoluteStartDir = path.resolve(startDir);
   let currentDir = absoluteStartDir;
 
   while (true) {
-    const candidate = path.resolve(currentDir, ".paperclip", PAPERCLIP_CONFIG_BASENAME);
+    const candidate = path.resolve(currentDir, ".fabric", HERMES_FABRIC_CONFIG_BASENAME);
     if (fs.existsSync(candidate)) {
       return candidate;
     }
@@ -24,13 +24,13 @@ function findConfigFileFromAncestors(startDir: string): string | null {
   return null;
 }
 
-export function resolvePaperclipConfigPath(overridePath?: string): string {
+export function resolveHermesFabricConfigPath(overridePath?: string): string {
   if (overridePath) return path.resolve(overridePath);
   const configFromEnv = fabricEnv("CONFIG");
   if (configFromEnv) return path.resolve(configFromEnv);
   return findConfigFileFromAncestors(process.cwd()) ?? resolveDefaultConfigPath();
 }
 
-export function resolvePaperclipEnvPath(overrideConfigPath?: string): string {
-  return path.resolve(path.dirname(resolvePaperclipConfigPath(overrideConfigPath)), PAPERCLIP_ENV_FILENAME);
+export function resolveHermesFabricEnvPath(overrideConfigPath?: string): string {
+  return path.resolve(path.dirname(resolveHermesFabricConfigPath(overrideConfigPath)), HERMES_FABRIC_ENV_FILENAME);
 }

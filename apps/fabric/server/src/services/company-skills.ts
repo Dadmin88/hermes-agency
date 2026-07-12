@@ -3,10 +3,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { companies, companySkillComments, companySkillStars, companySkillVersions, companySkills } from "@paperclipai/db";
-import { readPaperclipSkillSyncPreference } from "@paperclipai/adapter-utils/server-utils";
-import type { PaperclipDesiredSkillEntry, PaperclipSkillEntry } from "@paperclipai/adapter-utils/server-utils";
+import type { Db } from "@hermes-fabric/db";
+import { companies, companySkillComments, companySkillStars, companySkillVersions, companySkills } from "@hermes-fabric/db";
+import { readHermesFabricSkillSyncPreference } from "@hermes-fabric/adapter-utils/server-utils";
+import type { HermesFabricDesiredSkillEntry, HermesFabricSkillEntry } from "@hermes-fabric/adapter-utils/server-utils";
 import type {
   AgentDesiredSkillEntry,
   CatalogSkill,
@@ -44,9 +44,9 @@ import type {
   CompanySkillVersion,
   CompanySkillVersionCreateRequest,
   CompanySkillVersionFileInventoryEntry,
-} from "@paperclipai/shared";
-import { normalizeAgentUrlKey, parseFrontmatterMarkdown } from "@paperclipai/shared";
-import { resolvePaperclipInstanceRoot } from "../home-paths.js";
+} from "@hermes-fabric/shared";
+import { normalizeAgentUrlKey, parseFrontmatterMarkdown } from "@hermes-fabric/shared";
+import { resolveHermesFabricInstanceRoot } from "../home-paths.js";
 import { conflict, notFound, unprocessable } from "../errors.js";
 import { ghFetch, gitHubApiBase, resolveRawGitHubUrl } from "./github-fetch.js";
 import { agentService } from "./agents.js";
@@ -211,12 +211,12 @@ function assertImportedSkillSourceAllowed(skill: ImportedSkill) {
 }
 
 function assertImportedSkillKeyAllowed(skill: ImportedSkill) {
-  if (!skill.key.startsWith("paperclipai/paperclip/")) return;
+  if (!skill.key.startsWith("hermes-fabric/fabric/")) return;
   const metadata = isPlainRecord(skill.metadata) ? skill.metadata : null;
   const sourceKind = asString(metadata?.sourceKind);
-  if (sourceKind === "paperclip_bundled") return;
+  if (sourceKind === "fabric_bundled") return;
   throw unprocessable(
-    `Reserved Paperclip skill key "${skill.key}" cannot be imported from unbundled sources.`,
+    `Reserved HermesFabric skill key "${skill.key}" cannot be imported from unbundled sources.`,
     {
       skillKey: skill.key,
       sourceKind: sourceKind ?? skill.sourceType,
@@ -459,7 +459,7 @@ function uniqueImportedSkillKey(companyId: string, baseSlug: string, usedKeys: S
 }
 
 function buildSkillRuntimeName(key: string, slug: string) {
-  if (key.startsWith("paperclipai/paperclip/")) return slug;
+  if (key.startsWith("hermes-fabric/fabric/")) return slug;
   return `${slug}--${hashSkillValue(key)}`;
 }
 
@@ -469,13 +469,13 @@ function readCanonicalSkillKey(frontmatter: Record<string, unknown>, metadata: R
     ?? asString(frontmatter.skillKey)
     ?? asString(metadata?.skillKey)
     ?? asString(metadata?.canonicalKey)
-    ?? asString(metadata?.paperclipSkillKey),
+    ?? asString(metadata?.fabricSkillKey),
   );
   if (direct) return direct;
-  const paperclip = isPlainRecord(metadata?.paperclip) ? metadata?.paperclip as Record<string, unknown> : null;
+  const fabric = isPlainRecord(metadata?.fabric) ? metadata?.fabric as Record<string, unknown> : null;
   return normalizeSkillKey(
-    asString(paperclip?.skillKey)
-    ?? asString(paperclip?.key),
+    asString(fabric?.skillKey)
+    ?? asString(fabric?.key),
   );
 }
 
@@ -489,8 +489,8 @@ function deriveCanonicalSkillKey(
   if (explicitKey) return explicitKey;
 
   const sourceKind = asString(metadata?.sourceKind);
-  if (sourceKind === "paperclip_bundled") {
-    return `paperclipai/paperclip/${slug}`;
+  if (sourceKind === "fabric_bundled") {
+    return `hermes-fabric/fabric/${slug}`;
   }
 
   const owner = normalizeSkillSlug(asString(metadata?.owner));
@@ -777,10 +777,10 @@ function deriveImportedSkillSource(
         : null);
     const [owner, repoName] = (repo ?? "").split("/");
     if (repo && owner && repoName) {
-      const sourceKind = owner === "paperclipai"
-        && repoName === "paperclip"
-        && canonicalKey?.startsWith("paperclipai/paperclip/")
-        ? "paperclip_bundled"
+      const sourceKind = owner === "hermes-fabric"
+        && repoName === "fabric"
+        && canonicalKey?.startsWith("hermes-fabric/fabric/")
+        ? "fabric_bundled"
         : "github";
       return {
         sourceType: "github",
@@ -1560,7 +1560,7 @@ function resolveRequestedSkillKeysOrThrow(
   return Array.from(resolved);
 }
 
-function normalizeRequestedDesiredSkillSelection(value: string | AgentDesiredSkillEntry): PaperclipDesiredSkillEntry {
+function normalizeRequestedDesiredSkillSelection(value: string | AgentDesiredSkillEntry): HermesFabricDesiredSkillEntry {
   if (typeof value === "string") {
     return { key: value.trim(), versionId: null };
   }
@@ -1602,7 +1602,7 @@ async function resolveRequestedSkillEntriesOrThrow(
 ) {
   const missing = new Set<string>();
   const ambiguous = new Set<string>();
-  const resolved = new Map<string, PaperclipDesiredSkillEntry>();
+  const resolved = new Map<string, HermesFabricDesiredSkillEntry>();
 
   for (const rawSelection of requestedSelections) {
     const selection = normalizeRequestedDesiredSkillSelection(rawSelection);
@@ -1649,7 +1649,7 @@ function resolveDesiredSkillKeys(
   skills: SkillReferenceTarget[],
   config: Record<string, unknown>,
 ) {
-  const preference = readPaperclipSkillSyncPreference(config);
+  const preference = readHermesFabricSkillSyncPreference(config);
   return Array.from(new Set(
     preference.desiredSkills
       .map((reference) => resolveSkillReference(skills, reference).skill?.key ?? normalizeSkillKey(reference))
@@ -1661,8 +1661,8 @@ function resolveDesiredSkillEntries(
   skills: SkillReferenceTarget[],
   config: Record<string, unknown>,
 ) {
-  const preference = readPaperclipSkillSyncPreference(config);
-  const out = new Map<string, PaperclipDesiredSkillEntry>();
+  const preference = readHermesFabricSkillSyncPreference(config);
+  const out = new Map<string, HermesFabricDesiredSkillEntry>();
   for (const entry of preference.desiredSkillEntries) {
     const key = resolveSkillReference(skills, entry.key).skill?.key ?? normalizeSkillKey(entry.key);
     if (!key || out.has(key)) continue;
@@ -1697,9 +1697,9 @@ function buildMissingRuntimeSourceDetail(skill: Pick<CompanySkill, "name" | "sou
   const marker = getMissingSourceMarker(skill.metadata);
   const sourcePath = asString(marker?.sourcePath) ?? normalizeSourceLocatorDirectory(skill.sourceLocator);
   if (sourcePath) {
-    return `Company skill "${skill.name}" is in the library, but Paperclip cannot find its local source at ${sourcePath}.`;
+    return `Company skill "${skill.name}" is in the library, but HermesFabric cannot find its local source at ${sourcePath}.`;
   }
-  return `Company skill "${skill.name}" is in the library, but Paperclip cannot find a valid local runtime source for it.`;
+  return `Company skill "${skill.name}" is in the library, but HermesFabric cannot find a valid local runtime source for it.`;
 }
 
 export async function findMissingLocalSkillIds(
@@ -1726,7 +1726,7 @@ export async function findMissingLocalSkillIds(
 }
 
 function resolveManagedSkillsRoot(companyId: string) {
-  return path.resolve(resolvePaperclipInstanceRoot(), "skills", companyId);
+  return path.resolve(resolveHermesFabricInstanceRoot(), "skills", companyId);
 }
 
 function resolveLocalSkillFilePath(skill: CompanySkill, relativePath: string) {
@@ -1977,12 +1977,12 @@ function deriveSkillSourceInfo(skill: SkillSourceInfoTarget): {
 } {
   const metadata = getSkillMeta(skill);
   const localSkillDir = normalizeSkillDirectory(skill);
-  if (metadata.sourceKind === "paperclip_bundled") {
+  if (metadata.sourceKind === "fabric_bundled") {
     return {
       editable: false,
       editableReason: "Bundled Hermes Agency skills are read-only.",
       sourceLabel: "Hermes Agency bundled",
-      sourceBadge: "paperclip",
+      sourceBadge: "fabric",
       sourcePath: null,
     };
   }
@@ -2031,7 +2031,7 @@ function deriveSkillSourceInfo(skill: SkillSourceInfoTarget): {
         editable: true,
         editableReason: null,
         sourceLabel: "Hermes Agency workspace",
-        sourceBadge: "paperclip",
+        sourceBadge: "fabric",
         sourcePath: managedRoot,
       };
     }
@@ -2141,12 +2141,12 @@ export function companySkillService(db: Db) {
             ...skill,
             metadata: {
               ...(skill.metadata ?? {}),
-              sourceKind: "paperclip_bundled",
+              sourceKind: "fabric_bundled",
             },
           }),
           metadata: {
             ...(skill.metadata ?? {}),
-            sourceKind: "paperclip_bundled",
+            sourceKind: "fabric_bundled",
           },
         })))
         .catch(() => [] as ImportedSkill[]);
@@ -3955,7 +3955,7 @@ export function companySkillService(db: Db) {
       iconUrl: storeMetadata.iconUrl ?? existingByKey?.iconUrl ?? null,
       color: storeMetadata.color ?? existingByKey?.color ?? null,
       tagline: storeMetadata.tagline ?? existingByKey?.tagline ?? catalogSkill.description.slice(0, 120),
-      authorName: storeMetadata.authorName ?? existingByKey?.authorName ?? "Paperclip",
+      authorName: storeMetadata.authorName ?? existingByKey?.authorName ?? "Hermes Fabric",
       homepageUrl: storeMetadata.homepageUrl ?? existingByKey?.homepageUrl ?? catalogSkill.source?.url ?? null,
       categories: storeMetadata.categories.length > 0 ? storeMetadata.categories : normalizeCategoryList([catalogSkill.category, ...catalogSkill.tags]),
       sharingScope: existingByKey?.sharingScope ?? "company",
@@ -4155,10 +4155,10 @@ export function companySkillService(db: Db) {
   async function listRuntimeSkillEntries(
     companyId: string,
     options: RuntimeSkillEntryOptions = {},
-  ): Promise<PaperclipSkillEntry[]> {
+  ): Promise<HermesFabricSkillEntry[]> {
     const skills = await listFull(companyId);
 
-    const out: PaperclipSkillEntry[] = [];
+    const out: HermesFabricSkillEntry[] = [];
     for (const skill of skills) {
       const sourceResolution = await resolveRuntimeSkillSource(companyId, skill, options);
       if (!sourceResolution) continue;
@@ -4312,10 +4312,10 @@ export function companySkillService(db: Db) {
       const incomingKind = asString(incomingMeta.sourceKind);
       if (
         existing
-        && existingMeta.sourceKind === "paperclip_bundled"
+        && existingMeta.sourceKind === "fabric_bundled"
         && incomingKind === "github"
-        && incomingOwner === "paperclipai"
-        && incomingRepo === "paperclip"
+        && incomingOwner === "hermes-fabric"
+        && incomingRepo === "fabric"
       ) {
         out.push(existing);
         continue;

@@ -1,8 +1,8 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { and, eq, inArray } from "drizzle-orm";
-import { agents, heartbeatRuns } from "@paperclipai/db";
-import type { Db } from "@paperclipai/db";
+import { agents, heartbeatRuns } from "@hermes-fabric/db";
+import type { Db } from "@hermes-fabric/db";
 import { resolveHermesProfileName } from "./hermes-profile-config.js";
 
 const execFileAsync = promisify(execFile);

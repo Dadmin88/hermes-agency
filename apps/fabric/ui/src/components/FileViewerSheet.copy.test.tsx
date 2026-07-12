@@ -3,7 +3,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ResolvedWorkspaceResource, WorkspaceFileContent } from "@paperclipai/shared";
+import type { ResolvedWorkspaceResource, WorkspaceFileContent } from "@hermes-fabric/shared";
 import { FileViewerSheet } from "./FileViewerSheet";
 
 const useQueryMock = vi.fn();
@@ -53,7 +53,7 @@ const resolvedResource: ResolvedWorkspaceResource = {
   kind: "file",
   provider: "git_worktree",
   title: "tweet.md",
-  displayPath: "videos/90-days-paperclip/tweet.md",
+  displayPath: "videos/90-days-fabric/tweet.md",
   workspaceLabel: "Isolated workspace",
   workspaceKind: "execution_workspace",
   workspaceId: "ws-1",
@@ -94,7 +94,7 @@ describe("FileViewerSheet copy actions", () => {
       configurable: true,
       value: true,
     });
-    window.history.pushState({}, "", "/PAP/issues/PAP-10629?file=videos%2F90-days-paperclip%2Ftweet.md");
+    window.history.pushState({}, "", "/PAP/issues/PAP-10629?file=videos%2F90-days-fabric%2Ftweet.md");
   });
 
   afterEach(() => {
@@ -110,7 +110,7 @@ describe("FileViewerSheet copy actions", () => {
         <FileViewerSheet
           issueId="issue-1"
           state={{
-            path: "videos/90-days-paperclip/tweet.md",
+            path: "videos/90-days-fabric/tweet.md",
             workspace: "auto",
             line: null,
             column: null,

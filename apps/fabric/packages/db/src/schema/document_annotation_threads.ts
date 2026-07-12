@@ -3,7 +3,7 @@ import type {
   DocumentAnnotationAnchorSelector,
   DocumentAnnotationAnchorState,
   DocumentAnnotationThreadStatus,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { sql } from "drizzle-orm";
 import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { agents } from "./agents.js";

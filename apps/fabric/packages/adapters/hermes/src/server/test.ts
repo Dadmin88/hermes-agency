@@ -9,7 +9,7 @@ import type {
   AdapterEnvironmentTestContext,
   AdapterEnvironmentTestResult,
   AdapterEnvironmentCheck,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -121,7 +121,7 @@ function checkModel(
     return {
       level: "info",
       message: "No model specified — Hermes will use its configured default model",
-      hint: "Set a model explicitly in Paperclip only if you want to override your local Hermes configuration.",
+      hint: "Set a model explicitly in HermesFabric only if you want to override your local Hermes configuration.",
       code: "hermes_configured_default_model",
     };
   }
@@ -146,7 +146,7 @@ async function checkApiKeys(
   }
 
   // Also read ~/.hermes/.env — Hermes stores API keys there by default and does
-  // not export them to the parent process, so Paperclip's process.env won't
+  // not export them to the parent process, so HermesFabric's process.env won't
   // contain them.  Parsing this file ensures the environment test reports
   // accurate results for keys that Hermes already knows about.
   const hermesEnvKeys: Record<string, string> = {};
@@ -283,7 +283,7 @@ async function checkProviderConsistency(
     return {
       level: "info",
       message: `Hermes config uses unsupported adapter provider "${unsupportedProvider}" for model "${model}" — deferring to Hermes auto-detection`,
-      hint: "Paperclip will avoid model-name provider inference here and let Hermes resolve the provider from ~/.hermes/config.yaml at runtime.",
+      hint: "HermesFabric will avoid model-name provider inference here and let Hermes resolve the provider from ~/.hermes/config.yaml at runtime.",
       code: "hermes_provider_unsupported",
     };
   }
@@ -294,7 +294,7 @@ async function checkProviderConsistency(
     return {
       level: "info",
       message: `Hermes config provides runtime settings for model "${model}" without an explicit adapter provider — deferring to Hermes auto-detection`,
-      hint: "Paperclip will avoid model-name provider inference here and let Hermes resolve the provider from ~/.hermes/config.yaml at runtime.",
+      hint: "HermesFabric will avoid model-name provider inference here and let Hermes resolve the provider from ~/.hermes/config.yaml at runtime.",
       code: "hermes_provider_runtime_config",
     };
   }

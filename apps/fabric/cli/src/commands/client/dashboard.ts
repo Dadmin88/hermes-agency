@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import type { DashboardSummary } from "@paperclipai/shared";
+import type { DashboardSummary } from "@hermes-fabric/shared";
 import {
   addCommonClientOptions,
   apiPath,

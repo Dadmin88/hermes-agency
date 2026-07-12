@@ -1,6 +1,6 @@
 import { memo, type ComponentType, type SVGProps } from "react";
-import { Bot, FileText, Hexagon, MessageSquare, Paperclip, Quote } from "lucide-react";
-import type { Agent, CompanySearchResult } from "@paperclipai/shared";
+import { Bot, FileText, Hexagon, MessageSquare, Link2, Quote } from "lucide-react";
+import type { Agent, CompanySearchResult } from "@hermes-fabric/shared";
 import { Link } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { StatusIcon } from "../StatusIcon";
@@ -15,7 +15,7 @@ type SnippetStyle = {
 const SNIPPET_STYLES: Record<string, SnippetStyle> = {
   comment: { Icon: MessageSquare, label: "Comment" },
   document: { Icon: FileText, label: "Doc" },
-  artifact: { Icon: Paperclip, label: "Artifact" },
+  artifact: { Icon: Link2, label: "Artifact" },
   description: { Icon: Quote, label: "Description" },
 };
 
@@ -121,7 +121,7 @@ function SearchResultRowImpl({
         className={cn(ROW_BASE, "py-4", isActive && "bg-muted/40", className)}
         data-result-type="artifact"
       >
-        <Paperclip className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+        <Link2 className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <span className="truncate text-sm font-medium text-foreground">{result.title}</span>

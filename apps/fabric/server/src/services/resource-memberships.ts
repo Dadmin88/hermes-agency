@@ -1,17 +1,17 @@
 import { and, eq } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agentMemberships,
   agents,
   projectMemberships,
   projects,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import type {
   ResourceMembershipResourceType,
   ResourceMembershipState,
   ResourceMemberships,
   ResourceMembershipUpdateResult,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { forbidden, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 

@@ -8,12 +8,12 @@ import {
   DEFAULT_REMOTE_SANDBOX_ADAPTER_TIMEOUT_SEC,
   adapterExecutionTargetSessionIdentity,
   adapterExecutionTargetToRemoteSpec,
-  adapterExecutionTargetUsesPaperclipBridge,
+  adapterExecutionTargetUsesHermesFabricBridge,
   ensureAdapterExecutionTargetCommandResolvable,
   resolveAdapterExecutionTargetTimeoutSec,
   runAdapterExecutionTargetProcess,
   runAdapterExecutionTargetShellCommand,
-  startAdapterExecutionTargetPaperclipBridge,
+  startAdapterExecutionTargetHermesFabricBridge,
   type AdapterSandboxExecutionTarget,
 } from "./execution-target.js";
 import { runChildProcess } from "./server-utils.js";
@@ -322,7 +322,7 @@ describe("sandbox adapter execution targets", () => {
       spec: {
         host: "ssh.example.test",
         port: 22,
-        username: "paperclip",
+        username: "fabric",
         remoteWorkspacePath: "/workspace",
         remoteCwd: "/workspace",
         privateKey: null,
@@ -331,12 +331,12 @@ describe("sandbox adapter execution targets", () => {
       },
     };
 
-    expect(adapterExecutionTargetUsesPaperclipBridge(target)).toBe(true);
+    expect(adapterExecutionTargetUsesHermesFabricBridge(target)).toBe(true);
     expect(adapterExecutionTargetSessionIdentity(target)).toEqual({
       transport: "ssh",
       host: "ssh.example.test",
       port: 22,
-      username: "paperclip",
+      username: "fabric",
       remoteCwd: "/workspace",
     });
   });
@@ -376,11 +376,11 @@ describe("sandbox adapter execution targets", () => {
     }));
   });
 
-  it("starts a localhost Paperclip bridge for sandbox targets in bridge mode", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-execution-target-bridge-"));
+  it("starts a localhost HermesFabric bridge for sandbox targets in bridge mode", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-execution-target-bridge-"));
     cleanupDirs.push(rootDir);
     const remoteCwd = path.join(rootDir, "workspace");
-    const runtimeRootDir = path.join(remoteCwd, ".paperclip-runtime", "codex");
+    const runtimeRootDir = path.join(remoteCwd, ".fabric-runtime", "codex");
     await mkdir(runtimeRootDir, { recursive: true });
 
     const requests: Array<{ method: string; url: string; auth: string | null; runId: string | null }> = [];
@@ -389,7 +389,7 @@ describe("sandbox adapter execution targets", () => {
         method: req.method ?? "GET",
         url: req.url ?? "/",
         auth: req.headers.authorization ?? null,
-        runId: typeof req.headers["x-paperclip-run-id"] === "string" ? req.headers["x-paperclip-run-id"] : null,
+        runId: typeof req.headers["x-fabric-run-id"] === "string" ? req.headers["x-fabric-run-id"] : null,
       });
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
@@ -414,7 +414,7 @@ describe("sandbox adapter execution targets", () => {
       timeoutMs: 30_000,
     };
 
-    const bridge = await startAdapterExecutionTargetPaperclipBridge({
+    const bridge = await startAdapterExecutionTargetHermesFabricBridge({
       runId: "run-bridge",
       target,
       runtimeRootDir,
@@ -424,12 +424,12 @@ describe("sandbox adapter execution targets", () => {
     });
     try {
       expect(bridge).not.toBeNull();
-      expect(bridge?.env.PAPERCLIP_API_URL).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+      expect(bridge?.env.HERMES_FABRIC_API_URL).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
       expect(bridge?.env.FABRIC_API_KEY).not.toBe("real-run-jwt");
-      expect(bridge?.env.PAPERCLIP_API_KEY).toBe(bridge?.env.FABRIC_API_KEY);
-      expect(bridge?.env.PAPERCLIP_API_BRIDGE_MODE).toBe("queue_v1");
+      expect(bridge?.env.HERMES_FABRIC_API_KEY).toBe(bridge?.env.FABRIC_API_KEY);
+      expect(bridge?.env.HERMES_FABRIC_API_BRIDGE_MODE).toBe("queue_v1");
 
-      const response = await fetch(`${bridge!.env.PAPERCLIP_API_URL}/api/agents/me`, {
+      const response = await fetch(`${bridge!.env.HERMES_FABRIC_API_URL}/api/agents/me`, {
         headers: {
           authorization: `Bearer ${bridge!.env.FABRIC_API_KEY}`,
           accept: "application/json",
@@ -451,10 +451,10 @@ describe("sandbox adapter execution targets", () => {
   });
 
   it("uses the effective adapter timeout when starting the sandbox callback bridge", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-execution-target-bridge-timeout-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-execution-target-bridge-timeout-"));
     cleanupDirs.push(rootDir);
     const remoteCwd = path.join(rootDir, "workspace");
-    const runtimeRootDir = path.join(remoteCwd, ".paperclip-runtime", "codex");
+    const runtimeRootDir = path.join(remoteCwd, ".fabric-runtime", "codex");
     await mkdir(runtimeRootDir, { recursive: true });
 
     const delegateRunner = createLocalSandboxRunner();
@@ -485,7 +485,7 @@ describe("sandbox adapter execution targets", () => {
       timeoutMs: 30_000,
     };
 
-    const bridge = await startAdapterExecutionTargetPaperclipBridge({
+    const bridge = await startAdapterExecutionTargetHermesFabricBridge({
       runId: "run-bridge-timeout",
       target,
       runtimeRootDir,
@@ -505,10 +505,10 @@ describe("sandbox adapter execution targets", () => {
   });
 
   it("fails oversized host responses with a 502 before returning them to the sandbox client", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-execution-target-bridge-limit-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-execution-target-bridge-limit-"));
     cleanupDirs.push(rootDir);
     const remoteCwd = path.join(rootDir, "workspace");
-    const runtimeRootDir = path.join(remoteCwd, ".paperclip-runtime", "codex");
+    const runtimeRootDir = path.join(remoteCwd, ".fabric-runtime", "codex");
     await mkdir(runtimeRootDir, { recursive: true });
 
     const requests: Array<{ method: string; url: string; auth: string | null; runId: string | null }> = [];
@@ -518,7 +518,7 @@ describe("sandbox adapter execution targets", () => {
         method: req.method ?? "GET",
         url: req.url ?? "/",
         auth: req.headers.authorization ?? null,
-        runId: typeof req.headers["x-paperclip-run-id"] === "string" ? req.headers["x-paperclip-run-id"] : null,
+        runId: typeof req.headers["x-fabric-run-id"] === "string" ? req.headers["x-fabric-run-id"] : null,
       });
       res.writeHead(200, {
         "content-type": "application/json",
@@ -546,7 +546,7 @@ describe("sandbox adapter execution targets", () => {
       timeoutMs: 30_000,
     };
 
-    const bridge = await startAdapterExecutionTargetPaperclipBridge({
+    const bridge = await startAdapterExecutionTargetHermesFabricBridge({
       runId: "run-bridge-limit",
       target,
       runtimeRootDir,
@@ -556,7 +556,7 @@ describe("sandbox adapter execution targets", () => {
       maxBodyBytes: 32,
     });
     try {
-      const response = await fetch(`${bridge!.env.PAPERCLIP_API_URL}/api/agents/me`, {
+      const response = await fetch(`${bridge!.env.HERMES_FABRIC_API_URL}/api/agents/me`, {
         headers: {
           authorization: `Bearer ${bridge!.env.FABRIC_API_KEY}`,
           accept: "application/json",

@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { executionWorkspaces, issues, projects, projectWorkspaces } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { executionWorkspaces, issues, projects, projectWorkspaces } from "@hermes-fabric/db";
 import type {
   ResolvedWorkspaceResource,
   WorkspaceFileContent,
@@ -14,7 +14,7 @@ import type {
   WorkspaceFilePreviewKind,
   WorkspaceFileSelector,
   WorkspaceFileWorkspaceKind,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { HttpError, notFound, unprocessable } from "../errors.js";
 
 export const WORKSPACE_FILE_TEXT_MAX_BYTES = 512 * 1024;
@@ -31,7 +31,7 @@ const LOCAL_PROJECT_WORKSPACE_SOURCE_TYPES = new Set(["local_path", "non_git_pat
 
 const DENIED_SEGMENTS = new Set([
   ".git",
-  ".paperclip",
+  ".fabric",
   "node_modules",
   ".pnpm-store",
   ".yarn",

@@ -112,7 +112,7 @@ export interface CatalogTeam {
 
 export interface CatalogManifest {
   schemaVersion: 1;
-  packageName: "@paperclipai/teams-catalog";
+  packageName: "@hermes-fabric/teams-catalog";
   packageVersion: string;
   generatedAt: string;
   teams: CatalogTeam[];
@@ -196,7 +196,7 @@ export interface CatalogTeamInstallResult {
  * [PAP-10238 §3.2 + §5]).
  *
  * `outOfDate` is true when at least one installed agent carries a
- * `metadata.paperclip.catalogTeam.originHash` that differs from the catalog
+ * `metadata.fabric.catalogTeam.originHash` that differs from the catalog
  * team's current `contentHash`. `present` is false when the installed team no
  * longer resolves to a catalog entry (e.g. removed from the package) — in that
  * case the comparison is unknown and `outOfDate` stays false.

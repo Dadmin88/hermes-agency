@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Agent, CompanySecret } from "@paperclipai/shared";
-import type { PaperclipConfig } from "../config/schema.js";
+import type { Agent, CompanySecret } from "@hermes-fabric/shared";
+import type { HermesFabricConfig } from "../config/schema.js";
 import { secretsCheck } from "../checks/secrets-check.js";
 import {
   buildInlineMigrationSecretName,
@@ -50,7 +50,7 @@ function secret(partial: Partial<CompanySecret>): CompanySecret {
     name: "agent_agent-12_anthropic_api_key",
     provider: "local_encrypted",
     status: "active",
-    managedMode: "paperclip_managed",
+    managedMode: "fabric_managed",
     externalRef: null,
     providerConfigId: null,
     providerMetadata: null,
@@ -67,7 +67,7 @@ function secret(partial: Partial<CompanySecret>): CompanySecret {
   };
 }
 
-function configWithSecretsProvider(provider: PaperclipConfig["secrets"]["provider"]): PaperclipConfig {
+function configWithSecretsProvider(provider: HermesFabricConfig["secrets"]["provider"]): HermesFabricConfig {
   return {
     $meta: {
       version: 1,
@@ -76,18 +76,18 @@ function configWithSecretsProvider(provider: PaperclipConfig["secrets"]["provide
     },
     database: {
       mode: "embedded-postgres",
-      embeddedPostgresDataDir: "/tmp/paperclip/db",
+      embeddedPostgresDataDir: "/tmp/fabric/db",
       embeddedPostgresPort: 55432,
       backup: {
         enabled: true,
         intervalMinutes: 60,
         retentionDays: 30,
-        dir: "/tmp/paperclip/backups",
+        dir: "/tmp/fabric/backups",
       },
     },
     logging: {
       mode: "file",
-      logDir: "/tmp/paperclip/logs",
+      logDir: "/tmp/fabric/logs",
     },
     server: {
       deploymentMode: "local_trusted",
@@ -107,10 +107,10 @@ function configWithSecretsProvider(provider: PaperclipConfig["secrets"]["provide
     storage: {
       provider: "local_disk",
       localDisk: {
-        baseDir: "/tmp/paperclip/storage",
+        baseDir: "/tmp/fabric/storage",
       },
       s3: {
-        bucket: "paperclip",
+        bucket: "fabric",
         region: "us-east-1",
         prefix: "",
         forcePathStyle: false,
@@ -120,7 +120,7 @@ function configWithSecretsProvider(provider: PaperclipConfig["secrets"]["provide
       provider,
       strictMode: true,
       localEncrypted: {
-        keyFilePath: "/tmp/paperclip/secrets/master.key",
+        keyFilePath: "/tmp/fabric/secrets/master.key",
       },
     },
   };
@@ -131,11 +131,11 @@ describe("secrets CLI helpers", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    delete process.env.PAPERCLIP_SECRETS_AWS_REGION;
+    delete process.env.HERMES_FABRIC_SECRETS_AWS_REGION;
     delete process.env.AWS_REGION;
     delete process.env.AWS_DEFAULT_REGION;
-    delete process.env.PAPERCLIP_SECRETS_AWS_DEPLOYMENT_ID;
-    delete process.env.PAPERCLIP_SECRETS_AWS_KMS_KEY_ID;
+    delete process.env.HERMES_FABRIC_SECRETS_AWS_DEPLOYMENT_ID;
+    delete process.env.HERMES_FABRIC_SECRETS_AWS_KMS_KEY_ID;
   });
 
   afterEach(() => {
@@ -238,17 +238,17 @@ describe("secrets CLI helpers", () => {
     const result = secretsCheck(configWithSecretsProvider("aws_secrets_manager"));
 
     expect(result.status).toBe("fail");
-    expect(result.message).toContain("PAPERCLIP_SECRETS_AWS_DEPLOYMENT_ID");
+    expect(result.message).toContain("HERMES_FABRIC_SECRETS_AWS_DEPLOYMENT_ID");
     expect(result.repairHint).toContain("AWS SDK default credential chain");
     expect(result.repairHint).toContain("Do not store AWS root credentials");
   });
 
   it("passes AWS doctor checks when non-secret provider config is present", () => {
-    process.env.PAPERCLIP_SECRETS_AWS_REGION = "us-east-1";
-    process.env.PAPERCLIP_SECRETS_AWS_DEPLOYMENT_ID = "prod-us-1";
-    process.env.PAPERCLIP_SECRETS_AWS_KMS_KEY_ID =
+    process.env.HERMES_FABRIC_SECRETS_AWS_REGION = "us-east-1";
+    process.env.HERMES_FABRIC_SECRETS_AWS_DEPLOYMENT_ID = "prod-us-1";
+    process.env.HERMES_FABRIC_SECRETS_AWS_KMS_KEY_ID =
       "arn:aws:kms:us-east-1:123456789012:key/test";
-    process.env.AWS_PROFILE = "paperclip-prod";
+    process.env.AWS_PROFILE = "fabric-prod";
 
     const result = secretsCheck(configWithSecretsProvider("aws_secrets_manager"));
 
@@ -261,8 +261,8 @@ describe("secrets CLI helpers", () => {
 describe("secrets API parity commands", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type {
   ExternalObjectLivenessState,
   ExternalObjectStatusCategory,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { ExternalObjectStatusIcon } from "./ExternalObjectStatusIcon";
 import {
   externalObjectStatusIcon,
@@ -98,7 +98,7 @@ interface ExternalObjectPillProps {
 }
 
 /**
- * External-object equivalent of `IssueReferencePill`. Same `paperclip-mention-chip`
+ * External-object equivalent of `IssueReferencePill`. Same `fabric-mention-chip`
  * base so external references feel native to readers (Jakob's Law).
  */
 export function ExternalObjectPill({
@@ -127,7 +127,7 @@ export function ExternalObjectPill({
 
   const interactive = !inert && Boolean(object.url);
   const classNames = cn(
-    "paperclip-mention-chip paperclip-mention-chip--external-object",
+    "fabric-mention-chip fabric-mention-chip--external-object",
     "inline-flex max-w-full items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs no-underline",
     // Tone is applied as text classes only — the border style comes from the
     // overlay (dashed for stale/auth/unreachable).

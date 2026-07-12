@@ -1,4 +1,4 @@
-import type { TranscriptEntry } from "@paperclipai/adapter-utils";
+import type { TranscriptEntry } from "@hermes-fabric/adapter-utils";
 
 function parseJson(line: string): Record<string, unknown> | null {
   try {

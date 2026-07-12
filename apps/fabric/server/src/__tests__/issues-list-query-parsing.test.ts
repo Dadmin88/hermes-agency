@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseStatusFilter } from "../services/issues.ts";
 
 /**
- * Regression test for https://github.com/paperclipai/paperclip/issues/4628
+ * Regression test for https://github.com/DeployFaith/Hermes_Agency/issues/4628
  *
  * Stands up a minimal Express app whose handler mirrors the parsing path
  * `server/src/routes/issues.ts:957-958` uses to forward `req.query.status`

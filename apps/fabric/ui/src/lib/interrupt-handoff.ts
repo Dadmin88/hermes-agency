@@ -1,4 +1,4 @@
-import { parseAgentMentionHref } from "@paperclipai/shared";
+import { parseAgentMentionHref } from "@hermes-fabric/shared";
 
 /**
  * Shared logic for the "interrupt handoff" UX clarity surfaces (PAP-10669).

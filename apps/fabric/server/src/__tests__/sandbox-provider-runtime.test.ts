@@ -148,18 +148,18 @@ describe("sandbox provider runtime", () => {
   it("reconstructs fake sandbox config from lease metadata for later release", () => {
     const metadata = {
       provider: "fake",
-      image: "paperclip-test",
+      image: "fabric-test",
       reuseLease: true,
     };
 
     expect(sandboxConfigFromLeaseMetadata({ metadata })).toEqual({
       provider: "fake",
-      image: "paperclip-test",
+      image: "fabric-test",
       reuseLease: true,
     });
     expect(sandboxConfigFromLeaseMetadataLoose({ metadata })).toEqual({
       provider: "fake",
-      image: "paperclip-test",
+      image: "fabric-test",
       reuseLease: true,
     });
   });
@@ -186,21 +186,21 @@ describe("sandbox provider runtime", () => {
     expect(sandboxConfigFromLeaseMetadata({
       metadata: {
         provider: "secure-plugin",
-        template: "paperclip-template",
+        template: "fabric-template",
       },
     })).toBeNull();
 
     expect(sandboxConfigFromLeaseMetadataLoose({
       metadata: {
         provider: "secure-plugin",
-        template: "paperclip-template",
+        template: "fabric-template",
         timeoutMs: 120000,
         reuseLease: true,
         apiKey: "11111111-1111-1111-1111-111111111111",
       },
     })).toEqual({
       provider: "secure-plugin",
-      template: "paperclip-template",
+      template: "fabric-template",
       apiKey: "11111111-1111-1111-1111-111111111111",
       timeoutMs: 120000,
       reuseLease: true,

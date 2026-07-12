@@ -17,15 +17,15 @@ describe("codex managed-home auth fail-fast", () => {
   });
 
   it("fails fast when a managed CODEX_HOME has no auth.json and OPENAI_API_KEY is empty", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-failfast-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-failfast-"));
     cleanupDirs.push(root);
 
-    const paperclipHome = path.join(root, "paperclip-home");
+    const fabricHome = path.join(root, "fabric-home");
     const emptySharedHome = path.join(root, "shared-codex-home");
     const workspaceDir = path.join(root, "workspace");
     // A managed per-agent home with no credentials seeded into it.
     const managedAgentHome = path.join(
-      paperclipHome,
+      fabricHome,
       "instances",
       "default",
       "companies",
@@ -38,8 +38,8 @@ describe("codex managed-home auth fail-fast", () => {
     await fs.mkdir(workspaceDir, { recursive: true });
 
     // Source home has no auth.json, so nothing is symlinked into the managed home.
-    vi.stubEnv("PAPERCLIP_HOME", paperclipHome);
-    vi.stubEnv("PAPERCLIP_INSTANCE_ID", "default");
+    vi.stubEnv("HERMES_FABRIC_HOME", fabricHome);
+    vi.stubEnv("HERMES_FABRIC_INSTANCE_ID", "default");
     vi.stubEnv("CODEX_HOME", emptySharedHome);
 
     await expect(

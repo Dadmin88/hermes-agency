@@ -1,14 +1,14 @@
 export interface BuildCiliumNetworkPolicyInput {
   namespace: string;
-  paperclipServerNamespace: string;
+  fabricServerNamespace: string;
   egressAllowFqdns: string[];
   egressAllowCidrs: string[];
 }
 
-// Design note: no ingress rules are defined here. Paperclip-server does NOT
+// Design note: no ingress rules are defined here. HermesFabric-server does NOT
 // push to agent pods — agents make outbound (egress) callbacks to
-// paperclip-server on port 3100. If server→agent push is ever needed, add a
-// targeted ingress rule scoped to the paperclip-server endpoint selector.
+// fabric-server on port 3100. If server→agent push is ever needed, add a
+// targeted ingress rule scoped to the fabric-server endpoint selector.
 export function buildCiliumNetworkPolicyManifest(input: BuildCiliumNetworkPolicyInput): Record<string, unknown> {
   const egress: Record<string, unknown>[] = [];
 
@@ -38,8 +38,8 @@ export function buildCiliumNetworkPolicyManifest(input: BuildCiliumNetworkPolicy
     toEndpoints: [
       {
         matchLabels: {
-          "k8s:io.kubernetes.pod.namespace": input.paperclipServerNamespace,
-          app: "paperclip-server",
+          "k8s:io.kubernetes.pod.namespace": input.fabricServerNamespace,
+          app: "fabric-server",
         },
       },
     ],
@@ -56,12 +56,12 @@ export function buildCiliumNetworkPolicyManifest(input: BuildCiliumNetworkPolicy
     apiVersion: "cilium.io/v2",
     kind: "CiliumNetworkPolicy",
     metadata: {
-      name: "paperclip-egress-fqdn",
+      name: "fabric-egress-fqdn",
       namespace: input.namespace,
-      labels: { "paperclip.io/managed-by": "paperclip-k8s-plugin" },
+      labels: { "fabric.io/managed-by": "fabric-k8s-plugin" },
     },
     spec: {
-      endpointSelector: { matchLabels: { "paperclip.io/role": "agent" } },
+      endpointSelector: { matchLabels: { "fabric.io/role": "agent" } },
       egress,
     },
   };

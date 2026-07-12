@@ -3,7 +3,7 @@
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Agent, ExecutionWorkspace, Project, RoutineVariable } from "@paperclipai/shared";
+import type { Agent, ExecutionWorkspace, Project, RoutineVariable } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoutineRunVariablesDialog } from "./RoutineRunVariablesDialog";
 
@@ -98,8 +98,8 @@ function createProject(): Project {
       defaultRef: null,
       repoName: null,
       localFolder: null,
-      managedFolder: "/tmp/paperclip/project-1",
-      effectiveLocalFolder: "/tmp/paperclip/project-1",
+      managedFolder: "/tmp/fabric/project-1",
+      effectiveLocalFolder: "/tmp/fabric/project-1",
       origin: "managed_checkout",
     },
     workspaces: [],
@@ -147,7 +147,7 @@ function createExecutionWorkspace(): ExecutionWorkspace {
     strategyType: "git_worktree",
     name: "PAP-1634",
     status: "active",
-    cwd: "/tmp/paperclip/PAP-1634",
+    cwd: "/tmp/fabric/PAP-1634",
     repoUrl: null,
     baseRef: "main",
     branchName: "pap-1634-routine-branch",

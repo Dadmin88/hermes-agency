@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Agent, Environment } from "@paperclipai/shared";
+import type { Agent, Environment } from "@hermes-fabric/shared";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AgentConfigForm } from "./AgentConfigForm";
 
@@ -48,9 +48,9 @@ vi.mock("../api/secrets", () => ({
 
 vi.mock("../context/CompanyContext", () => ({
   useCompany: () => ({
-    companies: [{ id: "company-1", name: "Paperclip" }],
+    companies: [{ id: "company-1", name: "Hermes Fabric" }],
     selectedCompanyId: "company-1",
-    selectedCompany: { id: "company-1", name: "Paperclip" },
+    selectedCompany: { id: "company-1", name: "Hermes Fabric" },
     selectionSource: "bootstrap",
     loading: false,
     error: null,

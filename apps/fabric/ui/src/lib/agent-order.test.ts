@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Agent } from "@paperclipai/shared";
+import type { Agent } from "@hermes-fabric/shared";
 import { sortAgentsByDefaultSidebarOrder, sortAgentsByStoredOrder } from "./agent-order";
 
 function makeAgent(overrides: Partial<Agent> & { id: string; name: string }): Agent {

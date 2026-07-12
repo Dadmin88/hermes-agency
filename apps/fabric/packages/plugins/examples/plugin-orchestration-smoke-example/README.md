@@ -24,14 +24,14 @@ pnpm test
 pnpm build
 ```
 
-## Install Into Paperclip
+## Install Into Hermes Fabric
 
 Use an absolute local path during development:
 
 ```bash
 curl -X POST http://127.0.0.1:3100/api/plugins/install \
   -H "Content-Type: application/json" \
-  -d '{"packageName":"/absolute/path/to/paperclip/packages/plugins/examples/plugin-orchestration-smoke-example","isLocalPath":true}'
+  -d '{"packageName":"/absolute/path/to/fabric/packages/plugins/examples/plugin-orchestration-smoke-example","isLocalPath":true}'
 ```
 
 ## Scoped Route Smoke
@@ -39,7 +39,7 @@ curl -X POST http://127.0.0.1:3100/api/plugins/install \
 After the plugin is ready, run the scoped route against an existing issue:
 
 ```bash
-curl -X POST http://127.0.0.1:3100/api/plugins/paperclipai.plugin-orchestration-smoke-example/api/issues/<issue-id>/smoke \
+curl -X POST http://127.0.0.1:3100/api/plugins/hermes-fabric.plugin-orchestration-smoke-example/api/issues/<issue-id>/smoke \
   -H "Content-Type: application/json" \
   -d '{"assigneeAgentId":"<agent-id>"}'
 ```

@@ -6,7 +6,7 @@ import type {
   IssueBlockedInboxAttention,
   IssueBlockedInboxReason,
   IssueBlockedInboxSeverity,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   BLOCKED_REASON_VARIANT_ORDER,
   blockedBadgeTone,

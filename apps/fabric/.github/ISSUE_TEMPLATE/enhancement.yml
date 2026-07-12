@@ -1,5 +1,5 @@
 name: Enhancement proposal
-description: Propose an improvement to an existing Paperclip feature
+description: Propose an improvement to an existing HermesFabric feature
 labels: [enhancement]
 body:
   - type: markdown

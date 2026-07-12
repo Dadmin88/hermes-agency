@@ -51,7 +51,7 @@ Symptom in logs / issue thread:
 API Error: 400 diagnostics.previous_message_id: must be the `id` from a prior /v1/messages response (starts with `msg_`)
 ```
 
-What it means: the on-disk Claude Code transcript JSONL for that session contains a malformed (non-`msg_`-prefixed) `previous_message_id`. Anthropic's `/v1/messages` rejects every resume attempt against that transcript with a deterministic 400. Without guards, Paperclip would re-persist the same poisoned session id and the issue is stranded permanently — see [RED-976](../../../) / [RED-978](../../../).
+What it means: the on-disk Claude Code transcript JSONL for that session contains a malformed (non-`msg_`-prefixed) `previous_message_id`. Anthropic's `/v1/messages` rejects every resume attempt against that transcript with a deterministic 400. Without guards, Hermes Fabric would re-persist the same poisoned session id and the issue is stranded permanently — see [RED-976](../../../) / [RED-978](../../../).
 
 What the adapter does automatically:
 
@@ -67,15 +67,15 @@ On-call checklist if you see this in production:
 
 ## Skills Injection
 
-The adapter creates a temporary directory with symlinks to Paperclip skills and passes it via `--add-dir`. This makes skills discoverable without polluting the agent's working directory.
+The adapter creates a temporary directory with symlinks to Hermes Fabric skills and passes it via `--add-dir`. This makes skills discoverable without polluting the agent's working directory.
 
 For manual local CLI usage outside heartbeat runs (for example running as `claudecoder` directly), use:
 
 ```sh
-pnpm paperclipai agent local-cli claudecoder --company-id <company-id>
+pnpm hermes-fabric agent local-cli claudecoder --company-id <company-id>
 ```
 
-This installs Paperclip skills in `~/.claude/skills`, creates an agent API key, and prints shell exports to run as that agent.
+This installs Hermes Fabric skills in `~/.claude/skills`, creates an agent API key, and prints shell exports to run as that agent.
 
 ## Environment Test
 

@@ -11,7 +11,7 @@ import type {
   CompanyPortabilityInclude,
   CompanyPortabilityPreviewResult,
   CompanyPortabilityImportResult,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { getTelemetryClient, trackCompanyImported } from "../../telemetry.js";
 import { ApiRequestError } from "../../client/http.js";
 import { openUrl } from "../../client/board-auth.js";
@@ -82,7 +82,7 @@ interface CompanyImportOptions extends BaseClientOptions {
   agents?: string;
   collision?: CompanyCollisionMode;
   ref?: string;
-  paperclipUrl?: string;
+  fabricUrl?: string;
   yes?: boolean;
   dryRun?: boolean;
 }
@@ -210,15 +210,15 @@ function normalizePortablePath(filePath: string): string {
 function shouldIncludePortableFile(filePath: string): boolean {
   const baseName = path.basename(filePath);
   const isMarkdown = baseName.endsWith(".md");
-  const isPaperclipYaml = baseName === ".paperclip.yaml" || baseName === ".paperclip.yml";
+  const isHermesFabricYaml = baseName === ".fabric.yaml" || baseName === ".fabric.yml";
   const contentType = binaryContentTypeByExtension[path.extname(baseName).toLowerCase()];
-  return isMarkdown || isPaperclipYaml || Boolean(contentType);
+  return isMarkdown || isHermesFabricYaml || Boolean(contentType);
 }
 
 function findPortableExtensionPath(files: Record<string, CompanyPortabilityFileEntry>): string | null {
-  if (files[".paperclip.yaml"] !== undefined) return ".paperclip.yaml";
-  if (files[".paperclip.yml"] !== undefined) return ".paperclip.yml";
-  return Object.keys(files).find((entry) => entry.endsWith("/.paperclip.yaml") || entry.endsWith("/.paperclip.yml")) ?? null;
+  if (files[".fabric.yaml"] !== undefined) return ".fabric.yaml";
+  if (files[".fabric.yml"] !== undefined) return ".fabric.yml";
+  return Object.keys(files).find((entry) => entry.endsWith("/.fabric.yaml") || entry.endsWith("/.fabric.yml")) ?? null;
 }
 
 function collectFilesUnderDirectory(
@@ -415,7 +415,7 @@ async function promptForImportSelection(preview: CompanyPortabilityPreviewResult
 
   while (true) {
     const choice = await p.select<ImportSelectableGroup | "company" | "confirm">({
-      message: "Select what Paperclip should import",
+      message: "Select what HermesFabric should import",
       options: [
         {
           value: "company",
@@ -1364,7 +1364,7 @@ export function registerCompanyCommands(program: Command): void {
               out: path.resolve(opts.out!),
               rootPath: exported.rootPath,
               filesWritten: Object.keys(exported.files).length,
-              paperclipExtensionPath: exported.paperclipExtensionPath,
+              fabricExtensionPath: exported.fabricExtensionPath,
               warningCount: exported.warnings.length,
             },
             { json: ctx.json },
@@ -1392,13 +1392,13 @@ export function registerCompanyCommands(program: Command): void {
       .option("--agents <list>", "Comma-separated agent slugs to import, or all", "all")
       .option("--collision <mode>", "Collision strategy: rename | skip | replace", "rename")
       .option("--ref <value>", "Git ref to use for GitHub imports (branch, tag, or commit)")
-      .option("--paperclip-url <url>", "Alias for --api-base on this command")
+      .option("--fabric-url <url>", "Alias for --api-base on this command")
       .option("--yes", "Accept default selection and skip the pre-import confirmation prompt", false)
       .option("--dry-run", "Run preview only without applying", false)
       .action(async (fromPathOrUrl: string, opts: CompanyImportOptions) => {
         try {
-          if (!opts.apiBase?.trim() && opts.paperclipUrl?.trim()) {
-            opts.apiBase = opts.paperclipUrl.trim();
+          if (!opts.apiBase?.trim() && opts.fabricUrl?.trim()) {
+            opts.apiBase = opts.fabricUrl.trim();
           }
           const ctx = resolveCommandContext(opts);
           const interactiveView = isInteractiveTerminal() && !ctx.json;
@@ -1719,7 +1719,7 @@ async function createCompanyForContext(ctx: {
   } catch (error) {
     if (isBoardAccessRequiredError(error) || isInstanceAdminRequiredError(error)) {
       throw new Error(
-        "Creating companies requires board/instance-admin authentication. Agent API keys are scoped to one company; use `paperclipai company list --json` or `paperclipai company current --json` to select the scoped company, or rerun create with a board token/login.",
+        "Creating companies requires board/instance-admin authentication. Agent API keys are scoped to one company; use `hermes-fabric company list --json` or `hermes-fabric company current --json` to select the scoped company, or rerun create with a board token/login.",
       );
     }
     throw error;
@@ -1736,7 +1736,7 @@ async function resolveCurrentCompanyId(ctx: { companyId?: string; api: { get<T>(
   } catch (error) {
     if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
       throw new Error(
-        "Current company is not available. Pass --company-id, set PAPERCLIP_COMPANY_ID, set a context profile companyId, or authenticate with an agent API key.",
+        "Current company is not available. Pass --company-id, set HERMES_FABRIC_COMPANY_ID, set a context profile companyId, or authenticate with an agent API key.",
       );
     }
     throw error;
@@ -1745,7 +1745,7 @@ async function resolveCurrentCompanyId(ctx: { companyId?: string; api: { get<T>(
   const fromAgent = agent?.companyId?.trim();
   if (fromAgent) return fromAgent;
   throw new Error(
-    "Current company is not available. Pass --company-id, set PAPERCLIP_COMPANY_ID, set a context profile companyId, or authenticate with an agent API key.",
+    "Current company is not available. Pass --company-id, set HERMES_FABRIC_COMPANY_ID, set a context profile companyId, or authenticate with an agent API key.",
   );
 }
 

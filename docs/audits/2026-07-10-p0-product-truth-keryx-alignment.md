@@ -43,7 +43,7 @@ The pool runtime uses `hermes-agency/pool/registry_definition.json` as its stati
 
 ### Hermes Fabric
 
-Fabric is a Paperclip-derived Node/React application. It currently has real Agency-specific roster, task-packet, dispatch-record, API, and UI surfaces.
+Fabric is a Hermes Fabric-derived Node/React application. It currently has real Agency-specific roster, task-packet, dispatch-record, API, and UI surfaces.
 
 The current default dispatch client is not a live Hermes Agency client. It is either unconfigured or dry-run gated. Public claims must distinguish the implemented operator flow from live end-to-end dispatch.
 
@@ -155,7 +155,7 @@ Required resolution:
 - [ ] Update orchestrator module header
 - [ ] Remove maintainer-local/VPS assumptions from pool comments
 - [ ] Rewrite Fabric contributor guidance around the current Hermes Agency fork
-- [ ] Audit public docs for `AgentAnycast`, `83`, `84`, `Paperclip`, `control plane`, and live-dispatch claims
+- [ ] Audit public docs for `AgentAnycast`, `83`, `84`, `HermesFabric`, `control plane`, and live-dispatch claims
 - [ ] Update changelog with the Keryx-default behavior change
 
 ### Slice D: golden-path proof

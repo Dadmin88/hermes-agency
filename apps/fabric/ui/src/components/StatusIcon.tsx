@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { IssueBlockerAttention } from "@paperclipai/shared";
+import type { IssueBlockerAttention } from "@hermes-fabric/shared";
 import { cn } from "../lib/utils";
 import { StatusGlyph, type StatusGlyphSize } from "./StatusGlyph";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

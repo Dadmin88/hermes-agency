@@ -238,6 +238,8 @@ jobs:
               lower_path = path.lower()
               if any(needle in lower_path for needle in needles):
                   raise SystemExit(f"Legacy source identity remains in path: {path}")
+              if path.endswith("/LICENSE") or path.endswith("/NOTICE"):
+                  continue
               try:
                   content = open(path, encoding="utf-8").read().lower()
               except (UnicodeDecodeError, IsADirectoryError, FileNotFoundError):

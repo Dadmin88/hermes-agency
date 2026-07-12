@@ -20,7 +20,7 @@ permissions:
   id-token: write   # cosign keyless OIDC
 
 env:
-  REGISTRY: ghcr.io/paperclipai
+  REGISTRY: ghcr.io/hermes-fabric
   VERSION: ${{ github.event.inputs.version || format('git-{0}', github.sha) }}
 
 jobs:

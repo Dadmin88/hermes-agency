@@ -1,7 +1,7 @@
 /**
  * Declarative adapter-registry bootstrap.
  *
- * One source (`PAPERCLIP_ADAPTERS` inline JSON, or `PAPERCLIP_ADAPTERS_FILE` a
+ * One source (`HERMES_FABRIC_ADAPTERS` inline JSON, or `HERMES_FABRIC_ADAPTERS_FILE` a
  * path to a JSON file) feeds two consumers:
  *   1. Availability: reconcile the file-backed disabled-set so the picker shows
  *      exactly the declared, enabled set (runs for any instance).
@@ -13,7 +13,7 @@
  * execution-policy-bootstrap.
  */
 import fs from "node:fs";
-import { adapterRegistrySchema, type AdapterRegistryEntryParsed } from "@paperclipai/shared";
+import { adapterRegistrySchema, type AdapterRegistryEntryParsed } from "@hermes-fabric/shared";
 import { logger } from "../middleware/logger.js";
 import { listServerAdapters } from "../adapters/registry.js";
 import { setAdapterDisabled } from "./adapter-plugin-store.js";
@@ -27,8 +27,8 @@ export type AdapterRegistryEnv = Record<string, string | undefined>;
 export function parseAdapterRegistryEnv(
   env: AdapterRegistryEnv = process.env,
 ): AdapterRegistryEntryParsed[] | null {
-  const inline = (env.FABRIC_ADAPTERS ?? env.PAPERCLIP_ADAPTERS)?.trim();
-  const filePath = (env.FABRIC_ADAPTERS_FILE ?? env.PAPERCLIP_ADAPTERS_FILE)?.trim();
+  const inline = (env.FABRIC_ADAPTERS ?? env.HERMES_FABRIC_ADAPTERS)?.trim();
+  const filePath = (env.FABRIC_ADAPTERS_FILE ?? env.HERMES_FABRIC_ADAPTERS_FILE)?.trim();
   if (!inline && !filePath) return null;
 
   let rawText: string;
@@ -39,7 +39,7 @@ export function parseAdapterRegistryEnv(
       rawText = fs.readFileSync(filePath as string, "utf-8");
     } catch (err) {
       throw new Error(
-        `PAPERCLIP_ADAPTERS_FILE could not be read at "${filePath}": ${(err as Error).message}`,
+        `HERMES_FABRIC_ADAPTERS_FILE could not be read at "${filePath}": ${(err as Error).message}`,
       );
     }
   }
@@ -48,13 +48,13 @@ export function parseAdapterRegistryEnv(
   try {
     parsed = JSON.parse(rawText);
   } catch (err) {
-    throw new Error(`PAPERCLIP_ADAPTERS must be valid JSON: ${(err as Error).message}`);
+    throw new Error(`HERMES_FABRIC_ADAPTERS must be valid JSON: ${(err as Error).message}`);
   }
 
   const result = adapterRegistrySchema.safeParse(parsed);
   if (!result.success) {
     throw new Error(
-      `PAPERCLIP_ADAPTERS failed validation: ${result.error.issues
+      `HERMES_FABRIC_ADAPTERS failed validation: ${result.error.issues
         .map((i) => `${i.path.join(".")}: ${i.message}`)
         .join("; ")}`,
     );
@@ -79,7 +79,7 @@ export function reconcileAdapterAvailability(
   const missing = [...declared.keys()].filter((t) => !knownTypes.has(t));
   if (missing.length > 0) {
     throw new Error(
-      `PAPERCLIP_ADAPTERS declares adapter type(s) with no installed adapter: ${missing.join(", ")}`,
+      `HERMES_FABRIC_ADAPTERS declares adapter type(s) with no installed adapter: ${missing.join(", ")}`,
     );
   }
 
@@ -92,6 +92,6 @@ export function reconcileAdapterAvailability(
     (shouldEnable ? enabled : disabled).push(type);
   }
 
-  logger.info({ enabled, disabled }, "reconciled adapter availability from PAPERCLIP_ADAPTERS");
+  logger.info({ enabled, disabled }, "reconciled adapter availability from HERMES_FABRIC_ADAPTERS");
   return { enabled, disabled };
 }

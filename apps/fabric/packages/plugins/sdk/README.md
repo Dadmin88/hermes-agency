@@ -1,12 +1,12 @@
-# `@paperclipai/plugin-sdk`
+# `@hermes-fabric/plugin-sdk`
 
-Official TypeScript SDK for Paperclip plugin authors.
+Official TypeScript SDK for Hermes Fabric plugin authors.
 
-- **Worker SDK:** `@paperclipai/plugin-sdk` — `definePlugin`, context, lifecycle
-- **UI SDK:** `@paperclipai/plugin-sdk/ui` — React hooks and slot props
-- **Testing:** `@paperclipai/plugin-sdk/testing` — in-memory host harness
-- **Bundlers:** `@paperclipai/plugin-sdk/bundlers` — esbuild/rollup presets
-- **Dev server:** `@paperclipai/plugin-sdk/dev-server` — static UI server + SSE reload
+- **Worker SDK:** `@hermes-fabric/plugin-sdk` — `definePlugin`, context, lifecycle
+- **UI SDK:** `@hermes-fabric/plugin-sdk/ui` — React hooks and slot props
+- **Testing:** `@hermes-fabric/plugin-sdk/testing` — in-memory host harness
+- **Bundlers:** `@hermes-fabric/plugin-sdk/bundlers` — esbuild/rollup presets
+- **Dev server:** `@hermes-fabric/plugin-sdk/dev-server` — static UI server + SSE reload
 
 Reference: `doc/plugins/PLUGIN_SPEC.md`
 
@@ -14,15 +14,15 @@ Reference: `doc/plugins/PLUGIN_SPEC.md`
 
 | Import | Purpose |
 |--------|--------|
-| `@paperclipai/plugin-sdk` | Worker entry: `definePlugin`, `runWorker`, context types, protocol helpers |
-| `@paperclipai/plugin-sdk/ui` | UI entry: `usePluginData`, `usePluginAction`, `usePluginStream`, `useHostContext`, `useHostNavigation`, slot prop types |
-| `@paperclipai/plugin-sdk/ui/hooks` | Hooks only |
-| `@paperclipai/plugin-sdk/ui/types` | UI types and slot prop interfaces |
-| `@paperclipai/plugin-sdk/testing` | `createTestHarness` for unit/integration tests |
-| `@paperclipai/plugin-sdk/bundlers` | `createPluginBundlerPresets` for worker/manifest/ui builds |
-| `@paperclipai/plugin-sdk/dev-server` | `startPluginDevServer`, `getUiBuildSnapshot` |
-| `@paperclipai/plugin-sdk/protocol` | JSON-RPC protocol types and helpers (advanced) |
-| `@paperclipai/plugin-sdk/types` | Worker context and API types (advanced) |
+| `@hermes-fabric/plugin-sdk` | Worker entry: `definePlugin`, `runWorker`, context types, protocol helpers |
+| `@hermes-fabric/plugin-sdk/ui` | UI entry: `usePluginData`, `usePluginAction`, `usePluginStream`, `useHostContext`, `useHostNavigation`, slot prop types |
+| `@hermes-fabric/plugin-sdk/ui/hooks` | Hooks only |
+| `@hermes-fabric/plugin-sdk/ui/types` | UI types and slot prop interfaces |
+| `@hermes-fabric/plugin-sdk/testing` | `createTestHarness` for unit/integration tests |
+| `@hermes-fabric/plugin-sdk/bundlers` | `createPluginBundlerPresets` for worker/manifest/ui builds |
+| `@hermes-fabric/plugin-sdk/dev-server` | `startPluginDevServer`, `getUiBuildSnapshot` |
+| `@hermes-fabric/plugin-sdk/protocol` | JSON-RPC protocol types and helpers (advanced) |
+| `@hermes-fabric/plugin-sdk/types` | Worker context and API types (advanced) |
 
 ## Manifest entrypoints
 
@@ -34,7 +34,7 @@ In your plugin manifest you declare:
 ## Install
 
 ```bash
-pnpm add @paperclipai/plugin-sdk
+pnpm add @hermes-fabric/plugin-sdk
 ```
 
 ## Current deployment caveats
@@ -42,12 +42,12 @@ pnpm add @paperclipai/plugin-sdk
 The SDK is stable enough for local development and first-party examples, but the runtime deployment model is still early.
 
 - Plugin workers and plugin UI should both be treated as trusted code today.
-- Plugin UI bundles run as same-origin JavaScript inside the main Paperclip app. They can call ordinary Paperclip HTTP APIs with the board session, so manifest capabilities are not a frontend sandbox.
+- Plugin UI bundles run as same-origin JavaScript inside the main Hermes Fabric app. They can call ordinary Hermes Fabric HTTP APIs with the board session, so manifest capabilities are not a frontend sandbox.
 - Local-path installs and the repo example plugins are development workflows. They assume the plugin source checkout exists on disk.
-- For deployed plugins, publish an npm package and install that package into the Paperclip instance at runtime.
+- For deployed plugins, publish an npm package and install that package into the Hermes Fabric instance at runtime.
 - The current host runtime expects a writable filesystem, `npm` available at runtime, and network access to the package registry used for plugin installation.
 - Dynamic plugin install is currently best suited to single-node persistent deployments. Multi-instance cloud deployments still need a shared artifact/distribution model before runtime installs are reliable across nodes.
-- The host ships a small shared React component kit through `@paperclipai/plugin-sdk/ui`. Use it for native Paperclip controls; custom React and CSS are still supported.
+- The host ships a small shared React component kit through `@hermes-fabric/plugin-sdk/ui`. Use it for native Hermes Fabric controls; custom React and CSS are still supported.
 - `ctx.assets` is not part of the supported runtime in this build. Do not depend on asset upload/read APIs yet.
 
 If you are authoring a plugin for others to deploy, treat npm-packaged installation as the supported path and treat repo-local example installs as a development convenience.
@@ -55,7 +55,7 @@ If you are authoring a plugin for others to deploy, treat npm-packaged installat
 ## Worker quick start
 
 ```ts
-import { definePlugin, runWorker } from "@paperclipai/plugin-sdk";
+import { definePlugin, runWorker } from "@hermes-fabric/plugin-sdk";
 
 const plugin = definePlugin({
   async setup(ctx) {
@@ -224,7 +224,7 @@ Slot types describe where a component mounts. Most values also exist as launcher
 
 **Scope** describes whether the slot requires an entity to render. **Global** slots render without a specific entity but still receive the active `companyId` through `PluginHostContext` — use it to scope data fetches to the current company. **Entity** slots additionally require `entityId` and `entityType` (e.g. a detail tab on a specific issue).
 
-**Entity types** (for `entityTypes` on slots): `project` \| `issue` \| `agent` \| `goal` \| `run` \| `comment`. Full list: import `PLUGIN_UI_SLOT_TYPES` and `PLUGIN_UI_SLOT_ENTITY_TYPES` from `@paperclipai/plugin-sdk`.
+**Entity types** (for `entityTypes` on slots): `project` \| `issue` \| `agent` \| `goal` \| `run` \| `comment`. Full list: import `PLUGIN_UI_SLOT_TYPES` and `PLUGIN_UI_SLOT_ENTITY_TYPES` from `@hermes-fabric/plugin-sdk`.
 
 ### Slot component descriptions
 
@@ -252,7 +252,7 @@ Replaces the auto-generated JSON Schema settings form with a custom React compon
 
 #### `dashboardWidget`
 
-A card or section rendered on the main dashboard. Use this for at-a-glance metrics, status indicators, or summary views that surface plugin data alongside core Paperclip information. Receives `PluginWidgetProps` with `context.companyId` set to the active company. Requires the `ui.dashboardWidget.register` capability.
+A card or section rendered on the main dashboard. Use this for at-a-glance metrics, status indicators, or summary views that surface plugin data alongside core Hermes Fabric information. Receives `PluginWidgetProps` with `context.companyId` set to the active company. Requires the `ui.dashboardWidget.register` capability.
 
 #### `detailTab`
 
@@ -374,7 +374,7 @@ Declare in `manifest.capabilities`. Grouped by scope:
 | | `ui.commentAnnotation.register` |
 | | `ui.action.register` |
 
-Full list in code: import `PLUGIN_CAPABILITIES` from `@paperclipai/plugin-sdk`.
+Full list in code: import `PLUGIN_CAPABILITIES` from `@hermes-fabric/plugin-sdk`.
 
 ### External Object Reference Providers
 
@@ -402,7 +402,7 @@ Implement `onDetectExternalObjects()` to map sanitized URL candidates to
 metadata such as `displayKey`/`iconKey`. Implement `onResolveExternalObject()`
 to return a normalized snapshot with `statusCategory`, `statusTone`,
 `statusLabel`, optional `statusIconKey`, board-safe `data`, and freshness
-metadata. Slow or failing plugins are isolated: Paperclip logs the failure and
+metadata. Slow or failing plugins are isolated: Hermes Fabric logs the failure and
 continues saving the source issue, comment, or document.
 
 MVP security posture: provider plugins are trusted installs. Manifest
@@ -503,7 +503,7 @@ const child = await ctx.issues.create({
   status: "todo",
   assigneeAgentId: workerAgentId,
   billingCode: "mission:alpha",
-  originKind: "plugin:paperclip.missions:feature",
+  originKind: "plugin:fabric.missions:feature",
   originId: "mission-alpha:feature-1",
   blockedByIssueIds: [planningIssueId],
 });
@@ -585,7 +585,7 @@ Plugin-originated mutations are logged with `actorType: "plugin"` and details fi
 ## UI quick start
 
 ```tsx
-import { usePluginData, usePluginAction } from "@paperclipai/plugin-sdk/ui";
+import { usePluginData, usePluginAction } from "@hermes-fabric/plugin-sdk/ui";
 
 export function DashboardWidget() {
   const { data } = usePluginData<{ status: string }>("health");
@@ -607,7 +607,7 @@ export function DashboardWidget() {
 Fetches data from the worker's registered `getData` handler. Re-fetches when `params` changes. Returns `{ data, loading, error, refresh }`.
 
 ```tsx
-import { usePluginData } from "@paperclipai/plugin-sdk/ui";
+import { usePluginData } from "@hermes-fabric/plugin-sdk/ui";
 
 interface SyncStatus {
   lastSyncAt: string;
@@ -640,7 +640,7 @@ Returns an async function that calls the worker's `performAction` handler. Throw
 
 ```tsx
 import { useState } from "react";
-import { usePluginAction, type PluginBridgeError } from "@paperclipai/plugin-sdk/ui";
+import { usePluginAction, type PluginBridgeError } from "@hermes-fabric/plugin-sdk/ui";
 
 export function ResyncButton({ context }: PluginWidgetProps) {
   const resync = usePluginAction("resync");
@@ -675,8 +675,8 @@ export function ResyncButton({ context }: PluginWidgetProps) {
 Reads the active company, project, entity, and user context. Use this to scope data fetches and actions.
 
 ```tsx
-import { useHostContext, usePluginData } from "@paperclipai/plugin-sdk/ui";
-import type { PluginDetailTabProps } from "@paperclipai/plugin-sdk/ui";
+import { useHostContext, usePluginData } from "@hermes-fabric/plugin-sdk/ui";
+import type { PluginDetailTabProps } from "@hermes-fabric/plugin-sdk/ui";
 
 export function IssueLinearLink({ context }: PluginDetailTabProps) {
   const { companyId, entityId, entityType } = context;
@@ -692,10 +692,10 @@ export function IssueLinearLink({ context }: PluginDetailTabProps) {
 
 #### `useHostNavigation()`
 
-Routes Paperclip-internal plugin links through the host router without a full document reload. Use `linkProps()` for anchors so the browser still gets a real `href` for copy-link, modifier-click, middle-click, and open-in-new-tab behavior.
+Routes Hermes Fabric-internal plugin links through the host router without a full document reload. Use `linkProps()` for anchors so the browser still gets a real `href` for copy-link, modifier-click, middle-click, and open-in-new-tab behavior.
 
 ```tsx
-import { useHostNavigation } from "@paperclipai/plugin-sdk/ui";
+import { useHostNavigation } from "@hermes-fabric/plugin-sdk/ui";
 
 export function WikiSidebarLink() {
   const hostNavigation = useHostNavigation();
@@ -705,14 +705,14 @@ export function WikiSidebarLink() {
 
 `linkProps("/wiki")` resolves against the active company prefix, so in company `PAP` it renders `href="/PAP/wiki"`. Already-prefixed paths such as `/PAP/wiki` are not prefixed again. For button-style commands, call `hostNavigation.navigate("/issues/PAP-123")`.
 
-Avoid raw same-origin `href`s or `window.location.assign()` for Paperclip-internal navigation from plugin UI. Those bypass the host router and can reload the whole app. External links should keep normal anchors with `target="_blank"` and `rel="noopener noreferrer"` as appropriate.
+Avoid raw same-origin `href`s or `window.location.assign()` for Hermes Fabric-internal navigation from plugin UI. Those bypass the host router and can reload the whole app. External links should keep normal anchors with `target="_blank"` and `rel="noopener noreferrer"` as appropriate.
 
 #### `usePluginStream<T>(channel, options?)`
 
 Subscribes to a real-time event stream pushed from the plugin worker via SSE. The worker pushes events using `ctx.streams.emit(channel, event)` and the hook receives them as they arrive. Returns `{ events, lastEvent, connecting, connected, error, close }`.
 
 ```tsx
-import { usePluginStream } from "@paperclipai/plugin-sdk/ui";
+import { usePluginStream } from "@hermes-fabric/plugin-sdk/ui";
 
 interface ChatToken {
   text: string;
@@ -737,12 +737,12 @@ The SSE connection targets `GET /api/plugins/:pluginId/bridge/stream/:channel?co
 
 ### UI authoring note
 
-The host provides selected shared UI components through `@paperclipai/plugin-sdk/ui`.
+The host provides selected shared UI components through `@hermes-fabric/plugin-sdk/ui`.
 Plugins can also use normal React components, their own CSS, or small design
 primitives inside the plugin package.
 
 Use the shared components when the plugin needs to look and behave like a native
-Paperclip surface:
+Hermes Fabric surface:
 
 | Component | Use when |
 |---|---|
@@ -757,10 +757,10 @@ Paperclip surface:
 #### Shared Markdown Components
 
 Plugin UI can render markdown and edit markdown using the same host components
-used by Paperclip issue comments and documents:
+used by Hermes Fabric issue comments and documents:
 
 ```tsx
-import { MarkdownBlock, MarkdownEditor } from "@paperclipai/plugin-sdk/ui";
+import { MarkdownBlock, MarkdownEditor } from "@hermes-fabric/plugin-sdk/ui";
 
 export function WikiPageEditor() {
   const [body, setBody] = useState("# Wiki page");
@@ -779,7 +779,7 @@ target URL shape:
 
 ```tsx
 <MarkdownBlock
-  content={"See [[wiki/entities/paperclip|Paperclip]]."}
+  content={"See [[wiki/entities/fabric|HermesFabric]]."}
   enableWikiLinks
   wikiLinkRoot="/wiki/page"
 />
@@ -790,7 +790,7 @@ target URL shape:
 Plugin UI can render the host file tree without importing host internals:
 
 ```tsx
-import { FileTree, type FileTreeNode } from "@paperclipai/plugin-sdk/ui";
+import { FileTree, type FileTreeNode } from "@hermes-fabric/plugin-sdk/ui";
 
 const nodes: FileTreeNode[] = [
   { name: "AGENTS.md", path: "AGENTS.md", kind: "file", children: [] },
@@ -820,11 +820,11 @@ export function WikiFiles() {
 #### Shared Assignee and Project Pickers
 
 Use `AssigneePicker` and `ProjectPicker` when a plugin needs to create, filter,
-or configure work against Paperclip entities. Both are controlled components and
+or configure work against Hermes Fabric entities. Both are controlled components and
 load their options from the host for the provided company.
 
 ```tsx
-import { AssigneePicker, ProjectPicker } from "@paperclipai/plugin-sdk/ui";
+import { AssigneePicker, ProjectPicker } from "@hermes-fabric/plugin-sdk/ui";
 
 export function AssignmentControls({ companyId }: { companyId: string }) {
   const [assignee, setAssignee] = useState("");
@@ -852,7 +852,7 @@ export function AssignmentControls({ companyId }: { companyId: string }) {
 
 ### Slot component props
 
-Each slot type receives a typed props object with `context: PluginHostContext`. Import from `@paperclipai/plugin-sdk/ui`.
+Each slot type receives a typed props object with `context: PluginHostContext`. Import from `@hermes-fabric/plugin-sdk/ui`.
 
 | Slot type | Props interface | `context` extras |
 |-----------|----------------|------------------|
@@ -871,8 +871,8 @@ Each slot type receives a typed props object with `context: PluginHostContext`. 
 Example detail tab with entity context:
 
 ```tsx
-import type { PluginDetailTabProps } from "@paperclipai/plugin-sdk/ui";
-import { usePluginData } from "@paperclipai/plugin-sdk/ui";
+import type { PluginDetailTabProps } from "@hermes-fabric/plugin-sdk/ui";
+import { usePluginData } from "@hermes-fabric/plugin-sdk/ui";
 
 export function AgentMetricsTab({ context }: PluginDetailTabProps) {
   const { data, loading } = usePluginData<Record<string, string>>("agent-metrics", {
@@ -964,7 +964,7 @@ Minimal React component that links to the project’s plugin tab (see project de
 import {
   useHostNavigation,
   type PluginProjectSidebarItemProps,
-} from "@paperclipai/plugin-sdk/ui";
+} from "@hermes-fabric/plugin-sdk/ui";
 
 export function FilesLink({ context }: PluginProjectSidebarItemProps) {
   const hostNavigation = useHostNavigation();
@@ -1013,7 +1013,7 @@ import { useState } from "react";
 import {
   useHostContext,
   usePluginAction,
-} from "@paperclipai/plugin-sdk/ui";
+} from "@hermes-fabric/plugin-sdk/ui";
 
 export function SyncToolbarButton() {
   const context = useHostContext();
@@ -1170,7 +1170,7 @@ ctx.actions.register("ask-agent", async (params) => {
 
 ```tsx
 import { useState } from "react";
-import { usePluginAction, usePluginStream } from "@paperclipai/plugin-sdk/ui";
+import { usePluginAction, usePluginStream } from "@hermes-fabric/plugin-sdk/ui";
 
 interface AgentEvent {
   type: "chunk" | "done" | "error";
@@ -1229,7 +1229,7 @@ Exported types: `AgentSession`, `AgentSessionEvent`, `AgentSessionSendResult`, `
 ## Testing utilities
 
 ```ts
-import { createTestHarness } from "@paperclipai/plugin-sdk/testing";
+import { createTestHarness } from "@hermes-fabric/plugin-sdk/testing";
 import plugin from "../src/worker.js";
 import manifest from "../src/manifest.js";
 
@@ -1241,7 +1241,7 @@ await harness.emit("issue.created", { issueId: "iss_1" }, { entityId: "iss_1", e
 ## Bundler presets
 
 ```ts
-import { createPluginBundlerPresets } from "@paperclipai/plugin-sdk/bundlers";
+import { createPluginBundlerPresets } from "@hermes-fabric/plugin-sdk/bundlers";
 
 const presets = createPluginBundlerPresets({ uiEntry: "src/ui/index.tsx" });
 // presets.esbuild.worker / presets.esbuild.manifest / presets.esbuild.ui
@@ -1251,16 +1251,16 @@ const presets = createPluginBundlerPresets({ uiEntry: "src/ui/index.tsx" });
 ## Local dev server (hot-reload events)
 
 ```bash
-paperclip-plugin-dev-server --root . --ui-dir dist/ui --port 4177
+fabric-plugin-dev-server --root . --ui-dir dist/ui --port 4177
 ```
 
 Or programmatically:
 
 ```ts
-import { startPluginDevServer } from "@paperclipai/plugin-sdk/dev-server";
+import { startPluginDevServer } from "@hermes-fabric/plugin-sdk/dev-server";
 const server = await startPluginDevServer({ rootDir: process.cwd() });
 ```
 
 Dev server endpoints:
-- `GET /__paperclip__/health` returns `{ ok, rootDir, uiDir }`
-- `GET /__paperclip__/events` streams `reload` SSE events on UI build changes
+- `GET /__fabric__/health` returns `{ ok, rootDir, uiDir }`
+- `GET /__fabric__/events` streams `reload` SSE events on UI build changes

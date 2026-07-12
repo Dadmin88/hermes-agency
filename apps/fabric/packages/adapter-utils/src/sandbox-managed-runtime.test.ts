@@ -40,32 +40,32 @@ describe("sandbox managed runtime", () => {
   });
 
   it("preserves excluded local workspace artifacts during restore mirroring", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-restore-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-restore-"));
     cleanupDirs.push(rootDir);
     const sourceDir = path.join(rootDir, "source");
     const targetDir = path.join(rootDir, "target");
     await mkdir(path.join(sourceDir, "src"), { recursive: true });
     await mkdir(path.join(targetDir, ".claude"), { recursive: true });
-    await mkdir(path.join(targetDir, ".paperclip-runtime"), { recursive: true });
+    await mkdir(path.join(targetDir, ".fabric-runtime"), { recursive: true });
     await writeFile(path.join(sourceDir, "src", "app.ts"), "export const value = 2;\n", "utf8");
     await writeFile(path.join(targetDir, "stale.txt"), "remove me\n", "utf8");
     await writeFile(path.join(targetDir, ".claude", "settings.json"), "{\"keep\":true}\n", "utf8");
     await writeFile(path.join(targetDir, ".claude.json"), "{\"keep\":true}\n", "utf8");
-    await writeFile(path.join(targetDir, ".paperclip-runtime", "state.json"), "{}\n", "utf8");
+    await writeFile(path.join(targetDir, ".fabric-runtime", "state.json"), "{}\n", "utf8");
 
     await mirrorDirectory(sourceDir, targetDir, {
-      preserveAbsent: [".paperclip-runtime", ".claude", ".claude.json"],
+      preserveAbsent: [".fabric-runtime", ".claude", ".claude.json"],
     });
 
     await expect(readFile(path.join(targetDir, "src", "app.ts"), "utf8")).resolves.toBe("export const value = 2;\n");
     await expect(readFile(path.join(targetDir, ".claude", "settings.json"), "utf8")).resolves.toBe("{\"keep\":true}\n");
     await expect(readFile(path.join(targetDir, ".claude.json"), "utf8")).resolves.toBe("{\"keep\":true}\n");
-    await expect(readFile(path.join(targetDir, ".paperclip-runtime", "state.json"), "utf8")).resolves.toBe("{}\n");
+    await expect(readFile(path.join(targetDir, ".fabric-runtime", "state.json"), "utf8")).resolves.toBe("{}\n");
     await expect(readFile(path.join(targetDir, "stale.txt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("syncs workspace and assets through a provider-neutral sandbox client", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-managed-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-managed-"));
     cleanupDirs.push(rootDir);
     const localWorkspaceDir = path.join(rootDir, "local-workspace");
     const remoteWorkspaceDir = path.join(rootDir, "remote-workspace");
@@ -138,8 +138,8 @@ describe("sandbox managed runtime", () => {
 
     await writeFile(path.join(remoteWorkspaceDir, "README.md"), "remote workspace\n", "utf8");
     await writeFile(path.join(remoteWorkspaceDir, "remote-only.txt"), "sync back\n", "utf8");
-    await mkdir(path.join(localWorkspaceDir, ".paperclip-runtime"), { recursive: true });
-    await writeFile(path.join(localWorkspaceDir, ".paperclip-runtime", "state.json"), "{}\n", "utf8");
+    await mkdir(path.join(localWorkspaceDir, ".fabric-runtime"), { recursive: true });
+    await writeFile(path.join(localWorkspaceDir, ".fabric-runtime", "state.json"), "{}\n", "utf8");
     await writeFile(path.join(localWorkspaceDir, "local-stale.txt"), "remove\n", "utf8");
     await prepared.restoreWorkspace();
 
@@ -147,7 +147,7 @@ describe("sandbox managed runtime", () => {
     await expect(readFile(path.join(localWorkspaceDir, "remote-only.txt"), "utf8")).resolves.toBe("sync back\n");
     await expect(readFile(path.join(localWorkspaceDir, "local-stale.txt"), "utf8")).resolves.toBe("remove\n");
     await expect(readFile(path.join(localWorkspaceDir, ".claude", "settings.json"), "utf8")).resolves.toBe("{\"local\":true}\n");
-    await expect(readFile(path.join(localWorkspaceDir, ".paperclip-runtime", "state.json"), "utf8")).resolves.toBe("{}\n");
+    await expect(readFile(path.join(localWorkspaceDir, ".fabric-runtime", "state.json"), "utf8")).resolves.toBe("{}\n");
     expect(runtimeStatuses).toEqual([
       "config_sync:Syncing workspace to sandbox",
       "config_sync:Syncing runtime assets to sandbox",
@@ -157,7 +157,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("syncs git-backed workspaces through a shallow standalone clone and keeps .git out of archives", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-git-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-git-"));
     cleanupDirs.push(rootDir);
     const sourceRepoDir = path.join(rootDir, "source-repo");
     const localWorkspaceDir = path.join(rootDir, "local-worktree");
@@ -166,8 +166,8 @@ describe("sandbox managed runtime", () => {
     await mkdir(sourceRepoDir, { recursive: true });
     await git(sourceRepoDir, ["init"]);
     await git(sourceRepoDir, ["checkout", "-b", "main"]);
-    await git(sourceRepoDir, ["config", "user.name", "Paperclip Test"]);
-    await git(sourceRepoDir, ["config", "user.email", "test@paperclip.dev"]);
+    await git(sourceRepoDir, ["config", "user.name", "HermesFabric Test"]);
+    await git(sourceRepoDir, ["config", "user.email", "test@fabric.dev"]);
     await writeFile(path.join(sourceRepoDir, ".gitignore"), "node_modules/\n", "utf8");
     await writeFile(path.join(sourceRepoDir, "tracked.txt"), "base\n", "utf8");
     await writeFile(path.join(sourceRepoDir, "clean.txt"), "from git\n", "utf8");
@@ -249,8 +249,8 @@ describe("sandbox managed runtime", () => {
     expect(workspaceMembers).not.toContain("clean.txt");
     expect(workspaceMembers.some((entry) => entry === "node_modules" || entry.startsWith("node_modules/"))).toBe(false);
 
-    await git(remoteWorkspaceDir, ["config", "user.name", "Paperclip Sandbox"]);
-    await git(remoteWorkspaceDir, ["config", "user.email", "sandbox@paperclip.dev"]);
+    await git(remoteWorkspaceDir, ["config", "user.name", "HermesFabric Sandbox"]);
+    await git(remoteWorkspaceDir, ["config", "user.email", "sandbox@fabric.dev"]);
     await git(remoteWorkspaceDir, ["add", "-A"]);
     await git(remoteWorkspaceDir, ["commit", "-m", "sandbox update"]);
     await writeFile(path.join(remoteWorkspaceDir, "tracked.txt"), "remote dirty\n", "utf8");
@@ -279,7 +279,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("repairs stale host index deletions when the sandbox restores a clean git worktree", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-clean-restore-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-clean-restore-"));
     cleanupDirs.push(rootDir);
     const sourceRepoDir = path.join(rootDir, "source-repo");
     const localWorkspaceDir = path.join(rootDir, "local-worktree");
@@ -288,8 +288,8 @@ describe("sandbox managed runtime", () => {
     await mkdir(sourceRepoDir, { recursive: true });
     await git(sourceRepoDir, ["init"]);
     await git(sourceRepoDir, ["checkout", "-b", "main"]);
-    await git(sourceRepoDir, ["config", "user.name", "Paperclip Test"]);
-    await git(sourceRepoDir, ["config", "user.email", "test@paperclip.dev"]);
+    await git(sourceRepoDir, ["config", "user.name", "HermesFabric Test"]);
+    await git(sourceRepoDir, ["config", "user.email", "test@fabric.dev"]);
     await writeFile(path.join(sourceRepoDir, "kept.txt"), "kept\n", "utf8");
     await writeFile(path.join(sourceRepoDir, "restored.txt"), "restored\n", "utf8");
     await git(sourceRepoDir, ["add", "kept.txt", "restored.txt"]);
@@ -353,7 +353,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("does not fail clean restore checks when local working tree changes survive", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-preserved-local-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-preserved-local-"));
     cleanupDirs.push(rootDir);
     const sourceRepoDir = path.join(rootDir, "source-repo");
     const localWorkspaceDir = path.join(rootDir, "local-worktree");
@@ -361,8 +361,8 @@ describe("sandbox managed runtime", () => {
     await mkdir(sourceRepoDir, { recursive: true });
     await git(sourceRepoDir, ["init"]);
     await git(sourceRepoDir, ["checkout", "-b", "main"]);
-    await git(sourceRepoDir, ["config", "user.name", "Paperclip Test"]);
-    await git(sourceRepoDir, ["config", "user.email", "test@paperclip.dev"]);
+    await git(sourceRepoDir, ["config", "user.name", "HermesFabric Test"]);
+    await git(sourceRepoDir, ["config", "user.email", "test@fabric.dev"]);
     await writeFile(path.join(sourceRepoDir, "kept.txt"), "base\n", "utf8");
     await git(sourceRepoDir, ["add", "kept.txt"]);
     await git(sourceRepoDir, ["commit", "-m", "base"]);
@@ -377,7 +377,7 @@ describe("sandbox managed runtime", () => {
         checkWorkingTreeClean: true,
       });
       expect(warnSpy).toHaveBeenCalledWith(
-        "[paperclip] Workspace restore preserved local working tree changes after clean sandbox restore.",
+        "[fabric] Workspace restore preserved local working tree changes after clean sandbox restore.",
       );
     } finally {
       warnSpy.mockRestore();
@@ -389,7 +389,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("excludes unignored dependency trees from git-backed workspace overlay archives", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-unignored-deps-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-unignored-deps-"));
     cleanupDirs.push(rootDir);
     const sourceRepoDir = path.join(rootDir, "source-repo");
     const localWorkspaceDir = path.join(rootDir, "local-worktree");
@@ -398,8 +398,8 @@ describe("sandbox managed runtime", () => {
     await mkdir(sourceRepoDir, { recursive: true });
     await git(sourceRepoDir, ["init"]);
     await git(sourceRepoDir, ["checkout", "-b", "main"]);
-    await git(sourceRepoDir, ["config", "user.name", "Paperclip Test"]);
-    await git(sourceRepoDir, ["config", "user.email", "test@paperclip.dev"]);
+    await git(sourceRepoDir, ["config", "user.name", "HermesFabric Test"]);
+    await git(sourceRepoDir, ["config", "user.email", "test@fabric.dev"]);
     await mkdir(path.join(sourceRepoDir, "src"), { recursive: true });
     await writeFile(path.join(sourceRepoDir, "src", "tracked.ts"), "export const tracked = true;\n", "utf8");
     await git(sourceRepoDir, ["add", "src/tracked.ts"]);
@@ -496,7 +496,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("builds workspace/asset tarballs without a './' self-entry (so untar does not chmod/utime an unowned target dir)", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-tarself-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-tarself-"));
     cleanupDirs.push(rootDir);
     const localWorkspaceDir = path.join(rootDir, "local-workspace");
     const remoteWorkspaceDir = path.join(rootDir, "remote-workspace");
@@ -562,7 +562,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("excludes transient symlinked home dirs from the asset tar while keeping required content", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-home-tmp-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-home-tmp-"));
     cleanupDirs.push(rootDir);
     const localWorkspaceDir = path.join(rootDir, "local-workspace");
     const remoteWorkspaceDir = path.join(rootDir, "remote-workspace");
@@ -653,7 +653,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("emits throttled, labeled upload and restore progress with direction and percentages", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-progress-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-progress-"));
     cleanupDirs.push(rootDir);
     const localWorkspaceDir = path.join(rootDir, "local-workspace");
     const remoteWorkspaceDir = path.join(rootDir, "remote-workspace");
@@ -736,7 +736,7 @@ describe("sandbox managed runtime", () => {
   });
 
   it("creates a valid empty workspace tarball when the local workspace is empty", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-sandbox-empty-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-sandbox-empty-"));
     cleanupDirs.push(rootDir);
     const localWorkspaceDir = path.join(rootDir, "local-workspace");
     const remoteWorkspaceDir = path.join(rootDir, "remote-workspace");

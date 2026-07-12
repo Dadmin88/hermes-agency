@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { companies, createDb, projects as projectsTable } from "@paperclipai/db";
+import { companies, createDb, projects as projectsTable } from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -25,7 +25,7 @@ describeEmbeddedPostgres("project icon persistence", () => {
   let prefixCounter = 0;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-project-icon-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-project-icon-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

@@ -9,17 +9,17 @@ const serverRoot = path.join(repoRoot, "server");
 const serverSrcDir = path.join(repoRoot, "server", "src");
 const serverTestsDir = path.join(repoRoot, "server", "src", "__tests__");
 const nonServerProjects = [
-  "@paperclipai/shared",
-  "@paperclipai/skills-catalog",
-  "@paperclipai/db",
-  "@paperclipai/adapter-utils",
-  "@paperclipai/adapter-acpx-local",
-  "@paperclipai/adapter-codex-local",
-  "@paperclipai/adapter-opencode-local",
-  "@paperclipai/plugin-sdk",
-  "@paperclipai/create-paperclip-plugin",
-  "@paperclipai/ui",
-  "paperclipai",
+  "@hermes-fabric/shared",
+  "@hermes-fabric/skills-catalog",
+  "@hermes-fabric/db",
+  "@hermes-fabric/adapter-utils",
+  "@hermes-fabric/adapter-acpx-local",
+  "@hermes-fabric/adapter-codex-local",
+  "@hermes-fabric/adapter-opencode-local",
+  "@hermes-fabric/plugin-sdk",
+  "@hermes-fabric/create-fabric-plugin",
+  "@hermes-fabric/ui",
+  "hermes-fabric",
 ];
 const routeTestPattern = /[^/]*(?:route|routes|authz)[^/]*\.test\.ts$/;
 const additionalSerializedServerTests = new Set([
@@ -55,7 +55,7 @@ const allModeName = "all";
 const generalServerGroupName = "general-server";
 const generalWorkspacesAGroupName = "general-workspaces-a";
 const generalWorkspacesBGroupName = "general-workspaces-b";
-const generalWorkspacesAProjects = ["@paperclipai/ui", "paperclipai"];
+const generalWorkspacesAProjects = ["@hermes-fabric/ui", "hermes-fabric"];
 const generalWorkspacesBProjects = nonServerProjects.filter((project) => !generalWorkspacesAProjects.includes(project));
 const generalGroupNames = [generalServerGroupName, generalWorkspacesAGroupName, generalWorkspacesBGroupName];
 const serializedServerVitestArgs = [
@@ -254,11 +254,11 @@ function runVitest(args, label) {
   const env = {
     ...process.env,
     NODE_ENV: "test",
-    PAPERCLIP_HOME: path.join(testRoot, "h"),
-    PAPERCLIP_INSTANCE_ID: `vt-${process.pid}-${invocationIndex}`,
+    HERMES_FABRIC_HOME: path.join(testRoot, "h"),
+    HERMES_FABRIC_INSTANCE_ID: `vt-${process.pid}-${invocationIndex}`,
     TMPDIR: path.join(testRoot, "t"),
   };
-  mkdirSync(env.PAPERCLIP_HOME, { recursive: true });
+  mkdirSync(env.HERMES_FABRIC_HOME, { recursive: true });
   mkdirSync(env.TMPDIR, { recursive: true });
   const result = spawnSync("pnpm", ["exec", "vitest", "run", ...args], {
     cwd: repoRoot,
@@ -302,7 +302,7 @@ function runGeneralGroup(routeTests, groupName, shardIndex = null, shardCount = 
       runVitest(
         [
           "--project",
-          "@paperclipai/server",
+          "@hermes-fabric/server",
           ...serializedServerVitestArgs,
           ...shardFiles,
         ],
@@ -315,7 +315,7 @@ function runGeneralGroup(routeTests, groupName, shardIndex = null, shardCount = 
     runVitest(
       [
         "--project",
-        "@paperclipai/server",
+        "@hermes-fabric/server",
         ...serializedServerVitestArgs,
         ...excludeRouteArgs,
       ],
@@ -347,7 +347,7 @@ function runSerializedSuites(routeTests, shardIndex, shardCount) {
     runVitest(
       [
         "--project",
-        "@paperclipai/server",
+        "@hermes-fabric/server",
         routeTest.repoPath,
         "--pool=forks",
         "--isolate",

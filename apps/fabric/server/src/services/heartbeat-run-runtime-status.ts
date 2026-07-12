@@ -1,4 +1,4 @@
-import type { HeartbeatRunStatusPhase } from "@paperclipai/shared";
+import type { HeartbeatRunStatusPhase } from "@hermes-fabric/shared";
 import { redactSensitiveText } from "../redaction.js";
 
 export const HEARTBEAT_RUN_RUNTIME_STATUS_TTL_MS = 90_000;

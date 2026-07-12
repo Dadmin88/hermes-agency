@@ -1,16 +1,16 @@
-import type { PaperclipPluginManifestV1 } from "@paperclipai/plugin-sdk";
+import type { HermesFabricPluginManifestV1 } from "@hermes-fabric/plugin-sdk";
 
-const PLUGIN_ID = "paperclip.modal-sandbox-provider";
+const PLUGIN_ID = "fabric.modal-sandbox-provider";
 const PLUGIN_VERSION = "0.1.0";
 
-const manifest: PaperclipPluginManifestV1 = {
+const manifest: HermesFabricPluginManifestV1 = {
   id: PLUGIN_ID,
   apiVersion: 1,
   version: PLUGIN_VERSION,
   displayName: "Modal Sandbox Provider",
   description:
-    "First-party sandbox provider plugin that provisions Modal sandboxes as Paperclip execution environments.",
-  author: "Paperclip",
+    "First-party sandbox provider plugin that provisions Modal sandboxes as HermesFabric execution environments.",
+  author: "Hermes Fabric",
   categories: ["automation"],
   capabilities: ["environment.drivers.register"],
   entrypoints: {
@@ -41,7 +41,7 @@ const manifest: PaperclipPluginManifestV1 = {
             type: "string",
             format: "secret-ref",
             description:
-              "Modal token ID. Paste a token or an existing Paperclip secret reference; saved environments store pasted values as company secrets. Required.",
+              "Modal token ID. Paste a token or an existing HermesFabric secret reference; saved environments store pasted values as company secrets. Required.",
           },
           tokenSecret: {
             type: "string",
@@ -56,7 +56,7 @@ const manifest: PaperclipPluginManifestV1 = {
           workdir: {
             type: "string",
             description: "Remote working directory inside the sandbox.",
-            default: "/workspace/paperclip",
+            default: "/workspace/fabric",
           },
           sandboxTimeoutMs: {
             type: "number",

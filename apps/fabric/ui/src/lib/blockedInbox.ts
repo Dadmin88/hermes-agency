@@ -3,7 +3,7 @@ import type {
   IssueBlockedInboxAttention,
   IssueBlockedInboxReason,
   IssueBlockedInboxSeverity,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 export type BlockedReasonVariant =
   | "needs_decision"

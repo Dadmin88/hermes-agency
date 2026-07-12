@@ -1,7 +1,7 @@
 ---
 name: release-announcement
 description: Write a release announcement — changelog, blog post, in-app note, or social post — that leads with user impact, names the audience, and includes upgrade/migration steps without filler.
-key: paperclipai/optional/content/release-announcement
+key: hermes-fabric/optional/content/release-announcement
 recommendedForRoles:
   - devrel
   - product

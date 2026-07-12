@@ -1,16 +1,16 @@
-# Manual smoke test — `@paperclipai/plugin-kubernetes`
+# Manual smoke test — `@hermes-fabric/plugin-kubernetes`
 
 Manual sanity check that the plugin works end-to-end against a real
-paperclip-server instance and a real Kubernetes cluster (kind for local
+Hermes Fabric-server instance and a real Kubernetes cluster (kind for local
 dev). Future work may automate this in CI.
 
 ## Prerequisites
 
 - A running kind cluster:
   ```bash
-  kind create cluster --name paperclip
+  kind create cluster --name fabric
   ```
-- `kubectl --context kind-paperclip get nodes` returns a node in `Ready` state.
+- `kubectl --context kind-fabric get nodes` returns a node in `Ready` state.
 
 ## Steps
 
@@ -24,16 +24,16 @@ pnpm build
 
 Expected: `dist/` populated with compiled `.js` and `.d.ts` files. No errors.
 
-### 2. Start paperclip-server in dev mode
+### 2. Start Hermes Fabric-server in dev mode
 
 In a separate terminal:
 
 ```bash
-cd /path/to/paperclip
-export PAPERCLIP_HOME=/tmp/paperclip-smoke
-export PAPERCLIP_INSTANCE_ID=smoke
-export PAPERCLIP_DEPLOYMENT_MODE=local_trusted
-pnpm --filter @paperclipai/server dev
+cd /path/to/fabric
+export HERMES_FABRIC_HOME=/tmp/fabric-smoke
+export HERMES_FABRIC_INSTANCE_ID=smoke
+export HERMES_FABRIC_DEPLOYMENT_MODE=local_trusted
+pnpm --filter @hermes-fabric/server dev
 ```
 
 Wait for `Server listening on 127.0.0.1:3100`.
@@ -41,12 +41,12 @@ Wait for `Server listening on 127.0.0.1:3100`.
 ### 3. Install the plugin via the CLI
 
 ```bash
-pnpm paperclipai plugin install \
-  --local /path/to/paperclip/packages/plugins/sandbox-providers/kubernetes \
+pnpm hermes-fabric plugin install \
+  --local /path/to/fabric/packages/plugins/sandbox-providers/kubernetes \
   --api-base http://127.0.0.1:3100
 ```
 
-Expected: `✓ Installed paperclip.kubernetes-sandbox-provider v0.1.0 (ready)`.
+Expected: `✓ Installed fabric.kubernetes-sandbox-provider v0.1.0 (ready)`.
 
 ### 4. Create a company and a kubernetes sandbox environment
 
@@ -66,7 +66,7 @@ curl -s -X POST -H "Content-Type: application/json" \
       \"kubeconfig\": $KUBECONFIG_CONTENT,
       \"companySlug\": \"smoke\",
       \"adapterType\": \"claude_local\",
-      \"imageAllowList\": [\"ghcr.io/paperclipai/agent-runtime-claude:v1\"]
+      \"imageAllowList\": [\"ghcr.io/hermes-fabric/agent-runtime-claude:v1\"]
     }
   }" \
   http://127.0.0.1:3100/api/companies/$CO_ID/environments | jq
@@ -83,7 +83,7 @@ curl -s -X POST -d '{}' -H "Content-Type: application/json" \
 ```
 
 Expected: `{"ok": true, ...}` with a summary mentioning the tenant namespace
-(`paperclip-smoke`). On first probe the namespace may not yet exist —
+(`fabric-smoke`). On first probe the namespace may not yet exist —
 the plugin treats a 404 on `listNamespacedPod` as a successful reachability
 check.
 
@@ -92,7 +92,7 @@ check.
 Use the UI or the API to dispatch a run against the `k8s-sandbox` environment.
 The plugin's `onEnvironmentAcquireLease` will:
 
-1. `ensureTenant` — provision the `paperclip-smoke` namespace, SA, Role,
+1. `ensureTenant` — provision the `fabric-smoke` namespace, SA, Role,
    RoleBinding, ResourceQuota, LimitRange, NetworkPolicies
 2. `buildJobManifest` — render the security-hardened Job manifest
 3. `createJob` — submit to `batch/v1`
@@ -101,26 +101,26 @@ The plugin's `onEnvironmentAcquireLease` will:
 ### 7. Verify the tenant resources
 
 ```bash
-kubectl --context kind-paperclip get namespace paperclip-smoke
-kubectl --context kind-paperclip get all,networkpolicy,resourcequota,limitrange,sa,role,rolebinding -n paperclip-smoke
+kubectl --context kind-fabric get namespace fabric-smoke
+kubectl --context kind-fabric get all,networkpolicy,resourcequota,limitrange,sa,role,rolebinding -n fabric-smoke
 ```
 
 Expected:
 
-- Namespace `paperclip-smoke` exists with PSS labels
+- Namespace `fabric-smoke` exists with PSS labels
   (`pod-security.kubernetes.io/enforce=restricted`)
-- ServiceAccount `paperclip-tenant-sa`
-- Role `paperclip-tenant-role`, RoleBinding `paperclip-tenant-rb`
-- ResourceQuota `paperclip-quota`, LimitRange `paperclip-limits`
-- NetworkPolicies `paperclip-deny-all` + `paperclip-egress-allow`
+- ServiceAccount `fabric-tenant-sa`
+- Role `fabric-tenant-role`, RoleBinding `fabric-tenant-rb`
+- ResourceQuota `fabric-quota`, LimitRange `fabric-limits`
+- NetworkPolicies `fabric-deny-all` + `fabric-egress-allow`
 - Job `pc-{ulid}` and its child Pod
 - Secret `pc-{ulid}-env` with `ownerReferences` pointing at the Job
 
 ### 8. Tear down
 
 ```bash
-kubectl --context kind-paperclip delete namespace paperclip-smoke
-kill %1  # paperclip-server
+kubectl --context kind-fabric delete namespace fabric-smoke
+kill %1  # fabric-server
 ```
 
 ### 9. Document the result
@@ -130,6 +130,6 @@ record:
 
 - Date + git SHA
 - `kubectl version` server version
-- Output of `kubectl get all -n paperclip-smoke` after step 6
+- Output of `kubectl get all -n fabric-smoke` after step 6
 - Probe response from step 5
 - Time-to-acquire-lease (target: <30s on kind for a cold tenant)

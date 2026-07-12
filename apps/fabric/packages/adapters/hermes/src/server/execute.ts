@@ -2,7 +2,7 @@
  * Server-side execution logic for the Hermes Agent adapter.
  *
  * Spawns `hermes chat -q "..." -Q` as a child process, streams output,
- * and returns structured results to Paperclip.
+ * and returns structured results to HermesFabric.
  *
  * Verified CLI flags (hermes chat):
  *   -q/--query         single query (non-interactive)
@@ -25,18 +25,18 @@ import type {
   AdapterExecutionContext,
   AdapterExecutionResult,
   UsageSummary,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 
 import {
   runChildProcess,
-  buildPaperclipEnv,
+  buildHermesFabricEnv,
   renderTemplate,
   ensureAbsoluteDirectory,
-  DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE,
+  DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE,
   joinPromptSections,
-  renderPaperclipWakePrompt,
-  stringifyPaperclipWakePayload,
-} from "@paperclipai/adapter-utils/server-utils";
+  renderHermesFabricWakePrompt,
+  stringifyHermesFabricWakePayload,
+} from "@hermes-fabric/adapter-utils/server-utils";
 
 import {
   HERMES_CLI,
@@ -79,26 +79,26 @@ export function resolveHermesCommand(config: Record<string, unknown>): string {
 // ---------------------------------------------------------------------------
 
 const HERMES_DEFAULT_PROMPT_TEMPLATE = [
-  'You are "{{agent.name}}", an AI agent employee in a Paperclip-managed company.',
+  'You are "{{agent.name}}", an AI agent employee in a HermesFabric-managed company.',
   "",
-  "Paperclip runtime identity:",
+  "HermesFabric runtime identity:",
   "- Agent ID: {{agent.id}}",
   "- Company ID: {{agent.companyId}}",
   "- Run ID: {{run.id}}",
-  "- API base: {{paperclipApiUrl}}",
+  "- API base: {{fabricApiUrl}}",
   "",
-  "Paperclip API guidance:",
-  "- Use `curl` from the terminal for Paperclip API calls; browser/web extraction tools may not reach localhost.",
-  "- Use `$PAPERCLIP_API_URL`, `$FABRIC_API_KEY`, and `$PAPERCLIP_RUN_ID`; do not hard-code local ports or copy secrets into comments.",
-  "- `PAPERCLIP_API_KEY` may exist as a legacy alias, but `FABRIC_API_KEY` is the preferred Hermes Fabric API key variable.",
+  "HermesFabric API guidance:",
+  "- Use `curl` from the terminal for HermesFabric API calls; browser/web extraction tools may not reach localhost.",
+  "- Use `$HERMES_FABRIC_API_URL`, `$FABRIC_API_KEY`, and `$HERMES_FABRIC_RUN_ID`; do not hard-code local ports or copy secrets into comments.",
+  "- `HERMES_FABRIC_API_KEY` may exist as a legacy alias, but `FABRIC_API_KEY` is the preferred Hermes Fabric API key variable.",
   "- Displayed command logs may redact secrets; rely on environment variables instead of printed token values.",
   "- Include `-H \"Authorization: Bearer $FABRIC_API_KEY\"` on API requests.",
-  "- Include `-H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\"` on mutating issue requests.",
+  "- Include `-H \"X-HermesFabric-Run-Id: $HERMES_FABRIC_RUN_ID\"` on mutating issue requests.",
   "- For multiline comments or status updates, preserve newlines with `jq --arg` or a heredoc-fed helper rather than hand-escaping JSON.",
   "",
   "Safe multiline update pattern:",
   "```bash",
-  "api=\"${PAPERCLIP_API_URL%/}\"",
+  "api=\"${HERMES_FABRIC_API_URL%/}\"",
   "case \"$api\" in */api) ;; *) api=\"$api/api\" ;; esac",
   "",
   "body=$(cat <<'MD'",
@@ -111,12 +111,12 @@ const HERMES_DEFAULT_PROMPT_TEMPLATE = [
   "jq -n --arg status done --arg comment \"$body\" '{status:$status, comment:$comment}' | \\",
   "  curl -sS -X PATCH \"$api/issues/{{context.issueId}}\" \\",
   "    -H \"Authorization: Bearer $FABRIC_API_KEY\" \\",
-  "    -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" \\",
+  "    -H \"X-HermesFabric-Run-Id: $HERMES_FABRIC_RUN_ID\" \\",
   "    -H \"Content-Type: application/json\" \\",
   "    --data-binary @-",
   "```",
   "",
-  DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE,
+  DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE,
 ].join("\n");
 
 function renderConditionalSections(template: string, vars: Record<string, unknown>): string {
@@ -150,21 +150,21 @@ export function buildPrompt(
   const projectName = cfgString(context.projectName) || cfgString(ctx.config?.projectName) || "";
 
   // Build API URL — ensure it has the /api path
-  let paperclipApiUrl =
-    cfgString(config.paperclipApiUrl) ||
-    process.env.PAPERCLIP_API_URL ||
+  let fabricApiUrl =
+    cfgString(config.fabricApiUrl) ||
+    process.env.HERMES_FABRIC_API_URL ||
     "http://127.0.0.1:3100/api";
   // Ensure /api suffix
-  if (!paperclipApiUrl.endsWith("/api")) {
-    paperclipApiUrl = paperclipApiUrl.replace(/\/+$/, "") + "/api";
+  if (!fabricApiUrl.endsWith("/api")) {
+    fabricApiUrl = fabricApiUrl.replace(/\/+$/, "") + "/api";
   }
 
-  const wakePrompt = renderPaperclipWakePrompt(context.paperclipWake, {
+  const wakePrompt = renderHermesFabricWakePrompt(context.fabricWake, {
     resumedSession: options.resumedSession === true,
   });
-  const paperclipTaskMarkdown = cfgString(context.paperclipTaskMarkdown)?.trim() || "";
-  const sessionHandoffMarkdown = cfgString(context.paperclipSessionHandoffMarkdown)?.trim() || "";
-  const wakePayloadJson = stringifyPaperclipWakePayload(context.paperclipWake) || "";
+  const fabricTaskMarkdown = cfgString(context.fabricTaskMarkdown)?.trim() || "";
+  const sessionHandoffMarkdown = cfgString(context.fabricSessionHandoffMarkdown)?.trim() || "";
+  const wakePayloadJson = stringifyHermesFabricWakePayload(context.fabricWake) || "";
 
   const vars: Record<string, unknown> = {
     agentId: ctx.agent?.id || "",
@@ -182,21 +182,21 @@ export function buildPrompt(
     commentId,
     wakeReason,
     projectName,
-    paperclipApiUrl,
-    paperclipWakePrompt: wakePrompt,
-    paperclipTaskMarkdown,
-    taskContext: paperclipTaskMarkdown,
-    paperclipWakeJson: wakePayloadJson,
+    fabricApiUrl,
+    fabricWakePrompt: wakePrompt,
+    fabricTaskMarkdown,
+    taskContext: fabricTaskMarkdown,
+    fabricWakeJson: wakePayloadJson,
     wakePayloadJson,
-    paperclipApiKeyEnv: "FABRIC_API_KEY",
-    paperclipRunIdEnv: "PAPERCLIP_RUN_ID",
+    fabricApiKeyEnv: "FABRIC_API_KEY",
+    fabricRunIdEnv: "HERMES_FABRIC_RUN_ID",
   };
 
   const rendered = renderTemplate(renderConditionalSections(template, vars), vars);
   return joinPromptSections([
     wakePrompt,
     sessionHandoffMarkdown,
-    paperclipTaskMarkdown,
+    fabricTaskMarkdown,
     rendered,
   ]);
 }
@@ -237,7 +237,7 @@ function cleanResponse(raw: string): string {
     .filter((line) => {
       const t = line.trim();
       if (!t) return true; // keep blank lines for paragraph separation
-      if (t.startsWith("[tool]") || t.startsWith("[hermes]") || t.startsWith("[paperclip]")) return false;
+      if (t.startsWith("[tool]") || t.startsWith("[hermes]") || t.startsWith("[fabric]")) return false;
       if (t.startsWith("session_id:")) return false;
       if (/^\[\d{4}-\d{2}-\d{2}T/.test(t)) return false;
       if (/^\[done\]\s*┊/.test(t)) return false;
@@ -373,8 +373,8 @@ export async function execute(
     model,
   });
 
-  // ── Load agent instructions file (Paperclip instruction bundles) ──────
-  // Paperclip can materialize managed instructions into instructionsFilePath;
+  // ── Load agent instructions file (HermesFabric instruction bundles) ──────
+  // HermesFabric can materialize managed instructions into instructionsFilePath;
   // when present, inject that bundle into the Hermes prompt.
   const instructionsFilePath = cfgString(config.instructionsFilePath);
   let agentInstructions = "";
@@ -391,7 +391,7 @@ export async function execute(
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       // Non-fatal: log to stdout with an explicit "Warning:" prefix so the
-      // Paperclip UI doesn't render this as a red error (stderr output is
+      // HermesFabric UI doesn't render this as a red error (stderr output is
       // surfaced as an error signal even when execution continues).
       await ctx.onLog(
         "stdout",
@@ -439,7 +439,7 @@ export async function execute(
   args.push("--source", "tool");
 
   // Bypass Hermes dangerous-command approval prompts.
-  // Paperclip agents run as non-interactive subprocesses with no TTY,
+  // HermesFabric agents run as non-interactive subprocesses with no TTY,
   // so approval prompts would always timeout and deny legitimate commands
   // (curl, python3 -c, etc.). Agents operate in a sandbox — the approval
   // system is designed for human-attended interactive sessions.
@@ -458,28 +458,28 @@ export async function execute(
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     ...(userEnv && typeof userEnv === "object" ? userEnv : {}),
-    ...buildPaperclipEnv(ctx.agent),
+    ...buildHermesFabricEnv(ctx.agent),
   };
 
-  if (ctx.runId) env.PAPERCLIP_RUN_ID = ctx.runId;
+  if (ctx.runId) env.HERMES_FABRIC_RUN_ID = ctx.runId;
 
-  // Hermes Fabric API key env migration: prefer FABRIC_API_KEY, keep PAPERCLIP_API_KEY as a legacy alias.
-  const configuredFabricApiKey = env.FABRIC_API_KEY || env.PAPERCLIP_API_KEY || ((ctx as any).authToken as string | undefined);
+  // Hermes Fabric API key env migration: prefer FABRIC_API_KEY, keep HERMES_FABRIC_API_KEY as a legacy alias.
+  const configuredFabricApiKey = env.FABRIC_API_KEY || env.HERMES_FABRIC_API_KEY || ((ctx as any).authToken as string | undefined);
   if (configuredFabricApiKey) {
     env.FABRIC_API_KEY = configuredFabricApiKey;
-    env.PAPERCLIP_API_KEY = configuredFabricApiKey;
+    env.HERMES_FABRIC_API_KEY = configuredFabricApiKey;
   }
 
   // BUG FIX: Read task context from ctx.context (wake context), not ctx.config (adapter config)
   const ctxContext = (ctx as any).context || {};
   const envTaskId = cfgString(ctxContext.taskId) || cfgString(ctxContext.issueId) || cfgString(ctx.config?.taskId);
-  if (envTaskId) env.PAPERCLIP_TASK_ID = envTaskId;
+  if (envTaskId) env.HERMES_FABRIC_TASK_ID = envTaskId;
   const envWakeReason = cfgString(ctxContext.wakeReason) || cfgString(ctx.config?.wakeReason);
-  if (envWakeReason) env.PAPERCLIP_WAKE_REASON = envWakeReason;
+  if (envWakeReason) env.HERMES_FABRIC_WAKE_REASON = envWakeReason;
   const envCommentId = cfgString(ctxContext.commentId) || cfgString(ctxContext.wakeCommentId) || cfgString(ctx.config?.commentId);
-  if (envCommentId) env.PAPERCLIP_WAKE_COMMENT_ID = envCommentId;
-  const wakePayloadJson = stringifyPaperclipWakePayload(ctxContext.paperclipWake);
-  if (wakePayloadJson) env.PAPERCLIP_WAKE_PAYLOAD_JSON = wakePayloadJson;
+  if (envCommentId) env.HERMES_FABRIC_WAKE_COMMENT_ID = envCommentId;
+  const wakePayloadJson = stringifyHermesFabricWakePayload(ctxContext.fabricWake);
+  if (wakePayloadJson) env.HERMES_FABRIC_WAKE_PAYLOAD_JSON = wakePayloadJson;
 
   // ── Resolve working directory ──────────────────────────────────────────
   const cwd =
@@ -504,7 +504,7 @@ export async function execute(
 
   // ── Execute ────────────────────────────────────────────────────────────
   // Hermes writes non-error noise to stderr (MCP init, INFO logs, etc).
-  // Paperclip renders all stderr as red/error in the UI.
+  // HermesFabric renders all stderr as red/error in the UI.
   // Wrap onLog to reclassify benign stderr lines as stdout.
   const wrappedOnLog = async (stream: "stdout" | "stderr", chunk: string) => {
     if (stream === "stderr") {
@@ -571,7 +571,7 @@ export async function execute(
     executionResult.summary = parsed.response.slice(0, 2000);
   }
 
-  // Set resultJson so Paperclip can persist run metadata (used for UI display + auto-comments)
+  // Set resultJson so HermesFabric can persist run metadata (used for UI display + auto-comments)
   executionResult.resultJson = {
     result: parsed.response || "",
     session_id: parsed.sessionId || null,

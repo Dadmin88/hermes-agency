@@ -39,21 +39,21 @@ import type { Routine, RoutineTrigger, RoutineVariable } from "./routine.js";
  * A JSON Schema object used for plugin config schemas and tool parameter schemas.
  * Plugins provide these as plain JSON Schema compatible objects.
  *
- * The Paperclip extension keywords below are recognised by the Paperclip UI
+ * The HermesFabric extension keywords below are recognised by the HermesFabric UI
  * but are otherwise ignored by standard JSON Schema validators.
  */
 export type JsonSchema = {
   /**
-   * When true, the Paperclip config UI hides this property behind an
+   * When true, the HermesFabric config UI hides this property behind an
    * "Advanced options" disclosure. Defaults to false (always visible).
    */
-  "x-paperclip-advanced"?: boolean;
+  "x-fabric-advanced"?: boolean;
   /**
    * Optional sub-section heading used to group advanced properties inside
    * the disclosure (e.g. "SSH access", "VM resources"). Ignored when
-   * `x-paperclip-advanced` is not true.
+   * `x-fabric-advanced` is not true.
    */
-  "x-paperclip-group"?: string;
+  "x-fabric-group"?: string;
   [key: string]: unknown;
 };
 
@@ -65,7 +65,7 @@ export type {
 } from "../constants.js";
 
 // ---------------------------------------------------------------------------
-// Manifest sub-types — nested declarations within PaperclipPluginManifestV1
+// Manifest sub-types — nested declarations within HermesFabricPluginManifestV1
 // ---------------------------------------------------------------------------
 
 /**
@@ -149,7 +149,7 @@ export interface PluginEnvironmentDriverDeclaration {
 }
 
 /**
- * Declares a normal Paperclip agent that a plugin can provision and later
+ * Declares a normal HermesFabric agent that a plugin can provision and later
  * resolve by stable key within each company.
  */
 export interface PluginManagedAgentDeclaration {
@@ -175,7 +175,7 @@ export interface PluginManagedAgentDeclaration {
   adapterPreference?: Array<AgentAdapterType | string>;
   /** Suggested adapter configuration. */
   adapterConfig?: Record<string, unknown>;
-  /** Suggested Paperclip runtime configuration. */
+  /** Suggested HermesFabric runtime configuration. */
   runtimeConfig?: Record<string, unknown>;
   /** Suggested permissions object. Normalized by the host on create/reset. */
   permissions?: Record<string, unknown>;
@@ -214,7 +214,7 @@ export interface PluginLocalFolderDeclaration {
 }
 
 /**
- * Declares a normal Paperclip project that a plugin can provision and later
+ * Declares a normal HermesFabric project that a plugin can provision and later
  * resolve by stable key within each company.
  */
 export interface PluginManagedProjectDeclaration {
@@ -448,7 +448,7 @@ export interface PluginLauncherDeclaration {
 }
 
 /**
- * Lower-bound semver requirement for the Paperclip host.
+ * Lower-bound semver requirement for the HermesFabric host.
  *
  * The host should reject installation when its running version is lower than
  * the declared minimum.
@@ -537,7 +537,7 @@ export interface PluginObjectReferenceProviderDeclaration {
  * The manifest shape every plugin package must export.
  * See PLUGIN_SPEC.md §10.1 for the normative definition.
  */
-export interface PaperclipPluginManifestV1 {
+export interface HermesFabricPluginManifestV1 {
   /** Globally unique plugin identifier (e.g. `"acme.linear-sync"`). Must be lowercase alphanumeric with dots, hyphens, or underscores. */
   id: string;
   /** Plugin API version. Must be `1` for the current spec. */
@@ -561,7 +561,7 @@ export interface PaperclipPluginManifestV1 {
    * Legacy alias for `minimumHostVersion`.
    * Kept for backwards compatibility with existing manifests and docs.
    */
-  minimumPaperclipVersion?: PluginMinimumHostVersion;
+  minimumHermesFabricVersion?: PluginMinimumHostVersion;
   /** Capabilities this plugin requires from the host. Enforced at runtime. */
   capabilities: PluginCapability[];
   /** Entrypoint paths relative to the package root. */
@@ -628,7 +628,7 @@ export interface PluginRecord {
   /** Plugin categories from the manifest. */
   categories: PluginCategory[];
   /** Full manifest snapshot persisted at install/upgrade time. */
-  manifestJson: PaperclipPluginManifestV1;
+  manifestJson: HermesFabricPluginManifestV1;
   /** Current lifecycle status. */
   status: PluginStatus;
   /** Deterministic load order (null if not yet assigned). */

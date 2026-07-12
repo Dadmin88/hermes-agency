@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import type { AnchorHTMLAttributes, ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Agent, IssueRecoveryAction } from "@paperclipai/shared";
+import type { Agent, IssueRecoveryAction } from "@hermes-fabric/shared";
 import { IssueRecoveryActionCard, deriveRecoveryCardState } from "./IssueRecoveryActionCard";
 
 vi.mock("@/lib/router", () => ({
@@ -190,7 +190,7 @@ describe("IssueRecoveryActionCard", () => {
     expect(node.textContent).toContain("Workspace Validation");
     expect(node.textContent).not.toContain("workspace_validation\n");
     expect(node.textContent).toContain(
-      "Paperclip stopped this run because the task's git workspace could not be validated.",
+      "HermesFabric stopped this run because the task's git workspace could not be validated.",
     );
     expect(node.textContent).toContain("Repair the source issue workspace link");
     expect(node.textContent).toContain("Manual repair required");

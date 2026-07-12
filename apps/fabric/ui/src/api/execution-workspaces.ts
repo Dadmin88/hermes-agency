@@ -6,7 +6,7 @@ import type {
   WorkspaceOverviewResponse,
   WorkspaceOperation,
   WorkspaceRuntimeControlTarget,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { api } from "./client";
 import { sanitizeWorkspaceRuntimeControlTarget } from "./workspace-runtime-control";
 

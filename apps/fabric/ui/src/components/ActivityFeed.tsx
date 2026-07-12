@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ActivityEvent, Agent } from "@paperclipai/shared";
+import type { ActivityEvent, Agent } from "@hermes-fabric/shared";
 import { activityApi } from "../api/activity";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";

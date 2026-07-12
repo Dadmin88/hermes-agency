@@ -1,4 +1,4 @@
-import type { AdapterModelProfileDefinition } from "@paperclipai/adapter-utils";
+import type { AdapterModelProfileDefinition } from "@hermes-fabric/adapter-utils";
 
 export const type = "opencode_local";
 export const label = "OpenCode (local)";
@@ -67,8 +67,8 @@ export const DEFAULT_OPENCODE_CHEAP_MODEL = "openai/gpt-5.1-codex-mini";
 // Defaults to OpenCode's known Codex mini model, but is overridable so a deployment
 // routing through a gateway that does not serve that model (e.g. an EU LLM gateway)
 // can point the budget lane at a gateway-served model instead -- otherwise recovery
-// retries fail with "model not found". PAPERCLIP_OPENCODE_CHEAP_MODEL takes priority;
-// PAPERCLIP_OPENCODE_SMALL_MODEL (the auxiliary/title model) is reused as a sensible
+// retries fail with "model not found". HERMES_FABRIC_OPENCODE_CHEAP_MODEL takes priority;
+// HERMES_FABRIC_OPENCODE_SMALL_MODEL (the auxiliary/title model) is reused as a sensible
 // fallback so a single setting covers both budget lanes. The default keeps the
 // upstream behaviour (with the Codex `variant: "low"`).
 //
@@ -80,7 +80,7 @@ export const DEFAULT_OPENCODE_CHEAP_MODEL = "openai/gpt-5.1-codex-mini";
 export function buildOpenCodeModelProfiles(
   env: NodeJS.ProcessEnv = typeof process === "undefined" ? {} : process.env,
 ): AdapterModelProfileDefinition[] {
-  const override = (env.PAPERCLIP_OPENCODE_CHEAP_MODEL ?? env.PAPERCLIP_OPENCODE_SMALL_MODEL)?.trim();
+  const override = (env.HERMES_FABRIC_OPENCODE_CHEAP_MODEL ?? env.HERMES_FABRIC_OPENCODE_SMALL_MODEL)?.trim();
   return [
     {
       key: "cheap",
@@ -101,7 +101,7 @@ export const agentConfigurationDoc = `# opencode_local agent configuration
 Adapter: opencode_local
 
 Use when:
-- You want Paperclip to run OpenCode locally as the agent runtime
+- You want HermesFabric to run OpenCode locally as the agent runtime
 - You want provider/model routing in OpenCode format (provider/model)
 - You want OpenCode session resume across heartbeats via --session
 
@@ -115,7 +115,7 @@ Core fields:
 - instructionsFilePath (string, optional): absolute path to a markdown instructions file prepended to the run prompt
 - model (string, required): OpenCode model id in provider/model format (for example anthropic/claude-sonnet-4-5)
 - variant (string, optional): provider-specific reasoning/profile variant passed as --variant (for example minimal|low|medium|high|xhigh|max)
-- dangerouslySkipPermissions (boolean, optional): inject a runtime OpenCode config that allows \`external_directory\` access without interactive prompts; defaults to true for unattended Paperclip runs
+- dangerouslySkipPermissions (boolean, optional): inject a runtime OpenCode config that allows \`external_directory\` access without interactive prompts; defaults to true for unattended HermesFabric runs
 - promptTemplate (string, optional): run prompt template
 - command (string, optional): defaults to "opencode"
 - extraArgs (string[], optional): additional CLI args
@@ -128,13 +128,13 @@ Operational fields:
 Notes:
 - OpenCode supports multiple providers and models. Use \
   \`opencode models\` to list available options in provider/model format.
-- Paperclip requires an explicit \`model\` value for \`opencode_local\` agents.
+- HermesFabric requires an explicit \`model\` value for \`opencode_local\` agents.
 - Runs are executed with: opencode run --format json ...
 - Sessions are resumed with --session when stored session cwd matches current cwd.
 - The adapter sets OPENCODE_DISABLE_PROJECT_CONFIG=true to prevent OpenCode from \
   writing an opencode.json config file into the project working directory. Model \
   selection is passed via the --model CLI flag instead.
-- When \`dangerouslySkipPermissions\` is enabled, Paperclip injects a temporary \
+- When \`dangerouslySkipPermissions\` is enabled, HermesFabric injects a temporary \
   runtime config with \`permission.external_directory=allow\` so headless runs do \
   not stall on approval prompts.
 `;

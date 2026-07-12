@@ -6,7 +6,7 @@ import type {
   DocumentAnnotationThreadStatus,
   DocumentAnnotationThreadWithComments,
   UpdateDocumentAnnotationThreadRequest,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export type DocumentAnnotationListFilter = "open" | "resolved" | "all";

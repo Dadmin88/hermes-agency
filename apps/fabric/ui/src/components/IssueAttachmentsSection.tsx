@@ -1,7 +1,7 @@
 import { useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { IssueAttachment } from "@paperclipai/shared";
-import { Download, ExternalLink, FileText, Paperclip, Trash2 } from "lucide-react";
+import type { IssueAttachment } from "@hermes-fabric/shared";
+import { Download, ExternalLink, FileText, Link2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FoldCurtain } from "./FoldCurtain";
 import { MarkdownBody } from "./MarkdownBody";
@@ -121,7 +121,7 @@ function MarkdownAttachmentCard({
           <p className="px-1 py-2 text-xs text-destructive">Could not load markdown preview.</p>
         ) : (
           <FoldCurtain>
-            <MarkdownBody className="paperclip-edit-in-place-content min-h-[220px] text-[15px] leading-7" softBreaks={false}>
+            <MarkdownBody className="fabric-edit-in-place-content min-h-[220px] text-[15px] leading-7" softBreaks={false}>
               {data ?? ""}
             </MarkdownBody>
           </FoldCurtain>
@@ -241,7 +241,7 @@ export function IssueAttachmentsSection({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          <Link2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <h3 className="text-sm font-medium text-muted-foreground">Attachments</h3>
           <span className="text-xs text-muted-foreground">{attachments.length}</span>
         </div>

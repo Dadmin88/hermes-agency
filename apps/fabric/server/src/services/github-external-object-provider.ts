@@ -1,5 +1,5 @@
-import type { Db } from "@paperclipai/db";
-import type { ExternalObjectCanonicalUrl } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import type { ExternalObjectCanonicalUrl } from "@hermes-fabric/shared";
 import { ghFetch, gitHubApiBase } from "./github-fetch.js";
 import { secretService } from "./secrets.js";
 import type {
@@ -27,7 +27,7 @@ interface GitHubObjectIdentity {
   pathKind: "pull" | "issues";
 }
 
-const DEFAULT_GITHUB_TOKEN_SECRET_NAMES = ["GITHUB_TOKEN", "GH_TOKEN", "PAPERCLIP_GITHUB_TOKEN"] as const;
+const DEFAULT_GITHUB_TOKEN_SECRET_NAMES = ["GITHUB_TOKEN", "GH_TOKEN", "HERMES_FABRIC_GITHUB_TOKEN"] as const;
 const GITHUB_OBJECT_TTL_SECONDS = 300;
 
 function isGitHubHost(host: string) {
@@ -379,7 +379,7 @@ export function createGitHubExternalObjectProvider(
         token = token?.trim() || null;
         const headers: Record<string, string> = {
           accept: "application/vnd.github+json",
-          "user-agent": "paperclip-external-object-resolver",
+          "user-agent": "fabric-external-object-resolver",
           "x-github-api-version": "2022-11-28",
         };
         if (token) headers.authorization = `Bearer ${token}`;

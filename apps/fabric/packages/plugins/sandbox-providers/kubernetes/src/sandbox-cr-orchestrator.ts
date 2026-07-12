@@ -2,7 +2,7 @@
  * SandboxOrchestrator implementation backed by the kubernetes-sigs/agent-sandbox
  * Sandbox CRD (agents.x-k8s.io/v1alpha1).
  *
- * The Sandbox CR creates a long-lived pod that paperclip-server can exec into
+ * The Sandbox CR creates a long-lived pod that fabric-server can exec into
  * for multi-command adapter-install workflows — the key architectural win over
  * the batch/v1 Job backend.
  *
@@ -129,7 +129,7 @@ export async function getSandboxCrStatus(
 /**
  * Returns the pod name backing a Sandbox CR.
  * Primary: read status.podName from the CR (set by the controller once ready).
- * Fallback: list pods in the namespace filtered by the paperclip.io/managed-by
+ * Fallback: list pods in the namespace filtered by the fabric.io/managed-by
  * label and the sandbox name label set on the pod template.
  */
 export async function findPodForSandbox(

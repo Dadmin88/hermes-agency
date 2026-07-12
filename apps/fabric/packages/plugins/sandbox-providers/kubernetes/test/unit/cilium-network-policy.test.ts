@@ -3,8 +3,8 @@ import { buildCiliumNetworkPolicyManifest } from "../../src/cilium-network-polic
 
 describe("buildCiliumNetworkPolicyManifest", () => {
   const baseInput = {
-    namespace: "paperclip-acme",
-    paperclipServerNamespace: "paperclip",
+    namespace: "fabric-acme",
+    fabricServerNamespace: "fabric",
     egressAllowFqdns: ["api.anthropic.com"],
     egressAllowCidrs: [] as string[],
   };
@@ -17,7 +17,7 @@ describe("buildCiliumNetworkPolicyManifest", () => {
 
   it("targets agent pods by role label", () => {
     const cnp = buildCiliumNetworkPolicyManifest(baseInput);
-    expect(cnp.spec.endpointSelector.matchLabels["paperclip.io/role"]).toBe("agent");
+    expect(cnp.spec.endpointSelector.matchLabels["fabric.io/role"]).toBe("agent");
   });
 
   it("includes an FQDN allow rule for each adapter FQDN", () => {
@@ -41,10 +41,10 @@ describe("buildCiliumNetworkPolicyManifest", () => {
     expect(dnsRule).toBeDefined();
   });
 
-  it("includes a rule for paperclip-server callback", () => {
+  it("includes a rule for fabric-server callback", () => {
     const cnp = buildCiliumNetworkPolicyManifest(baseInput);
     const cb = cnp.spec.egress.find((e: { toEndpoints?: { matchLabels: Record<string, string> }[] }) =>
-      e.toEndpoints?.some((ep) => ep.matchLabels.app === "paperclip-server"),
+      e.toEndpoints?.some((ep) => ep.matchLabels.app === "fabric-server"),
     );
     expect(cb).toBeDefined();
   });

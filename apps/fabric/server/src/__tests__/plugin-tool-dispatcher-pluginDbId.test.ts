@@ -19,7 +19,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PaperclipPluginManifestV1 } from "@paperclipai/shared";
+import type { HermesFabricPluginManifestV1 } from "@hermes-fabric/shared";
 import { EventEmitter } from "node:events";
 import { createPluginToolDispatcher } from "../services/plugin-tool-dispatcher.js";
 import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
@@ -27,13 +27,13 @@ import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
 const PLUGIN_KEY = "acme.demo";
 const PLUGIN_DB_ID = "00000000-0000-4000-8000-000000000001";
 
-const MANIFEST: PaperclipPluginManifestV1 = {
+const MANIFEST: HermesFabricPluginManifestV1 = {
   id: PLUGIN_KEY,
   apiVersion: 1,
   version: "1.0.0",
   displayName: "Demo plugin",
   description: "Regression fixture",
-  author: "Paperclip",
+  author: "Hermes Fabric",
   categories: ["automation"],
   capabilities: [],
   entrypoints: { worker: "dist/worker.js" },
@@ -45,7 +45,7 @@ const MANIFEST: PaperclipPluginManifestV1 = {
       parametersSchema: { type: "object", properties: {} },
     },
   ],
-} as unknown as PaperclipPluginManifestV1;
+} as unknown as HermesFabricPluginManifestV1;
 
 // ---------------------------------------------------------------------------
 // Test doubles
@@ -93,7 +93,7 @@ function createLifecycleManager(): EventEmitter {
 function createDbStub(plugin: {
   id: string;
   pluginKey: string;
-  manifestJson: PaperclipPluginManifestV1;
+  manifestJson: HermesFabricPluginManifestV1;
 }): unknown {
   return {
     __plugins: [plugin],

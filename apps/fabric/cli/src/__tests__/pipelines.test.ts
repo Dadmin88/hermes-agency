@@ -34,8 +34,8 @@ async function run(args: string[]): Promise<void> {
 describe("pipeline CLI commands", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -69,7 +69,7 @@ describe("pipeline CLI commands", () => {
   });
 
   it("passes request_changes rows through review-bulk", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "paperclip-pipeline-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fabric-pipeline-cli-"));
     const file = join(dir, "review-bulk.json");
     await writeFile(file, JSON.stringify([
       { caseId: CASE_ID, decision: "request_changes", reason: "Needs edits", expectedVersion: 2 },
@@ -91,7 +91,7 @@ describe("pipeline CLI commands", () => {
   });
 
   it("passes blockedByCaseKeys rows through ingest-batch", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "paperclip-pipeline-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fabric-pipeline-cli-"));
     const file = join(dir, "ingest-batch.json");
     await writeFile(file, JSON.stringify([
       { caseKey: "tweet", title: "Tweet", blockedByCaseKeys: ["image", "post"] },

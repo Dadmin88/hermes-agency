@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
+import type { AdapterExecutionContext } from "@hermes-fabric/adapter-utils";
 import { execute, mapFinalResultForTest, parseSseFramesForTest, resolveSessionKey } from "./execute.js";
 import { testEnvironment } from "./test.js";
 
@@ -23,7 +23,7 @@ function makeCtx(config: Record<string, unknown>): AdapterExecutionContext {
     context: {
       issueId: "issue-1",
       wakeReason: "manual",
-      paperclipWake: {
+      fabricWake: {
         issue: { identifier: "PAP-1", title: "Do the thing" },
       },
     },
@@ -55,7 +55,7 @@ describe("resolveSessionKey", () => {
         runId: "run-1",
         issueId: "issue-1",
       }),
-    ).toBe("paperclip:company:company-1:agent:agent-1:issue:issue-1");
+    ).toBe("fabric:company:company-1:agent:agent-1:issue:issue-1");
   });
 
   it("omits the session key for none strategy", () => {
@@ -137,11 +137,11 @@ describe("execute", () => {
       Authorization: "Bearer secret-key",
       "Content-Type": "application/json",
       "Idempotency-Key": "pc-run-1",
-      "X-Hermes-Session-Key": "paperclip:company:company-1:agent:agent-1:issue:issue-1",
+      "X-Hermes-Session-Key": "fabric:company:company-1:agent:agent-1:issue:issue-1",
     });
     const body = JSON.parse(String(init.body));
     expect(body.input).toContain("Do the thing");
-    expect(body.session_id).toBe("paperclip:company:company-1:agent:agent-1:issue:issue-1");
+    expect(body.session_id).toBe("fabric:company:company-1:agent:agent-1:issue:issue-1");
   });
 
   it("routes a bare Hermes dashboard URL on port 9119 through the API prefix", async () => {
@@ -248,10 +248,10 @@ describe("execute", () => {
           sseStream(
             [
               "event: message.delta",
-              "data: {\"delta\":\"Authorization: Bearer secret-key\\nX-Hermes-Session-Key: paperclip:company:company-1:agent:agent-1:issue:issue-1\"}",
+              "data: {\"delta\":\"Authorization: Bearer secret-key\\nX-Hermes-Session-Key: fabric:company:company-1:agent:agent-1:issue:issue-1\"}",
               "",
               "event: run.completed",
-              "data: {\"status\":\"completed\",\"output\":\"Authorization: Bearer secret-key\\nraw key secret-key\\nX-Hermes-Session-Key: paperclip:company:company-1:agent:agent-1:issue:issue-1\"}",
+              "data: {\"status\":\"completed\",\"output\":\"Authorization: Bearer secret-key\\nraw key secret-key\\nX-Hermes-Session-Key: fabric:company:company-1:agent:agent-1:issue:issue-1\"}",
               "",
             ].join("\n"),
           ),
@@ -270,22 +270,22 @@ describe("execute", () => {
     expect(result.summary).toContain("raw key [redacted len=10]");
     expect(result.summary).toContain("X-Hermes-Session-Key: [redacted]");
     expect(result.summary).not.toContain("secret-key");
-    expect(result.summary).not.toContain("paperclip:company:company-1:agent:agent-1:issue:issue-1");
+    expect(result.summary).not.toContain("fabric:company:company-1:agent:agent-1:issue:issue-1");
     expect(result.resultJson?.output).toBe(result.summary);
     expect(logText).toContain("Bearer [redacted]");
     expect(logText).toContain("X-Hermes-Session-Key: [redacted]");
     expect(logText).not.toContain("secret-key");
-    expect(logText).not.toContain("paperclip:company:company-1:agent:agent-1:issue:issue-1");
+    expect(logText).not.toContain("fabric:company:company-1:agent:agent-1:issue:issue-1");
   });
 
-  it("redacts agent-scoped Paperclip session keys from logs and public result metadata", async () => {
+  it("redacts agent-scoped HermesFabric session keys from logs and public result metadata", async () => {
     const ctx = makeCtx({
       apiBaseUrl: "http://127.0.0.1:8642",
       apiKey: "secret-key",
       sessionKeyStrategy: "agent",
       timeoutSec: 5,
     });
-    const agentSessionKey = "paperclip:company:company-1:agent:agent-1";
+    const agentSessionKey = "fabric:company:company-1:agent:agent-1";
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/v1/runs")) {
@@ -391,9 +391,9 @@ describe("execute", () => {
         new Response(
           JSON.stringify({
             message: "Authorization rejected: Bearer secret-key raw secret-key",
-            detail: "X-Hermes-Session-Key: paperclip:company:company-1:agent:agent-1:issue:issue-1",
+            detail: "X-Hermes-Session-Key: fabric:company:company-1:agent:agent-1:issue:issue-1",
             nested: {
-              note: "session paperclip:company:company-1:agent:agent-1",
+              note: "session fabric:company:company-1:agent:agent-1",
             },
           }),
           { status: 401 },
@@ -415,7 +415,7 @@ describe("execute", () => {
       },
     });
     expect(result.errorMessage).not.toContain("secret-key");
-    expect(result.errorMessage).not.toContain("paperclip:company:company-1:agent:agent-1:issue:issue-1");
+    expect(result.errorMessage).not.toContain("fabric:company:company-1:agent:agent-1:issue:issue-1");
   });
 
   it("calls stop on timeout", async () => {

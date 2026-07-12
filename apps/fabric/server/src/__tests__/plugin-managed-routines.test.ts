@@ -17,8 +17,8 @@ import {
   routineRuns,
   routineTriggers,
   routines,
-} from "@paperclipai/db";
-import type { PaperclipPluginManifestV1 } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import type { HermesFabricPluginManifestV1 } from "@hermes-fabric/shared";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -44,14 +44,14 @@ function issuePrefix(id: string) {
   return `T${id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 }
 
-function manifest(): PaperclipPluginManifestV1 {
+function manifest(): HermesFabricPluginManifestV1 {
   return {
-    id: "paperclip.managed-routines-test",
+    id: "fabric.managed-routines-test",
     apiVersion: 1,
     version: "0.1.0",
     displayName: "Managed Routines Test",
     description: "Test plugin",
-    author: "Paperclip",
+    author: "Hermes Fabric",
     categories: ["automation"],
     capabilities: ["agents.managed", "projects.managed", "routines.managed"],
     entrypoints: { worker: "./dist/worker.js" },
@@ -104,7 +104,7 @@ describeEmbeddedPostgres("plugin-managed routines", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-plugin-managed-routines-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-plugin-managed-routines-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -134,13 +134,13 @@ describeEmbeddedPostgres("plugin-managed routines", () => {
     const pluginId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: issuePrefix(companyId),
     });
     await db.insert(plugins).values({
       id: pluginId,
       pluginKey: pluginManifest.id,
-      packageName: "@paperclipai/plugin-managed-routines-test",
+      packageName: "@hermes-fabric/plugin-managed-routines-test",
       version: pluginManifest.version,
       apiVersion: pluginManifest.apiVersion,
       categories: pluginManifest.categories,
@@ -167,7 +167,7 @@ describeEmbeddedPostgres("plugin-managed routines", () => {
       assigneeAgentId: agent.agentId,
       projectId: project.projectId,
       managedByPlugin: expect.objectContaining({
-        pluginKey: "paperclip.managed-routines-test",
+        pluginKey: "fabric.managed-routines-test",
         resourceKind: "routine",
         resourceKey: "nightly-lint",
       }),
@@ -242,7 +242,7 @@ describeEmbeddedPostgres("plugin-managed routines", () => {
     expect(run.status).toBe("issue_created");
     const [issue] = await db.select().from(issues).where(eq(issues.id, run.linkedIssueId!));
     expect(issue).toMatchObject({
-      originKind: "plugin:paperclip.managed-routines-test:operation",
+      originKind: "plugin:fabric.managed-routines-test:operation",
       originId: "operation:nightly-lint",
       billingCode: "plugin-test:nightly-lint",
       projectId: project.projectId,

@@ -27,7 +27,7 @@ const mockSecretsApi = vi.hoisted(() => ({
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({
     selectedCompanyId: "company-1",
-    selectedCompany: { id: "company-1", name: "Paperclip" },
+    selectedCompany: { id: "company-1", name: "Hermes Fabric" },
   }),
 }));
 

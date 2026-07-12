@@ -1,16 +1,13 @@
 {
   "name": "hermes-fabric",
   "version": "0.3.1",
-  "description": "Hermes Fabric CLI — operate the frontend for Hermes Agency while keeping Paperclip CLI compatibility",
+  "description": "Hermes Fabric CLI for operating the Hermes Agency frontend",
   "type": "module",
   "bin": {
-    "hermes-fabric": "./dist/index.js",
-    "paperclipai": "./dist/index.js"
+    "hermes-fabric": "./dist/index.js"
   },
   "keywords": [
-    "hermes-fabric",
     "hermes-agency",
-    "paperclip",
     "ai",
     "agents",
     "orchestration",
@@ -19,12 +16,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
-    "directory": "cli"
+    "url": "https://github.com/DeployFaith/Hermes_Agency",
+    "directory": "apps/fabric/cli"
   },
-  "homepage": "https://github.com/paperclipai/paperclip",
+  "homepage": "https://github.com/DeployFaith/Hermes_Agency",
   "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
+    "url": "https://github.com/DeployFaith/Hermes_Agency/issues"
   },
   "files": [
     "dist"
@@ -40,21 +37,21 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.0",
-    "@paperclipai/adapter-acpx-local": "workspace:*",
-    "@paperclipai/adapter-claude-local": "workspace:*",
-    "@paperclipai/adapter-codex-local": "workspace:*",
-    "@paperclipai/adapter-cursor-cloud": "workspace:*",
-    "@paperclipai/adapter-cursor-local": "workspace:*",
-    "@paperclipai/adapter-gemini-local": "workspace:*",
-    "@paperclipai/adapter-grok-local": "workspace:*",
-    "@paperclipai/adapter-opencode-local": "workspace:*",
-    "@paperclipai/adapter-pi-local": "workspace:*",
-    "@paperclipai/adapter-openclaw-gateway": "workspace:*",
-    "@paperclipai/adapter-utils": "workspace:*",
-    "@paperclipai/db": "workspace:*",
-    "@paperclipai/server": "workspace:*",
-    "@paperclipai/shared": "workspace:*",
-    "@paperclipai/hermes-paperclip-adapter": "workspace:*",
+    "@hermes-fabric/adapter-acpx-local": "workspace:*",
+    "@hermes-fabric/adapter-claude-local": "workspace:*",
+    "@hermes-fabric/adapter-codex-local": "workspace:*",
+    "@hermes-fabric/adapter-cursor-cloud": "workspace:*",
+    "@hermes-fabric/adapter-cursor-local": "workspace:*",
+    "@hermes-fabric/adapter-gemini-local": "workspace:*",
+    "@hermes-fabric/adapter-grok-local": "workspace:*",
+    "@hermes-fabric/adapter-opencode-local": "workspace:*",
+    "@hermes-fabric/adapter-pi-local": "workspace:*",
+    "@hermes-fabric/adapter-openclaw-gateway": "workspace:*",
+    "@hermes-fabric/adapter-utils": "workspace:*",
+    "@hermes-fabric/db": "workspace:*",
+    "@hermes-fabric/server": "workspace:*",
+    "@hermes-fabric/shared": "workspace:*",
+    "@hermes-fabric/hermes-fabric-adapter": "workspace:*",
     "drizzle-orm": "0.45.2",
     "dotenv": "^17.0.1",
     "commander": "^13.1.0",

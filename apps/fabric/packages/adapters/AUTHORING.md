@@ -10,7 +10,7 @@ package itself.
 The local execution-workspace cwd is the only persistence boundary across
 runs. No adapter may depend on a git remote for cross-run state.
 
-Why: Paperclip resolves a local execution workspace (a worktree) for each
+Why: Hermes Fabric resolves a local execution workspace (a worktree) for each
 heartbeat. Code state is carried forward by syncing that local cwd to wherever
 the agent actually runs — over ssh, into a sandbox, into a managed runtime —
 and then syncing changes back when the run finishes. Treating a `git remote`
@@ -23,9 +23,9 @@ How to apply:
 
 - Never `git push` from adapter runtime code. Never assume the local worktree
   has any `git remote` configured. If you need data from the previous run,
-  read it from the local cwd Paperclip handed you.
+  read it from the local cwd Hermes Fabric handed you.
 - If your adapter runs the agent on a different host (ssh, sandbox, remote
-  container), use the round-trip helpers in `@paperclipai/adapter-utils`:
+  container), use the round-trip helpers in `@hermes-fabric/adapter-utils`:
   [`prepareWorkspaceForSshExecution`](../adapter-utils/src/ssh.ts) bundles the
   local cwd to the remote dir before the run, and
   [`restoreWorkspaceFromSshExecution`](../adapter-utils/src/ssh.ts) syncs
@@ -51,7 +51,7 @@ adapter and runtime source (`packages/adapters/`, `packages/adapter-utils/`,
 `server/src/`, `cli/src/`) and fails the `policy` CI job if any unapproved
 `git push` invocation is added. If you are building an operator-configured
 path that legitimately must push, add a
-`// paperclip:allow-git-push: <reason>` comment on the line (or the line
+`// fabric:allow-git-push: <reason>` comment on the line (or the line
 above) so the opt-in shows up in code review.
 
 For the architecture-level write-up of cross-run persistence, see

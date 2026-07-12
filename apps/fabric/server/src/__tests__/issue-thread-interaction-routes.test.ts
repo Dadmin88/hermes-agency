@@ -39,7 +39,7 @@ const mockDb = vi.hoisted(() => ({
   select: mockDbSelect,
 }));
 
-vi.mock("@paperclipai/shared/telemetry", () => ({
+vi.mock("@hermes-fabric/shared/telemetry", () => ({
   trackAgentTaskCompleted: vi.fn(),
   trackErrorHandlerCrash: vi.fn(),
 }));

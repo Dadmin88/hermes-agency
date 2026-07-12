@@ -3,7 +3,7 @@ import { createPerRunSecret } from "../../src/secret-manager.js";
 
 describe("createPerRunSecret", () => {
   const baseInput = {
-    namespace: "paperclip-acme",
+    namespace: "fabric-acme",
     secretName: "r-abcd-env",
     runId: "r-abcd",
     ownerKind: "Job",
@@ -23,7 +23,7 @@ describe("createPerRunSecret", () => {
     expect(clients.core.createNamespacedSecret).toHaveBeenCalledOnce();
     const body = created[0].body as { metadata: { name: string; namespace: string } };
     expect(body.metadata.name).toBe("r-abcd-env");
-    expect(body.metadata.namespace).toBe("paperclip-acme");
+    expect(body.metadata.namespace).toBe("fabric-acme");
   });
 
   it("includes BOOTSTRAP_TOKEN and adapter env keys in stringData", async () => {

@@ -4,7 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { WorkspaceOverviewItem, WorkspaceOverviewResponse } from "@paperclipai/shared";
+import type { WorkspaceOverviewItem, WorkspaceOverviewResponse } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Workspaces } from "./Workspaces";
 
@@ -61,8 +61,8 @@ function overviewItem(overrides: Partial<WorkspaceOverviewItem> = {}): Workspace
     workspaceId: overrides.workspaceId ?? "workspace-1",
     workspaceName: overrides.workspaceName ?? "Workspace Alpha",
     projectId: overrides.projectId ?? "project-1",
-    projectUrlKey: overrides.projectUrlKey ?? "paperclip-app",
-    projectName: overrides.projectName ?? "Paperclip App",
+    projectUrlKey: overrides.projectUrlKey ?? "fabric-app",
+    projectName: overrides.projectName ?? "HermesFabric App",
     mode: overrides.mode ?? "isolated_workspace",
     strategyType: overrides.strategyType ?? "git_worktree",
     cwd: overrides.cwd ?? "/tmp/workspace-alpha",
@@ -176,12 +176,12 @@ describe("Workspaces", () => {
     expect(mockInstanceSettingsApi.getExperimental).toHaveBeenCalled();
     expect(mockExecutionWorkspacesApi.listOverview).toHaveBeenCalledWith("company-1", { offset: 0 });
     expect(mockExecutionWorkspacesApi.list).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("Paperclip App");
+    expect(container.textContent).toContain("HermesFabric App");
     expect(container.textContent).toContain("Workspace Alpha");
     expect(container.textContent).toContain("PAP-11916");
     expect(container.textContent).toContain("+1 more");
     expect(container.textContent).toContain("Showing 1 of 2 workspaces.");
-    expect(container.querySelector('a[href="/projects/paperclip-app/workspaces"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/projects/fabric-app/workspaces"]')).not.toBeNull();
 
     const loadMoreButton = Array.from(container.querySelectorAll("button"))
       .find((button) => button.textContent === "Load more");

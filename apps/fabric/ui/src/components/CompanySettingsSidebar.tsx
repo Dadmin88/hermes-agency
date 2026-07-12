@@ -15,7 +15,7 @@ import {
   UserRoundPen,
   Users,
 } from "lucide-react";
-import type { PluginRecord } from "@paperclipai/shared";
+import type { PluginRecord } from "@hermes-fabric/shared";
 import { sidebarBadgesApi } from "@/api/sidebarBadges";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { pluginsApi } from "@/api/plugins";

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ExternalObjectSummary, Issue, IssueRecoveryAction } from "@paperclipai/shared";
+import type { ExternalObjectSummary, Issue, IssueRecoveryAction } from "@hermes-fabric/shared";
 import { Link } from "@/lib/router";
 import { Eye, Flag, X } from "lucide-react";
 import {

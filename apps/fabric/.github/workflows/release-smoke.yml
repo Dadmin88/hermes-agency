@@ -3,8 +3,8 @@ name: Release Smoke
 on:
   workflow_dispatch:
     inputs:
-      paperclip_version:
-        description: Published Paperclip dist-tag to test
+      fabric_version:
+        description: Published HermesFabric dist-tag to test
         required: true
         default: canary
         type: choice
@@ -23,7 +23,7 @@ on:
         type: string
   workflow_call:
     inputs:
-      paperclip_version:
+      fabric_version:
         required: true
         type: string
       host_port:
@@ -68,7 +68,7 @@ jobs:
           metadata_file="$RUNNER_TEMP/release-smoke.env"
           HOST_PORT="${{ inputs.host_port }}" \
           DATA_DIR="$RUNNER_TEMP/release-smoke-data" \
-          PAPERCLIPAI_VERSION="${{ inputs.paperclip_version }}" \
+          HERMES_FABRIC_VERSION="${{ inputs.fabric_version }}" \
           SMOKE_DETACH=true \
           SMOKE_METADATA_FILE="$metadata_file" \
           ./scripts/docker-onboard-smoke.sh
@@ -82,16 +82,16 @@ jobs:
             echo "SMOKE_CONTAINER_NAME=$SMOKE_CONTAINER_NAME"
             echo "SMOKE_DATA_DIR=$SMOKE_DATA_DIR"
             echo "SMOKE_IMAGE_NAME=$SMOKE_IMAGE_NAME"
-            echo "SMOKE_PAPERCLIPAI_VERSION=$SMOKE_PAPERCLIPAI_VERSION"
+            echo "SMOKE_HERMES_FABRIC_VERSION=$SMOKE_HERMES_FABRIC_VERSION"
             echo "SMOKE_METADATA_FILE=$metadata_file"
           } >> "$GITHUB_ENV"
 
       - name: Run release smoke Playwright suite
         env:
-          PAPERCLIP_RELEASE_SMOKE_BASE_URL: ${{ env.SMOKE_BASE_URL }}
-          PAPERCLIP_RELEASE_SMOKE_EMAIL: ${{ env.SMOKE_ADMIN_EMAIL }}
-          PAPERCLIP_RELEASE_SMOKE_PASSWORD: ${{ env.SMOKE_ADMIN_PASSWORD }}
-          PAPERCLIP_PLAYWRIGHT_CHANNEL: "chrome"
+          HERMES_FABRIC_RELEASE_SMOKE_BASE_URL: ${{ env.SMOKE_BASE_URL }}
+          HERMES_FABRIC_RELEASE_SMOKE_EMAIL: ${{ env.SMOKE_ADMIN_EMAIL }}
+          HERMES_FABRIC_RELEASE_SMOKE_PASSWORD: ${{ env.SMOKE_ADMIN_PASSWORD }}
+          HERMES_FABRIC_PLAYWRIGHT_CHANNEL: "chrome"
         run: pnpm run test:release-smoke
 
       - name: Capture Docker logs

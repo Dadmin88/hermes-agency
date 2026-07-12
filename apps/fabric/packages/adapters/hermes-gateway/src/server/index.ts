@@ -6,4 +6,4 @@ export {
   resolveSessionKey,
   sessionCodec,
   testEnvironment,
-} from "@paperclipai/hermes-paperclip-adapter/gateway/server";
+} from "@hermes-fabric/hermes-fabric-adapter/gateway/server";

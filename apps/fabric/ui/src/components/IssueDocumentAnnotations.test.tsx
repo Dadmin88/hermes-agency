@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
   DocumentAnnotationThreadWithComments,
   IssueDocument,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DocumentAnnotationsCountChip,
@@ -981,7 +981,7 @@ describe("IssueDocumentAnnotations", () => {
       const sheet = container.querySelector('[data-slot="sheet-content"]');
       expect(sheet).not.toBeNull();
       expect(sheet?.getAttribute("data-side")).toBe("bottom");
-      expect(sheet?.className).toContain("paperclip-doc-annotation-sheet");
+      expect(sheet?.className).toContain("fabric-doc-annotation-sheet");
       expect(sheet?.className).toContain("z-[60]");
       expect(sheet?.className).toContain("bg-popover");
     } finally {

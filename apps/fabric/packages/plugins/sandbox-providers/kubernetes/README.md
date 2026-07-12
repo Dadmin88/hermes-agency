@@ -1,8 +1,8 @@
-# @paperclipai/plugin-kubernetes (alpha)
+# @Hermes Fabricai/plugin-kubernetes (alpha)
 
-First-party Paperclip sandbox-provider plugin for Kubernetes.
+First-party Hermes Fabric sandbox-provider plugin for Kubernetes.
 
-**Alpha:** the default backend (`sandbox-cr`) is built on `kubernetes-sigs/agent-sandbox` v1alpha1 — expect breaking changes as that CRD evolves toward Beta. A stable fallback backend (`job`, using `batch/v1` Job) is available for clusters without agent-sandbox installed, but it does NOT support multi-command exec (paperclip-server's adapter-install pattern requires sandbox-cr).
+**Alpha:** the default backend (`sandbox-cr`) is built on `kubernetes-sigs/agent-sandbox` v1alpha1 — expect breaking changes as that CRD evolves toward Beta. A stable fallback backend (`job`, using `batch/v1` Job) is available for clusters without agent-sandbox installed, but it does NOT support multi-command exec (Hermes Fabric-server's adapter-install pattern requires sandbox-cr).
 
 ## Prerequisites
 
@@ -10,23 +10,23 @@ First-party Paperclip sandbox-provider plugin for Kubernetes.
 
 1. A Kubernetes cluster running k8s 1.27+
 2. [`kubernetes-sigs/agent-sandbox`](https://github.com/kubernetes-sigs/agent-sandbox) controller installed in the cluster (alpha — installs the `sandboxes.agents.x-k8s.io/v1alpha1` CRD and controller)
-3. Paperclip-server running with access to the cluster (in-cluster via `inCluster: true` or external via `kubeconfig`)
+3. Hermes Fabric-server running with access to the cluster (in-cluster via `inCluster: true` or external via `kubeconfig`)
 
 ### For `job` backend (stable fallback)
 
 1. A Kubernetes cluster running k8s 1.27+
-2. Paperclip-server with cluster access — no additional controllers or CRDs required
+2. Hermes Fabric-server with cluster access — no additional controllers or CRDs required
 
 ## Installation
 
 ```bash
-paperclipai plugin install @paperclipai/plugin-kubernetes
+hermes-fabric plugin install @hermes-fabric/plugin-kubernetes
 ```
 
 Or, for local development:
 
 ```bash
-paperclipai plugin install --local /path/to/paperclip/packages/plugins/sandbox-providers/kubernetes
+hermes-fabric plugin install --local /path/to/fabric/packages/plugins/sandbox-providers/kubernetes
 ```
 
 ## Backends
@@ -38,9 +38,9 @@ The plugin supports two backend modes, selected via the `backend` config field:
 | `sandbox-cr` | Yes | Alpha | Yes | `kubernetes-sigs/agent-sandbox` controller |
 | `job` | No | Stable | No | Nothing beyond k8s 1.27+ |
 
-**`sandbox-cr` (default):** Creates a `Sandbox` CR (`agents.x-k8s.io/v1alpha1`) whose controller provisions a long-lived pod running `sleep infinity`. paperclip-server execs individual commands into the running pod — this is the multi-command adapter-install pattern. When you `releaseLease`, the Sandbox CR is deleted and the controller tears down the pod.
+**`sandbox-cr` (default):** Creates a `Sandbox` CR (`agents.x-k8s.io/v1alpha1`) whose controller provisions a long-lived pod running `sleep infinity`. Hermes Fabric-server execs individual commands into the running pod — this is the multi-command adapter-install pattern. When you `releaseLease`, the Sandbox CR is deleted and the controller tears down the pod.
 
-**`job` (stable fallback):** Creates a `batch/v1` Job. The container entrypoint runs once and exits — no multi-command exec possible. Use this when you cannot install agent-sandbox, or when you need strictly stable Kubernetes APIs. Note: paperclip-server's adapter-install pattern will not work in job mode.
+**`job` (stable fallback):** Creates a `batch/v1` Job. The container entrypoint runs once and exits — no multi-command exec possible. Use this when you cannot install agent-sandbox, or when you need strictly stable Kubernetes APIs. Note: Hermes Fabric-server's adapter-install pattern will not work in job mode.
 
 ### Migrating from `job` to `sandbox-cr`
 
@@ -52,9 +52,9 @@ The plugin supports two backend modes, selected via the `backend` config field:
 
 Create a `sandbox` environment with `driver: kubernetes`. One of these auth fields is required:
 
-- `inCluster: true` — use the in-pod ServiceAccount credentials (when paperclip-server runs inside the same cluster).
+- `inCluster: true` — use the in-pod ServiceAccount credentials (when Hermes Fabric-server runs inside the same cluster).
 - `kubeconfig: <YAML>` — inline kubeconfig (stored as a company secret).
-- `kubeconfigSecretRef: <secret-uuid>` — reference to an existing Paperclip secret.
+- `kubeconfigSecretRef: <secret-uuid>` — reference to an existing Hermes Fabric secret.
 
 Common optional fields:
 
@@ -62,7 +62,7 @@ Common optional fields:
 |---|---|---|
 | `backend` | `"sandbox-cr"` | `sandbox-cr` (alpha, requires agent-sandbox controller) or `job` (stable, one-shot entrypoint). |
 | `adapterType` | `"claude_local"` | One of the supported adapter types (claude_local, codex_local, gemini_local, cursor_local, opencode_local, acpx_local, pi_local). Determines runtime image + env keys + egress allow-list. |
-| `namespacePrefix` | `"paperclip-"` | Prefix for the per-company tenant namespace. |
+| `namespacePrefix` | `"fabric-"` | Prefix for the per-company tenant namespace. |
 | `companySlug` | derived from companyId | Override the auto-derived company slug. |
 | `imageRegistry` | (none) | Override the default registry for agent runtime images. |
 | `imageAllowList` | `[]` | Glob patterns of allowed `target.imageOverride` values. Empty = no override permitted. |
@@ -82,15 +82,15 @@ Full JSON Schema in `src/manifest.ts`.
 For each company that runs agents (created lazily on first dispatch):
 
 ```
-Namespace          paperclip-{companySlug}        (PSS: restricted enforce + audit)
-ServiceAccount     paperclip-tenant-sa
-Role               paperclip-tenant-role          (only get pods/log)
-RoleBinding        paperclip-tenant-rb
-ResourceQuota      paperclip-quota                (pods, requests/limits cpu+memory)
-LimitRange         paperclip-limits               (container max/min/default/defaultRequest)
-NetworkPolicy      paperclip-deny-all             (deny ingress + egress baseline)
-NetworkPolicy      paperclip-egress-allow         (DNS + paperclip-server callback + user CIDRs)
-                   OR CiliumNetworkPolicy paperclip-egress-fqdn if egressMode=cilium
+Namespace          fabric-{companySlug}        (PSS: restricted enforce + audit)
+ServiceAccount     fabric-tenant-sa
+Role               fabric-tenant-role          (only get pods/log)
+RoleBinding        fabric-tenant-rb
+ResourceQuota      fabric-quota                (pods, requests/limits cpu+memory)
+LimitRange         fabric-limits               (container max/min/default/defaultRequest)
+NetworkPolicy      fabric-deny-all             (deny ingress + egress baseline)
+NetworkPolicy      fabric-egress-allow         (DNS + fabric-server callback + user CIDRs)
+                   OR CiliumNetworkPolicy fabric-egress-fqdn if egressMode=cilium
 ```
 
 For each agent run (sandbox-cr backend):
@@ -115,13 +115,13 @@ Every agent pod is:
 
 - non-root (`runAsUser: 1000`, `runAsGroup: 1000`, `runAsNonRoot: true`)
 - drops ALL Linux capabilities, `allowPrivilegeEscalation: false`
-- `readOnlyRootFilesystem: true` with explicit `emptyDir` mounts for `/workspace`, `/home/paperclip`, `/home/paperclip/.cache`, `/tmp`
+- `readOnlyRootFilesystem: true` with explicit `emptyDir` mounts for `/workspace`, `/home/fabric`, `/home/fabric/.cache`, `/tmp`
 - `seccompProfile: RuntimeDefault`
 - Tini as PID 1 (reaps zombies, forwards signals)
 - `fsGroupChangePolicy: OnRootMismatch` (fast PVC startup; openclaw-operator lesson)
-- `automountServiceAccountToken: true` (for the agent shim's paperclip-server callback)
+- `automountServiceAccountToken: true` (for the agent shim's Hermes Fabric-server callback)
 
-Plus per-namespace `pod-security.kubernetes.io/enforce: restricted` and a deny-all NetworkPolicy baseline with explicit egress allow-list (DNS, paperclip-server, configured FQDNs/CIDRs).
+Plus per-namespace `pod-security.kubernetes.io/enforce: restricted` and a deny-all NetworkPolicy baseline with explicit egress allow-list (DNS, Hermes Fabric-server, configured FQDNs/CIDRs).
 
 The per-run Secret carrying the bootstrap token and adapter API keys has `ownerReferences` pointing at the owning Job, so a single `kubectl delete job …` cascades cleanly to the Pod and Secret.
 
@@ -156,7 +156,7 @@ pnpm typecheck
 pnpm build
 ```
 
-To run the kind-cluster integration test (requires `kubectl --context kind-paperclip` and a pre-loaded alpine image; see `test/integration/end-to-end-run.test.ts`):
+To run the kind-cluster integration test (requires `kubectl --context kind-fabric` and a pre-loaded alpine image; see `test/integration/end-to-end-run.test.ts`):
 
 ```bash
 RUN_K8S_INTEGRATION_TESTS=1 pnpm test test/integration/end-to-end-run.test.ts

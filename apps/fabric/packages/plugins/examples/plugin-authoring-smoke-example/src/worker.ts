@@ -1,4 +1,4 @@
-import { definePlugin, runWorker } from "@paperclipai/plugin-sdk";
+import { definePlugin, runWorker } from "@hermes-fabric/plugin-sdk";
 
 const plugin = definePlugin({
   async setup(ctx) {

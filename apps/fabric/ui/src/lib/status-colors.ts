@@ -132,7 +132,7 @@ export const agentStatusMotion: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // Brand `.task-chip` status palette (PAP-75 / status-reference.html)
 //
-// Colour-named, 1px border, light + dark — values straight from paperclip.ing
+// Colour-named, 1px border, light + dark — values straight from fabric.ing
 // `brand.css`. Shared by the agents section (PAP-80) and the All Projects page
 // (PAP-91); PAP-99 brings it to issue/task status chips, adding `violet` for
 // `in_review`.
@@ -250,7 +250,7 @@ export const priorityColorDefault = "text-yellow-600 dark:text-yellow-400";
 // External object status — colors & severity ranking
 // ---------------------------------------------------------------------------
 //
-// Categories come from `EXTERNAL_OBJECT_STATUS_CATEGORIES` in @paperclipai/shared.
+// Categories come from `EXTERNAL_OBJECT_STATUS_CATEGORIES` in @hermes-fabric/shared.
 // The map keys here intentionally mirror the union — keep them in sync.
 //
 // Tone reuse rationale (see UX spec §1):

@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { instanceUserRoles } from "@paperclipai/db";
+import { instanceUserRoles } from "@hermes-fabric/db";
 import { actorMiddleware } from "../middleware/auth.js";
 
 function createSelectChain(rows: unknown[]) {
@@ -26,11 +26,11 @@ function createDb() {
 }
 
 describe("actorMiddleware authenticated session profile", () => {
-  const originalCloudTenantToken = process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN;
+  const originalCloudTenantToken = process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN;
 
   afterEach(() => {
-    if (originalCloudTenantToken === undefined) delete process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN;
-    else process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN = originalCloudTenantToken;
+    if (originalCloudTenantToken === undefined) delete process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN;
+    else process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN = originalCloudTenantToken;
   });
 
   it("preserves the signed-in user name and email on the board actor", async () => {
@@ -68,7 +68,7 @@ describe("actorMiddleware authenticated session profile", () => {
   });
 
   it("trusts Cloud tenant identity headers and seeds board access", async () => {
-    process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN = "tenant-token";
+    process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN = "tenant-token";
     const inserts: Array<{ values: Record<string, unknown> }> = [];
     const db = {
       insert: vi.fn(() => {
@@ -109,13 +109,13 @@ describe("actorMiddleware authenticated session profile", () => {
 
     const res = await request(app)
       .get("/actor")
-      .set("x-paperclip-cloud-tenant-token", "tenant-token")
-      .set("x-paperclip-cloud-user-id", "global-user-1")
-      .set("x-paperclip-cloud-user-email", "owner@example.com")
-      .set("x-paperclip-cloud-user-name", "Stack Owner")
-      .set("x-paperclip-cloud-stack-id", "stack-alpha")
-      .set("x-paperclip-cloud-paperclip-company-id", "paperclip-stack-alpha")
-      .set("x-paperclip-cloud-stack-role", "owner");
+      .set("x-fabric-cloud-tenant-token", "tenant-token")
+      .set("x-fabric-cloud-user-id", "global-user-1")
+      .set("x-fabric-cloud-user-email", "owner@example.com")
+      .set("x-fabric-cloud-user-name", "Stack Owner")
+      .set("x-fabric-cloud-stack-id", "stack-alpha")
+      .set("x-fabric-cloud-fabric-company-id", "fabric-stack-alpha")
+      .set("x-fabric-cloud-stack-role", "owner");
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
@@ -139,7 +139,7 @@ describe("actorMiddleware authenticated session profile", () => {
   });
 
   it("purges a stale instance_admin row so the session path stops elevating the cloud-tenant user", async () => {
-    process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN = "tenant-token";
+    process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN = "tenant-token";
     // Simulates a deployment that previously ran the pre-hardening cloud_tenant
     // path: instance_user_roles still holds an instance_admin row for the
     // tenant user, who can also resolve a BetterAuth session for the same id.
@@ -199,11 +199,11 @@ describe("actorMiddleware authenticated session profile", () => {
     // One trusted-header authentication purges the stale grant.
     const cloud = await request(app)
       .get("/actor")
-      .set("x-paperclip-cloud-tenant-token", "tenant-token")
-      .set("x-paperclip-cloud-user-id", "global-user-1")
-      .set("x-paperclip-cloud-user-email", "owner@example.com")
-      .set("x-paperclip-cloud-stack-id", "stack-alpha")
-      .set("x-paperclip-cloud-stack-role", "owner");
+      .set("x-fabric-cloud-tenant-token", "tenant-token")
+      .set("x-fabric-cloud-user-id", "global-user-1")
+      .set("x-fabric-cloud-user-email", "owner@example.com")
+      .set("x-fabric-cloud-stack-id", "stack-alpha")
+      .set("x-fabric-cloud-stack-role", "owner");
     expect(cloud.body).toMatchObject({ source: "cloud_tenant", isInstanceAdmin: false });
     expect(state.staleInstanceAdminRow).toBe(false);
 

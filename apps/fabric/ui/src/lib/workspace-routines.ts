@@ -2,7 +2,7 @@ import {
   extractRoutineVariableNames,
   WORKSPACE_BRANCH_ROUTINE_VARIABLE,
   type RoutineListItem,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 const WORKSPACE_SPECIFIC_ROUTINE_VARIABLES = new Set([
   WORKSPACE_BRANCH_ROUTINE_VARIABLE,

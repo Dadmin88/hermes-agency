@@ -1,16 +1,16 @@
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import type {
   EnvironmentProbeResult,
   PluginEnvironmentConfig,
   PluginEnvironmentDriverDeclaration,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import type {
   PluginEnvironmentExecuteParams,
   PluginEnvironmentExecuteResult,
   PluginEnvironmentLease,
   PluginEnvironmentRealizeWorkspaceParams,
   PluginEnvironmentRealizeWorkspaceResult,
-} from "@paperclipai/plugin-sdk";
+} from "@hermes-fabric/plugin-sdk";
 import { unprocessable } from "../errors.js";
 import { pluginRegistryService } from "./plugin-registry.js";
 import type { PluginWorkerManager } from "./plugin-worker-manager.js";

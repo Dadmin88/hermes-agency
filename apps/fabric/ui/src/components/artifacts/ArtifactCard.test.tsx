@@ -38,7 +38,7 @@ function makeArtifact(overrides: Partial<CompanyArtifact> = {}): CompanyArtifact
     openPath: "/files/art-1.png",
     downloadPath: "/files/art-1.png?download=1",
     issue: { id: "issue-1", identifier: "PAP-10306", title: "Landing visuals" },
-    project: { id: "proj-1", name: "Paperclip App" },
+    project: { id: "proj-1", name: "HermesFabric App" },
     createdByAgent: { id: "agent-1", name: "ClaudeCoder" },
     updatedAt: "2026-06-01T00:00:00.000Z",
     href: "/issues/PAP-10306#attachment-art-1",

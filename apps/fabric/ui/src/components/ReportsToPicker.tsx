@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Agent } from "@paperclipai/shared";
+import type { Agent } from "@hermes-fabric/shared";
 import {
   Popover,
   PopoverContent,
