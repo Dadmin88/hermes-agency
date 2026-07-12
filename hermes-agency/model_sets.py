@@ -294,6 +294,20 @@ def validate_model_set(
         ):
             result.warn(f"Pricing is unknown for {family.provider}/{family.model}")
 
+    required_provider = str(model_set.metadata.get("required_provider") or "").strip()
+    required_model = str(model_set.metadata.get("required_model") or "").strip()
+    if bool(required_provider) != bool(required_model):
+        result.error("metadata.required_provider and metadata.required_model must be set together")
+    if required_provider and required_model:
+        required_target = f"{required_provider}/{required_model}"
+        for family_name, family in model_set.families.items():
+            actual_target = f"{family.provider}/{family.model}"
+            if actual_target != required_target:
+                result.error(
+                    f"Family {family_name} violates required model policy: "
+                    f"expected {required_target}, got {actual_target}"
+                )
+
     for profile, family_name in model_set.profiles.items():
         if family_name not in model_set.families:
             result.error(f"Profile {profile} references missing family: {family_name}")

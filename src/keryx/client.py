@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import os
+import socket
+import stat
+import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import grpc
 
@@ -23,8 +26,67 @@ from hermes.keryx.v1 import (  # noqa: E402
     task_pb2,
 )
 
-if TYPE_CHECKING:
-    from keryx.card import AgentCard
+
+def default_daemon_endpoint() -> str:
+    socket_path = (
+        Path.home().expanduser() / ".hermes" / "keryx" / "run" / "keryx-daemon.sock"
+    )
+    return f"unix://{socket_path}"
+
+
+def _unix_socket_path(endpoint: str) -> Path | None:
+    if not endpoint.startswith("unix://"):
+        return None
+    return Path(endpoint.removeprefix("unix://")).expanduser()
+
+
+def _validate_unix_socket_endpoint(endpoint: str) -> None:
+    path = _unix_socket_path(endpoint)
+    if path is None:
+        return
+
+    try:
+        parent_stat = path.parent.stat()
+        socket_stat = path.stat()
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"daemon socket does not exist: {path}") from exc
+
+    current_uid = os.getuid()
+    if parent_stat.st_uid != current_uid:
+        raise RuntimeError(
+            f"daemon socket directory is not owned by the current user: {path.parent}"
+        )
+    if parent_stat.st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+        raise RuntimeError(
+            "daemon socket directory must not be accessible by group or other users: "
+            f"{path.parent}"
+        )
+    if socket_stat.st_uid != current_uid:
+        raise RuntimeError(f"daemon socket is not owned by the current user: {path}")
+    if not stat.S_ISSOCK(socket_stat.st_mode):
+        raise RuntimeError(f"daemon endpoint is not a Unix socket: {path}")
+    if socket_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise RuntimeError(
+            f"daemon socket must not be writable by group or other users: {path}"
+        )
+
+
+def _assert_unix_peer_owned_by_current_user(endpoint: str) -> None:
+    path = _unix_socket_path(endpoint)
+    if path is None or not hasattr(socket, "SO_PEERCRED"):
+        return
+
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+            probe.connect(str(path))
+            credentials = probe.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
+    except OSError as exc:
+        raise RuntimeError(f"daemon socket peer could not be verified: {path}") from exc
+    _, peer_uid, _ = struct.unpack("3i", credentials)
+    if peer_uid != os.getuid():
+        raise RuntimeError(
+            f"daemon socket peer is not owned by the current user: {path}"
+        )
 
 
 def _grpc_target(endpoint: str) -> str:
@@ -54,12 +116,8 @@ class DaemonClient:
         registry_channel: grpc.aio.Channel | None = None,
     ) -> None:
         self._daemon_endpoint = daemon_endpoint
-        self._registry_endpoint = (
-            registry_endpoint
-            or os.environ.get("HERMES_KERYX_REGISTRY_ENDPOINT")
-            or os.environ.get("KERYX_REGISTRY_ENDPOINT")
-            or os.environ.get("HERMES_KERYX_RELAY_REGISTRY_ENDPOINT")
-            or os.environ.get("KERYX_RELAY_REGISTRY_ENDPOINT")
+        self._registry_endpoint = registry_endpoint or os.environ.get(
+            "HERMES_KERYX_REGISTRY_ENDPOINT"
         )
         self._channel = channel
         self._registry_channel = registry_channel
@@ -68,14 +126,20 @@ class DaemonClient:
 
     async def connect(self) -> None:
         if self._channel is None:
-            self._channel = grpc.aio.insecure_channel(_grpc_target(self._daemon_endpoint))
+            _validate_unix_socket_endpoint(self._daemon_endpoint)
+            _assert_unix_peer_owned_by_current_user(self._daemon_endpoint)
+            self._channel = grpc.aio.insecure_channel(
+                _grpc_target(self._daemon_endpoint)
+            )
         self._daemon = daemon_pb2_grpc.KeryxDaemonStub(self._channel)
         if self._registry_endpoint:
             if self._registry_channel is None:
                 self._registry_channel = grpc.aio.insecure_channel(
                     _grpc_target(self._registry_endpoint)
                 )
-            self._registry = registry_pb2_grpc.RegistryServiceStub(self._registry_channel)
+            self._registry = registry_pb2_grpc.RegistryServiceStub(
+                self._registry_channel
+            )
 
     async def close(self) -> None:
         if self._channel is not None:
@@ -119,7 +183,12 @@ class DaemonClient:
             status=task_pb2.TASK_STATUS_CREATED,
             messages=[
                 task_pb2.TaskMessage(
-                    parts=[task_pb2.TaskMessagePart(text=message_text, media_type="text/plain")]
+                    parts=[
+                        task_pb2.TaskMessagePart(
+                            text=message_text,
+                            media_type="text/plain",
+                        )
+                    ]
                 )
             ],
             metadata=metadata or {},
@@ -131,6 +200,27 @@ class DaemonClient:
         )
         return await self._daemon.SendTask(request)
 
+    async def get_task_result(
+        self, task_id: str
+    ) -> daemon_pb2.GetTaskResultResponse:
+        assert self._daemon is not None
+        return await self._daemon.GetTaskResult(
+            daemon_pb2.GetTaskResultRequest(
+                task_id=common_pb2.TaskId(value=task_id)
+            )
+        )
+
+    async def cancel_task(
+        self, task_id: str, *, reason: str = ""
+    ) -> daemon_pb2.CancelTaskResponse:
+        assert self._daemon is not None
+        return await self._daemon.CancelTask(
+            daemon_pb2.CancelTaskRequest(
+                task_id=common_pb2.TaskId(value=task_id),
+                reason=reason,
+            )
+        )
+
     async def discover(
         self,
         skill_id: str,
@@ -141,34 +231,55 @@ class DaemonClient:
         if self._registry is None:
             return []
         assert self._registry is not None
-        active_tags = tags or []
+        requested_tags = {tag.strip() for tag in tags or [] if tag.strip()}
         response = await self._registry.DiscoverBySkill(
-            registry_pb2.DiscoverBySkillRequest(skill_id=skill_id, tags=active_tags, limit=limit)
+            registry_pb2.DiscoverBySkillRequest(
+                skill_id=skill_id,
+                tags=tags or [],
+                limit=limit,
+            )
         )
         registrations = list(response.registrations)
+
+        # Registry gossip can briefly expose a node before its secondary skill
+        # index catches up. Fall back to one bounded full-registry read and
+        # filter locally so discovery remains correct without an unbounded scan.
         if skill_id and not registrations:
-            # Some live relay versions can retain registrations while losing their
-            # in-memory skill index after gossip/refresh activity. Querying the full
-            # registry and filtering client-side keeps Agency discovery actionable
-            # until the relay is restarted or upgraded, without changing the normal
-            # fast path when the index is healthy.
             fallback_limit = limit if limit > 0 else 100
             fallback = await self._registry.DiscoverBySkill(
                 registry_pb2.DiscoverBySkillRequest(
-                    skill_id="", tags=active_tags, limit=fallback_limit
+                    skill_id="",
+                    limit=fallback_limit,
                 )
             )
-            registrations = [
-                registration
-                for registration in fallback.registrations
-                if _registration_matches(registration, skill_id, active_tags)
-            ]
-            if limit > 0:
-                registrations = registrations[:limit]
-        results: list[dict[str, Any]] = []
-        for registration in registrations:
-            results.append(_registration_to_result(registration))
-        return results
+            registrations = []
+            for registration in fallback.registrations:
+                matching_skill = next(
+                    (
+                        skill
+                        for skill in registration.skills
+                        if skill.skill_id == skill_id
+                    ),
+                    None,
+                )
+                if matching_skill is None:
+                    continue
+                skill_tags = {tag.strip() for tag in matching_skill.tags if tag.strip()}
+                if requested_tags and not requested_tags.issubset(skill_tags):
+                    continue
+                registrations.append(registration)
+                if limit > 0 and len(registrations) >= limit:
+                    break
+
+        return [
+            {
+                "peer_id": registration.peer_id,
+                "agent_name": registration.name,
+                "agent_description": registration.description,
+                "skills": [skill.skill_id for skill in registration.skills],
+            }
+            for registration in registrations
+        ]
 
     async def register_skills(
         self,
@@ -188,23 +299,31 @@ class DaemonClient:
             description=description,
             ttl_seconds=ttl_seconds,
             skills=[
-                registry_pb2.SkillInfo(skill_id=skill_id, description=skill_description)
+                registry_pb2.SkillInfo(
+                    skill_id=skill_id,
+                    description=skill_description,
+                )
                 for skill_id, skill_description in skills
             ],
         )
         response = await self._registry.RegisterSkills(request)
         return bool(response.accepted)
 
-    async def unregister_skills(self, *, peer_id: str, skill_ids: list[str]) -> bool:
+    async def unregister_skills(
+        self, *, peer_id: str, skill_ids: list[str]
+    ) -> bool:
         if self._registry is None:
             return False
         assert self._registry is not None
         response = await self._registry.UnregisterSkills(
-            registry_pb2.UnregisterSkillsRequest(peer_id=peer_id, skill_ids=skill_ids)
+            registry_pb2.UnregisterSkillsRequest(
+                peer_id=peer_id,
+                skill_ids=skill_ids,
+            )
         )
         return bool(response.accepted)
 
-    async def get_card(self, peer_id: str) -> AgentCard:
+    async def get_card(self, peer_id: str) -> "AgentCard":
         from keryx.card import AgentCard, Skill
 
         if self._registry is None:
@@ -219,25 +338,12 @@ class DaemonClient:
                     name=registration.name or registration.peer_id,
                     description=registration.description,
                     skills=[
-                        Skill(id=skill.skill_id, description=skill.description)
+                        Skill(
+                            id=skill.skill_id,
+                            description=skill.description,
+                        )
                         for skill in registration.skills
                     ],
                     peer_id=registration.peer_id,
                 )
         raise RuntimeError(f"No agent card for peer {peer_id}")
-
-
-def _registration_matches(registration: Any, skill_id: str, tags: list[str]) -> bool:
-    return any(
-        skill.skill_id == skill_id and all(tag in getattr(skill, "tags", []) for tag in tags)
-        for skill in registration.skills
-    )
-
-
-def _registration_to_result(registration: Any) -> dict[str, Any]:
-    return {
-        "peer_id": registration.peer_id,
-        "agent_name": registration.name,
-        "agent_description": registration.description,
-        "skills": [skill.skill_id for skill in registration.skills],
-    }

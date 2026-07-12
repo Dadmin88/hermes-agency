@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DAEMON_ENDPOINT = "unix:///tmp/keryx-daemon.sock"
+from keryx.client import default_daemon_endpoint
+
+DEFAULT_DAEMON_ENDPOINT = "unix://~/.hermes/keryx/run/keryx-daemon.sock"
 
 
 @dataclass(frozen=True)
@@ -21,7 +23,7 @@ class KeryxConfig:
     without changing existing Keryx deployments.
     """
 
-    daemon_endpoint: str = DEFAULT_DAEMON_ENDPOINT
+    daemon_endpoint: str = field(default_factory=default_daemon_endpoint)
     registry_endpoint: str | None = None
     relay_endpoint: str | None = None
     worker_id: str | None = None
@@ -29,7 +31,7 @@ class KeryxConfig:
     request_timeout_ms: int | None = None
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> KeryxConfig:
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "KeryxConfig":
         """Build a config from environment variables only."""
 
         source = env if env is not None else os.environ
@@ -38,14 +40,12 @@ class KeryxConfig:
                 source,
                 "HERMES_KERYX_DAEMON_ENDPOINT",
                 "KERYX_DAEMON_ENDPOINT",
-                default=DEFAULT_DAEMON_ENDPOINT,
-            ) or DEFAULT_DAEMON_ENDPOINT,
+                default=default_daemon_endpoint(),
+            ) or default_daemon_endpoint(),
             registry_endpoint=_first_env(
                 source,
                 "HERMES_KERYX_REGISTRY_ENDPOINT",
                 "KERYX_REGISTRY_ENDPOINT",
-                "HERMES_KERYX_RELAY_REGISTRY_ENDPOINT",
-                "KERYX_RELAY_REGISTRY_ENDPOINT",
             ),
             relay_endpoint=_first_env(
                 source,
@@ -71,7 +71,7 @@ class KeryxConfig:
         )
 
     @classmethod
-    def from_toml(cls, path: str | Path) -> KeryxConfig:
+    def from_toml(cls, path: str | Path) -> "KeryxConfig":
         """Load config values from a TOML file.
 
         Supported keys may be top-level (``daemon_endpoint``) or grouped as
@@ -92,7 +92,7 @@ class KeryxConfig:
             daemon_endpoint=str(
                 data.get("daemon_endpoint")
                 or daemon.get("endpoint")
-                or DEFAULT_DAEMON_ENDPOINT
+                or default_daemon_endpoint()
             ),
             registry_endpoint=_optional_str(
                 data.get("registry_endpoint") or registry.get("endpoint")
@@ -110,20 +110,14 @@ class KeryxConfig:
             ),
         )
 
-    def with_env_overrides(self, env: Mapping[str, str] | None = None) -> KeryxConfig:
+    def with_env_overrides(self, env: Mapping[str, str] | None = None) -> "KeryxConfig":
         """Return a copy with any configured environment variables applied."""
 
         source = env if env is not None else os.environ
         changes: dict[str, Any] = {}
         if daemon := _first_env(source, "HERMES_KERYX_DAEMON_ENDPOINT", "KERYX_DAEMON_ENDPOINT"):
             changes["daemon_endpoint"] = daemon
-        if registry := _first_env(
-            source,
-            "HERMES_KERYX_REGISTRY_ENDPOINT",
-            "KERYX_REGISTRY_ENDPOINT",
-            "HERMES_KERYX_RELAY_REGISTRY_ENDPOINT",
-            "KERYX_RELAY_REGISTRY_ENDPOINT",
-        ):
+        if registry := _first_env(source, "HERMES_KERYX_REGISTRY_ENDPOINT", "KERYX_REGISTRY_ENDPOINT"):
             changes["registry_endpoint"] = registry
         if relay := _first_env(source, "HERMES_KERYX_RELAY_ENDPOINT", "KERYX_RELAY_ENDPOINT"):
             changes["relay_endpoint"] = relay

@@ -183,6 +183,241 @@ def test_kanban_update_task_accepts_archived_status(plugin_modules, monkeypatch)
     assert updates == [("task-123", "archived", {"source": "agency"})]
 
 
+def test_fabric_metadata_patch_audits_assignment_and_metadata(plugin_modules, monkeypatch):
+    kb_mod = plugin_modules.kanban_bridge
+    task = types.SimpleNamespace(id="task-123", assignee="agency-old", status="ready")
+    events = []
+    comments = []
+
+    class FakeKanban:
+        def get_task(self, conn, task_id):
+            return task
+
+        def assign_task(self, conn, task_id, assignee):
+            task.assignee = assignee
+            return True
+
+        def add_comment(self, conn, task_id, author, body):
+            comments.append((task_id, author, body))
+            return 1
+
+        def recompute_ready(self, conn):
+            conn["recomputed"] = True
+
+    @contextmanager
+    def fake_connection(board=None):
+        yield FakeKanban(), {}
+
+    monkeypatch.setattr(kb_mod, "_connection", fake_connection)
+    monkeypatch.setattr(kb_mod, "_resolve_task_id", lambda _kb, _conn, task_id: task_id)
+    monkeypatch.setattr(
+        kb_mod,
+        "_append_event",
+        lambda _kb, _conn, task_id, kind, payload=None: events.append((task_id, kind, payload)),
+    )
+    monkeypatch.setattr(
+        kb_mod,
+        "_task_to_dict",
+        lambda _kb, _conn, value, include_thread=False: {
+            "id": value.id,
+            "assignee": value.assignee,
+            "status": value.status,
+        },
+    )
+
+    result = kb_mod._apply_fabric_metadata_patch_impl(
+        "task-123",
+        {
+            "assignee": "agency-new",
+            "project": {"id": "project-1"},
+            "labels": {"add": ["risk:security"], "removal_intent": []},
+        },
+        "user:operator",
+        "hermes-kanban:task-123",
+        None,
+    )
+
+    assert result["ok"] is True
+    assert task.assignee == "agency-new"
+    assert events[0][1] == "fabric_metadata_sync"
+    assert events[0][2]["fabric"]["project"] == {"id": "project-1"}
+    assert events[0][2]["fabric"]["label_intents"] == {
+        "add": ["risk:security"],
+        "removal_intent": [],
+    }
+    assert comments and "Fabric Properties metadata sync" in comments[0][2]
+
+
+def test_fabric_metadata_patch_rejects_running_reassignment(plugin_modules, monkeypatch):
+    kb_mod = plugin_modules.kanban_bridge
+    task = types.SimpleNamespace(id="task-123", assignee="agency-old", status="running")
+
+    class FakeKanban:
+        def get_task(self, conn, task_id):
+            return task
+
+    @contextmanager
+    def fake_connection(board=None):
+        yield FakeKanban(), {}
+
+    monkeypatch.setattr(kb_mod, "_connection", fake_connection)
+    monkeypatch.setattr(kb_mod, "_resolve_task_id", lambda _kb, _conn, task_id: task_id)
+
+    result = kb_mod._apply_fabric_metadata_patch_impl(
+        "task-123",
+        {"assignee": "agency-new"},
+        "user:operator",
+        "hermes-kanban:task-123",
+        None,
+    )
+
+    assert result["ok"] is False
+    assert result["requires_interrupt"] is True
+    assert task.assignee == "agency-old"
+
+
+def test_fabric_metadata_patch_scopes_board_and_explicit_db(plugin_modules, monkeypatch, tmp_path):
+    kb_mod = plugin_modules.kanban_bridge
+    task = types.SimpleNamespace(id="task-123", assignee=None, status="ready")
+    observed = {}
+
+    class FakeKanban:
+        def get_task(self, conn, task_id):
+            return task
+
+        def add_comment(self, conn, task_id, author, body):
+            return 1
+
+        def recompute_ready(self, conn):
+            pass
+
+    @contextmanager
+    def fake_connection(board=None):
+        observed["board"] = board
+        observed["db"] = os.environ.get("HERMES_KANBAN_DB")
+        yield FakeKanban(), {}
+
+    monkeypatch.setattr(kb_mod, "_connection", fake_connection)
+    monkeypatch.setattr(kb_mod, "_resolve_task_id", lambda _kb, _conn, task_id: task_id)
+    monkeypatch.setattr(kb_mod, "_append_event", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        kb_mod,
+        "_task_to_dict",
+        lambda _kb, _conn, value, include_thread=False: {"id": value.id},
+    )
+    db_path = tmp_path / "non-default.db"
+
+    result = kb_mod._apply_fabric_metadata_patch_impl(
+        "task-123",
+        {"project": {"id": "project-1"}},
+        "user:operator",
+        "hermes-kanban:task-123",
+        "agency-quality",
+        str(db_path),
+    )
+
+    assert result["ok"] is True
+    assert observed == {"board": "agency-quality", "db": str(db_path)}
+    assert os.environ.get("HERMES_KANBAN_DB") != str(db_path)
+
+
+def test_explicit_board_scope_unavailable_fails_before_database_access(plugin_modules, monkeypatch):
+    kb_mod = plugin_modules.kanban_bridge
+    calls = []
+    fake_kb = types.SimpleNamespace(
+        init_db=lambda: calls.append("init"),
+        connect_closing=lambda: calls.append("connect"),
+    )
+    monkeypatch.setattr(kb_mod, "_import_kb", lambda: fake_kb)
+
+    with pytest.raises(kb_mod.KanbanUnavailable, match="explicit Kanban board requested"):
+        with kb_mod._connection("agency-quality"):
+            pytest.fail("explicit board scope must fail before yielding a connection")
+
+    assert calls == []
+
+
+def test_explicit_board_and_db_select_intended_canonical_pair(
+    plugin_modules, monkeypatch, tmp_path
+):
+    kb_mod = plugin_modules.kanban_bridge
+    selected = {}
+    current_board = None
+    explicit_db = tmp_path / "canonical.db"
+    ambient_db = tmp_path / "default.db"
+    monkeypatch.setenv("HERMES_KANBAN_DB", str(ambient_db))
+
+    @contextmanager
+    def scoped_current_board(board):
+        nonlocal current_board
+        previous = current_board
+        current_board = board
+        try:
+            yield
+        finally:
+            current_board = previous
+
+    @contextmanager
+    def connect_closing():
+        selected["board"] = current_board
+        selected["db"] = os.environ.get("HERMES_KANBAN_DB")
+        yield object()
+
+    fake_kb = types.SimpleNamespace(
+        scoped_current_board=scoped_current_board,
+        init_db=lambda: selected.setdefault("initialized", True),
+        connect_closing=connect_closing,
+    )
+    monkeypatch.setattr(kb_mod, "_import_kb", lambda: fake_kb)
+
+    with (
+        kb_mod._scoped_kanban_db(str(explicit_db)),
+        kb_mod._connection("agency-quality") as (opened_kb, _conn),
+    ):
+        assert opened_kb is fake_kb
+
+    assert selected == {
+        "initialized": True,
+        "board": "agency-quality",
+        "db": str(explicit_db),
+    }
+    assert os.environ["HERMES_KANBAN_DB"] == str(ambient_db)
+
+
+def test_no_board_remains_compatible_without_scoping_helper(plugin_modules, monkeypatch):
+    kb_mod = plugin_modules.kanban_bridge
+    calls = []
+
+    @contextmanager
+    def connect_closing():
+        calls.append("connect")
+        yield object()
+
+    fake_kb = types.SimpleNamespace(
+        init_db=lambda: calls.append("init"),
+        connect_closing=connect_closing,
+    )
+    monkeypatch.setattr(kb_mod, "_import_kb", lambda: fake_kb)
+
+    with kb_mod._connection() as (opened_kb, _conn):
+        assert opened_kb is fake_kb
+
+    assert calls == ["init", "connect"]
+
+
+def test_fabric_metadata_patch_rejects_fabric_local_label_intent(plugin_modules):
+    result = plugin_modules.kanban_bridge._apply_fabric_metadata_patch_impl(
+        "task-123",
+        {"labels": {"add": ["local-only", "risk:security"], "removal_intent": []}},
+        "user:operator",
+        "hermes-kanban:task-123",
+        None,
+    )
+
+    assert result["ok"] is False
+    assert "Fabric-local labels" in result["error"]
+
+
 def test_context_packet_preserves_context_id_and_history(plugin_modules):
     cp = plugin_modules.context_packet
 
@@ -2712,6 +2947,45 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
         "profile_path",
         "config_file",
     ]
+
+
+def test_doctor_model_sets_counts_missing_drift_and_unchanged(plugin_modules, monkeypatch):
+    doctor = plugin_modules.doctor
+    model_set = types.SimpleNamespace(name="test", source_path=Path("test.yaml"))
+    validation = types.SimpleNamespace(ok=True, warnings=[], errors=[])
+
+    model_sets = types.ModuleType("hermes_plugin.model_sets")
+    setattr(model_sets, "active_model_set_name", lambda config: "test")
+    setattr(model_sets, "load_model_set", lambda name: model_set)
+    setattr(model_sets, "validate_model_set", lambda value: validation)
+    monkeypatch.setitem(sys.modules, "hermes_plugin.model_sets", model_sets)
+
+    def plan_item(status, profile):
+        return types.SimpleNamespace(
+            status=status,
+            as_dict=lambda: {"profile": profile, "status": status},
+        )
+
+    writer = types.ModuleType("hermes_plugin.profile_config_writer")
+    setattr(
+        writer,
+        "plan_model_set",
+        lambda value: [
+            plan_item("missing", "agency-missing"),
+            plan_item("drift", "agency-drift"),
+            plan_item("unchanged", "agency-unchanged"),
+        ],
+    )
+    monkeypatch.setitem(sys.modules, "hermes_plugin.profile_config_writer", writer)
+
+    check = doctor._model_sets_check()
+
+    assert check.status == "warn"
+    assert check.message.endswith("missing: 1; drift: 1; unchanged: 1")
+    assert check.details["profiles_checked"] == 3
+    assert check.details["missing"] == [{"profile": "agency-missing", "status": "missing"}]
+    assert check.details["drift"] == [{"profile": "agency-drift", "status": "drift"}]
+    assert check.details["unchanged"] == 1
 
 
 def test_doctor_missing_daemon_reports_actionable_fix(plugin_modules, monkeypatch, tmp_path):

@@ -89,6 +89,41 @@ class TaskState:
 
 
 @dataclass(slots=True)
+
+class ClaimedTask:
+    # A task atomically dequeued from the daemon for worker execution.
+
+    has_task: bool
+    task_id: str = ""
+    lease_id: str = ""
+    worker_id: str = ""
+    leased_at_ms: int = 0
+    expires_at_ms: int = 0
+    status: str = ""
+    retry_count: int = 0
+    dead_lettered: bool = False
+    sender_peer_id: str = ""
+    envelope: Any | None = None
+
+    @classmethod
+    def from_proto(cls, response: daemon_pb2.ClaimNextTaskResponse) -> "ClaimedTask":
+        envelope = response.envelope if response.has_task and response.HasField("envelope") else None
+        return cls(
+            has_task=response.has_task,
+            task_id=_id_value(response.task_id),
+            lease_id=_id_value(response.lease_id),
+            worker_id=_id_value(response.worker_id),
+            leased_at_ms=response.leased_at_ms,
+            expires_at_ms=response.expires_at_ms,
+            status=response.status,
+            retry_count=response.retry_count,
+            dead_lettered=response.dead_lettered,
+            sender_peer_id=response.sender_peer_id,
+            envelope=envelope,
+        )
+
+
+@dataclass(slots=True)
 class TaskResult:
     """Terminal or post-action result returned by lifecycle RPCs."""
 

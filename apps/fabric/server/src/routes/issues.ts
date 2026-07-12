@@ -123,6 +123,7 @@ import { executionWorkspaceService as executionWorkspaceServiceDirect } from "..
 import { feedbackService } from "../services/feedback.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { hermesKanbanSyncHeaders, syncHermesKanbanIssues } from "../services/hermes-kanban-issues.js";
+import { hermesKanbanReverseSyncService } from "../services/hermes-kanban-reverse-sync.js";
 import { readAcceptedPlanConfirmationTarget } from "../services/issues.js";
 import { environmentService } from "../services/environments.js";
 import { environmentRuntimeService } from "../services/environment-runtime.js";
@@ -1119,6 +1120,7 @@ export function issueRoutes(
 ) {
   const router = Router();
   const svc = issueService(db);
+  const hermesKanbanReverseSync = hermesKanbanReverseSyncService(db);
   const access = accessService(db);
   const heartbeat = heartbeatService(db, {
     pluginWorkerManager: opts.pluginWorkerManager,
@@ -6086,6 +6088,32 @@ export function issueRoutes(
     if (!issue) {
       res.status(404).json({ error: "Issue not found" });
       return;
+    }
+
+    const reverseSyncResult = await hermesKanbanReverseSync.syncCommittedIssueUpdate({
+      previous: existing,
+      next: issue,
+      actor: { actorType: actor.actorType, actorId: actor.actorId },
+    });
+    if (reverseSyncResult.attempted) {
+      await logActivity(db, {
+        companyId: issue.companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: reverseSyncResult.accepted
+          ? "issue.hermes_reverse_sync_accepted"
+          : "issue.hermes_reverse_sync_failed",
+        entityType: "issue",
+        entityId: issue.id,
+        details: {
+          fields: reverseSyncResult.fields,
+          warning: reverseSyncResult.warning,
+          originId: issue.originId,
+        },
+      });
+      issue = (await svc.getById(issue.id)) ?? issue;
     }
 
     let cancelledStatusRunId: string | null = null;

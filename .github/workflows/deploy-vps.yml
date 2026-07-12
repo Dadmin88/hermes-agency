@@ -1,8 +1,16 @@
 name: Deploy to VPS
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Reason for this production deployment
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-vps-production
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -12,6 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Log deployment request
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          DEPLOY_REASON: ${{ inputs.reason }}
+        run: |
+          printf 'Target SHA: %s\n' "$TARGET_SHA"
+          printf 'Operator reason: %s\n' "$DEPLOY_REASON"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
         with:

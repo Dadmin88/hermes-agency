@@ -104,11 +104,17 @@ def _connection(board: str | None = None) -> Iterator[tuple[Any, Any]]:
     try:
         # Board selection must wrap init/connect.  A sqlite connection is bound
         # to the board path selected when it opens.
-        ctx = (
-            kb.scoped_current_board(board)
-            if board and hasattr(kb, "scoped_current_board")
-            else nullcontext()
-        )
+        if board:
+            try:
+                scoped = kb.scoped_current_board
+            except AttributeError as exc:
+                raise KanbanUnavailable(
+                    "explicit Kanban board requested but hermes_cli.kanban_db "
+                    "lacks scoped_current_board"
+                ) from exc
+            ctx = scoped(board)
+        else:
+            ctx = nullcontext()
         with ctx:
             kb.init_db()
             with kb.connect_closing() as conn:
@@ -893,6 +899,174 @@ def assign_task(task_id: str, assignee: str | None) -> dict[str, Any]:
     """Assign/reassign a Kanban task to the selected agent."""
 
     return _safe_call(_assign_task_impl, task_id, assignee)
+
+
+_FABRIC_METADATA_FIELDS = {
+    "assignee",
+    "project",
+    "labels",
+    "reviewers",
+    "approvers",
+    "execution_policy",
+}
+_FABRIC_SYNC_LABEL_PREFIXES = ("hermes:", "risk:", "skill:", "routing:")
+
+
+@contextmanager
+def _scoped_kanban_db(db_path: str | None) -> Iterator[None]:
+    """Temporarily select an explicit Kanban DB for the isolated CLI command."""
+
+    if not db_path:
+        yield
+        return
+    previous = os.environ.get("HERMES_KANBAN_DB")
+    os.environ["HERMES_KANBAN_DB"] = os.path.abspath(os.path.expanduser(db_path))
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("HERMES_KANBAN_DB", None)
+        else:
+            os.environ["HERMES_KANBAN_DB"] = previous
+
+
+def apply_fabric_metadata_patch(
+    task_id: str,
+    patch: dict[str, Any],
+    actor: str,
+    expected_origin_fingerprint: str | None = None,
+    board: str | None = None,
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    """Apply an audited Fabric Properties patch through Kanban invariants."""
+
+    return _safe_call(
+        _apply_fabric_metadata_patch_impl,
+        task_id,
+        dict(patch or {}),
+        actor,
+        expected_origin_fingerprint,
+        board,
+        db_path,
+    )
+
+
+def _apply_fabric_metadata_patch_impl(
+    task_id: str,
+    patch: dict[str, Any],
+    actor: str,
+    expected_origin_fingerprint: str | None,
+    board: str | None,
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    unknown = sorted(set(patch) - _FABRIC_METADATA_FIELDS)
+    if unknown:
+        return {
+            "available": True,
+            "ok": False,
+            "error": f"unsupported Fabric metadata fields: {', '.join(unknown)}",
+        }
+    clean_task_id = _clean(task_id)
+    if (
+        expected_origin_fingerprint
+        and expected_origin_fingerprint != f"hermes-kanban:{clean_task_id}"
+    ):
+        return {"available": True, "ok": False, "error": "origin fingerprint mismatch"}
+
+    label_intents = patch.get("labels")
+    if label_intents is not None:
+        if not isinstance(label_intents, dict):
+            return {
+                "available": True,
+                "ok": False,
+                "error": "labels must contain add/removal_intent arrays",
+            }
+        requested_labels: list[Any] = []
+        for field in ("add", "removal_intent"):
+            values = label_intents.get(field)
+            if isinstance(values, list):
+                requested_labels.extend(values)
+        invalid_labels = sorted(
+            {
+                _clean(value)
+                for value in requested_labels
+                if not _clean(value).lower().startswith(_FABRIC_SYNC_LABEL_PREFIXES)
+            }
+        )
+        if invalid_labels:
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"Fabric-local labels cannot sync to Kanban: {', '.join(invalid_labels)}",
+            }
+
+    with _scoped_kanban_db(db_path), _connection(board) as (kb, conn):
+        resolved = _resolve_task_id(kb, conn, task_id)
+        if not resolved:
+            return {
+                "available": True,
+                "ok": False,
+                "error": f"unknown Kanban/A2A task id: {task_id}",
+            }
+        task = kb.get_task(conn, resolved)
+        requested_assignee = (
+            (_clean(patch.get("assignee")) or None) if "assignee" in patch else task.assignee
+        )
+        if "assignee" in patch and requested_assignee != task.assignee and task.status == "running":
+            return {
+                "available": True,
+                "ok": False,
+                "requires_interrupt": True,
+                "error": "running task reassignment requires explicit interrupt/requeue",
+                "task_id": resolved,
+            }
+
+        before_assignee = task.assignee
+        if "assignee" in patch and requested_assignee != before_assignee:
+            if not kb.assign_task(conn, resolved, requested_assignee):
+                return {
+                    "available": True,
+                    "ok": False,
+                    "error": f"could not assign task: {resolved}",
+                }
+
+        fabric_patch = {
+            ("label_intents" if key == "labels" else key): _jsonable(value)
+            for key, value in patch.items()
+            if key != "assignee"
+        }
+        event_payload = {
+            "source": "fabric_properties",
+            "actor": _clean(actor) or "fabric",
+            "fabric": fabric_patch,
+            "hermes_agency": (
+                {"assignee_profile": requested_assignee, "target_profile": requested_assignee}
+                if "assignee" in patch
+                else {}
+            ),
+            "changes": {
+                "assignee": {"from": before_assignee, "to": requested_assignee}
+                if "assignee" in patch
+                else None
+            },
+        }
+        _append_event(kb, conn, resolved, "fabric_metadata_sync", event_payload)
+        kb.add_comment(
+            conn,
+            resolved,
+            _clean(actor) or "fabric",
+            "Fabric Properties metadata sync: "
+            + _json({"patch": patch, "source": "fabric_properties"}),
+        )
+        kb.recompute_ready(conn)
+        task = kb.get_task(conn, resolved)
+        return {
+            "available": True,
+            "ok": True,
+            "task_id": resolved,
+            "event_kind": "fabric_metadata_sync",
+            "task": _task_to_dict(kb, conn, task, include_thread=True),
+        }
 
 
 def _assign_task_impl(task_id: str, assignee: str | None) -> dict[str, Any]:

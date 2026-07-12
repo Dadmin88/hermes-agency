@@ -127,356 +127,356 @@ jobs:
               tests += r'''
 
 
-def test_golden_path_wakes_trusted_specialist_and_returns_artifact(
-    plugin_modules, monkeypatch, tmp_path
-):
-    import asyncio
+          def test_golden_path_wakes_trusted_specialist_and_returns_artifact(
+              plugin_modules, monkeypatch, tmp_path
+          ):
+              import asyncio
 
-    nm = plugin_modules.node_manager
-    cfg_mod = plugin_modules.config
-    orchestrator = importlib.import_module("hermes_plugin.orchestrator")
+              nm = plugin_modules.node_manager
+              cfg_mod = plugin_modules.config
+              orchestrator = importlib.import_module("hermes_plugin.orchestrator")
 
-    sender_cfg = cfg_mod.AgencyConfig(
-        relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-receiver",)),
-        trust=cfg_mod.TrustConfig(store_path=tmp_path / "sender-trust.json"),
-        team=cfg_mod.TeamConfig(auto_discover=False, auto_register=False),
-        orchestrator=cfg_mod.OrchestratorConfig(enabled=True, agent="agency-orchestrator"),
-    )
-    receiver_cfg = cfg_mod.AgencyConfig(
-        allow_remote_tasks=True,
-        relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-sender",)),
-        trust=cfg_mod.TrustConfig(store_path=tmp_path / "receiver-trust.json"),
-        incoming=cfg_mod.IncomingConfig(
-            mode="delegation",
-            tool_access="none",
-            max_iterations=2,
-            handler_timeout_seconds=5,
-        ),
-        team=cfg_mod.TeamConfig(auto_discover=False, auto_register=False),
-    )
-    plugin_modules.trust.store_for_config(sender_cfg).set_trust(
-        "peer-receiver", trust_level="full", name="Backend Engineer"
-    )
-    plugin_modules.trust.store_for_config(receiver_cfg).set_trust(
-        "peer-sender", trust_level="full", name="Agency Orchestrator"
-    )
+              sender_cfg = cfg_mod.AgencyConfig(
+                  relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-receiver",)),
+                  trust=cfg_mod.TrustConfig(store_path=tmp_path / "sender-trust.json"),
+                  team=cfg_mod.TeamConfig(auto_discover=False, auto_register=False),
+                  orchestrator=cfg_mod.OrchestratorConfig(enabled=True, agent="agency-orchestrator"),
+              )
+              receiver_cfg = cfg_mod.AgencyConfig(
+                  allow_remote_tasks=True,
+                  relay_security=cfg_mod.RelaySecurityConfig(allowlist=("peer-sender",)),
+                  trust=cfg_mod.TrustConfig(store_path=tmp_path / "receiver-trust.json"),
+                  incoming=cfg_mod.IncomingConfig(
+                      mode="delegation",
+                      tool_access="none",
+                      max_iterations=2,
+                      handler_timeout_seconds=5,
+                  ),
+                  team=cfg_mod.TeamConfig(auto_discover=False, auto_register=False),
+              )
+              plugin_modules.trust.store_for_config(sender_cfg).set_trust(
+                  "peer-receiver", trust_level="full", name="Backend Engineer"
+              )
+              plugin_modules.trust.store_for_config(receiver_cfg).set_trust(
+                  "peer-sender", trust_level="full", name="Agency Orchestrator"
+              )
 
-    active = {"config": sender_cfg, "profile": "agency-orchestrator"}
-    monkeypatch.setattr(nm, "get_config", lambda: active["config"])
-    monkeypatch.setattr(nm, "current_profile_name", lambda: active["profile"])
-    monkeypatch.setattr(orchestrator, "get_config", lambda: sender_cfg)
-    monkeypatch.setattr(orchestrator, "current_profile_name", lambda: "agency-orchestrator")
-    monkeypatch.setattr(
-        orchestrator,
-        "check_autonomy",
-        lambda action, agent: {
-            "action": action,
-            "agent": agent,
-            "decision": "notify",
-            "autonomous": False,
-            "notify": True,
-            "requires_approval": False,
-            "prohibited": False,
-        },
-    )
-    monkeypatch.setattr(
-        plugin_modules.task_processor,
-        "_call_delegate_task",
-        lambda **_kwargs: "Golden-path artifact: specialist completed the task.",
-    )
+              active = {"config": sender_cfg, "profile": "agency-orchestrator"}
+              monkeypatch.setattr(nm, "get_config", lambda: active["config"])
+              monkeypatch.setattr(nm, "current_profile_name", lambda: active["profile"])
+              monkeypatch.setattr(orchestrator, "get_config", lambda: sender_cfg)
+              monkeypatch.setattr(orchestrator, "current_profile_name", lambda: "agency-orchestrator")
+              monkeypatch.setattr(
+                  orchestrator,
+                  "check_autonomy",
+                  lambda action, agent: {
+                      "action": action,
+                      "agent": agent,
+                      "decision": "notify",
+                      "autonomous": False,
+                      "notify": True,
+                      "requires_approval": False,
+                      "prohibited": False,
+                  },
+              )
+              monkeypatch.setattr(
+                  plugin_modules.task_processor,
+                  "_call_delegate_task",
+                  lambda **_kwargs: "Golden-path artifact: specialist completed the task.",
+              )
 
-    board = {"tasks": {}, "updates": [], "comments": [], "pending_review": []}
+              board = {"tasks": {}, "updates": [], "comments": [], "pending_review": []}
 
-    def create_task(
-        title,
-        description="",
-        assigned_to=None,
-        skills=None,
-        dependencies=None,
-        metadata=None,
-        **_kwargs,
-    ):
-        task_id = "kanban-golden-1"
-        task = board["tasks"].setdefault(
-            task_id,
-            {
-                "id": task_id,
-                "title": title,
-                "description": description,
-                "assigned_to": assigned_to,
-                "skills": list(skills or []),
-                "dependencies": list(dependencies or []),
-                "metadata": dict(metadata or {}),
-                "status": "backlog",
-                "result": None,
-                "error": None,
-            },
-        )
-        return {"available": True, "ok": True, "task_id": task_id, "task": dict(task)}
+              def create_task(
+                  title,
+                  description="",
+                  assigned_to=None,
+                  skills=None,
+                  dependencies=None,
+                  metadata=None,
+                  **_kwargs,
+              ):
+                  task_id = "kanban-golden-1"
+                  task = board["tasks"].setdefault(
+                      task_id,
+                      {
+                          "id": task_id,
+                          "title": title,
+                          "description": description,
+                          "assigned_to": assigned_to,
+                          "skills": list(skills or []),
+                          "dependencies": list(dependencies or []),
+                          "metadata": dict(metadata or {}),
+                          "status": "backlog",
+                          "result": None,
+                          "error": None,
+                      },
+                  )
+                  return {"available": True, "ok": True, "task_id": task_id, "task": dict(task)}
 
-    def track_delegation(
-        message,
-        assigned_to=None,
-        skills=None,
-        a2a_task_id=None,
-        kanban_task_id=None,
-        metadata=None,
-        description=None,
-        **_kwargs,
-    ):
-        task_id = kanban_task_id or "kanban-golden-1"
-        if task_id not in board["tasks"]:
-            create_task(
-                message,
-                description=description or message,
-                assigned_to=assigned_to,
-                skills=skills,
-                metadata=metadata,
-            )
-        board["tasks"][task_id]["a2a_task_id"] = a2a_task_id
-        return {
-            "available": True,
-            "ok": True,
-            "task_id": task_id,
-            "task": dict(board["tasks"][task_id]),
-        }
+              def track_delegation(
+                  message,
+                  assigned_to=None,
+                  skills=None,
+                  a2a_task_id=None,
+                  kanban_task_id=None,
+                  metadata=None,
+                  description=None,
+                  **_kwargs,
+              ):
+                  task_id = kanban_task_id or "kanban-golden-1"
+                  if task_id not in board["tasks"]:
+                      create_task(
+                          message,
+                          description=description or message,
+                          assigned_to=assigned_to,
+                          skills=skills,
+                          metadata=metadata,
+                      )
+                  board["tasks"][task_id]["a2a_task_id"] = a2a_task_id
+                  return {
+                      "available": True,
+                      "ok": True,
+                      "task_id": task_id,
+                      "task": dict(board["tasks"][task_id]),
+                  }
 
-    def update_task(task_id, status=None, result=None, error=None, **_kwargs):
-        task = board["tasks"][task_id]
-        if status is not None:
-            task["status"] = status
-        if result is not None:
-            task["result"] = result
-        if error is not None:
-            task["error"] = error
-        board["updates"].append((task_id, status, result, error))
-        return {"available": True, "ok": True, "task_id": task_id, "task": dict(task)}
+              def update_task(task_id, status=None, result=None, error=None, **_kwargs):
+                  task = board["tasks"][task_id]
+                  if status is not None:
+                      task["status"] = status
+                  if result is not None:
+                      task["result"] = result
+                  if error is not None:
+                      task["error"] = error
+                  board["updates"].append((task_id, status, result, error))
+                  return {"available": True, "ok": True, "task_id": task_id, "task": dict(task)}
 
-    def add_comment(task_id, body, **_kwargs):
-        board["comments"].append((task_id, body))
-        return {"available": True, "ok": True, "task_id": task_id}
+              def add_comment(task_id, body, **_kwargs):
+                  board["comments"].append((task_id, body))
+                  return {"available": True, "ok": True, "task_id": task_id}
 
-    monkeypatch.setattr(orchestrator, "kanban_create_task", create_task)
-    monkeypatch.setattr(orchestrator, "kanban_update_task", update_task)
-    monkeypatch.setattr(nm, "kanban_track_delegation", track_delegation)
-    monkeypatch.setattr(nm, "kanban_update_task", update_task)
-    monkeypatch.setattr(nm, "kanban_add_comment", add_comment)
-    monkeypatch.setattr(
-        nm.NodeManager,
-        "_ensure_agency_board",
-        lambda self, **_kwargs: "agency-engineering",
-    )
-    monkeypatch.setattr(
-        nm.NodeManager,
-        "_call_on_agency_board",
-        lambda self, _board, fn, *args, **kwargs: fn(*args, **kwargs),
-    )
-    monkeypatch.setattr(
-        nm.NodeManager,
-        "_mark_agency_board_pending_review",
-        lambda self, board_slug, task_id=None, result=None: board["pending_review"].append(
-            (board_slug, task_id, result)
-        ),
-    )
+              monkeypatch.setattr(orchestrator, "kanban_create_task", create_task)
+              monkeypatch.setattr(orchestrator, "kanban_update_task", update_task)
+              monkeypatch.setattr(nm, "kanban_track_delegation", track_delegation)
+              monkeypatch.setattr(nm, "kanban_update_task", update_task)
+              monkeypatch.setattr(nm, "kanban_add_comment", add_comment)
+              monkeypatch.setattr(
+                  nm.NodeManager,
+                  "_ensure_agency_board",
+                  lambda self, **_kwargs: "agency-engineering",
+              )
+              monkeypatch.setattr(
+                  nm.NodeManager,
+                  "_call_on_agency_board",
+                  lambda self, _board, fn, *args, **kwargs: fn(*args, **kwargs),
+              )
+              monkeypatch.setattr(
+                  nm.NodeManager,
+                  "_mark_agency_board_pending_review",
+                  lambda self, board_slug, task_id=None, result=None: board["pending_review"].append(
+                      (board_slug, task_id, result)
+                  ),
+              )
 
-    receiver = nm.NodeManager()
-    receiver._incoming_queue = asyncio.Queue()
-    receiver.state.card_name = "Backend Engineer"
-    receiver.state.skill_count = 3
+              receiver = nm.NodeManager()
+              receiver._incoming_queue = asyncio.Queue()
+              receiver.state.card_name = "Backend Engineer"
+              receiver.state.skill_count = 3
 
-    class FakeHandle:
-        def __init__(self, incoming):
-            self.task_id = incoming.task_id
-            self._task = types.SimpleNamespace(
-                task_id=incoming.task_id,
-                context_id="golden-context",
-                status=types.SimpleNamespace(value="completed"),
-                target_skill_id=incoming.target_skill_id,
-                originator_peer_id="peer-sender",
-                artifacts=list(incoming.completed or []),
-                metadata=dict(incoming.metadata),
-            )
+              class FakeHandle:
+                  def __init__(self, incoming):
+                      self.task_id = incoming.task_id
+                      self._task = types.SimpleNamespace(
+                          task_id=incoming.task_id,
+                          context_id="golden-context",
+                          status=types.SimpleNamespace(value="completed"),
+                          target_skill_id=incoming.target_skill_id,
+                          originator_peer_id="peer-sender",
+                          artifacts=list(incoming.completed or []),
+                          metadata=dict(incoming.metadata),
+                      )
 
-        async def wait(self, timeout=None):
-            return self._task
+                  async def wait(self, timeout=None):
+                      return self._task
 
-    class LoopbackTransport:
-        async def send_task(self, message, peer_id=None, skill=None, metadata=None):
-            assert peer_id == "peer-receiver"
-            incoming = _FakeIncomingTask(
-                message["parts"][0]["text"],
-                peer_id="peer-sender",
-                task_id="a2a-golden-1",
-            )
-            incoming.metadata = dict(metadata or {})
-            worker = None
-            active.update(config=receiver_cfg, profile="agency-backend-engineer")
-            try:
-                worker = asyncio.create_task(receiver._incoming_worker())
-                await receiver._handle_incoming_task(incoming)
-                await asyncio.wait_for(receiver._incoming_queue.join(), timeout=3)
-            finally:
-                if worker is not None:
-                    worker.cancel()
-                    await asyncio.gather(worker, return_exceptions=True)
-                active.update(config=sender_cfg, profile="agency-orchestrator")
-            assert incoming.failed is None
-            assert incoming.completed is not None
-            return FakeHandle(incoming)
+              class LoopbackTransport:
+                  async def send_task(self, message, peer_id=None, skill=None, metadata=None):
+                      assert peer_id == "peer-receiver"
+                      incoming = _FakeIncomingTask(
+                          message["parts"][0]["text"],
+                          peer_id="peer-sender",
+                          task_id="a2a-golden-1",
+                      )
+                      incoming.metadata = dict(metadata or {})
+                      worker = None
+                      active.update(config=receiver_cfg, profile="agency-backend-engineer")
+                      try:
+                          worker = asyncio.create_task(receiver._incoming_worker())
+                          await receiver._handle_incoming_task(incoming)
+                          await asyncio.wait_for(receiver._incoming_queue.join(), timeout=3)
+                      finally:
+                          if worker is not None:
+                              worker.cancel()
+                              await asyncio.gather(worker, return_exceptions=True)
+                          active.update(config=sender_cfg, profile="agency-orchestrator")
+                      assert incoming.failed is None
+                      assert incoming.completed is not None
+                      return FakeHandle(incoming)
 
-    sender = nm.NodeManager()
-    sender._node = LoopbackTransport()
-    sender.state.started = True
+              sender = nm.NodeManager()
+              sender._node = LoopbackTransport()
+              sender.state.started = True
 
-    async def already_started():
-        return sender.state
+              async def already_started():
+                  return sender.state
 
-    sender._ensure_started_impl = already_started
-    monkeypatch.setattr(orchestrator, "manager", sender)
+              sender._ensure_started_impl = already_started
+              monkeypatch.setattr(orchestrator, "manager", sender)
 
-    roster_state = {
-        "name": "agency-backend-engineer",
-        "description": "Backend specialist",
-        "skills": ["python", "api-design"],
-        "online": False,
-        "peer_id": None,
-    }
-    monkeypatch.setattr(
-        orchestrator,
-        "_persistent_roster",
-        lambda: {"profiles": [dict(roster_state)]},
-    )
-    wake_calls = []
+              roster_state = {
+                  "name": "agency-backend-engineer",
+                  "description": "Backend specialist",
+                  "skills": ["python", "api-design"],
+                  "online": False,
+                  "peer_id": None,
+              }
+              monkeypatch.setattr(
+                  orchestrator,
+                  "_persistent_roster",
+                  lambda: {"profiles": [dict(roster_state)]},
+              )
+              wake_calls = []
 
-    def wake_profile(profile_name):
-        wake_calls.append(profile_name)
-        roster_state["online"] = True
-        roster_state["peer_id"] = "peer-receiver"
-        return "woke agency-backend-engineer"
+              def wake_profile(profile_name):
+                  wake_calls.append(profile_name)
+                  roster_state["online"] = True
+                  roster_state["peer_id"] = "peer-receiver"
+                  return "woke agency-backend-engineer"
 
-    monkeypatch.setattr(orchestrator, "_wake_profile", wake_profile)
+              monkeypatch.setattr(orchestrator, "_wake_profile", wake_profile)
 
-    payload = json.loads(
-        orchestrator.orch_route(
-            {
-                "task_description": "Build a harmless API health report",
-                "target_agent": "agency-backend-engineer",
-                "wait_seconds": 2,
-                "validation": "Return a concrete artifact.",
-            },
-            user_task="Prove the Hermes Agency golden path",
-            profile="agency-orchestrator",
-            session_id="golden-session",
-        )
-    )
+              payload = json.loads(
+                  orchestrator.orch_route(
+                      {
+                          "task_description": "Build a harmless API health report",
+                          "target_agent": "agency-backend-engineer",
+                          "wait_seconds": 2,
+                          "validation": "Return a concrete artifact.",
+                      },
+                      user_task="Prove the Hermes Agency golden path",
+                      profile="agency-orchestrator",
+                      session_id="golden-session",
+                  )
+              )
 
-    assert payload["ok"] is True
-    assert payload["status"] == "completed"
-    assert payload["queued"] is False
-    assert payload["task"]["status"] == "completed"
-    assert payload["task"]["artifact_text"] == (
-        "Golden-path artifact: specialist completed the task."
-    )
-    assert payload["local_task"]["status"] == "completed"
-    assert payload["local_task"]["result_text"] == (
-        "Golden-path artifact: specialist completed the task."
-    )
-    assert wake_calls == ["agency-backend-engineer"]
-    assert receiver._incoming_records["a2a-golden-1"].status == "completed"
-    assert receiver._incoming_records["a2a-golden-1"].sender_peer_id == "peer-sender"
-    assert board["tasks"]["kanban-golden-1"]["status"] == "done"
-    assert any(update[1] == "running" for update in board["updates"])
-    assert any(update[1] == "done" for update in board["updates"])
-    assert board["pending_review"]
+              assert payload["ok"] is True
+              assert payload["status"] == "completed"
+              assert payload["queued"] is False
+              assert payload["task"]["status"] == "completed"
+              assert payload["task"]["artifact_text"] == (
+                  "Golden-path artifact: specialist completed the task."
+              )
+              assert payload["local_task"]["status"] == "completed"
+              assert payload["local_task"]["result_text"] == (
+                  "Golden-path artifact: specialist completed the task."
+              )
+              assert wake_calls == ["agency-backend-engineer"]
+              assert receiver._incoming_records["a2a-golden-1"].status == "completed"
+              assert receiver._incoming_records["a2a-golden-1"].sender_peer_id == "peer-sender"
+              assert board["tasks"]["kanban-golden-1"]["status"] == "done"
+              assert any(update[1] == "running" for update in board["updates"])
+              assert any(update[1] == "done" for update in board["updates"])
+              assert board["pending_review"]
 
 
-def test_golden_path_persists_queue_when_offline_wake_fails(
-    plugin_modules, monkeypatch, tmp_path
-):
-    nm = plugin_modules.node_manager
-    cfg_mod = plugin_modules.config
-    orchestrator = importlib.import_module("hermes_plugin.orchestrator")
-    cfg = cfg_mod.AgencyConfig(
-        team=cfg_mod.TeamConfig(auto_discover=False, auto_register=False),
-        orchestrator=cfg_mod.OrchestratorConfig(enabled=True, agent="agency-orchestrator"),
-    )
-    monkeypatch.setattr(orchestrator, "get_config", lambda: cfg)
-    monkeypatch.setattr(orchestrator, "current_profile_name", lambda: "agency-orchestrator")
-    monkeypatch.setattr(
-        orchestrator,
-        "check_autonomy",
-        lambda action, agent: {
-            "action": action,
-            "agent": agent,
-            "decision": "notify",
-            "autonomous": False,
-            "notify": True,
-            "requires_approval": False,
-            "prohibited": False,
-        },
-    )
-    monkeypatch.setattr(
-        orchestrator,
-        "_persistent_roster",
-        lambda: {
-            "profiles": [
-                {
-                    "name": "agency-backend-engineer",
-                    "description": "Backend specialist",
-                    "skills": ["python"],
-                    "online": False,
-                    "peer_id": None,
-                }
-            ]
-        },
-    )
-    monkeypatch.setattr(orchestrator, "_wake_profile", lambda _profile: "wake failed")
-    queued = []
+          def test_golden_path_persists_queue_when_offline_wake_fails(
+              plugin_modules, monkeypatch, tmp_path
+          ):
+              nm = plugin_modules.node_manager
+              cfg_mod = plugin_modules.config
+              orchestrator = importlib.import_module("hermes_plugin.orchestrator")
+              cfg = cfg_mod.AgencyConfig(
+                  team=cfg_mod.TeamConfig(auto_discover=False, auto_register=False),
+                  orchestrator=cfg_mod.OrchestratorConfig(enabled=True, agent="agency-orchestrator"),
+              )
+              monkeypatch.setattr(orchestrator, "get_config", lambda: cfg)
+              monkeypatch.setattr(orchestrator, "current_profile_name", lambda: "agency-orchestrator")
+              monkeypatch.setattr(
+                  orchestrator,
+                  "check_autonomy",
+                  lambda action, agent: {
+                      "action": action,
+                      "agent": agent,
+                      "decision": "notify",
+                      "autonomous": False,
+                      "notify": True,
+                      "requires_approval": False,
+                      "prohibited": False,
+                  },
+              )
+              monkeypatch.setattr(
+                  orchestrator,
+                  "_persistent_roster",
+                  lambda: {
+                      "profiles": [
+                          {
+                              "name": "agency-backend-engineer",
+                              "description": "Backend specialist",
+                              "skills": ["python"],
+                              "online": False,
+                              "peer_id": None,
+                          }
+                      ]
+                  },
+              )
+              monkeypatch.setattr(orchestrator, "_wake_profile", lambda _profile: "wake failed")
+              queued = []
 
-    def queue_task(profile_name, message, metadata=None, reason=""):
-        queued.append((profile_name, message, dict(metadata or {}), reason))
-        return {"ok": True, "task": {"id": "offline-q-1", "status": "queued"}}
+              def queue_task(profile_name, message, metadata=None, reason=""):
+                  queued.append((profile_name, message, dict(metadata or {}), reason))
+                  return {"ok": True, "task": {"id": "offline-q-1", "status": "queued"}}
 
-    monkeypatch.setattr(orchestrator, "_queue_offline_profile_task", queue_task)
-    board = {"status": None, "result": None}
-    monkeypatch.setattr(
-        orchestrator,
-        "kanban_create_task",
-        lambda **_kwargs: {
-            "available": True,
-            "ok": True,
-            "task_id": "kanban-queued-1",
-            "task": {"id": "kanban-queued-1", "status": "backlog"},
-        },
-    )
+              monkeypatch.setattr(orchestrator, "_queue_offline_profile_task", queue_task)
+              board = {"status": None, "result": None}
+              monkeypatch.setattr(
+                  orchestrator,
+                  "kanban_create_task",
+                  lambda **_kwargs: {
+                      "available": True,
+                      "ok": True,
+                      "task_id": "kanban-queued-1",
+                      "task": {"id": "kanban-queued-1", "status": "backlog"},
+                  },
+              )
 
-    def update_task(_task_id, status=None, result=None, **_kwargs):
-        board["status"] = status
-        board["result"] = result
-        return {"available": True, "ok": True, "task_id": "kanban-queued-1"}
+              def update_task(_task_id, status=None, result=None, **_kwargs):
+                  board["status"] = status
+                  board["result"] = result
+                  return {"available": True, "ok": True, "task_id": "kanban-queued-1"}
 
-    monkeypatch.setattr(orchestrator, "kanban_update_task", update_task)
-    manager = nm.NodeManager()
-    monkeypatch.setattr(orchestrator, "manager", manager)
+              monkeypatch.setattr(orchestrator, "kanban_update_task", update_task)
+              manager = nm.NodeManager()
+              monkeypatch.setattr(orchestrator, "manager", manager)
 
-    payload = json.loads(
-        orchestrator.orch_route(
-            {
-                "task_description": "Prepare a harmless backend report",
-                "target_agent": "agency-backend-engineer",
-            }
-        )
-    )
+              payload = json.loads(
+                  orchestrator.orch_route(
+                      {
+                          "task_description": "Prepare a harmless backend report",
+                          "target_agent": "agency-backend-engineer",
+                      }
+                  )
+              )
 
-    assert payload["ok"] is True
-    assert payload["status"] == "queued"
-    assert payload["queued"] is True
-    assert payload["task"]["status"] == "queued"
-    assert payload["local_task"]["status"] == "queued"
-    assert queued[0][0] == "agency-backend-engineer"
-    assert queued[0][3] == "wake failed"
-    assert board == {"status": "running", "result": "Queued for offline agent"}
-'''
+              assert payload["ok"] is True
+              assert payload["status"] == "queued"
+              assert payload["queued"] is True
+              assert payload["task"]["status"] == "queued"
+              assert payload["local_task"]["status"] == "queued"
+              assert queued[0][0] == "agency-backend-engineer"
+              assert queued[0][3] == "wake failed"
+              assert board == {"status": "running", "result": "Queued for offline agent"}
+          '''
               test_path.write_text(tests, encoding="utf-8")
           PY
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import types
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -82,3 +83,43 @@ def test_openai_codex_only_uses_only_openai_codex(monkeypatch, tmp_path):
     assert {family.provider for family in model_set.families.values()} == {"openai-codex"}
     assert model_sets.resolve_profile_model("agency-backend-engineer", model_set).model == "gpt-5.4"
     assert model_sets.resolve_profile_model("agency-orchestrator", model_set).model == "gpt-5.5"
+
+
+def test_required_target_metadata_must_be_paired(monkeypatch, tmp_path):
+    hermes_constants = types.ModuleType("hermes_constants")
+    setattr(hermes_constants, "get_hermes_home", lambda: tmp_path / "hermes_home")
+    monkeypatch.setitem(sys.modules, "hermes_constants", hermes_constants)
+
+    model_sets = _load_agency_module(monkeypatch, "model_sets")
+    model_set = model_sets.load_model_set("economic")
+    metadata = {**model_set.metadata, "required_provider": "openai-codex"}
+
+    validation = model_sets.validate_model_set(replace(model_set, metadata=metadata))
+
+    assert not validation.ok
+    assert (
+        "metadata.required_provider and metadata.required_model must be set together"
+        in validation.errors
+    )
+
+
+def test_required_target_metadata_validates_every_family(monkeypatch, tmp_path):
+    hermes_constants = types.ModuleType("hermes_constants")
+    setattr(hermes_constants, "get_hermes_home", lambda: tmp_path / "hermes_home")
+    monkeypatch.setitem(sys.modules, "hermes_constants", hermes_constants)
+
+    model_sets = _load_agency_module(monkeypatch, "model_sets")
+    model_set = model_sets.load_model_set("openai-codex-only")
+    metadata = {
+        **model_set.metadata,
+        "required_provider": "openai-codex",
+        "required_model": "gpt-5.4-mini",
+    }
+
+    validation = model_sets.validate_model_set(replace(model_set, metadata=metadata))
+
+    assert not validation.ok
+    assert any(
+        "Family coding_worker violates required model policy" in error
+        for error in validation.errors
+    )
