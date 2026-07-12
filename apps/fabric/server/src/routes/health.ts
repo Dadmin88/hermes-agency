@@ -94,7 +94,7 @@ export function healthRoutes(
     // already access-controlled field.
     const serverInfo = opts.serverInfo ?? getServerInfoSnapshot();
     const exposeDevServerDetails =
-      exposeFullDetails || hasDevServerStatusToken(req.get("x-fabric-dev-server-status-token"));
+      exposeFullDetails || hasDevServerStatusToken(req.get("x-hermesfabric-dev-server-status-token"));
 
     if (!db) {
       res.json(

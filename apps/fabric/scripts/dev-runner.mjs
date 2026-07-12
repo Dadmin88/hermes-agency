@@ -18,7 +18,7 @@ const changedPathSampleLimit = 5;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const devServerStatusFilePath = path.join(repoRoot, ".fabric", "dev-server-status.json");
 const devServerStatusToken = mode === "dev" ? randomUUID() : null;
-const devServerStatusTokenHeader = "x-fabric-dev-server-status-token";
+const devServerStatusTokenHeader = "x-hermesfabric-dev-server-status-token";
 
 const watchedDirectories = [
   "cli",

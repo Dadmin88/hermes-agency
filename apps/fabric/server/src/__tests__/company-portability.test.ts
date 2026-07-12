@@ -414,7 +414,7 @@ describe("company portability", () => {
       parseGitHubSourceUrl("https://github.com/DeployFaith/companies?ref=feature%2Fdemo&path=gstack"),
     ).toEqual({
       hostname: "github.com",
-      owner: "hermes-fabric",
+      owner: "DeployFaith",
       repo: "companies",
       ref: "feature/demo",
       basePath: "gstack",
@@ -429,7 +429,7 @@ describe("company portability", () => {
       ),
     ).toEqual({
       hostname: "github.com",
-      owner: "hermes-fabric",
+      owner: "DeployFaith",
       repo: "companies",
       ref: "abc123",
       basePath: "gstack",

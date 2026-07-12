@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "packageName": "@hermes-fabric/skills-catalog",
   "packageVersion": "0.3.1",
-  "generatedAt": "2026-06-26T18:26:43.763Z",
+  "generatedAt": "2026-07-12T02:03:37.410Z",
   "skills": [
     {
       "id": "hermes-fabric:bundled:docs:doc-maintenance",
@@ -32,11 +32,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 4478,
-          "sha256": "fb0353386c5e5e5e13bcbb3233f044e3dccecf371f429d6328f26c26d7cb6169"
+          "sizeBytes": 4480,
+          "sha256": "dafb055ba105d1434d362f55bb593901b9bd1dd420ca2cac1a43e3c8ca65bea8"
         }
       ],
-      "contentHash": "sha256:2e02299210fd17c1fe1867b4ee8c144a11b6fe1fe481f83b8268cfbaaf10f9aa"
+      "contentHash": "sha256:0b06780380692693374e07dce777065bf2aeed9ab91edd33b4f39221096c28be"
     },
     {
       "id": "hermes-fabric:bundled:fabric-operations:issue-triage",
@@ -45,7 +45,7 @@
       "category": "fabric-operations",
       "slug": "issue-triage",
       "name": "issue-triage",
-      "description": "Triage HermesFabric inbox issues that are stale, blocked, in-review, or assigned-but-not-progressing, and decide a single next action per issue (resume, reassign, unblock, escalate, or close).",
+      "description": "Triage Hermes Fabric inbox issues that are stale, blocked, in-review, or assigned-but-not-progressing, and decide a single next action per issue (resume, reassign, unblock, escalate, or close).",
       "path": "catalog/bundled/fabric-operations/issue-triage",
       "entrypoint": "SKILL.md",
       "trustLevel": "markdown_only",
@@ -58,7 +58,7 @@
       ],
       "requires": [],
       "tags": [
-        "fabric",
+        "Hermes Fabric",
         "triage",
         "inbox",
         "workflow"
@@ -67,11 +67,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 4042,
-          "sha256": "df5bdc8bf5e017b7ba5f70a4b5323fad51d0c323278f386580f26cf43ad09160"
+          "sizeBytes": 4049,
+          "sha256": "bc9c70b2a7bc0d2a563995edae6be02c6823ef1d52513ddbb85e22eaac20f68b"
         }
       ],
-      "contentHash": "sha256:88dc13560371fb364963782cb4f6eeb4090fcde92ee3774479428ed6b90e11c1"
+      "contentHash": "sha256:2f793d626b42d3a023bc0b637e6fed5b44ca23c3755af6a4819affcfff4d8500"
     },
     {
       "id": "hermes-fabric:bundled:fabric-operations:task-planning",
@@ -80,7 +80,7 @@
       "category": "fabric-operations",
       "slug": "task-planning",
       "name": "task-planning",
-      "description": "Turn a HermesFabric issue or request into a structured implementation plan with child task graph, blockers, owners, and acceptance criteria, then save it as the issue `plan` document.",
+      "description": "Turn a Hermes Fabric issue or request into a structured implementation plan with child task graph, blockers, owners, and acceptance criteria, then save it as the issue `plan` document.",
       "path": "catalog/bundled/fabric-operations/task-planning",
       "entrypoint": "SKILL.md",
       "trustLevel": "markdown_only",
@@ -93,7 +93,7 @@
       ],
       "requires": [],
       "tags": [
-        "fabric",
+        "Hermes Fabric",
         "planning",
         "issues",
         "delegation"
@@ -102,11 +102,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 4938,
-          "sha256": "9c52a44a30ec8d306119da51bf298e9e3e6c382a9a9559ffd3054bf5e0c75f36"
+          "sizeBytes": 4957,
+          "sha256": "79c53d0827ced54bf7e1910a6117715c59ba9e24208d6f6dbd889a6cc38c0711"
         }
       ],
-      "contentHash": "sha256:487c3116eead89fef4f71c984329c41836bd69951b7ef9ed8736c69435e02438"
+      "contentHash": "sha256:36634bafa1c9b3a6fa8b46ae4572d574d7902dc33e65b33fd915d253aaed4214"
     },
     {
       "id": "hermes-fabric:bundled:product:fabric-capsules",
@@ -114,8 +114,8 @@
       "kind": "bundled",
       "category": "product",
       "slug": "fabric-capsules",
-      "name": "fabric-capsules",
-      "description": "Generate, implement, or review HermesFabric capsule visuals. Use when the user asks for HermesFabric capsule art, capsule banks, agent capsule visuals, heartbeat status capsules, capsule identicons, capsule graphic-generator output, or validation of HermesFabric capsule brand usage.",
+      "name": "Hermes Fabric-capsules",
+      "description": "Generate, implement, or review Hermes Fabric capsule visuals. Use when the user asks for Hermes Fabric capsule art, capsule banks, agent capsule visuals, heartbeat status capsules, capsule identicons, capsule graphic-generator output, or validation of Hermes Fabric capsule brand usage.",
       "path": "catalog/bundled/product/fabric-capsules",
       "entrypoint": "SKILL.md",
       "trustLevel": "markdown_only",
@@ -129,7 +129,7 @@
       ],
       "requires": [],
       "tags": [
-        "fabric",
+        "Hermes Fabric",
         "brand",
         "capsules",
         "agents",
@@ -140,35 +140,35 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 5930,
-          "sha256": "eda40e8f29cae07c2ce8ad1cef3406eae243dbbf52069a85cfb56fe7999a25ff"
+          "sizeBytes": 5977,
+          "sha256": "0393d6370ad6917a1492abfe86ee8ad53590d3e4560e95c50642d5edb750dc83"
         },
         {
           "path": "references/generator-workflows.md",
           "kind": "reference",
-          "sizeBytes": 4356,
-          "sha256": "b5f72e5b6683e8f93f2d852e84c2cc19e6ab438b250bf777dfb2480dd4f6e1b6"
+          "sizeBytes": 4371,
+          "sha256": "fbdf17791551f256c22b842745cfcbed5fbc4a968962d84088c4052e27dce4c1"
         },
         {
           "path": "references/hero-capsule-bank.md",
           "kind": "reference",
-          "sizeBytes": 5981,
-          "sha256": "ec3d34113aa7bb527560d1eb4d8ab7667c73e18284c85a2019122743a767525a"
+          "sizeBytes": 5983,
+          "sha256": "af5833d28ff2567fa0efea7077564b27aae225dc688f4760703650856f2cd5ac"
         },
         {
           "path": "references/identicon-prototyper.md",
           "kind": "reference",
-          "sizeBytes": 6669,
-          "sha256": "0b19419efa1396a402097decabe24ea9ae649678569449c8ce855e0678df6bfe"
+          "sizeBytes": 6656,
+          "sha256": "0f65e2fb01f07bed2a93cef115568b19ecb17b4eb82a5aeea30c82536e3771d5"
         },
         {
           "path": "references/individual-status-capsules.md",
           "kind": "reference",
-          "sizeBytes": 5031,
-          "sha256": "be1f2eccf96b4d2deefe45b3bc1dd0a3597278472c2ffedadc43c57161e9103d"
+          "sizeBytes": 5032,
+          "sha256": "91d1fb39be01c78275af9722a80dbbfcbb36e4e08803174b6257288453e1634c"
         }
       ],
-      "contentHash": "sha256:e8f502f9556103bd575bb664a9d21b1004869990802e639a188a720012116909"
+      "contentHash": "sha256:190ea411ee42719b74473f06640c9d46d97bab003c1f6ad9ab267aa5a23967b3"
     },
     {
       "id": "hermes-fabric:bundled:product:wireframe",
@@ -200,8 +200,8 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 11887,
-          "sha256": "a910d038d8cdd13615b82f44a2195b781ebccf01c49f9c58babd43b0701fe644"
+          "sizeBytes": 11889,
+          "sha256": "f7b4119902b8190d0f8ff267f8a84cb29e7b3585bca8ed5a66966df0a855155f"
         },
         {
           "path": "assets/site-template.html",
@@ -240,7 +240,7 @@
           "sha256": "017260d2216859d57e5fa869e0efc6b88c7ed4d8a8a4f5af04fe89a3ef2445bd"
         }
       ],
-      "contentHash": "sha256:0bd9a9fdc656d529e3f97c00cd504dcf72d3a4fecb8b0504ca2fe3e00d63287f"
+      "contentHash": "sha256:44087ec5e5ed7cd5adb3615fd71f661dc8591162ee5909199103ec852816dffa"
     },
     {
       "id": "hermes-fabric:bundled:quality:qa-acceptance",
@@ -271,11 +271,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 3861,
-          "sha256": "c631b437ab26d104af6cdb963d8f679a9341439041b3cb3ec8835f4ff551b378"
+          "sizeBytes": 3863,
+          "sha256": "812fe3d06a92735040b93e50f6e88905e416c58f44520794c703867b12e8d43d"
         }
       ],
-      "contentHash": "sha256:32372dacaf62e93454b9855968c4eec96456ba78b509f450b3dfaa48e31ef356"
+      "contentHash": "sha256:2c1e5a5f308b56bbea038be57680495c5fad10dbe47543821dbef95f55eef92d"
     },
     {
       "id": "hermes-fabric:bundled:software-development:github-pr-workflow",
@@ -304,11 +304,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 3970,
-          "sha256": "f498ec4ebb1779dea37adeb1db8a8b22316282798e35ee02e2fc5ff627d7e261"
+          "sizeBytes": 3972,
+          "sha256": "b738da16df505587cd10099bcac21f6ef54d3a2007bc2445039a6ae7d2d5420b"
         }
       ],
-      "contentHash": "sha256:90f278c89aa0711be150c1cd2456ca25620d02f36995b113ca9837d756a37f6c"
+      "contentHash": "sha256:9618ee6dfb55ec94c9e21324a23c8d59eb2871e2020929cf284e8a27302a353b"
     },
     {
       "id": "hermes-fabric:optional:browser:agent-browser",
@@ -339,11 +339,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 5133,
-          "sha256": "362f7b9d02297782bc6f0c093f495b8a0304a75bcf4b42e5c280a42b1f757b7d"
+          "sizeBytes": 5135,
+          "sha256": "b339e8ce94d7bfcae7c74a55abf31b74df7fe836a55d3b00b1bc0162ee745985"
         }
       ],
-      "contentHash": "sha256:eabb2c9f7b5e1a27ebb1e05a711d61433a266478154cd671a685e99e67aadea2"
+      "contentHash": "sha256:5f9369b4c83a8104533ada9c1f936dffab6c54fef64b0c92f3216fb50726a521"
     },
     {
       "id": "hermes-fabric:optional:content:release-announcement",
@@ -374,11 +374,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 4416,
-          "sha256": "062810ac34e9edc89efa701fec2eee60f16949d1944cc2cae49803cb91e8cbf4"
+          "sizeBytes": 4418,
+          "sha256": "3a7aed43e387f716ab4e4a2b9b8a51a89051dce8d89932d2462990111ff0268e"
         }
       ],
-      "contentHash": "sha256:f22a9ed696e6614c6db2757a149f48b3295e81f78c27d065d9cb164cf4f8a9bd"
+      "contentHash": "sha256:fb3d6476c69cb1ac609f16b15746130526b548846612045e41b4a0e3817fa328"
     },
     {
       "id": "hermes-fabric:optional:product:design-critique",
@@ -409,11 +409,11 @@
         {
           "path": "SKILL.md",
           "kind": "skill",
-          "sizeBytes": 4851,
-          "sha256": "022e619baf6cc25725946279cb8052d22af090dd6cd6dc8c20f17867f71a5d8e"
+          "sizeBytes": 4853,
+          "sha256": "c624b92366df658a75a966393843ccd902850c50ce972ef2f5edd64b7e9af5b9"
         }
       ],
-      "contentHash": "sha256:429f94df398a0697042b5bbe4755b1ff1a230aa5f41d99118ad37493ac65d21c"
+      "contentHash": "sha256:c8c6c4c5ab335d3df90efab7ce8f457ac69da447a270b3a462099f428d4387a5"
     },
     {
       "id": "hermes-fabric:optional:research:last30days",

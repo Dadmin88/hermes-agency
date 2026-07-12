@@ -38,7 +38,7 @@ const changedPathSampleLimit = 5;
 const devServerStatusFilePath = path.join(repoRoot, ".fabric", "dev-server-status.json");
 const devServerRestartRequestFilePath = path.join(repoRoot, ".fabric", "dev-server-restart-request.json");
 const devServerStatusToken = mode === "dev" ? randomUUID() : null;
-const devServerStatusTokenHeader = "x-fabric-dev-server-status-token";
+const devServerStatusTokenHeader = "x-hermesfabric-dev-server-status-token";
 
 const watchedDirectories = [
   "cli",

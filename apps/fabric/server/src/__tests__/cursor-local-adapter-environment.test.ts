@@ -29,7 +29,7 @@ console.log(JSON.stringify({
 }
 
 async function writeFakeCursorAgentCommand(commandPath: string): Promise<void> {
-  const script = `#!/usr/bin/env node
+  const script = `#!${process.execPath}
 const fs = require("node:fs");
 const outPath = process.env.HERMES_FABRIC_TEST_ARGS_PATH;
 if (outPath) {
