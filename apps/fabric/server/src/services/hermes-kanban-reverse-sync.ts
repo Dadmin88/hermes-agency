@@ -74,7 +74,7 @@ function nameKey(agent: { name: string; metadata: Record<string, unknown> | null
 export function resolveHermesKanbanBoard(env: NodeJS.ProcessEnv = process.env): string | null {
   const configured = env === process.env
     ? fabricEnv("HERMES_KANBAN_BOARD")
-    : env.FABRIC_HERMES_KANBAN_BOARD ?? env.PAPERCLIP_HERMES_KANBAN_BOARD;
+    : env.FABRIC_HERMES_KANBAN_BOARD;
   return configured?.trim()
     || env.HERMES_KANBAN_BOARD?.trim()
     || null;
