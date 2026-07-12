@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import threading
 
+import pytest
+
 pytest_plugins = ("test_keryx_transport",)
 
 
@@ -119,3 +121,141 @@ async def test_stop_waits_for_blocked_startup_before_node_publication(
         if stop_task is not None:
             await asyncio.gather(stop_task, return_exceptions=True)
         await manager._stop_impl()
+
+
+async def test_timed_out_start_stops_constructed_unpublished_candidate(
+    node_manager_module, fake_keryx_sdk
+):
+    """Cancelling the last startup owner stops its constructed candidate."""
+
+    manager = node_manager_module.NodeManager()
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+    startup_entered = threading.Event()
+    node_cls = fake_keryx_sdk["KeryxNode"]
+
+    async def blocked_start(self) -> None:
+        startup_entered.set()
+        await asyncio.Future()
+
+    node_cls.start = blocked_start
+    try:
+        start_call = asyncio.create_task(asyncio.to_thread(manager.start_sync, 0.01))
+        assert await asyncio.to_thread(startup_entered.wait, 1)
+
+        with pytest.raises(TimeoutError):
+            await start_call
+
+        assert len(node_cls.instances) == 1
+        assert node_cls.instances[0].stopped is True
+        assert manager._node is None
+        assert manager.state.started is False
+    finally:
+        await manager._stop_impl()
+
+
+async def test_timed_out_start_waits_for_candidate_cleanup_acknowledgement(
+    node_manager_module, fake_keryx_sdk
+):
+    """A timeout is not reported while its cancelled candidate is still cleaning up."""
+
+    manager = node_manager_module.NodeManager()
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+    startup_entered = threading.Event()
+    cleanup_entered = threading.Event()
+    release_cleanup = threading.Event()
+    node_cls = fake_keryx_sdk["KeryxNode"]
+    original_stop = node_cls.stop
+
+    async def blocked_start(self) -> None:
+        startup_entered.set()
+        await asyncio.Future()
+
+    async def blocked_stop(self) -> None:
+        cleanup_entered.set()
+        await asyncio.to_thread(release_cleanup.wait)
+        await original_stop(self)
+
+    node_cls.start = blocked_start
+    node_cls.stop = blocked_stop
+    try:
+        start_call = asyncio.create_task(asyncio.to_thread(manager.start_sync, 0.01))
+        assert await asyncio.to_thread(startup_entered.wait, 1)
+        assert await asyncio.to_thread(cleanup_entered.wait, 1)
+        assert not start_call.done()
+
+        release_cleanup.set()
+        with pytest.raises(TimeoutError):
+            await start_call
+    finally:
+        release_cleanup.set()
+        await manager._stop_impl()
+
+
+async def test_timed_out_start_stops_idle_lifecycle_loop(node_manager_module, fake_keryx_sdk):
+    """The dedicated loop does not survive a cancelled start with no published node."""
+
+    manager = node_manager_module.NodeManager()
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+    startup_entered = threading.Event()
+    release_startup = threading.Event()
+    node_cls = fake_keryx_sdk["KeryxNode"]
+
+    async def blocked_start(self) -> None:
+        startup_entered.set()
+        await asyncio.to_thread(release_startup.wait)
+
+    node_cls.start = blocked_start
+    try:
+        start_call = asyncio.create_task(asyncio.to_thread(manager.start_sync, 0.01))
+        assert await asyncio.to_thread(startup_entered.wait, 1)
+        with pytest.raises(TimeoutError):
+            await start_call
+
+        assert manager._node is None
+        assert manager._loop is None
+        assert manager._thread is None
+    finally:
+        release_startup.set()
+        if manager._loop is not None:
+            await asyncio.to_thread(manager.stop_sync)
+
+
+async def test_timed_out_sync_waiter_does_not_cancel_background_start(
+    node_manager_module, fake_keryx_sdk
+):
+    """A timeout abandons only its synchronous wait, not another startup owner."""
+
+    manager = node_manager_module.NodeManager()
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+    startup_entered = threading.Event()
+    release_startup = threading.Event()
+    node_cls = fake_keryx_sdk["KeryxNode"]
+    original_start = node_cls.start
+
+    async def blocked_start(self) -> None:
+        startup_entered.set()
+        await asyncio.to_thread(release_startup.wait)
+        await original_start(self)
+
+    node_cls.start = blocked_start
+    try:
+        manager.start_background()
+        background_future = manager._start_future
+        assert background_future is not None
+        assert await asyncio.to_thread(startup_entered.wait, 1)
+
+        with pytest.raises(TimeoutError):
+            await asyncio.to_thread(manager.start_sync, 0.01)
+
+        release_startup.set()
+        state = await asyncio.wrap_future(background_future)
+        assert state.started is True
+        assert len(node_cls.instances) == 1
+    finally:
+        release_startup.set()
+        if manager._loop is not None:
+            await asyncio.to_thread(manager.stop_sync)

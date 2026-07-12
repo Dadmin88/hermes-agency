@@ -464,6 +464,7 @@ class NodeManager(
         if cfg.home:
             cfg.home.mkdir(parents=True, exist_ok=True)
 
+        node = None
         try:
             node_cls, backend = _resolve_transport_node_class(cfg)
             card = _build_card_for_transport(backend)
@@ -526,13 +527,20 @@ class NodeManager(
                     self._registry_reregister_loop()
                 )
                 self._registry_reregister_task.add_done_callback(self._registry_reregister_done)
-        except Exception as exc:
+        except BaseException as exc:
+            if node is not None:
+                try:
+                    await node.stop()
+                except BaseException:
+                    pass
             self._node = None
             self._serve_task = None
             self.state.started = False
             self.state.peer_id = None
             self.state.serve_task_running = False
             self.state.error = f"{type(exc).__name__}: {exc}"
+            if not isinstance(exc, Exception):
+                raise
         return self.state
 
     async def _stop_impl(self) -> Any:

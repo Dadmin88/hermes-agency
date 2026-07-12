@@ -68,6 +68,18 @@ class NodeLifecycleMixin:
             self._thread = None
             self._thread_ready.clear()
 
+    async def _cancel_startup_if_sole_waiter(self) -> bool:
+        """Cancel and acknowledge startup cleanup only when no caller still owns it."""
+
+        if self._start_future is not None or getattr(self, "_startup_waiters", 0) != 1:
+            return False
+        startup_task = self._startup_task
+        if startup_task is None or startup_task.done():
+            return False
+        startup_task.cancel()
+        await asyncio.gather(startup_task, return_exceptions=True)
+        return True
+
     def _status_callback(self, message: str) -> None:
         self.state.last_status = message
 
@@ -117,9 +129,11 @@ class NodeLifecycleMixin:
         if startup_task is None:
             startup_task = asyncio.create_task(self._start_impl_once())
             self._startup_task = startup_task
+        self._startup_waiters = getattr(self, "_startup_waiters", 0) + 1
         try:
             return await asyncio.shield(startup_task)
         finally:
+            self._startup_waiters -= 1
             if startup_task.done() and self._startup_task is startup_task:
                 self._startup_task = None
 
@@ -272,7 +286,18 @@ class NodeLifecycleMixin:
             return None
 
     def start_sync(self, timeout: float = 120) -> Any:
-        return self._submit(self._start_impl(), timeout=timeout)
+        loop = self._ensure_loop()
+        if threading.current_thread() is self._thread:
+            raise RuntimeError("Cannot synchronously wait on the Hermes Agency loop thread")
+        future = asyncio.run_coroutine_threadsafe(self._start_impl(), loop)
+        try:
+            return future.result(timeout=timeout)
+        except TimeoutError:
+            cleanup = asyncio.run_coroutine_threadsafe(self._cancel_startup_if_sole_waiter(), loop)
+            if cleanup.result():
+                future.cancel()
+                self._stop_loop_if_idle()
+            raise
 
     def stop_sync(self, timeout: float = 60) -> Any:
         try:
