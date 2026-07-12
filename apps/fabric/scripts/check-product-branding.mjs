@@ -65,6 +65,8 @@ const EXCLUDED_DIRECTORIES = new Set([
 const EXEMPT_EXACT_PATHS = new Set([
   "scripts/check-product-branding.mjs",
   "scripts/check-product-branding.test.mjs",
+  "scripts/brand-allowlist.json",
+  "scripts/brand-rules.mjs",
   "scripts/merge-upstream-snapshots.py",
   "scripts/normalize-upstream-import.py",
   "scripts/test-upstream-sync.py",
