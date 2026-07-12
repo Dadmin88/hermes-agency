@@ -111,9 +111,9 @@ def _ensure_worker_trusts_current_orchestrator(name: str, profile_dir: Path) -> 
 
 def _validate_agent_name(name: str) -> str | None:
     """Return an error message when an agent lifecycle name is invalid."""
-    if not name.startswith("agency-"):
+    if not isinstance(name, str) or not name.startswith("agency-"):
         return "name must start with 'agency-'"
-    if not re.fullmatch(r"[a-z0-9-]+", name):
+    if not re.fullmatch(r"agency-[a-z0-9][a-z0-9-]*", name):
         return "name must be lowercase alphanumeric with hyphens"
     if len(name) > 64:
         return "name must be 64 characters or fewer"
@@ -127,6 +127,29 @@ def _profile_dir_for_agent_name(name: str) -> Path:
     if profile_dir.parent != profile_root or profile_dir.name != name:
         raise ValueError("profile dir must be directly under profiles")
     return profile_dir
+
+
+def _normalise_pool_name(name: object) -> tuple[str | None, str | None]:
+    """Normalize a short pool name and reject malformed lifecycle targets."""
+    if not isinstance(name, str):
+        return None, "name must be a string"
+    candidate = name if name.startswith("agency-") else f"agency-{name}"
+    error = _validate_agent_name(candidate)
+    return (None, error) if error else (candidate, None)
+
+
+def _resolve_existing_pool_profile(name: object) -> tuple[str, Path] | tuple[None, str]:
+    """Return a validated, canonical existing pool profile."""
+    candidate, error = _normalise_pool_name(name)
+    if candidate is None:
+        return None, error or "invalid profile name"
+    try:
+        profile_dir = _profile_dir_for_agent_name(candidate)
+    except ValueError as exc:
+        return None, str(exc)
+    if not profile_dir.is_dir():
+        return None, f"profile {candidate} not found"
+    return candidate, profile_dir
 
 
 def _pid_alive(pid: int) -> bool:
@@ -589,13 +612,10 @@ def pool_roster(query: str = "", show_offline: bool = True) -> str:
 
 def pool_wake(name: str) -> str:
     """Wake an agency profile with the long-lived node runner."""
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
-
-    profile_dir = PROFILES / name
-    if not profile_dir.exists():
-        record_wake_attempt(name, success=False, error=f"profile {name} not found")
-        return f"Error: profile {name} not found"
+    resolved = _resolve_existing_pool_profile(name)
+    if resolved[0] is None:
+        return f"Error: {resolved[1]}"
+    name, profile_dir = resolved
 
     setup = ensure_profile_plugins()
     if setup.get("profiles_errors"):
@@ -701,12 +721,10 @@ def pool_wake(name: str) -> str:
 
 def pool_sleep(name: str) -> str:
     """Sleep an agency profile — stop its daemon."""
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
-
-    profile_dir = PROFILES / name
-    if not profile_dir.exists():
-        return f"Error: profile {name} not found"
+    resolved = _resolve_existing_pool_profile(name)
+    if resolved[0] is None:
+        return f"Error: {resolved[1]}"
+    name, profile_dir = resolved
 
     # Stop long-lived runners, including stale processes no longer tracked by
     # runner.pid, then kill any profile-owned daemon.
@@ -749,8 +767,9 @@ def _recent_failed_wake(agent: dict[str, Any], cooldown_seconds: int = 60) -> bo
 
 def pool_send(name: str, message: str) -> str:
     """Send work to an agent. Auto-wakes if offline; queues if wake/send fails."""
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
+    name, error = _normalise_pool_name(name)
+    if name is None:
+        return f"Error: {error}"
 
     agent = find_agent(name)
     if not agent:
