@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, ne, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   assets,
   companies,
@@ -13,7 +13,7 @@ import {
   issueWorkProducts,
   pipelineCaseIssueLinks,
   pipelineCases,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   SYSTEM_ISSUE_DOCUMENT_KEYS,
   type PipelineCaseOutputItem,
@@ -23,7 +23,7 @@ import {
   type PipelineCaseOutputSourceRole,
   type PipelineCaseOutputsResponse,
   type SourceTrustMetadata,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { notFound } from "../errors.js";
 import { isLowTrustQuarantined, LOW_TRUST_QUARANTINED_BODY } from "./source-trust.js";
 

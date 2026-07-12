@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, like, ne, notInArray, or, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agents,
   companySecretBindings,
@@ -13,7 +13,7 @@ import {
   projects,
   routines,
   secretAccessEvents,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import type {
   AgentEnvConfig,
   CompanySecretBindingTarget,
@@ -28,7 +28,7 @@ import type {
   SecretProviderConfigHealthStatus,
   SecretProviderConfigStatus,
   SecretVersionSelector,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   createSecretProviderConfigSchema,
   deriveProjectUrlKey,
@@ -38,7 +38,7 @@ import {
   secretProviderConfigPayloadSchema,
   secretProviderConfigDiscoveryPreviewSchema,
   updateSecretProviderConfigSchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { conflict, forbidden, HttpError, notFound, unprocessable } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import {
@@ -132,11 +132,11 @@ function safeRemoteProviderErrorDetails(
   const region = safeString(context.providerConfig?.region);
   if (region) details.region = region;
   details.providerVaultContext = context.providerConfigId === "discovery-preview" ? "draft_config" : "provider_config";
-  details.credentialPath = "Paperclip server runtime/provider credential path";
+  details.credentialPath = "HermesFabric server runtime/provider credential path";
   if (error?.code === "access_denied") {
     details.requiredCapability = "secretsmanager:ListSecrets";
     details.actionableMessage =
-      "AWS discovery preview needs secretsmanager:ListSecrets in the selected region for the Paperclip server runtime/provider credential path.";
+      "AWS discovery preview needs secretsmanager:ListSecrets in the selected region for the HermesFabric server runtime/provider credential path.";
     details.safeAlternative =
       "If the operator already knows the exact AWS Secrets Manager ARN, paste/link that ARN instead of using discovery. Exact-resource DescribeSecret and runtime read permissions are still required.";
   }
@@ -952,7 +952,7 @@ export function secretService(db: Db) {
         provider: "local_encrypted",
         providerConfigId: null,
         status: "archived",
-        managedMode: "paperclip_managed",
+        managedMode: "fabric_managed",
         externalRef: null,
         providerMetadata: null,
         latestVersion: 0,
@@ -1904,7 +1904,7 @@ export function secretService(db: Db) {
         providerConfigId?: string | null;
         value?: string | null;
         key?: string | null;
-        managedMode?: "paperclip_managed" | "external_reference";
+        managedMode?: "fabric_managed" | "external_reference";
         description?: string | null;
         externalRef?: string | null;
         providerVersionRef?: string | null;
@@ -1927,7 +1927,7 @@ export function secretService(db: Db) {
         .then((rows) => rows[0] ?? null);
       if (duplicateKey) throw conflict(`Secret key already exists: ${key}`);
 
-      const managedMode = input.managedMode ?? "paperclip_managed";
+      const managedMode = input.managedMode ?? "fabric_managed";
       const provider = getSecretProvider(input.provider);
       const providerConfig = await getSelectableRuntimeProviderConfig({
         companyId,
@@ -1937,10 +1937,10 @@ export function secretService(db: Db) {
       if (managedMode === "external_reference" && !input.externalRef?.trim()) {
         throw unprocessable("External reference secrets require externalRef");
       }
-      if (managedMode === "paperclip_managed" && input.externalRef?.trim()) {
+      if (managedMode === "fabric_managed" && input.externalRef?.trim()) {
         throw unprocessable("Managed secrets cannot override externalRef");
       }
-      if (managedMode === "paperclip_managed" && !input.value?.trim()) {
+      if (managedMode === "fabric_managed" && !input.value?.trim()) {
         throw unprocessable("Managed secrets require value");
       }
       const providerWriteContext = {
@@ -2011,7 +2011,7 @@ export function secretService(db: Db) {
           createdByUserId: actor?.userId ?? null,
         });
       } catch (error) {
-        if (managedMode === "paperclip_managed") {
+        if (managedMode === "fabric_managed") {
           const cleaned = await cleanupPreparedProviderWrite({
             provider,
             prepared,
@@ -2058,7 +2058,7 @@ export function secretService(db: Db) {
           return secret;
         });
       } catch (error) {
-        if (managedMode === "paperclip_managed") {
+        if (managedMode === "fabric_managed") {
           const cleaned = await cleanupPreparedProviderWrite({
             provider,
             prepared,
@@ -2254,7 +2254,7 @@ export function secretService(db: Db) {
         }
       }
       const deleting = patch.status === "deleted";
-      if (deleting && secret.managedMode === "paperclip_managed") {
+      if (deleting && secret.managedMode === "fabric_managed") {
         throw unprocessable("Managed secrets must be deleted through DELETE /secrets/:id");
       }
       if (secret.managedMode !== "external_reference" && patch.externalRef !== undefined) {
@@ -2279,7 +2279,7 @@ export function secretService(db: Db) {
         );
       }
       if (
-        secret.managedMode === "paperclip_managed" &&
+        secret.managedMode === "fabric_managed" &&
         patch.providerConfigId !== undefined &&
         patch.providerConfigId !== secret.providerConfigId
       ) {

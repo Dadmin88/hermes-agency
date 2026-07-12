@@ -1,5 +1,5 @@
 import { Play } from "lucide-react";
-import type { IssueWorkProduct } from "@paperclipai/shared";
+import type { IssueWorkProduct } from "@hermes-fabric/shared";
 import { getIssueOutputs, type IssueOutputItem } from "@/lib/issue-output";
 import { OutputPrimaryCard } from "./OutputPrimaryCard";
 import { OutputRow } from "./OutputRow";

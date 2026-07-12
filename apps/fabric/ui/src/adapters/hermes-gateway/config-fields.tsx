@@ -128,7 +128,7 @@ export function HermesGatewayConfigFields({
   };
 
   const apiBaseUrl = String(readValue("apiBaseUrl", "") ?? "");
-  const paperclipApiUrl = String(readValue("paperclipApiUrl", "") ?? "");
+  const fabricApiUrl = String(readValue("fabricApiUrl", "") ?? "");
   const sessionKeyStrategy = String(readValue("sessionKeyStrategy", DEFAULT_SESSION_KEY_STRATEGY) ?? DEFAULT_SESSION_KEY_STRATEGY);
   const timeoutSec = Number(readValue("timeoutSec", DEFAULT_TIMEOUT_SEC) ?? DEFAULT_TIMEOUT_SEC);
   const eventReconnectMs = Number(readValue("eventReconnectMs", DEFAULT_EVENT_RECONNECT_MS) ?? DEFAULT_EVENT_RECONNECT_MS);
@@ -157,7 +157,7 @@ export function HermesGatewayConfigFields({
         label="API key"
         value={isCreate ? String(readCreateValue(values, "apiKey", "") ?? "") : editApiKeyValue}
         onCommit={(v) => writeValue("apiKey", v || undefined)}
-        placeholder="Hermes API_SERVER_KEY, not PAPERCLIP_API_KEY"
+        placeholder="Hermes API_SERVER_KEY, not HERMES_FABRIC_API_KEY"
         stored={!isCreate && hasStoredApiKey && !editApiKeyValue}
       />
 
@@ -166,8 +166,8 @@ export function HermesGatewayConfigFields({
         hint="Optional Hermes Agency API URL reachable by the Hermes host. This is not a credential."
       >
         <DraftInput
-          value={paperclipApiUrl}
-          onCommit={(v) => writeValue("paperclipApiUrl", v || undefined)}
+          value={fabricApiUrl}
+          onCommit={(v) => writeValue("fabricApiUrl", v || undefined)}
           immediate
           className={inputClass}
           placeholder="http://127.0.0.1:3100"

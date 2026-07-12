@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Link, Navigate } from "@/lib/router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import type { WorkspaceOverviewItem } from "@paperclipai/shared";
+import type { WorkspaceOverviewItem } from "@hermes-fabric/shared";
 import { Button } from "@/components/ui/button";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { instanceSettingsApi } from "../api/instanceSettings";

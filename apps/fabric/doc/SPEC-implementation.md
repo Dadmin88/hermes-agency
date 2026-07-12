@@ -1,4 +1,4 @@
-# Paperclip V1 Implementation Spec
+# Hermes Fabric V1 Implementation Spec
 
 Status: Implementation contract for first release (V1)
 Date: 2026-04-28
@@ -13,7 +13,7 @@ When there is a conflict, `SPEC-implementation.md` controls V1 behavior.
 
 ## 2. V1 Outcomes
 
-Paperclip V1 must provide a full control-plane loop for autonomous agents:
+Hermes Fabric V1 must provide a full control-plane loop for autonomous agents:
 
 1. A human board creates a company and defines goals.
 2. The board creates and manages agents in an org tree.
@@ -98,11 +98,11 @@ V1 implementation extends this baseline into a company-centric, governance-aware
 ## 6.2 Data Stores
 
 - Primary: PostgreSQL
-- Local default: embedded PostgreSQL at `~/.paperclip/instances/default/db`
+- Local default: embedded PostgreSQL at `~/.hermes-fabric/instances/default/db`
 - Optional local prod-like: Docker Postgres
 - Optional hosted: Supabase/Postgres-compatible
 - File/object storage:
-  - local default: `~/.paperclip/instances/default/data/storage` (`local_disk`)
+  - local default: `~/.hermes-fabric/instances/default/data/storage` (`local_disk`)
   - cloud: S3-compatible object storage (`s3`)
 
 ## 6.3 Background Processing
@@ -155,7 +155,7 @@ Invariant: every business record belongs to exactly one company.
 - `capabilities` text null
 - `adapter_type` text; built-ins include `process`, `http`, `claude_local`, `codex_local`, `gemini_local`, `opencode_local`, `pi_local`, `cursor`, `hermes_local`, `hermes_gateway`, and `openclaw_gateway`
 - `adapter_config` jsonb not null
-- `runtime_config` jsonb not null default `{}`; may include Paperclip runtime policy such as `modelProfiles.cheap.adapterConfig` for an optional low-cost model lane that does not change the primary adapter config
+- `runtime_config` jsonb not null default `{}`; may include Hermes Fabric runtime policy such as `modelProfiles.cheap.adapterConfig` for an optional low-cost model lane that does not change the primary adapter config
 - `default_environment_id` uuid fk `environments.id` null
 - `context_mode` enum: `thin | fat` default `thin`
 - `budget_monthly_cents` int not null default 0
@@ -210,9 +210,9 @@ Invariant: at least one root `company` level goal per company.
 
 Invariant:
 
-- project env is merged into run environment for issues in that project and overrides conflicting agent env keys before Paperclip runtime-owned keys are injected
+- project env is merged into run environment for issues in that project and overrides conflicting agent env keys before Hermes Fabric runtime-owned keys are injected
 
-Routine execution issues add a routine-scoped env overlay after project env and before Paperclip runtime-owned keys. Routine env uses the same secret-aware binding format, is stored on `routines.env`, is snapshotted in routine revisions, and resolves secret refs against the routine binding target so routine-owned secrets do not require direct bindings on the executing agent.
+Routine execution issues add a routine-scoped env overlay after project env and before Hermes Fabric runtime-owned keys. Routine env uses the same secret-aware binding format, is stored on `routines.env`, is snapshotted in routine revisions, and resolves secret refs against the routine binding target so routine-owned secrets do not require direct bindings on the executing agent.
 
 ## 7.6 `issues` (core task entity)
 
@@ -406,7 +406,7 @@ Operational policy:
   - Attachment reads are company-scoped and expose stable path metadata: `contentPath`/`openPath` for inline-safe viewing and `downloadPath` for forced download.
   - Inline-safe responses use `Content-Disposition: inline`; unsafe types and explicit download requests use `attachment`.
   - Video attachments are inline-safe and support single `Range: bytes=start-end` requests with `206`, `Content-Range`, and `Accept-Ranges: bytes` for browser playback/seeking.
-- Attachment-backed artifact work products use `type: "artifact"`, `provider: "paperclip"`, and metadata with `attachmentId`, `contentType`, `byteSize`, `contentPath`, `openPath`, `downloadPath`, and optional `originalFilename`.
+- Attachment-backed artifact work products use `type: "artifact"`, `provider: "fabric"`, and metadata with `attachmentId`, `contentType`, `byteSize`, `contentPath`, `openPath`, `downloadPath`, and optional `originalFilename`.
 - Workspace-only file references use work product `metadata.resourceRef` with `kind: "workspace_file"`, `issueId`, `workspaceKind` (`execution_workspace` or `project_workspace`), `workspaceId`, `relativePath`, optional `line`/`column`, and `displayPath`. These references point at files in a workspace; they do not replace attachment-backed artifacts for deliverables that must be inspectable without workspace access.
 
 ## 7.15 `documents` + `document_revisions` + `issue_documents`
@@ -487,7 +487,7 @@ V1 non-terminal liveness rule:
 - agent-owned `todo`, `in_progress`, `in_review`, and `blocked` issues must have a live execution path, an explicit waiting path, or an explicit recovery path
 - `in_review` is healthy only when a typed execution participant, pending issue-thread interaction or approval, user owner, active run, queued wake, or explicit recovery action owns the next action
 - a blocked chain is covered only when each unresolved leaf issue is live or explicitly waiting
-- when Paperclip cannot safely infer the next action, it surfaces the problem through visible blocked/recovery work instead of silently completing or reassigning work
+- when Hermes Fabric cannot safely infer the next action, it surfaces the problem through visible blocked/recovery work instead of silently completing or reassigning work
 - explicit recovery actions are the liveness primitive; source-scoped actions are the default form, issue-backed recovery is a fallback for independent repair work or safety boundaries, and comments alone are evidence rather than a healthy liveness path
 
 Detailed ownership, execution, blocker, active-run watchdog, crash-recovery, and non-terminal liveness semantics are documented in `doc/execution-semantics.md`.
@@ -536,7 +536,7 @@ Detailed ownership, execution, blocker, active-run watchdog, crash-recovery, and
 
 ## 9.4 Permission Terminology and Default Visibility Rule
 
-Paperclip V1 keeps a company-scoped visibility model as the default because centralized authorization and scoped work-object controls are not yet a core V1 control surface.
+Hermes Fabric V1 keeps a company-scoped visibility model as the default because centralized authorization and scoped work-object controls are not yet a core V1 control surface.
 
 The approved term set is:
 
@@ -868,7 +868,7 @@ Behavior:
 
 ## 11.5 Recovery Model Profiles
 
-The optional `modelProfiles.cheap` lane is not a retry worker lane. Paperclip may request the cheap profile only for status-only recovery coordination, and those wakes must include guard context that prevents deliverable work and document/plan updates (`allowDeliverableWork: false`, `allowDocumentUpdates: false`, `resumeRequiresNormalModel: true`).
+The optional `modelProfiles.cheap` lane is not a retry worker lane. Hermes Fabric may request the cheap profile only for status-only recovery coordination, and those wakes must include guard context that prevents deliverable work and document/plan updates (`allowDeliverableWork: false`, `allowDocumentUpdates: false`, `resumeRequiresNormalModel: true`).
 
 Failed source-work retries, process-loss retries, transient/scheduled retries, max-turn continuations, source-assignee continuations, and downstream source-work child/requeue/resume contexts must use the normal/original model lane. If cheap recovery repairs liveness while actual work remains, the next live continuation path must be a separate normal-model worker run with cheap hints scrubbed.
 
@@ -987,7 +987,7 @@ Required UX behaviors:
 
 - Node 20+
 - `DATABASE_URL` optional
-- if unset, auto-use embedded PostgreSQL under `~/.paperclip/instances/default/db`
+- if unset, auto-use embedded PostgreSQL under `~/.hermes-fabric/instances/default/db`
 
 ## 15.2 Migrations
 
@@ -1115,7 +1115,7 @@ V1 supports company import/export using a portable package contract:
 
 - markdown-first package rooted at `COMPANY.md`
 - implicit folder discovery by convention
-- `.paperclip.yaml` sidecar for Paperclip-specific fidelity
+- `.fabric.yaml` sidecar for Hermes Fabric-specific fidelity
 - canonical base package is vendor-neutral and aligned with `docs/companies/companies-spec.md`
 - common conventions:
   - `agents/<slug>/AGENTS.md`
@@ -1127,11 +1127,11 @@ V1 supports company import/export using a portable package contract:
 
 Export/import behavior in V1:
 
-- export emits a clean vendor-neutral markdown package plus `.paperclip.yaml`
+- export emits a clean vendor-neutral markdown package plus `.fabric.yaml`
 - projects and starter tasks are opt-in export content rather than default package content
-- recurring `TASK.md` entries use `recurring: true` in the base package and Paperclip routine fidelity in `.paperclip.yaml`
-- Paperclip imports recurring task packages as routines instead of downgrading them to one-time issues
-- export strips environment-specific paths (`cwd`, local instruction file paths, inline prompt duplication) while preserving portable project repo/workspace metadata such as `repoUrl`, refs, and workspace-policy references keyed in `.paperclip.yaml`
+- recurring `TASK.md` entries use `recurring: true` in the base package and Hermes Fabric routine fidelity in `.fabric.yaml`
+- Hermes Fabric imports recurring task packages as routines instead of downgrading them to one-time issues
+- export strips environment-specific paths (`cwd`, local instruction file paths, inline prompt duplication) while preserving portable project repo/workspace metadata such as `repoUrl`, refs, and workspace-policy references keyed in `.fabric.yaml`
 - export never includes secret values; env inputs are reported as portable declarations instead
 - import supports target modes:
   - create a new company

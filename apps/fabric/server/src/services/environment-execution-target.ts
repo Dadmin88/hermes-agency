@@ -1,9 +1,9 @@
-import type { Db } from "@paperclipai/db";
-import type { Environment, EnvironmentLease } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import type { Environment, EnvironmentLease } from "@hermes-fabric/shared";
 import {
   adapterExecutionTargetToRemoteSpec,
   type AdapterExecutionTarget,
-} from "@paperclipai/adapter-utils/execution-target";
+} from "@hermes-fabric/adapter-utils/execution-target";
 import { parseObject } from "../adapters/utils.js";
 import { resolveEnvironmentDriverConfigForRuntime } from "./environment-config.js";
 import type { EnvironmentRuntimeService } from "./environment-runtime.js";

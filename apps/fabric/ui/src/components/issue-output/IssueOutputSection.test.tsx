@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { IssueWorkProduct } from "@paperclipai/shared";
+import type { IssueWorkProduct } from "@hermes-fabric/shared";
 import { IssueOutputSection } from "./IssueOutputSection";
 
 function makeWorkProduct(overrides: Partial<IssueWorkProduct> & { id: string }): IssueWorkProduct {
@@ -11,7 +11,7 @@ function makeWorkProduct(overrides: Partial<IssueWorkProduct> & { id: string }):
     executionWorkspaceId: null,
     runtimeServiceId: null,
     type: "artifact",
-    provider: "paperclip",
+    provider: "fabric",
     externalId: null,
     title: "output",
     url: null,

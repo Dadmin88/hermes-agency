@@ -39,7 +39,7 @@ describeEmbeddedPostgres("pipeline schema", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-pipeline-schema-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-pipeline-schema-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

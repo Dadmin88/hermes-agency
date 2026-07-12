@@ -2,8 +2,8 @@ import express, { Router, type Request as ExpressRequest } from "express";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Db } from "@paperclipai/db";
-import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import type { DeploymentExposure, DeploymentMode } from "@hermes-fabric/shared";
 import type { StorageService } from "./storage/types.js";
 import { httpLogger, errorHandler } from "./middleware/index.js";
 import { actorMiddleware } from "./middleware/auth.js";
@@ -66,7 +66,7 @@ import { setPluginEventBus } from "./services/activity-log.js";
 import { createPluginDevWatcher } from "./services/plugin-dev-watcher.js";
 import { createPluginHostServiceCleanup } from "./services/plugin-host-service-cleanup.js";
 import { pluginRegistryService } from "./services/plugin-registry.js";
-import { createHostClientHandlers } from "@paperclipai/plugin-sdk";
+import { createHostClientHandlers } from "@hermes-fabric/plugin-sdk";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 import { createCachedViteHtmlRenderer } from "./vite-html-renderer.js";
 import { DEFAULT_JSON_BODY_LIMIT, PORTABLE_JSON_BODY_LIMIT } from "./http/body-limits.js";
@@ -395,7 +395,7 @@ export async function createApp(
           .end(readBrandedStaticIndexHtml(uiDist));
       });
     } else {
-      console.warn("[paperclip] UI dist not found; running in API-only mode");
+      console.warn("[fabric] UI dist not found; running in API-only mode");
     }
   }
 
@@ -497,7 +497,7 @@ export async function createApp(
   // ALWAYS finishes booting. A degraded boot (no kubernetes provider, agents
   // cannot run) is strictly preferable to a crash loop.
   const ensureBundledKubernetesPlugin = async (): Promise<void> => {
-    const KUBERNETES_PLUGIN_KEY = "paperclip.kubernetes-sandbox-provider";
+    const KUBERNETES_PLUGIN_KEY = "fabric.kubernetes-sandbox-provider";
     const pluginPath =
       fabricEnv("KUBERNETES_PLUGIN_PATH") ??
       "/app/packages/plugins/sandbox-providers/kubernetes";
@@ -566,7 +566,7 @@ export async function createApp(
     hostServiceCleanup.disposeAll();
     hostServiceCleanup.teardown();
   };
-  app.locals.paperclipShutdown = shutdownAppServices;
+  app.locals.fabricShutdown = shutdownAppServices;
 
   process.once("exit", shutdownAppServices);
   process.once("beforeExit", () => {

@@ -38,8 +38,8 @@ describe("git workspace sync", () => {
     await mkdir(repo, { recursive: true });
     await git(repo, ["init"]);
     await git(repo, ["checkout", "-b", "main"]);
-    await git(repo, ["config", "user.name", "Paperclip Test"]);
-    await git(repo, ["config", "user.email", "test@paperclip.dev"]);
+    await git(repo, ["config", "user.name", "HermesFabric Test"]);
+    await git(repo, ["config", "user.email", "test@fabric.dev"]);
     await writeFile(path.join(repo, "tracked.txt"), "base\n", "utf8");
     await git(repo, ["add", "tracked.txt"]);
     await git(repo, ["commit", "-m", "base"]);
@@ -47,7 +47,7 @@ describe("git workspace sync", () => {
   }
 
   it("creates a shallow standalone clone from the local HEAD snapshot", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-git-sync-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-git-sync-"));
     cleanupDirs.push(rootDir);
     const repo = await createRepo(rootDir);
     const baseHead = await git(repo, ["rev-parse", "HEAD"]);
@@ -73,7 +73,7 @@ describe("git workspace sync", () => {
   });
 
   it("builds thin git delta bundles relative to the imported base", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-git-delta-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-git-delta-"));
     cleanupDirs.push(rootDir);
     const repo = await createRepo(rootDir);
     const baseHead = await git(repo, ["rev-parse", "HEAD"]);
@@ -93,8 +93,8 @@ describe("git workspace sync", () => {
       })]);
       expect((await stat(emptyBundle)).size).toBe(0);
 
-      await git(remoteDir, ["config", "user.name", "Paperclip Remote"]);
-      await git(remoteDir, ["config", "user.email", "remote@paperclip.dev"]);
+      await git(remoteDir, ["config", "user.name", "HermesFabric Remote"]);
+      await git(remoteDir, ["config", "user.email", "remote@fabric.dev"]);
       await writeFile(path.join(remoteDir, "tracked.txt"), "remote\n", "utf8");
       await git(remoteDir, ["commit", "-am", "remote update"]);
       const remoteHead = await git(remoteDir, ["rev-parse", "HEAD"]);

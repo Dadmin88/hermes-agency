@@ -27,7 +27,7 @@
  * Security: see `sandboxed-parser-worker.ts` for the full lockdown.
  */
 
-import type { TranscriptEntry } from "@paperclipai/adapter-utils";
+import type { TranscriptEntry } from "@hermes-fabric/adapter-utils";
 import type { StdoutLineParser, StdoutParserFactory } from "./types";
 import { createSandboxedWorker } from "./sandboxed-parser-worker";
 import type { SandboxRequest, SandboxResponse } from "./sandboxed-parser-worker";

@@ -67,7 +67,7 @@ jobs:
       - name: Verify release package bootstrap for changed manifests
         run: |
           mapfile -t changed_paths < <(git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}")
-          PAPERCLIP_RELEASE_BOOTSTRAP_BASE_SHA="${{ github.event.pull_request.base.sha }}" \
+          HERMES_FABRIC_RELEASE_BOOTSTRAP_BASE_SHA="${{ github.event.pull_request.base.sha }}" \
             node ./scripts/check-release-package-bootstrap.mjs "${changed_paths[@]}"
 
       - name: Validate dependency resolution when manifests change
@@ -345,7 +345,7 @@ jobs:
           if [ "$USED_ARTIFACT_LOCKFILE" = "1" ]; then
             git add pnpm-lock.yaml
             if ! git diff --cached --quiet; then
-              git -c user.email=ci@paperclip.local -c user.name=CI \
+              git -c user.email=ci@fabric.local -c user.name=CI \
                 commit --no-verify -m "ci(canary): stage regenerated lockfile"
             fi
           else
@@ -389,10 +389,10 @@ jobs:
         # browser bundles inside the 30 minute job budget.
         run: google-chrome --version
 
-      - name: Generate Paperclip config
+      - name: Generate HermesFabric config
         run: |
-          mkdir -p ~/.paperclip/instances/default
-          cat > ~/.paperclip/instances/default/config.json << 'CONF'
+          mkdir -p ~/.hermes-fabric/instances/default
+          cat > ~/.hermes-fabric/instances/default/config.json << 'CONF'
           {
             "$meta": { "version": 1, "updatedAt": "2026-01-01T00:00:00.000Z", "source": "onboard" },
             "database": { "mode": "embedded-postgres" },
@@ -406,8 +406,8 @@ jobs:
 
       - name: Run e2e tests
         env:
-          PAPERCLIP_E2E_SKIP_LLM: "true"
-          PAPERCLIP_PLAYWRIGHT_CHANNEL: "chrome"
+          HERMES_FABRIC_E2E_SKIP_LLM: "true"
+          HERMES_FABRIC_PLAYWRIGHT_CHANNEL: "chrome"
         run: pnpm run test:e2e
 
       - name: Upload Playwright report

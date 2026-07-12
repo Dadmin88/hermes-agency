@@ -68,8 +68,8 @@ describe("parseFrontmatterMarkdown", () => {
       "metadata:",
       "  sources:",
       "    - kind: github-dir",
-      "      repo: paperclipai/paperclip",
-      "      path: skills/paperclip",
+      "      repo: hermes-fabric/fabric",
+      "      path: skills/fabric",
       "---",
       "",
       "Body",
@@ -80,8 +80,8 @@ describe("parseFrontmatterMarkdown", () => {
         sources: [
           {
             kind: "github-dir",
-            repo: "paperclipai/paperclip",
-            path: "skills/paperclip",
+            repo: "hermes-fabric/fabric",
+            path: "skills/fabric",
           },
         ],
       },

@@ -1,14 +1,14 @@
 {
-  "name": "@paperclipai/skills-catalog",
+  "name": "@hermes-fabric/skills-catalog",
   "version": "0.3.1",
   "license": "MIT",
-  "homepage": "https://github.com/paperclipai/paperclip",
+  "homepage": "https://github.com/DeployFaith/Hermes_Agency",
   "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
+    "url": "https://github.com/DeployFaith/Hermes_Agency/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
+    "url": "https://github.com/DeployFaith/Hermes_Agency",
     "directory": "packages/skills-catalog"
   },
   "type": "module",
@@ -49,7 +49,7 @@
     "validate": "node ../../cli/node_modules/tsx/dist/cli.mjs scripts/validate-catalog.ts"
   },
   "dependencies": {
-    "@paperclipai/shared": "workspace:*"
+    "@hermes-fabric/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.21"

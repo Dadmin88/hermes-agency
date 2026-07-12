@@ -21,10 +21,10 @@ import { test, expect, request as pwRequest, type APIRequestContext } from "@pla
  * is delegated to the QA child issue.
  */
 
-const PORT = Number(process.env.PAPERCLIP_E2E_PORT ?? 3199);
+const PORT = Number(process.env.HERMES_FABRIC_E2E_PORT ?? 3199);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const COMPANY_NAME_PREFIX = "E2E-SidebarTakeover";
-const COLLAPSED_STORAGE_KEY = "paperclip.sidebar.collapsed";
+const COLLAPSED_STORAGE_KEY = "fabric.sidebar.collapsed";
 
 // The sidebar header's "Open search" control only renders when the app sidebar
 // is expanded (pinned or peeking); in the collapsed rail it is hidden to fit

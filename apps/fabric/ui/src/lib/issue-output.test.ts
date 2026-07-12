@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { IssueWorkProduct } from "@paperclipai/shared";
+import type { IssueWorkProduct } from "@hermes-fabric/shared";
 import {
   formatBytes,
   formatDuration,
@@ -17,7 +17,7 @@ function makeWorkProduct(overrides: Partial<IssueWorkProduct> & { id: string }):
     executionWorkspaceId: null,
     runtimeServiceId: null,
     type: "artifact",
-    provider: "paperclip",
+    provider: "fabric",
     externalId: null,
     title: overrides.title ?? "output.mp4",
     url: null,

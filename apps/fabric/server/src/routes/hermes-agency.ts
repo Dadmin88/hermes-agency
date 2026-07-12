@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { buildHermesAgencyTaskPacketPreview } from "@paperclipai/shared";
+import { buildHermesAgencyTaskPacketPreview } from "@hermes-fabric/shared";
 import { assertBoard } from "./authz.js";
 import {
   dispatchHermesAgencyTask,

@@ -2,7 +2,7 @@ import type {
   ModelSetDefinition,
   ModelSetDefinitionPatch,
   ModelPricingItem,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export type ModelSetSource = "packaged" | "custom";

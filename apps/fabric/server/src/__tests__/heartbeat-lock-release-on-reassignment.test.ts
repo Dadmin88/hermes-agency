@@ -10,7 +10,7 @@ import {
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -60,7 +60,7 @@ describeEmbeddedPostgres("heartbeat lock release on cross-agent reassignment", (
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix,
       requireBoardApprovalForNewAgents: false,
     });

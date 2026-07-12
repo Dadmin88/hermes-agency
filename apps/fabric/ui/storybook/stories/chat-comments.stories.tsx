@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { Agent, FeedbackVote, IssueComment } from "@paperclipai/shared";
+import type { Agent, FeedbackVote, IssueComment } from "@hermes-fabric/shared";
 import type { TranscriptEntry } from "@/adapters";
 import type { LiveRunForIssue } from "@/api/heartbeats";
 import { CommentThread } from "@/components/CommentThread";
@@ -16,7 +16,7 @@ import type {
   IssueChatTranscriptEntry,
 } from "@/lib/issue-chat-messages";
 import type { IssueTimelineEvent } from "@/lib/issue-timeline-events";
-import { storybookAgentMap, storybookAgents } from "../fixtures/paperclipData";
+import { storybookAgentMap, storybookAgents } from "../fixtures/fabricData";
 
 const companyId = "company-storybook";
 const projectId = "project-board-ui";
@@ -51,10 +51,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="paperclip-story__frame overflow-hidden">
+    <section className="fabric-story__frame overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
         <div>
-          <div className="paperclip-story__label">{eyebrow}</div>
+          <div className="fabric-story__label">{eyebrow}</div>
           <h2 className="mt-1 text-xl font-semibold">{title}</h2>
         </div>
       </div>
@@ -107,7 +107,7 @@ function createSystemEvent(overrides: Partial<IssueTimelineEvent>): IssueTimelin
     id: "event-default",
     createdAt: new Date("2026-04-20T14:00:00.000Z"),
     actorType: "system",
-    actorId: "paperclip",
+    actorId: "fabric",
     statusChange: {
       from: "todo",
       to: "in_progress",
@@ -245,7 +245,7 @@ const commentTimelineEvents: IssueTimelineEvent[] = [
     id: "event-system-checkout",
     createdAt: new Date("2026-04-20T13:04:00.000Z"),
     actorType: "system",
-    actorId: "paperclip",
+    actorId: "fabric",
     statusChange: {
       from: "todo",
       to: "in_progress",
@@ -384,7 +384,7 @@ const issueChatComments: IssueChatComment[] = [
     id: "comment-issue-agent",
     authorAgentId: codexAgent.id,
     authorUserId: null,
-    body: "I kept the existing component contracts and added fixtures with realistic Paperclip work: checkout, comments, linked runs, and review feedback.\n\nFlaky CI lives in https://github.com/acme/web/pull/242 — re-running. Plain control link: https://random.example.com/path stays undecorated.",
+    body: "I kept the existing component contracts and added fixtures with realistic HermesFabric work: checkout, comments, linked runs, and review feedback.\n\nFlaky CI lives in https://github.com/acme/web/pull/242 — re-running. Plain control link: https://random.example.com/path stays undecorated.",
     createdAt: new Date("2026-04-20T13:50:00.000Z"),
     runId: "run-issue-chat-01",
     runAgentId: codexAgent.id,
@@ -396,7 +396,7 @@ const issueChatComments: IssueChatComment[] = [
     authorUserId: null,
     runId: "run-issue-chat-01",
     runAgentId: codexAgent.id,
-    body: "Paperclip needs a disposition before this issue can continue.",
+    body: "HermesFabric needs a disposition before this issue can continue.",
     presentation: {
       kind: "system_notice",
       tone: "warning",
@@ -442,7 +442,7 @@ const issueTimelineEvents: IssueTimelineEvent[] = [
     id: "event-issue-checkout",
     createdAt: new Date("2026-04-20T13:42:00.000Z"),
     actorType: "system",
-    actorId: "paperclip",
+    actorId: "fabric",
     statusChange: {
       from: "todo",
       to: "in_progress",
@@ -474,7 +474,7 @@ const issueThreadNoticeReviewComments: IssueChatComment[] = [
     authorUserId: null,
     runId: "run-notice-source",
     runAgentId: codexAgent.id,
-    body: "Paperclip needs a disposition before this issue can continue.",
+    body: "HermesFabric needs a disposition before this issue can continue.",
     presentation: {
       kind: "system_notice",
       tone: "warning",
@@ -825,7 +825,7 @@ function IssueChatMatrix() {
           </ScenarioCard>
           <ScenarioCard
             title="Planning mode composer"
-            description="Issue is in planning mode. The composer turns amber and surfaces a Planning chip next to the paperclip — clicking it stages a Standard submission without immediately changing the issue mode."
+            description="Issue is in planning mode. The composer turns amber and surfaces a Planning chip next to the fabric — clicking it stages a Standard submission without immediately changing the issue mode."
           >
             <IssueChatThread
               comments={[]}
@@ -851,8 +851,8 @@ function IssueChatMatrix() {
 
 function IssueThreadNoticeReview() {
   return (
-    <div className="paperclip-story">
-      <main className="paperclip-story__inner max-w-4xl">
+    <div className="fabric-story">
+      <main className="fabric-story__inner max-w-4xl">
         <Section eyebrow="IssueChatThread" title="Workspace changes and stale disposition notices">
           <div className="rounded-lg border border-border bg-background/70 p-4">
             <IssueChatThread
@@ -888,14 +888,14 @@ function IssueThreadNoticeReview() {
 
 function ChatCommentsStories() {
   return (
-    <div className="paperclip-story">
-      <main className="paperclip-story__inner space-y-6">
-        <section className="paperclip-story__frame p-6">
-          <div className="paperclip-story__label">Chat & Comments</div>
+    <div className="fabric-story">
+      <main className="fabric-story__inner space-y-6">
+        <section className="fabric-story__frame p-6">
+          <div className="fabric-story__label">Chat & Comments</div>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Threaded work conversations</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
             Fixture-backed coverage for classic issue comments, embedded run chat, and the assistant-style issue chat
-            surface. The scenarios use Paperclip operational content with mixed authors, system timeline events,
+            surface. The scenarios use HermesFabric operational content with mixed authors, system timeline events,
             markdown, code blocks, @mentions, links, queued comments, tool calls, and streaming run output.
           </p>
         </section>
@@ -929,8 +929,8 @@ export const FullSurfaceMatrix: Story = {};
 
 export const CommentThreads: Story = {
   render: () => (
-    <div className="paperclip-story">
-      <main className="paperclip-story__inner">
+    <div className="fabric-story">
+      <main className="fabric-story__inner">
         <CommentThreadMatrix />
       </main>
     </div>
@@ -939,8 +939,8 @@ export const CommentThreads: Story = {
 
 export const LiveRunChat: Story = {
   render: () => (
-    <div className="paperclip-story">
-      <main className="paperclip-story__inner">
+    <div className="fabric-story">
+      <main className="fabric-story__inner">
         <RunChatMatrix />
       </main>
     </div>
@@ -949,8 +949,8 @@ export const LiveRunChat: Story = {
 
 export const IssueChatWithTimeline: Story = {
   render: () => (
-    <div className="paperclip-story">
-      <main className="paperclip-story__inner">
+    <div className="fabric-story">
+      <main className="fabric-story__inner">
         <IssueChatMatrix />
       </main>
     </div>

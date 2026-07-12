@@ -2,7 +2,7 @@ import type {
   AdapterEnvironmentCheck,
   AdapterEnvironmentTestContext,
   AdapterEnvironmentTestResult,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 import {
   asString,
   asBoolean,
@@ -10,7 +10,7 @@ import {
   asStringArray,
   parseObject,
   ensurePathInEnv,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@hermes-fabric/adapter-utils/server-utils";
 import {
   ensureAdapterExecutionTargetCommandResolvable,
   ensureAdapterExecutionTargetDirectory,
@@ -18,7 +18,7 @@ import {
   runAdapterExecutionTargetProcess,
   describeAdapterExecutionTarget,
   resolveAdapterExecutionTargetCwd,
-} from "@paperclipai/adapter-utils/execution-target";
+} from "@hermes-fabric/adapter-utils/execution-target";
 import { detectClaudeLoginRequired, parseClaudeStreamJson } from "./parse.js";
 import { claudeCommandLooksLike, claudeCommandSupportsEffortFlag } from "./cli-capabilities.js";
 import { isBedrockModelId } from "./models.js";
@@ -126,7 +126,7 @@ export async function testEnvironment(
     });
   }
 
-  // When probing a remote target, the Paperclip host's process.env does not
+  // When probing a remote target, the HermesFabric host's process.env does not
   // reflect what the agent will actually see at runtime. Only consider env
   // vars from the adapter config in that case; the probe itself will surface
   // any auth issues on the remote box.

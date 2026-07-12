@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { CompanySecret, EnvBinding, SecretVersionSelector } from "@paperclipai/shared";
+import type { CompanySecret, EnvBinding, SecretVersionSelector } from "@hermes-fabric/shared";
 import { AlertCircle, KeyRound, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import {
@@ -418,7 +418,7 @@ export function EnvVarEditor({
       })()}
       <p className="text-[11px] text-muted-foreground/60">
         Set KEY to the env var name the process expects, for example GH_TOKEN. Choose Secret to resolve a stored
-        value at run start. PAPERCLIP_* variables are injected automatically.
+        value at run start. HERMES_FABRIC_* variables are injected automatically.
       </p>
     </div>
   );

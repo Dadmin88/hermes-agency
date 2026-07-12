@@ -4,13 +4,13 @@
 
 Hermes Fabric is the frontend for Hermes Agency. Hermes Agency remains the main product and execution substrate.
 
-This repo is a renamed MIT fork of `paperclipai/paperclip`. The goal is to take the useful frontend/backend foundation and progressively reshape it around Hermes Agency's roster, routing, wake/queue semantics, task status, artifacts, budgets, watchdogs, and human governance.
+This repo is a renamed MIT fork of `hermes-fabric/fabric`. The goal is to take the useful frontend/backend foundation and progressively reshape it around Hermes Agency's roster, routing, wake/queue semantics, task status, artifacts, budgets, watchdogs, and human governance.
 
 ## Current Local Fork State
 
 - Local repo: `<hermes-fabric-workspace>`
 - Branch: `feat/hermes-fabric-foundation`
-- Upstream fetch remote: `https://github.com/paperclipai/paperclip`
+- Upstream fetch remote: `https://github.com/DeployFaith/Hermes_Agency`
 - Upstream push URL: `DISABLED`
 - Root package name: `hermes-fabric`
 
@@ -37,7 +37,7 @@ Avoid for new Hermes Fabric wording:
 
 - generic autonomous AI company framing
 - employee/company as primary product language
-- Paperclip as the product name outside attribution/upstream references
+- Hermes Fabric as the product name outside attribution/upstream references
 - hardcoded personal profile names
 - hardcoded model/provider assignments in shipped defaults
 
@@ -78,7 +78,7 @@ Priority files:
 - `AGENTS.md`
 - `HERMES_FABRIC.md`
 - `docs/docs.json`
-- `docs/start/what-is-paperclip.md`
+- `docs/start/what-is-fabric.md`
 - `docs/start/quickstart.md`
 - `docs/start/core-concepts.md`
 - `docs/start/architecture.md`

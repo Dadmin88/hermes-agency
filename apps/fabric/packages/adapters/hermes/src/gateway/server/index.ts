@@ -1,4 +1,4 @@
-import type { AdapterSessionCodec } from "@paperclipai/adapter-utils";
+import type { AdapterSessionCodec } from "@hermes-fabric/adapter-utils";
 
 export { execute, resolveSessionKey, parseSseFramesForTest, mapFinalResultForTest } from "./execute.js";
 export { testEnvironment } from "./test.js";

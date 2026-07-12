@@ -45,7 +45,7 @@ function shellQuote(value: string) {
 }
 
 function mergeRuntimeExcludes(entries: string[] | undefined): string[] {
-  return [...new Set([".paperclip-runtime", ...(entries ?? [])])];
+  return [...new Set([".fabric-runtime", ...(entries ?? [])])];
 }
 
 // Largest base64 body we hand to the runner as a single stdin string. Normal
@@ -112,7 +112,7 @@ export function createCommandManagedRuntimeClient(input: {
       const total = buffer.byteLength;
       const encodedLength = base64EncodedLength(total);
       const remoteDir = path.posix.dirname(remotePath);
-      const remoteTempPath = `${remotePath}.paperclip-upload`;
+      const remoteTempPath = `${remotePath}.fabric-upload`;
       const canUseSingleStreamProgressPath = input.runner.supportsSingleStreamStdinProgress === true;
 
       // Primary path: a single round-trip. Stream the entire base64 body to one
@@ -312,7 +312,7 @@ export async function prepareCommandManagedRuntime(input: {
         text.split(/\r?\n/).filter((line) => line.trim().length > 0).slice(-3).join(" | ").slice(0, 480);
       const reason = result.timedOut ? "timed out" : `exited ${result.exitCode ?? "?"}`;
       console.warn(
-        `[paperclip] managed-runtime install command ${reason}: ${installCommand} :: ${tail(result.stderr || result.stdout)}`,
+        `[fabric] managed-runtime install command ${reason}: ${installCommand} :: ${tail(result.stderr || result.stdout)}`,
       );
     }
   }

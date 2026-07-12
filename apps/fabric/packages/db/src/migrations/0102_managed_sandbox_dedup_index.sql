@@ -1,6 +1,6 @@
 -- One-shot dedup of any pre-existing managed sandbox rows duplicated per company.
--- Keeps the oldest row per (company_id) where driver='sandbox' AND metadata.managedByPaperclip is true.
--- Scoped to Paperclip-managed rows only: tenant-created sandbox envs (without the marker) are untouched.
+-- Keeps the oldest row per (company_id) where driver='sandbox' AND metadata.managedByHermesFabric is true.
+-- Scoped to HermesFabric-managed rows only: tenant-created sandbox envs (without the marker) are untouched.
 DO $$
 DECLARE
   deleted_count integer;
@@ -14,7 +14,7 @@ BEGIN
       ) AS rn
     FROM environments
     WHERE driver = 'sandbox'
-      AND (metadata ->> 'managedByPaperclip')::boolean = true
+      AND (metadata ->> 'managedByHermesFabric')::boolean = true
   ),
   deleted AS (
     DELETE FROM environments
@@ -30,4 +30,4 @@ END $$;
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "environments_company_managed_sandbox_idx"
   ON "environments" ("company_id")
-  WHERE driver = 'sandbox' AND (metadata ->> 'managedByPaperclip')::boolean = true;
+  WHERE driver = 'sandbox' AND (metadata ->> 'managedByHermesFabric')::boolean = true;

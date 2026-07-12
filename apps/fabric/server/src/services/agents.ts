@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, desc, eq, gte, inArray, lt, ne, or, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agents,
   agentConfigRevisions,
@@ -15,7 +15,7 @@ import {
   issueExecutionDecisions,
   issues,
   issueComments,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   AGENT_DEFAULT_MAX_CONCURRENT_RUNS,
   getAgentWorkEligibility,
@@ -24,7 +24,7 @@ import {
   normalizeAgentUrlKey,
   type AgentEligibilityAgent,
   type AgentApiKeyScope,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 import { syncAgentAdapterEnvBindings } from "./agent-secret-bindings.js";
 import { normalizeAgentPermissions } from "./agent-permissions.js";

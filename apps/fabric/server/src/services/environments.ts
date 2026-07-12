@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { environmentLeases, environments } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { environmentLeases, environments } from "@hermes-fabric/db";
 import {
   ENVIRONMENT_DRIVERS,
   ENVIRONMENT_LEASE_CLEANUP_STATUSES,
@@ -14,7 +14,7 @@ import {
   type EnvironmentLeasePolicy,
   type EnvironmentLeaseStatus,
   type UpdateEnvironment,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { conflict } from "../errors.js";
 
 type EnvironmentRow = typeof environments.$inferSelect;
@@ -56,7 +56,7 @@ export interface KubernetesEnvironmentConfigInput {
    * environment config and validated by the sandbox config schema.
    */
   timeoutMs?: number;
-  adapters?: import("@paperclipai/shared").AdapterRegistryEntry[];
+  adapters?: import("@hermes-fabric/shared").AdapterRegistryEntry[];
   [key: string]: unknown;
 }
 
@@ -207,7 +207,7 @@ export function environmentService(db: Db) {
           config: {},
           envVars: {},
           metadata: {
-            managedByPaperclip: true,
+            managedByHermesFabric: true,
             defaultForInstance: true,
           },
           createdAt: now,
@@ -253,7 +253,7 @@ export function environmentService(db: Db) {
         provider: KUBERNETES_PROVIDER_KEY,
       };
       const desiredMetadata: Record<string, unknown> = {
-        managedByPaperclip: true,
+        managedByHermesFabric: true,
         [KUBERNETES_MANAGED_MARKER]: true,
       };
 
@@ -285,7 +285,7 @@ export function environmentService(db: Db) {
       }
 
       // The partial unique index `environments_managed_sandbox_idx` enforces
-      // "at most one Paperclip-managed sandbox row per instance" at the DB
+      // "at most one HermesFabric-managed sandbox row per instance" at the DB
       // level. Use ON CONFLICT DO NOTHING keyed on that index so concurrent
       // callers can race the INSERT; losers re-read the surviving row.
       const inserted = await db
@@ -304,7 +304,7 @@ export function environmentService(db: Db) {
         .onConflictDoNothing({
           target: [environments.driver],
           where:
-            sql`${environments.driver} = 'sandbox' AND (${environments.metadata} ->> 'managedByPaperclip')::boolean = true`,
+            sql`${environments.driver} = 'sandbox' AND (${environments.metadata} ->> 'managedByHermesFabric')::boolean = true`,
         })
         .returning()
         .then((rows) => rows[0] ?? null)

@@ -5,7 +5,7 @@ Date: 2026-02-23
 
 ## 1. Purpose
 
-Paperclip supports two runtime modes:
+Hermes Fabric supports two runtime modes:
 
 1. `local_trusted`
 2. `authenticated`
@@ -17,7 +17,7 @@ Paperclip supports two runtime modes:
 
 This keeps one authenticated auth stack while still separating low-friction private-network defaults from internet-facing hardening requirements.
 
-Paperclip now treats **bind** as a separate concern from auth:
+Hermes Fabric now treats **bind** as a separate concern from auth:
 
 - auth model: `local_trusted` vs `authenticated`, plus `private/public`
 - reachability model: `server.bind = loopback | lan | tailnet | custom`
@@ -66,7 +66,7 @@ Paperclip now treats **bind** as a separate concern from auth:
 Default onboarding remains interactive and flagless:
 
 ```sh
-pnpm paperclipai onboard
+pnpm hermes-fabric onboard
 ```
 
 Server prompt behavior:
@@ -83,9 +83,9 @@ Server prompt behavior:
 Examples:
 
 ```sh
-pnpm paperclipai onboard --yes
-pnpm paperclipai onboard --yes --bind lan
-pnpm paperclipai run --bind tailnet
+pnpm hermes-fabric onboard --yes
+pnpm hermes-fabric onboard --yes --bind lan
+pnpm hermes-fabric run --bind tailnet
 ```
 
 `configure --section server` follows the same interactive behavior.
@@ -95,7 +95,7 @@ pnpm paperclipai run --bind tailnet
 Default doctor remains flagless:
 
 ```sh
-pnpm paperclipai doctor
+pnpm hermes-fabric doctor
 ```
 
 Doctor reads configured mode/exposure and applies mode-aware checks. Optional override flags are secondary.
@@ -114,7 +114,7 @@ This is required because user assignment paths validate active membership for `a
 
 ## 7. Local Trusted -> Authenticated Claim Flow
 
-When running `authenticated` mode, if the only instance admin is `local-board`, Paperclip emits a startup warning with a one-time high-entropy claim URL.
+When running `authenticated` mode, if the only instance admin is `local-board`, Hermes Fabric emits a startup warning with a one-time high-entropy claim URL.
 
 - URL format: `/board-claim/<token>?code=<code>`
 - intended use: signed-in human claims board ownership
@@ -130,10 +130,10 @@ This prevents lockout when a user migrates from long-running local trusted usage
 Fresh authenticated installs start in `bootstrap_pending` until the first
 `instance_admin` exists.
 
-For `authenticated/private`, Paperclip supports a browser-first setup path:
+For `authenticated/private`, Hermes Fabric supports a browser-first setup path:
 
-1. open the Paperclip URL from the private network or appliance UI
-2. sign in or create a Paperclip account
+1. open the Hermes Fabric URL from the private network or appliance UI
+2. sign in or create a Hermes Fabric account
 3. choose `Claim this instance` on the setup screen
 
 That browser claim promotes the signed-in session user to the first instance
@@ -145,7 +145,7 @@ rejected.
 The CLI fallback remains supported in all authenticated setup states:
 
 ```sh
-pnpm paperclipai auth bootstrap-ceo
+pnpm hermes-fabric auth bootstrap-ceo
 ```
 
 That command prints a one-time first-admin invite URL. Browser claim and

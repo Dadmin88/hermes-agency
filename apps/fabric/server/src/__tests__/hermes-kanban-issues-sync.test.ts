@@ -5,7 +5,16 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   agents,
@@ -22,7 +31,7 @@ import {
   labels,
   projects,
   projectWorkspaces,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -48,14 +57,14 @@ const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : 
 
 describe("resolveHermesKanbanDbPath", () => {
   const previousFabric = process.env.FABRIC_HERMES_KANBAN_DB;
-  const previousLegacy = process.env.PAPERCLIP_HERMES_KANBAN_DB;
+  const previousLegacy = process.env.HERMES_FABRIC_HERMES_KANBAN_DB;
   const previousUnprefixed = process.env.HERMES_KANBAN_DB;
 
   afterEach(() => {
     if (previousFabric === undefined) delete process.env.FABRIC_HERMES_KANBAN_DB;
     else process.env.FABRIC_HERMES_KANBAN_DB = previousFabric;
-    if (previousLegacy === undefined) delete process.env.PAPERCLIP_HERMES_KANBAN_DB;
-    else process.env.PAPERCLIP_HERMES_KANBAN_DB = previousLegacy;
+    if (previousLegacy === undefined) delete process.env.HERMES_FABRIC_HERMES_KANBAN_DB;
+    else process.env.HERMES_FABRIC_HERMES_KANBAN_DB = previousLegacy;
     if (previousUnprefixed === undefined) delete process.env.HERMES_KANBAN_DB;
     else process.env.HERMES_KANBAN_DB = previousUnprefixed;
   });
@@ -67,7 +76,7 @@ describe("resolveHermesKanbanDbPath", () => {
 
   it("does not fall back to the default home-directory Hermes Kanban DB", () => {
     delete process.env.FABRIC_HERMES_KANBAN_DB;
-    delete process.env.PAPERCLIP_HERMES_KANBAN_DB;
+    delete process.env.HERMES_FABRIC_HERMES_KANBAN_DB;
     delete process.env.HERMES_KANBAN_DB;
     expect(resolveHermesKanbanDbPath()).toBeNull();
   });
@@ -286,7 +295,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-hermes-kanban-sync-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-hermes-kanban-sync-");
     db = createDb(tempDb.connectionString);
     svc = issueService(db);
     await ensureIssueRelationsTable(db);
@@ -295,7 +304,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
   beforeEach(() => {
     previousDbEnv = process.env.FABRIC_HERMES_KANBAN_DB;
     previousCompanyEnv = process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
-    previousLegacyCompanyEnv = process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
+    previousLegacyCompanyEnv = process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID;
     previousIncludeDetailsEnv = process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
     previousRosterPathEnv = process.env.HERMES_AGENCY_ROSTER_PATH;
   });
@@ -305,8 +314,8 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     else process.env.FABRIC_HERMES_KANBAN_DB = previousDbEnv;
     if (previousCompanyEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
     else process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = previousCompanyEnv;
-    if (previousLegacyCompanyEnv === undefined) delete process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
-    else process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID = previousLegacyCompanyEnv;
+    if (previousLegacyCompanyEnv === undefined) delete process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID;
+    else process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID = previousLegacyCompanyEnv;
     if (previousIncludeDetailsEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
     else process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS = previousIncludeDetailsEnv;
     if (previousRosterPathEnv === undefined) delete process.env.HERMES_AGENCY_ROSTER_PATH;
@@ -1137,7 +1146,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     tempDirs.push(dir);
     process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
     delete process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
-    delete process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
+    delete process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID;
 
     const sync = await syncHermesKanbanIssues(db, firstCompanyId);
     expect(sync.status).toBe("unavailable");
@@ -1178,7 +1187,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     tempDirs.push(dir);
     process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
     delete process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
-    delete process.env.PAPERCLIP_HERMES_KANBAN_COMPANY_ID;
+    delete process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID;
 
     const sync = await syncHermesKanbanIssues(db, companyId);
     expect(sync.status).toBe("unavailable");

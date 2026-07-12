@@ -94,7 +94,7 @@ async function withHermesHomeConfig(
   configLines: string[],
   fn: () => Promise<void>,
 ) {
-  const tempHome = await mkdtemp(join(tmpdir(), "hermes-paperclip-adapter-"));
+  const tempHome = await mkdtemp(join(tmpdir(), "hermes-fabric-adapter-"));
   const hermesDir = join(tempHome, ".hermes");
   const configPath = join(hermesDir, "config.yaml");
 

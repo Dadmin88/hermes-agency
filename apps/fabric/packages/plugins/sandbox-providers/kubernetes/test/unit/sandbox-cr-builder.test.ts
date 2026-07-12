@@ -2,13 +2,13 @@ import { describe, it, expect } from "vitest";
 import { buildSandboxCrManifest } from "../../src/sandbox-cr-builder.js";
 
 const baseInput = {
-  namespace: "paperclip-acme",
+  namespace: "fabric-acme",
   sandboxName: "pc-01h00000000000000000000000",
   adapterType: "claude_local",
-  image: "ghcr.io/paperclipai/agent-runtime-claude:v1",
+  image: "ghcr.io/hermes-fabric/agent-runtime-claude:v1",
   envSecretName: "pc-01h00000000000000000000000-env",
-  serviceAccountName: "paperclip-tenant-sa",
-  labels: { "paperclip.io/run-id": "r1" },
+  serviceAccountName: "fabric-tenant-sa",
+  labels: { "fabric.io/run-id": "r1" },
   resources: {
     requests: { cpu: "250m", memory: "512Mi" },
     limits: { cpu: "2", memory: "4Gi" },
@@ -78,8 +78,8 @@ describe("buildSandboxCrManifest", () => {
       .map((m: { mountPath: string }) => m.mountPath)
       .sort();
     expect(mountPaths).toEqual([
-      "/home/paperclip",
-      "/home/paperclip/.cache",
+      "/home/fabric",
+      "/home/fabric/.cache",
       "/tmp",
       "/workspace",
     ]);
@@ -111,11 +111,11 @@ describe("buildSandboxCrManifest", () => {
 
   it("applies provided labels to CR metadata and pod template labels (with role=agent added)", () => {
     const cr = buildSandboxCrManifest(baseInput);
-    expect(cr.metadata.labels["paperclip.io/run-id"]).toBe("r1");
+    expect(cr.metadata.labels["fabric.io/run-id"]).toBe("r1");
     expect(
-      cr.spec.podTemplate.metadata.labels["paperclip.io/run-id"],
+      cr.spec.podTemplate.metadata.labels["fabric.io/run-id"],
     ).toBe("r1");
-    expect(cr.spec.podTemplate.metadata.labels["paperclip.io/role"]).toBe(
+    expect(cr.spec.podTemplate.metadata.labels["fabric.io/role"]).toBe(
       "agent",
     );
   });

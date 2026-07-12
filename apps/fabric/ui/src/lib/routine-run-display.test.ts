@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RoutineVariable } from "@paperclipai/shared";
+import type { RoutineVariable } from "@hermes-fabric/shared";
 import { dedupedTriggerLabel, runRowSubtitle } from "./routine-run-display";
 
 const variables: RoutineVariable[] = [
@@ -13,7 +13,7 @@ describe("runRowSubtitle", () => {
       {
         status: "succeeded",
         failureReason: null,
-        triggerPayload: { customer: "Acme", retries: 3, PAPERCLIP_RUN_ID: "ignored" },
+        triggerPayload: { customer: "Acme", retries: 3, HERMES_FABRIC_RUN_ID: "ignored" },
       },
       variables,
     );
@@ -22,7 +22,7 @@ describe("runRowSubtitle", () => {
 
   it("only includes declared routine variables, not builtin payload keys", () => {
     const subtitle = runRowSubtitle(
-      { status: "succeeded", failureReason: null, triggerPayload: { PAPERCLIP_RUN_ID: "x" } },
+      { status: "succeeded", failureReason: null, triggerPayload: { HERMES_FABRIC_RUN_ID: "x" } },
       variables,
     );
     expect(subtitle).toBe("");

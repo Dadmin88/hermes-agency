@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-base_cwd="${PAPERCLIP_WORKSPACE_BASE_CWD:?PAPERCLIP_WORKSPACE_BASE_CWD is required}"
-worktree_cwd="${PAPERCLIP_WORKSPACE_CWD:?PAPERCLIP_WORKSPACE_CWD is required}"
-paperclip_home="${PAPERCLIP_HOME:-$HOME/.paperclip}"
-paperclip_instance_id="${PAPERCLIP_INSTANCE_ID:-default}"
-paperclip_dir="$worktree_cwd/.paperclip"
-worktree_config_path="$paperclip_dir/config.json"
-worktree_env_path="$paperclip_dir/.env"
-worktree_name="${PAPERCLIP_WORKSPACE_BRANCH:-$(basename "$worktree_cwd")}"
+base_cwd="${HERMES_FABRIC_WORKSPACE_BASE_CWD:?HERMES_FABRIC_WORKSPACE_BASE_CWD is required}"
+worktree_cwd="${HERMES_FABRIC_WORKSPACE_CWD:?HERMES_FABRIC_WORKSPACE_CWD is required}"
+fabric_home="${HERMES_FABRIC_HOME:-$HOME/.fabric}"
+fabric_instance_id="${HERMES_FABRIC_INSTANCE_ID:-default}"
+fabric_dir="$worktree_cwd/.fabric"
+worktree_config_path="$fabric_dir/config.json"
+worktree_env_path="$fabric_dir/.env"
+worktree_name="${HERMES_FABRIC_WORKSPACE_BRANCH:-$(basename "$worktree_cwd")}"
 
 if [[ ! -d "$base_cwd" ]]; then
   echo "Base workspace does not exist: $base_cwd" >&2
@@ -20,16 +20,16 @@ if [[ ! -d "$worktree_cwd" ]]; then
   exit 1
 fi
 
-source_config_path="${PAPERCLIP_CONFIG:-}"
-if [[ -z "$source_config_path" && ( -e "$base_cwd/.paperclip/config.json" || -L "$base_cwd/.paperclip/config.json" ) ]]; then
-  source_config_path="$base_cwd/.paperclip/config.json"
+source_config_path="${HERMES_FABRIC_CONFIG:-}"
+if [[ -z "$source_config_path" && ( -e "$base_cwd/.fabric/config.json" || -L "$base_cwd/.fabric/config.json" ) ]]; then
+  source_config_path="$base_cwd/.fabric/config.json"
 fi
 if [[ -z "$source_config_path" ]]; then
-  source_config_path="$paperclip_home/instances/$paperclip_instance_id/config.json"
+  source_config_path="$fabric_home/instances/$fabric_instance_id/config.json"
 fi
 source_env_path="$(dirname "$source_config_path")/.env"
 
-mkdir -p "$paperclip_dir"
+mkdir -p "$fabric_dir"
 
 run_isolated_worktree_init() {
   local base_cli_runner="$base_cwd/cli/node_modules/tsx/dist/cli.mjs"
@@ -43,18 +43,18 @@ run_isolated_worktree_init() {
     return 0
   fi
 
-  if command -v pnpm >/dev/null 2>&1 && pnpm paperclipai --help >/dev/null 2>&1; then
+  if command -v pnpm >/dev/null 2>&1 && pnpm hermes-fabric --help >/dev/null 2>&1; then
     (
       cd "$worktree_cwd"
-      pnpm paperclipai worktree init --force --seed-mode minimal --name "$worktree_name" --from-config "$source_config_path"
+      pnpm hermes-fabric worktree init --force --seed-mode minimal --name "$worktree_name" --from-config "$source_config_path"
     )
     return 0
   fi
 
-  if command -v paperclipai >/dev/null 2>&1; then
+  if command -v hermes-fabric >/dev/null 2>&1; then
     (
       cd "$worktree_cwd"
-      paperclipai worktree init --force --seed-mode minimal --name "$worktree_name" --from-config "$source_config_path"
+      hermes-fabric worktree init --force --seed-mode minimal --name "$worktree_name" --from-config "$source_config_path"
     )
     return 0
   fi
@@ -62,8 +62,8 @@ run_isolated_worktree_init() {
   return 127
 }
 
-paperclipai_command_available() {
-  if command -v pnpm >/dev/null 2>&1 && pnpm paperclipai --help >/dev/null 2>&1; then
+hermes-fabric_command_available() {
+  if command -v pnpm >/dev/null 2>&1 && pnpm hermes-fabric --help >/dev/null 2>&1; then
     return 0
   fi
 
@@ -73,7 +73,7 @@ paperclipai_command_available() {
     return 0
   fi
 
-  if command -v paperclipai >/dev/null 2>&1; then
+  if command -v hermes-fabric >/dev/null 2>&1; then
     return 0
   fi
 
@@ -125,15 +125,15 @@ const configPath = path.resolve(process.env.WORKTREE_CONFIG_PATH);
 const envPath = path.resolve(process.env.WORKTREE_ENV_PATH);
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const env = parseEnvFile(fs.readFileSync(envPath, "utf8"));
-const envConfigPath = expandHomePrefix(env.PAPERCLIP_CONFIG);
+const envConfigPath = expandHomePrefix(env.HERMES_FABRIC_CONFIG);
 if (envConfigPath && path.resolve(envConfigPath) !== configPath) {
   fail(`existing worktree env points at ${envConfigPath}, not ${configPath}`);
 }
 
-const homeDir = expandHomePrefix(env.PAPERCLIP_HOME);
-const instanceId = env.PAPERCLIP_INSTANCE_ID;
+const homeDir = expandHomePrefix(env.HERMES_FABRIC_HOME);
+const instanceId = env.HERMES_FABRIC_INSTANCE_ID;
 if (!homeDir || !instanceId) {
-  fail("existing worktree env is missing PAPERCLIP_HOME or PAPERCLIP_INSTANCE_ID");
+  fail("existing worktree env is missing HERMES_FABRIC_HOME or HERMES_FABRIC_INSTANCE_ID");
 }
 if (!fs.existsSync(homeDir)) {
   fail(`existing worktree home does not exist on this host: ${homeDir}`);
@@ -162,10 +162,10 @@ write_fallback_worktree_config() {
   WORKTREE_NAME="$worktree_name" \
   BASE_CWD="$base_cwd" \
   WORKTREE_CWD="$worktree_cwd" \
-  PAPERCLIP_DIR="$paperclip_dir" \
+  HERMES_FABRIC_DIR="$fabric_dir" \
   SOURCE_CONFIG_PATH="$source_config_path" \
   SOURCE_ENV_PATH="$source_env_path" \
-  PAPERCLIP_WORKTREES_DIR="${PAPERCLIP_WORKTREES_DIR:-}" \
+  HERMES_FABRIC_WORKTREES_DIR="${HERMES_FABRIC_WORKTREES_DIR:-}" \
   node <<'EOF'
 const fs = require("node:fs");
 const os = require("node:os");
@@ -275,14 +275,14 @@ function resolveRuntimeLikePath(value, configPath) {
 
 async function main() {
   const worktreeName = process.env.WORKTREE_NAME;
-  const paperclipDir = process.env.PAPERCLIP_DIR;
+  const fabricDir = process.env.HERMES_FABRIC_DIR;
   const sourceConfigPath = process.env.SOURCE_CONFIG_PATH;
   const sourceEnvPath = process.env.SOURCE_ENV_PATH;
-  const worktreeHome = path.resolve(expandHomePrefix(nonEmpty(process.env.PAPERCLIP_WORKTREES_DIR) ?? "~/.paperclip-worktrees"));
+  const worktreeHome = path.resolve(expandHomePrefix(nonEmpty(process.env.HERMES_FABRIC_WORKTREES_DIR) ?? "~/.hermes-fabric-worktrees"));
   const instanceId = sanitizeInstanceId(worktreeName);
   const instanceRoot = path.resolve(worktreeHome, "instances", instanceId);
-  const configPath = path.resolve(paperclipDir, "config.json");
-  const envPath = path.resolve(paperclipDir, ".env");
+  const configPath = path.resolve(fabricDir, "config.json");
+  const envPath = path.resolve(fabricDir, ".env");
 
   let sourceConfig = null;
   if (sourceConfigPath && fs.existsSync(sourceConfigPath)) {
@@ -347,7 +347,7 @@ async function main() {
         baseDir: path.resolve(instanceRoot, "data", "storage"),
       },
       s3: {
-        bucket: sourceConfig?.storage?.s3?.bucket ?? "paperclip",
+        bucket: sourceConfig?.storage?.s3?.bucket ?? "fabric",
         region: sourceConfig?.storage?.s3?.region ?? "us-east-1",
         endpoint: sourceConfig?.storage?.s3?.endpoint,
         prefix: sourceConfig?.storage?.s3?.prefix ?? "",
@@ -365,7 +365,7 @@ async function main() {
 
   fs.writeFileSync(configPath, `${JSON.stringify(targetConfig, null, 2)}\n`, { mode: 0o600 });
 
-  const inlineMasterKey = nonEmpty(sourceEnvEntries.PAPERCLIP_SECRETS_MASTER_KEY);
+  const inlineMasterKey = nonEmpty(sourceEnvEntries.HERMES_FABRIC_SECRETS_MASTER_KEY);
   if (inlineMasterKey) {
     fs.mkdirSync(path.resolve(instanceRoot, "secrets"), { recursive: true });
     fs.writeFileSync(targetConfig.secrets.localEncrypted.keyFilePath, inlineMasterKey, {
@@ -373,8 +373,8 @@ async function main() {
       mode: 0o600,
     });
   } else {
-    const sourceKeyFilePath = nonEmpty(sourceEnvEntries.PAPERCLIP_SECRETS_MASTER_KEY_FILE)
-      ? resolveRuntimeLikePath(sourceEnvEntries.PAPERCLIP_SECRETS_MASTER_KEY_FILE, sourceConfigPath)
+    const sourceKeyFilePath = nonEmpty(sourceEnvEntries.HERMES_FABRIC_SECRETS_MASTER_KEY_FILE)
+      ? resolveRuntimeLikePath(sourceEnvEntries.HERMES_FABRIC_SECRETS_MASTER_KEY_FILE, sourceConfigPath)
       : nonEmpty(sourceConfig?.secrets?.localEncrypted?.keyFilePath)
         ? resolveRuntimeLikePath(sourceConfig.secrets.localEncrypted.keyFilePath, sourceConfigPath)
         : null;
@@ -387,17 +387,17 @@ async function main() {
   }
 
   const envLines = [
-    "PAPERCLIP_HOME=" + JSON.stringify(worktreeHome),
-    "PAPERCLIP_INSTANCE_ID=" + JSON.stringify(instanceId),
-    "PAPERCLIP_CONFIG=" + JSON.stringify(configPath),
-    "PAPERCLIP_CONTEXT=" + JSON.stringify(path.resolve(worktreeHome, "context.json")),
-    "PAPERCLIP_IN_WORKTREE=true",
-    "PAPERCLIP_WORKTREE_NAME=" + JSON.stringify(worktreeName),
+    "HERMES_FABRIC_HOME=" + JSON.stringify(worktreeHome),
+    "HERMES_FABRIC_INSTANCE_ID=" + JSON.stringify(instanceId),
+    "HERMES_FABRIC_CONFIG=" + JSON.stringify(configPath),
+    "HERMES_FABRIC_CONTEXT=" + JSON.stringify(path.resolve(worktreeHome, "context.json")),
+    "HERMES_FABRIC_IN_WORKTREE=true",
+    "HERMES_FABRIC_WORKTREE_NAME=" + JSON.stringify(worktreeName),
   ];
 
-  const agentJwtSecret = nonEmpty(sourceEnvEntries.PAPERCLIP_AGENT_JWT_SECRET);
+  const agentJwtSecret = nonEmpty(sourceEnvEntries.HERMES_FABRIC_AGENT_JWT_SECRET);
   if (agentJwtSecret) {
-    envLines.push("PAPERCLIP_AGENT_JWT_SECRET=" + JSON.stringify(agentJwtSecret));
+    envLines.push("HERMES_FABRIC_AGENT_JWT_SECRET=" + JSON.stringify(agentJwtSecret));
   }
 
   fs.writeFileSync(envPath, `${envLines.join("\n")}\n`, { mode: 0o600 });
@@ -411,15 +411,15 @@ EOF
 }
 
 if [[ -e "$worktree_config_path" && -e "$worktree_env_path" ]] && existing_worktree_config_is_usable; then
-  echo "Reusing existing isolated Paperclip worktree config at $worktree_config_path" >&2
+  echo "Reusing existing isolated HermesFabric worktree config at $worktree_config_path" >&2
 else
   if [[ -e "$worktree_config_path" || -e "$worktree_env_path" ]]; then
-    echo "Existing isolated Paperclip worktree config is stale for this host; regenerating." >&2
+    echo "Existing isolated HermesFabric worktree config is stale for this host; regenerating." >&2
   fi
-  if paperclipai_command_available; then
+  if hermes-fabric_command_available; then
     run_isolated_worktree_init
   else
-    echo "paperclipai CLI not available in this workspace; writing isolated fallback config without DB seeding." >&2
+    echo "hermes-fabric CLI not available in this workspace; writing isolated fallback config without DB seeding." >&2
     write_fallback_worktree_config
   fi
 fi
@@ -432,7 +432,7 @@ list_base_node_modules_paths() {
       -type d \
       -name node_modules \
       ! -path './.git/*' \
-      ! -path './.paperclip/*' \
+      ! -path './.fabric/*' \
       | sed 's#^\./##'
 }
 if [[ -f "$worktree_cwd/package.json" && -f "$worktree_cwd/pnpm-lock.yaml" ]]; then
@@ -449,7 +449,7 @@ if [[ -f "$worktree_cwd/package.json" && -f "$worktree_cwd/pnpm-lock.yaml" ]]; t
   done < <(list_base_node_modules_paths)
 
   if [[ "$needs_install" -eq 1 ]]; then
-    backup_suffix=".paperclip-backup-${BASHPID:-$$}"
+    backup_suffix=".fabric-backup-${BASHPID:-$$}"
     moved_symlink_paths=()
 
     while IFS= read -r relative_path; do

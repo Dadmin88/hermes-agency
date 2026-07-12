@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { executionWorkspaces, issues, projects, projectWorkspaces, workspaceRuntimeServices } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { executionWorkspaces, issues, projects, projectWorkspaces, workspaceRuntimeServices } from "@hermes-fabric/db";
 import type {
   ExecutionWorkspace,
   ExecutionWorkspaceSummary,
@@ -19,8 +19,8 @@ import type {
   WorkspaceRuntimeService,
   WorkspaceOverviewPrimaryService,
   WorkspaceOverviewQuery,
-} from "@paperclipai/shared";
-import { deriveProjectUrlKey, WORKSPACE_OVERVIEW_LINKED_ISSUE_LIMIT } from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
+import { deriveProjectUrlKey, WORKSPACE_OVERVIEW_LINKED_ISSUE_LIMIT } from "@hermes-fabric/shared";
 import { parseProjectExecutionWorkspacePolicy } from "./execution-workspace-policy.js";
 import { readProjectWorkspaceRuntimeConfig } from "./project-workspace-runtime-config.js";
 import {
@@ -92,12 +92,12 @@ async function inspectGitCloseReadiness(workspace: ExecutionWorkspace): Promise<
   }
 
   if (!workspacePath) {
-    warnings.push("Workspace has no local path, so Paperclip cannot inspect git status before close.");
+    warnings.push("Workspace has no local path, so HermesFabric cannot inspect git status before close.");
     return { git: null, warnings };
   }
 
   if (!(await pathExists(workspacePath))) {
-    warnings.push(`Workspace path "${workspacePath}" does not exist, so Paperclip cannot inspect git status before close.`);
+    warnings.push(`Workspace path "${workspacePath}" does not exist, so HermesFabric cannot inspect git status before close.`);
     return {
       git: {
         repoRoot: null,
@@ -950,7 +950,7 @@ export function executionWorkspaceService(db: Db) {
         plannedActions.push({
           kind: "git_worktree_remove",
           label: "Remove git worktree",
-          description: `Paperclip will run git worktree cleanup for ${workspacePath}.`,
+          description: `HermesFabric will run git worktree cleanup for ${workspacePath}.`,
           command: `git worktree remove --force ${workspacePath}`,
         });
       }
@@ -959,7 +959,7 @@ export function executionWorkspaceService(db: Db) {
         plannedActions.push({
           kind: "git_branch_delete",
           label: "Delete runtime-created branch",
-          description: "Paperclip will try to delete the runtime-created branch after removing the worktree.",
+          description: "HermesFabric will try to delete the runtime-created branch after removing the worktree.",
           command: `git branch -d ${executionWorkspace.branchName}`,
         });
       }
@@ -974,12 +974,12 @@ export function executionWorkspaceService(db: Db) {
             )
           : false;
         if (containsProjectWorkspace) {
-          warnings.push(`Paperclip will archive this workspace but keep "${workspacePath}" because it contains the project workspace.`);
+          warnings.push(`HermesFabric will archive this workspace but keep "${workspacePath}" because it contains the project workspace.`);
         } else {
           plannedActions.push({
             kind: "remove_local_directory",
             label: "Remove runtime-created directory",
-            description: `Paperclip will remove the runtime-created directory at ${workspacePath}.`,
+            description: `HermesFabric will remove the runtime-created directory at ${workspacePath}.`,
             command: `rm -rf ${workspacePath}`,
           });
         }

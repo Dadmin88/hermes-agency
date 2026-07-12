@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
-import { resolvePaperclipEnvPath } from "./paths.js";
+import { resolveHermesFabricEnvPath } from "./paths.js";
 import { maybeRepairLegacyWorktreeConfigAndEnvFiles } from "./worktree-config.js";
 import {
   AUTH_BASE_URL_MODES,
@@ -21,7 +21,7 @@ import {
   inferBindModeFromHost,
   resolveRuntimeBind,
   validateConfiguredBindMode,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   resolveDefaultBackupDir,
   resolveDefaultEmbeddedPostgresDir,
@@ -31,15 +31,15 @@ import {
 } from "./home-paths.js";
 import { fabricEnv, fabricEnvDefined } from "./fabric-env.js";
 
-const PAPERCLIP_ENV_FILE_PATH = resolvePaperclipEnvPath();
-if (existsSync(PAPERCLIP_ENV_FILE_PATH)) {
-  loadDotenv({ path: PAPERCLIP_ENV_FILE_PATH, override: false, quiet: true });
+const HERMES_FABRIC_ENV_FILE_PATH = resolveHermesFabricEnvPath();
+if (existsSync(HERMES_FABRIC_ENV_FILE_PATH)) {
+  loadDotenv({ path: HERMES_FABRIC_ENV_FILE_PATH, override: false, quiet: true });
 }
 
 const CWD_ENV_PATH = resolve(process.cwd(), ".env");
-const isSameFile = existsSync(CWD_ENV_PATH) && existsSync(PAPERCLIP_ENV_FILE_PATH)
-  ? realpathSync(CWD_ENV_PATH) === realpathSync(PAPERCLIP_ENV_FILE_PATH)
-  : CWD_ENV_PATH === PAPERCLIP_ENV_FILE_PATH;
+const isSameFile = existsSync(CWD_ENV_PATH) && existsSync(HERMES_FABRIC_ENV_FILE_PATH)
+  ? realpathSync(CWD_ENV_PATH) === realpathSync(HERMES_FABRIC_ENV_FILE_PATH)
+  : CWD_ENV_PATH === HERMES_FABRIC_ENV_FILE_PATH;
 if (!isSameFile && existsSync(CWD_ENV_PATH)) {
   loadDotenv({ path: CWD_ENV_PATH, override: false, quiet: true });
 }
@@ -141,7 +141,7 @@ export function loadConfig(): Config {
       fileStorage?.localDisk?.baseDir ??
       resolveDefaultStorageDir(),
   );
-  const storageS3Bucket = fabricEnv("STORAGE_S3_BUCKET") ?? fileStorage?.s3?.bucket ?? "paperclip";
+  const storageS3Bucket = fabricEnv("STORAGE_S3_BUCKET") ?? fileStorage?.s3?.bucket ?? "fabric";
   const storageS3Region = fabricEnv("STORAGE_S3_REGION") ?? fileStorage?.s3?.region ?? "us-east-1";
   const storageS3Endpoint = fabricEnv("STORAGE_S3_ENDPOINT") ?? fileStorage?.s3?.endpoint ?? undefined;
   const storageS3Prefix = fabricEnv("STORAGE_S3_PREFIX") ?? fileStorage?.s3?.prefix ?? "";

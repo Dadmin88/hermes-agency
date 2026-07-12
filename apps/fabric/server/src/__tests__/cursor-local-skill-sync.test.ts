@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   listCursorSkills,
   syncCursorSkills,
-} from "@paperclipai/adapter-cursor-local/server";
+} from "@hermes-fabric/adapter-cursor-local/server";
 
 async function makeTempDir(prefix: string): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -19,7 +19,7 @@ async function createSkillDir(root: string, name: string) {
 }
 
 describe("cursor local skill sync", () => {
-  const paperclipKey = "paperclipai/paperclip/paperclip";
+  const fabricKey = "hermes-fabric/fabric/fabric";
   const cleanupDirs = new Set<string>();
 
   afterEach(async () => {
@@ -27,8 +27,8 @@ describe("cursor local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("reports configured Paperclip skills and installs them into the Cursor skills home", async () => {
-    const home = await makeTempDir("paperclip-cursor-skill-sync-");
+  it("reports configured HermesFabric skills and installs them into the Cursor skills home", async () => {
+    const home = await makeTempDir("fabric-cursor-skill-sync-");
     cleanupDirs.add(home);
 
     const ctx = {
@@ -39,29 +39,29 @@ describe("cursor local skill sync", () => {
         env: {
           HOME: home,
         },
-        paperclipSkillSync: {
-          desiredSkills: [paperclipKey],
+        fabricSkillSync: {
+          desiredSkills: [fabricKey],
         },
       },
     } as const;
 
     const before = await listCursorSkills(ctx);
     expect(before.mode).toBe("persistent");
-    expect(before.desiredSkills).toContain(paperclipKey);
-    expect(before.entries.find((entry) => entry.key === paperclipKey)?.state).toBe("missing");
+    expect(before.desiredSkills).toContain(fabricKey);
+    expect(before.entries.find((entry) => entry.key === fabricKey)?.state).toBe("missing");
 
-    const after = await syncCursorSkills(ctx, [paperclipKey]);
-    expect(after.entries.find((entry) => entry.key === paperclipKey)?.state).toBe("installed");
-    expect((await fs.lstat(path.join(home, ".cursor", "skills", "paperclip"))).isSymbolicLink()).toBe(true);
+    const after = await syncCursorSkills(ctx, [fabricKey]);
+    expect(after.entries.find((entry) => entry.key === fabricKey)?.state).toBe("installed");
+    expect((await fs.lstat(path.join(home, ".cursor", "skills", "fabric"))).isSymbolicLink()).toBe(true);
   });
 
-  it("recognizes company-library runtime skills supplied outside the bundled Paperclip directory", async () => {
-    const home = await makeTempDir("paperclip-cursor-runtime-skills-home-");
-    const runtimeSkills = await makeTempDir("paperclip-cursor-runtime-skills-src-");
+  it("recognizes company-library runtime skills supplied outside the bundled HermesFabric directory", async () => {
+    const home = await makeTempDir("fabric-cursor-runtime-skills-home-");
+    const runtimeSkills = await makeTempDir("fabric-cursor-runtime-skills-src-");
     cleanupDirs.add(home);
     cleanupDirs.add(runtimeSkills);
 
-    const paperclipDir = await createSkillDir(runtimeSkills, "paperclip");
+    const fabricDir = await createSkillDir(runtimeSkills, "fabric");
     const asciiHeartDir = await createSkillDir(runtimeSkills, "ascii-heart");
 
     const ctx = {
@@ -72,11 +72,11 @@ describe("cursor local skill sync", () => {
         env: {
           HOME: home,
         },
-        paperclipRuntimeSkills: [
+        fabricRuntimeSkills: [
           {
-            key: "paperclip",
-            runtimeName: "paperclip",
-            source: paperclipDir,
+            key: "fabric",
+            runtimeName: "fabric",
+            source: fabricDir,
           },
           {
             key: "ascii-heart",
@@ -84,7 +84,7 @@ describe("cursor local skill sync", () => {
             source: asciiHeartDir,
           },
         ],
-        paperclipSkillSync: {
+        fabricSkillSync: {
           desiredSkills: ["ascii-heart"],
         },
       },

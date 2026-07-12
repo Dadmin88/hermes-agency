@@ -6,7 +6,7 @@ import type {
   WorkspaceFileContent,
   WorkspaceFileListFileItem,
   WorkspaceFileListResponse,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { FileViewerProvider, useRequiredFileViewer } from "@/context/FileViewerContext";
 import { FileViewerSheet } from "@/components/FileViewerSheet";
 import { IssueWorkspaceCard } from "@/components/IssueWorkspaceCard";
@@ -179,7 +179,7 @@ function Placement() {
               mode: "isolated_workspace",
               status: "active",
               branchName: "PAP-1953-plan-a-file-viewer",
-              cwd: "/srv/paperclip/.../worktrees/PAP-1953",
+              cwd: "/srv/fabric/.../worktrees/PAP-1953",
               repoUrl: null,
               projectWorkspaceId: "pw-1",
               name: "PAP-1953",

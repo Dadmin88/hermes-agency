@@ -1,4 +1,4 @@
-import type { Goal } from "@paperclipai/shared";
+import type { Goal } from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export const goalsApi = {

@@ -11,8 +11,8 @@
  * developer scripts that legitimately push are out of scope because they
  * live outside the directories scanned here.
  *
- * Opt-in mechanism: a line containing `paperclip:allow-git-push` (typically
- * inside a `// paperclip:allow-git-push: <reason>` comment on the line itself
+ * Opt-in mechanism: a line containing `fabric:allow-git-push` (typically
+ * inside a `// fabric:allow-git-push: <reason>` comment on the line itself
  * or the line immediately above) suppresses the match. This is reserved for
  * operator-configured paths that legitimately push and must be reviewed.
  */
@@ -52,7 +52,7 @@ export const GIT_PUSH_PATTERNS = [
 ];
 // Kept for backwards-compatibility with existing tests/importers.
 export const GIT_PUSH_PATTERN = GIT_PUSH_PATTERNS[0];
-export const ALLOW_MARKER = "paperclip:allow-git-push";
+export const ALLOW_MARKER = "fabric:allow-git-push";
 
 function lineMatchesGitPush(line) {
   return GIT_PUSH_PATTERNS.some((pattern) => pattern.test(line));

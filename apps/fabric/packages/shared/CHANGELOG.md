@@ -1,4 +1,4 @@
-# @paperclipai/shared
+# @Hermes Fabricai/shared
 
 ## 0.3.1
 

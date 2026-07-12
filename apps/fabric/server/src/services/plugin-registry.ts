@@ -1,5 +1,5 @@
 import { asc, eq, isNull, ne, sql, and } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   plugins,
   pluginConfig,
@@ -8,9 +8,9 @@ import {
   pluginJobs,
   pluginJobRuns,
   pluginWebhookDeliveries,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import type {
-  PaperclipPluginManifestV1,
+  HermesFabricPluginManifestV1,
   PluginStatus,
   InstallPlugin,
   UpdatePluginStatus,
@@ -26,7 +26,7 @@ import type {
   PluginJobRunStatus,
   PluginJobRunTrigger,
   PluginWebhookDeliveryStatus,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { conflict, notFound } from "../errors.js";
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ function isPluginKeyConflict(error: unknown): boolean {
 /**
  * PluginRegistry – CRUD operations for the `plugins` and `plugin_config`
  * tables.  Follows the same factory-function pattern used by the rest of
- * the Paperclip service layer.
+ * the HermesFabric service layer.
  *
  * This is the lowest-level persistence layer for plugins. Higher-level
  * concerns such as lifecycle state-machine enforcement and capability
@@ -136,7 +136,7 @@ export function pluginRegistryService(db: Db) {
      * manifest from the package.  This method persists the plugin row and
      * assigns the next install order.
      */
-    install: async (input: InstallPlugin, manifest: PaperclipPluginManifestV1) => {
+    install: async (input: InstallPlugin, manifest: HermesFabricPluginManifestV1) => {
       const existing = await getByKey(manifest.id);
       if (existing) {
         if (existing.status !== "uninstalled") {
@@ -200,7 +200,7 @@ export function pluginRegistryService(db: Db) {
       data: {
         packageName?: string;
         version?: string;
-        manifest?: PaperclipPluginManifestV1;
+        manifest?: HermesFabricPluginManifestV1;
       },
     ) => {
       const plugin = await getById(id);
@@ -510,7 +510,7 @@ export function pluginRegistryService(db: Db) {
     },
 
     /**
-     * Create or update a persistent mapping between a Paperclip object and an
+     * Create or update a persistent mapping between a HermesFabric object and an
      * external entity.
      *
      * @param pluginId - The UUID of the plugin.

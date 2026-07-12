@@ -1,15 +1,15 @@
 import { and, eq } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   pluginManagedResources,
-} from "@paperclipai/db";
-import { normalizeAgentUrlKey } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import { normalizeAgentUrlKey } from "@hermes-fabric/shared";
 import type {
   CompanySkill,
-  PaperclipPluginManifestV1,
+  HermesFabricPluginManifestV1,
   PluginManagedSkillDeclaration,
   PluginManagedSkillResolution,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { notFound } from "../errors.js";
 import { logActivity } from "./activity-log.js";
 import { companySkillService } from "./company-skills.js";
@@ -19,7 +19,7 @@ const MANAGED_SKILL_RESOURCE_KIND = "skill";
 interface PluginManagedSkillServiceOptions {
   pluginId: string;
   pluginKey: string;
-  manifest?: PaperclipPluginManifestV1 | null;
+  manifest?: HermesFabricPluginManifestV1 | null;
 }
 
 function pluginKeySlug(pluginKey: string) {

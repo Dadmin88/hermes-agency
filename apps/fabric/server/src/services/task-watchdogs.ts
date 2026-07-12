@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agentWakeupRequests,
   agents,
@@ -14,8 +14,8 @@ import {
   issueThreadInteractions,
   issueWatchdogs,
   issueWorkProducts,
-} from "@paperclipai/db";
-import type { IssueWatchdog, IssueWatchdogSummary } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import type { IssueWatchdog, IssueWatchdogSummary } from "@hermes-fabric/shared";
 import { conflict, notFound } from "../errors.js";
 import { parseObject } from "../adapters/utils.js";
 import { logActivity } from "./activity-log.js";
@@ -471,7 +471,7 @@ function issueIdFromRunContext(contextSnapshot: unknown) {
 
 function issueIdFromWakePayload(payload: unknown) {
   const parsed = parseObject(payload);
-  const nested = parseObject(parsed._paperclipWakeContext);
+  const nested = parseObject(parsed._fabricWakeContext);
   return readNonEmptyString(parsed.issueId) ??
     readNonEmptyString(parsed.taskId) ??
     readNonEmptyString(nested.issueId) ??
@@ -853,8 +853,8 @@ export function taskWatchdogService(db: Db, deps: TaskWatchdogServiceDeps = {}) 
           or(
             inArray(sql`${agentWakeupRequests.payload}->>'issueId'`, subtreeIssueIds),
             inArray(sql`${agentWakeupRequests.payload}->>'taskId'`, subtreeIssueIds),
-            inArray(sql`${agentWakeupRequests.payload}->'_paperclipWakeContext'->>'issueId'`, subtreeIssueIds),
-            inArray(sql`${agentWakeupRequests.payload}->'_paperclipWakeContext'->>'taskId'`, subtreeIssueIds),
+            inArray(sql`${agentWakeupRequests.payload}->'_fabricWakeContext'->>'issueId'`, subtreeIssueIds),
+            inArray(sql`${agentWakeupRequests.payload}->'_fabricWakeContext'->>'taskId'`, subtreeIssueIds),
           ),
         )),
       db
@@ -1064,8 +1064,8 @@ export function taskWatchdogService(db: Db, deps: TaskWatchdogServiceDeps = {}) 
           inArray(agentWakeupRequests.status, [...TASK_WATCHDOG_WAKE_REQUEST_STATUSES]),
           sql`(${agentWakeupRequests.payload}->>'issueId' = ${issueId}
             OR ${agentWakeupRequests.payload}->>'taskId' = ${issueId}
-            OR ${agentWakeupRequests.payload}->'_paperclipWakeContext'->>'issueId' = ${issueId}
-            OR ${agentWakeupRequests.payload}->'_paperclipWakeContext'->>'taskId' = ${issueId})`,
+            OR ${agentWakeupRequests.payload}->'_fabricWakeContext'->>'issueId' = ${issueId}
+            OR ${agentWakeupRequests.payload}->'_fabricWakeContext'->>'taskId' = ${issueId})`,
         ))
         .limit(1)
         .then((rows) => rows[0] ?? null),

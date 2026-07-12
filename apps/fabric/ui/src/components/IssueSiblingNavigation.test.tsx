@@ -2,7 +2,7 @@
 
 import { act, type AnchorHTMLAttributes, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { Issue } from "@paperclipai/shared";
+import type { Issue } from "@hermes-fabric/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IssueSiblingNavigation } from "./IssueSiblingNavigation";
 

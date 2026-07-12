@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { agentWakeupRequests, agents, heartbeatRuns, issues } from "@paperclipai/db";
-import type { IssueCommentMetadata, IssueCommentPresentation, RunLivenessState } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import { agentWakeupRequests, agents, heartbeatRuns, issues } from "@hermes-fabric/db";
+import type { IssueCommentMetadata, IssueCommentPresentation, RunLivenessState } from "@hermes-fabric/shared";
 import { withRecoveryModelProfileHint } from "./model-profile-hint.js";
 
 export const FINISH_SUCCESSFUL_RUN_HANDOFF_REASON = "finish_successful_run_handoff";

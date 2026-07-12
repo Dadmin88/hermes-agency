@@ -41,7 +41,7 @@ This starts:
 
 `pnpm dev:once` auto-applies pending local migrations by default before starting the dev server.
 
-`pnpm dev` and `pnpm dev:once` are now idempotent for the current repo and instance: if the matching Paperclip dev runner is already alive, Paperclip reports the existing process instead of starting a duplicate.
+`pnpm dev` and `pnpm dev:once` are now idempotent for the current repo and instance: if the matching Hermes Fabric dev runner is already alive, Hermes Fabric reports the existing process instead of starting a duplicate.
 
 Issue execution may also use project execution workspace policies and workspace runtime services for per-project worktrees, preview servers, and managed dev commands. Configure those through the project workspace/runtime surfaces rather than starting long-running unmanaged processes when a task needs a reusable service.
 
@@ -54,7 +54,7 @@ pnpm storybook
 pnpm build-storybook
 ```
 
-These run the `@paperclipai/ui` Storybook on port `6006` and build the static output to `ui/storybook-static/`.
+These run the `@hermes-fabric/ui` Storybook on port `6006` and build the static output to `ui/storybook-static/`.
 
 Inspect or stop the current repo's managed dev runner:
 
@@ -77,7 +77,7 @@ account, and use the setup screen to claim the first instance admin from the
 browser. The CLI fallback remains:
 
 ```sh
-pnpm paperclipai auth bootstrap-ceo
+pnpm hermes-fabric auth bootstrap-ceo
 ```
 
 For Tailscale-only reachability on a detected tailnet address:
@@ -96,7 +96,7 @@ pnpm dev --authenticated-private
 Allow additional private hostnames (for example custom Tailscale hostnames):
 
 ```sh
-pnpm paperclipai allowed-hostname dotta-macbook-pro
+pnpm hermes-fabric allowed-hostname dotta-macbook-pro
 ```
 
 ## Test Commands
@@ -129,12 +129,12 @@ For normal issue work, start with the smallest targeted check that proves the ch
 For a first-time local install, you can bootstrap and run in one command:
 
 ```sh
-pnpm paperclipai run
+pnpm hermes-fabric run
 ```
 
 > **Note: private npm registry `.npmrc` + first-run onboarding**
 >
-> The first-run experience often starts with `npx paperclipai onboard --yes` (before you have a repo checkout). If your global `~/.npmrc` sets `registry` to a private registry (for example GitHub Packages), `npx` may try to resolve `paperclipai` from that private registry and fail with `E404`.
+> The first-run experience often starts with `npx hermes-fabric onboard --yes` (before you have a repo checkout). If your global `~/.npmrc` sets `registry` to a private registry (for example GitHub Packages), `npx` may try to resolve `hermes-fabric` from that private registry and fail with `E404`.
 >
 > Diagnostic:
 >
@@ -145,27 +145,27 @@ pnpm paperclipai run
 > Workaround (cross-platform; force the public npm registry for this command):
 >
 > ```sh
-> npx --registry https://registry.npmjs.org paperclipai onboard --yes
+> npx --registry https://registry.npmjs.org Hermes Fabricai onboard --yes
 > ```
 
-`paperclipai run` does:
+`hermes-fabric run` does:
 
 1. auto-onboard if config is missing
-2. `paperclipai doctor` with repair enabled
+2. `hermes-fabric doctor` with repair enabled
 3. starts the server when checks pass
 
 ## Docker Quickstart (No local Node install)
 
-Build and run Paperclip in Docker:
+Build and run Hermes Fabric in Docker:
 
 ```sh
-docker build -t paperclip-local .
-docker run --name paperclip \
+docker build -t fabric-local .
+docker run --name fabric \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
-  -e PAPERCLIP_HOME=/paperclip \
-  -v "$(pwd)/data/docker-paperclip:/paperclip" \
-  paperclip-local
+  -e HERMES_FABRIC_HOME=/fabric \
+  -v "$(pwd)/data/docker-fabric:/fabric" \
+  fabric-local
 ```
 
 Or use Compose:
@@ -185,7 +185,7 @@ For a separate review-oriented container that keeps `codex`/`claude` login state
 Every local install keeps runtime state directly under the selected instance root:
 
 ```text
-~/.paperclip/instances/default/                  # instance root
+~/.hermes-fabric/instances/default/                  # instance root
   config.json                                    # runtime config
   .env                                           # instance env file
   db/                                            # embedded PostgreSQL data
@@ -200,19 +200,19 @@ Every local install keeps runtime state directly under the selected instance roo
                                                    # per-agent codex_local home
 ```
 
-`PAPERCLIP_HOME` and `PAPERCLIP_INSTANCE_ID` override the home root and instance id respectively. `paperclipai onboard` echoes the resolved values in its banner (`Local home: <home> | instance: <id> | config: <path>`) so you can confirm where state will land before continuing.
+`HERMES_FABRIC_HOME` and `HERMES_FABRIC_INSTANCE_ID` override the home root and instance id respectively. `hermes-fabric onboard` echoes the resolved values in its banner (`Local home: <home> | instance: <id> | config: <path>`) so you can confirm where state will land before continuing.
 
 ## Database in Dev (Auto-Handled)
 
 For local development, leave `DATABASE_URL` unset.
 The server will automatically use embedded PostgreSQL and persist data at:
 
-- `~/.paperclip/instances/default/db`
+- `~/.hermes-fabric/instances/default/db`
 
 Override home or instance:
 
 ```sh
-PAPERCLIP_HOME=/custom/path PAPERCLIP_INSTANCE_ID=dev pnpm paperclipai run
+HERMES_FABRIC_HOME=/custom/path HERMES_FABRIC_INSTANCE_ID=dev pnpm hermes-fabric run
 ```
 
 No Docker or external database is required for this mode.
@@ -221,12 +221,12 @@ No Docker or external database is required for this mode.
 
 For local development, the default storage provider is `local_disk`, which persists uploaded images/attachments at:
 
-- `~/.paperclip/instances/default/data/storage`
+- `~/.hermes-fabric/instances/default/data/storage`
 
 Configure storage provider/settings:
 
 ```sh
-pnpm paperclipai configure --section storage
+pnpm hermes-fabric configure --section storage
 ```
 
 ## Agent Artifact Uploads
@@ -235,10 +235,10 @@ When an agent generates a file that a board user or reviewer should inspect as
 a deliverable, attach it to the issue before marking the task complete. Do not
 rely on a local workspace path as the only access path.
 
-Use the helper bundled with the Paperclip skill from the repo root:
+Use the helper bundled with the Hermes Fabric skill from the repo root:
 
 ```sh
-skills/paperclip/scripts/paperclip-upload-artifact.sh dist/demo.mp4 \
+skills/fabric/scripts/fabric-upload-artifact.sh dist/demo.mp4 \
   --title "Demo video render" \
   --summary "MP4 render for board review"
 ```
@@ -246,7 +246,7 @@ skills/paperclip/scripts/paperclip-upload-artifact.sh dist/demo.mp4 \
 For WebM output:
 
 ```sh
-skills/paperclip/scripts/paperclip-upload-artifact.sh out/walkthrough.webm \
+skills/fabric/scripts/fabric-upload-artifact.sh out/walkthrough.webm \
   --title "Walkthrough video" \
   --summary "WebM walkthrough render"
 ```
@@ -261,41 +261,41 @@ that file, not as the main completion path for deliverables.
 
 ## Default Agent Workspaces
 
-When a local agent run has no resolved project/session workspace, Paperclip falls back to an agent home workspace under the instance root:
+When a local agent run has no resolved project/session workspace, Hermes Fabric falls back to an agent home workspace under the instance root:
 
-- `~/.paperclip/instances/default/workspaces/<agent-id>`
+- `~/.hermes-fabric/instances/default/workspaces/<agent-id>`
 
-This path honors `PAPERCLIP_HOME` and `PAPERCLIP_INSTANCE_ID` in non-default setups.
+This path honors `HERMES_FABRIC_HOME` and `HERMES_FABRIC_INSTANCE_ID` in non-default setups.
 
-For `codex_local`, Paperclip assigns new and updated agents an isolated Codex home under the instance root and blocks shared host/company Codex homes:
+For `codex_local`, Hermes Fabric assigns new and updated agents an isolated Codex home under the instance root and blocks shared host/company Codex homes:
 
-- `~/.paperclip/instances/default/companies/<company-id>/agents/<agent-id>/codex-home`
+- `~/.hermes-fabric/instances/default/companies/<company-id>/agents/<agent-id>/codex-home`
 
-Paperclip also persists an empty `OPENAI_API_KEY` override for those agents so a host-level `OPENAI_API_KEY` cannot leak into Codex runs through process inheritance. If an operator explicitly configures `adapterConfig.env.CODEX_HOME`, it must not point at the shared company `codex-home`, `$CODEX_HOME`, or `~/.codex`.
+Hermes Fabric also persists an empty `OPENAI_API_KEY` override for those agents so a host-level `OPENAI_API_KEY` cannot leak into Codex runs through process inheritance. If an operator explicitly configures `adapterConfig.env.CODEX_HOME`, it must not point at the shared company `codex-home`, `$CODEX_HOME`, or `~/.codex`.
 
 If the `codex` CLI is not installed or not on `PATH`, `codex_local` agent runs fail at execution time with a clear adapter error. Quota polling uses a short-lived `codex app-server` subprocess: when `codex` cannot be spawned, that provider reports `ok: false` in aggregated quota results and the API server keeps running (it must not exit on a missing binary).
 
-Local adapters require their corresponding CLI/session setup on the machine running Paperclip. External adapters are installed through the adapter/plugin flow and should not require hardcoded imports in `server/` or `ui/`.
+Local adapters require their corresponding CLI/session setup on the machine running Hermes Fabric. External adapters are installed through the adapter/plugin flow and should not require hardcoded imports in `server/` or `ui/`.
 
 ## Worktree-local Instances
 
-When developing from multiple git worktrees, do not point two Paperclip servers at the same embedded PostgreSQL data directory.
+When developing from multiple git worktrees, do not point two Hermes Fabric servers at the same embedded PostgreSQL data directory.
 
-Instead, create a repo-local Paperclip config plus an isolated instance for the worktree:
+Instead, create a repo-local Hermes Fabric config plus an isolated instance for the worktree:
 
 ```sh
-paperclipai worktree init
+hermes-fabric worktree init
 # or create the git worktree and initialize it in one step:
-pnpm paperclipai worktree:make paperclip-pr-432
+pnpm hermes-fabric worktree:make fabric-pr-432
 ```
 
 This command:
 
-- writes repo-local files at `.paperclip/config.json` and `.paperclip/.env`
-- creates an isolated instance under `~/.paperclip-worktrees/instances/<worktree-id>/`
+- writes repo-local files at `.fabric/config.json` and `.fabric/.env`
+- creates an isolated instance under `~/.hermes-fabric-worktrees/instances/<worktree-id>/`
 - when run inside a linked git worktree, mirrors the effective git hooks into that worktree's private git dir
 - picks a free app port and embedded PostgreSQL port
-- by default seeds the isolated DB in `minimal` mode from the current effective Paperclip instance/config (repo-local worktree config when present, otherwise the default instance) via a logical SQL snapshot
+- by default seeds the isolated DB in `minimal` mode from the current effective Hermes Fabric instance/config (repo-local worktree config when present, otherwise the default instance) via a logical SQL snapshot
 
 Seed modes:
 
@@ -303,43 +303,43 @@ Seed modes:
 - `full` makes a full logical clone of the source instance
 - `--no-seed` creates an empty isolated instance
 
-Seeded worktree instances quarantine copied live execution by default for both `minimal` and `full` seeds. During restore, Paperclip disables copied agent timer heartbeats, resets copied `running` agents to `idle`, blocks and unassigns copied agent-owned `in_progress` issues, and unassigns copied agent-owned `todo`/`in_review` issues. This keeps a freshly booted worktree from starting agents for work already owned by the source instance. Pass `--preserve-live-work` only when you intentionally want the isolated worktree to resume copied assignments.
+Seeded worktree instances quarantine copied live execution by default for both `minimal` and `full` seeds. During restore, Hermes Fabric disables copied agent timer heartbeats, resets copied `running` agents to `idle`, blocks and unassigns copied agent-owned `in_progress` issues, and unassigns copied agent-owned `todo`/`in_review` issues. This keeps a freshly booted worktree from starting agents for work already owned by the source instance. Pass `--preserve-live-work` only when you intentionally want the isolated worktree to resume copied assignments.
 
-After `worktree init`, both the server and the CLI auto-load the repo-local `.paperclip/.env` when run inside that worktree, so normal commands like `pnpm dev`, `paperclipai doctor`, and `paperclipai db:backup` stay scoped to the worktree instance.
+After `worktree init`, both the server and the CLI auto-load the repo-local `.fabric/.env` when run inside that worktree, so normal commands like `pnpm dev`, `hermes-fabric doctor`, and `hermes-fabric db:backup` stay scoped to the worktree instance.
 
-`pnpm dev` now fails fast in a linked git worktree when `.paperclip/.env` is missing, instead of silently booting against the default instance/port. If that happens, run `paperclipai worktree init` in the worktree first.
+`pnpm dev` now fails fast in a linked git worktree when `.fabric/.env` is missing, instead of silently booting against the default instance/port. If that happens, run `hermes-fabric worktree init` in the worktree first.
 
 Provisioned git worktrees also pause seeded routines that still have enabled schedule triggers in the isolated worktree database by default. This prevents copied daily/cron routines from firing unexpectedly inside the new workspace instance during development without disabling webhook/API-only routines.
 
 That repo-local env also sets:
 
-- `PAPERCLIP_IN_WORKTREE=true`
-- `PAPERCLIP_WORKTREE_NAME=<worktree-name>`
-- `PAPERCLIP_WORKTREE_COLOR=<hex-color>`
+- `HERMES_FABRIC_IN_WORKTREE=true`
+- `HERMES_FABRIC_WORKTREE_NAME=<worktree-name>`
+- `HERMES_FABRIC_WORKTREE_COLOR=<hex-color>`
 
 The server/UI use those values for worktree-specific branding such as the top banner and dynamically colored favicon.
-Authenticated worktree servers also use the `PAPERCLIP_INSTANCE_ID` value to scope Better Auth cookie names.
+Authenticated worktree servers also use the `HERMES_FABRIC_INSTANCE_ID` value to scope Better Auth cookie names.
 Browser cookies are shared by host rather than port, so this prevents logging into one `127.0.0.1:<port>` worktree from replacing another worktree server's session cookie.
 
 Print shell exports explicitly when needed:
 
 ```sh
-paperclipai worktree env
+hermes-fabric worktree env
 # or:
-eval "$(paperclipai worktree env)"
+eval "$(hermes-fabric worktree env)"
 ```
 
 ### Worktree CLI Reference
 
-**`pnpm paperclipai worktree init [options]`** — Create repo-local config/env and an isolated instance for the current worktree.
+**`pnpm hermes-fabric worktree init [options]`** — Create repo-local config/env and an isolated instance for the current worktree.
 
 | Option | Description |
 |---|---|
 | `--name <name>` | Display name used to derive the instance id |
 | `--instance <id>` | Explicit isolated instance id |
-| `--home <path>` | Home root for worktree instances (default: `~/.paperclip-worktrees`) |
+| `--home <path>` | Home root for worktree instances (default: `~/.hermes-fabric-worktrees`) |
 | `--from-config <path>` | Source config.json to seed from |
-| `--from-data-dir <path>` | Source PAPERCLIP_HOME used when deriving the source config |
+| `--from-data-dir <path>` | Source HERMES FABRIC_HOME used when deriving the source config |
 | `--from-instance <id>` | Source instance id (default: `default`) |
 | `--server-port <port>` | Preferred server port |
 | `--db-port <port>` | Preferred embedded Postgres port |
@@ -350,34 +350,34 @@ eval "$(paperclipai worktree env)"
 Examples:
 
 ```sh
-paperclipai worktree init --no-seed
-paperclipai worktree init --seed-mode full
-paperclipai worktree init --from-instance default
-paperclipai worktree init --from-data-dir ~/.paperclip
-paperclipai worktree init --force
+hermes-fabric worktree init --no-seed
+hermes-fabric worktree init --seed-mode full
+hermes-fabric worktree init --from-instance default
+hermes-fabric worktree init --from-data-dir ~/.hermes-fabric
+hermes-fabric worktree init --force
 ```
 
 Repair an already-created repo-managed worktree and reseed its isolated instance from the main default install. Point `--from-config` at the instance config:
 
 ```sh
-cd /path/to/paperclip/.paperclip/worktrees/PAP-884-ai-commits-component
-pnpm paperclipai worktree init --force --seed-mode minimal \
+cd /path/to/fabric/.fabric/worktrees/PAP-884-ai-commits-component
+pnpm hermes-fabric worktree init --force --seed-mode minimal \
   --name PAP-884-ai-commits-component \
-  --from-config ~/.paperclip/instances/default/config.json
+  --from-config ~/.hermes-fabric/instances/default/config.json
 ```
 
-That rewrites the worktree-local `.paperclip/config.json` + `.paperclip/.env`, recreates the isolated instance under `~/.paperclip-worktrees/instances/<worktree-id>/`, and preserves the git worktree contents themselves.
+That rewrites the worktree-local `.fabric/config.json` + `.fabric/.env`, recreates the isolated instance under `~/.hermes-fabric-worktrees/instances/<worktree-id>/`, and preserves the git worktree contents themselves.
 
 For an already-created worktree where you want the CLI to decide whether to rebuild missing worktree metadata or just reseed the isolated DB, use `worktree repair`.
 
-**`pnpm paperclipai worktree repair [options]`** — Repair the current linked worktree by default, or create/repair a named linked worktree under `.paperclip/worktrees/` when `--branch` is provided. The command never targets the primary checkout unless you explicitly pass `--branch`.
+**`pnpm hermes-fabric worktree repair [options]`** — Repair the current linked worktree by default, or create/repair a named linked worktree under `.fabric/worktrees/` when `--branch` is provided. The command never targets the primary checkout unless you explicitly pass `--branch`.
 
 | Option | Description |
 |---|---|
-| `--branch <name>` | Existing branch/worktree selector to repair, or a branch name to create under `.paperclip/worktrees` |
-| `--home <path>` | Home root for worktree instances (default: `~/.paperclip-worktrees`) |
+| `--branch <name>` | Existing branch/worktree selector to repair, or a branch name to create under `.fabric/worktrees` |
+| `--home <path>` | Home root for worktree instances (default: `~/.hermes-fabric-worktrees`) |
 | `--from-config <path>` | Source config.json to seed from |
-| `--from-data-dir <path>` | Source `PAPERCLIP_HOME` used when deriving the source config |
+| `--from-data-dir <path>` | Source `HERMES_FABRIC_HOME` used when deriving the source config |
 | `--from-instance <id>` | Source instance id when deriving the source config (default: `default`) |
 | `--seed-mode <mode>` | Seed profile: `minimal` or `full` (default: `minimal`) |
 | `--no-seed` | Repair metadata only when bootstrapping a missing worktree config |
@@ -386,25 +386,25 @@ For an already-created worktree where you want the CLI to decide whether to rebu
 Examples:
 
 ```sh
-# From inside a linked worktree, rebuild missing .paperclip metadata and reseed it from the default instance.
-cd /path/to/paperclip/.paperclip/worktrees/PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat
-pnpm paperclipai worktree repair
+# From inside a linked worktree, rebuild missing .fabric metadata and reseed it from the default instance.
+cd /path/to/fabric/.fabric/worktrees/PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat
+pnpm hermes-fabric worktree repair
 
-# From the primary checkout, create or repair a linked worktree for a branch under .paperclip/worktrees/.
-cd /path/to/paperclip
-pnpm paperclipai worktree repair --branch PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat
+# From the primary checkout, create or repair a linked worktree for a branch under .fabric/worktrees/.
+cd /path/to/fabric
+pnpm hermes-fabric worktree repair --branch PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat
 ```
 
-For an already-created worktree where you want to keep the existing repo-local config/env and only overwrite the isolated database, use `worktree reseed` instead. Stop the target worktree's Paperclip server first so the command can replace the DB safely.
+For an already-created worktree where you want to keep the existing repo-local config/env and only overwrite the isolated database, use `worktree reseed` instead. Stop the target worktree's Hermes Fabric server first so the command can replace the DB safely.
 
-**`pnpm paperclipai worktree reseed [options]`** — Re-seed an existing worktree-local instance from another Paperclip instance or worktree while preserving the target worktree's current config, ports, and instance identity.
+**`pnpm hermes-fabric worktree reseed [options]`** — Re-seed an existing worktree-local instance from another Hermes Fabric instance or worktree while preserving the target worktree's current config, ports, and instance identity.
 
 | Option | Description |
 |---|---|
 | `--from <worktree>` | Source worktree path, directory name, branch name, or `current` |
 | `--to <worktree>` | Target worktree path, directory name, branch name, or `current` (defaults to `current`) |
 | `--from-config <path>` | Source config.json to seed from |
-| `--from-data-dir <path>` | Source `PAPERCLIP_HOME` used when deriving the source config |
+| `--from-data-dir <path>` | Source `HERMES_FABRIC_HOME` used when deriving the source config |
 | `--from-instance <id>` | Source instance id when deriving the source config |
 | `--seed-mode <mode>` | Seed profile: `minimal` or `full` (default: `full`) |
 | `--yes` | Skip the destructive confirmation prompt |
@@ -414,29 +414,29 @@ Examples:
 
 ```sh
 # From the main repo, reseed a worktree from the current default/master instance.
-cd /path/to/paperclip
-pnpm paperclipai worktree reseed \
+cd /path/to/fabric
+pnpm hermes-fabric worktree reseed \
   --from current \
   --to PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat \
   --seed-mode full \
   --yes
 
 # From inside a worktree, reseed it from the default instance config.
-cd /path/to/paperclip/.paperclip/worktrees/PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat
-pnpm paperclipai worktree reseed \
+cd /path/to/fabric/.fabric/worktrees/PAP-1132-assistant-ui-pap-1131-make-issues-comments-be-like-a-chat
+pnpm hermes-fabric worktree reseed \
   --from-instance default \
   --seed-mode full
 ```
 
-**`pnpm paperclipai worktree:make <name> [options]`** — Create `~/NAME` as a git worktree, then initialize an isolated Paperclip instance inside it. This combines `git worktree add` with `worktree init` in a single step.
+**`pnpm hermes-fabric worktree:make <name> [options]`** — Create `~/NAME` as a git worktree, then initialize an isolated Hermes Fabric instance inside it. This combines `git worktree add` with `worktree init` in a single step.
 
 | Option | Description |
 |---|---|
 | `--start-point <ref>` | Remote ref to base the new branch on (e.g. `origin/main`) |
 | `--instance <id>` | Explicit isolated instance id |
-| `--home <path>` | Home root for worktree instances (default: `~/.paperclip-worktrees`) |
+| `--home <path>` | Home root for worktree instances (default: `~/.hermes-fabric-worktrees`) |
 | `--from-config <path>` | Source config.json to seed from |
-| `--from-data-dir <path>` | Source PAPERCLIP_HOME used when deriving the source config |
+| `--from-data-dir <path>` | Source HERMES FABRIC_HOME used when deriving the source config |
 | `--from-instance <id>` | Source instance id (default: `default`) |
 | `--server-port <port>` | Preferred server port |
 | `--db-port <port>` | Preferred embedded Postgres port |
@@ -447,12 +447,12 @@ pnpm paperclipai worktree reseed \
 Examples:
 
 ```sh
-pnpm paperclipai worktree:make paperclip-pr-432
-pnpm paperclipai worktree:make my-feature --start-point origin/main
-pnpm paperclipai worktree:make experiment --no-seed
+pnpm hermes-fabric worktree:make fabric-pr-432
+pnpm hermes-fabric worktree:make my-feature --start-point origin/main
+pnpm hermes-fabric worktree:make experiment --no-seed
 ```
 
-**`pnpm paperclipai worktree env [options]`** — Print shell exports for the current worktree-local Paperclip instance.
+**`pnpm hermes-fabric worktree env [options]`** — Print shell exports for the current worktree-local Hermes Fabric instance.
 
 | Option | Description |
 |---|---|
@@ -462,16 +462,16 @@ pnpm paperclipai worktree:make experiment --no-seed
 Examples:
 
 ```sh
-pnpm paperclipai worktree env
-pnpm paperclipai worktree env --json
-eval "$(pnpm paperclipai worktree env)"
+pnpm hermes-fabric worktree env
+pnpm hermes-fabric worktree env --json
+eval "$(pnpm hermes-fabric worktree env)"
 ```
 
-For project execution worktrees, Paperclip can also run a project-defined provision command after it creates or reuses an isolated git worktree. Configure this on the project's execution workspace policy (`workspaceStrategy.provisionCommand`). The command runs inside the derived worktree and receives `PAPERCLIP_WORKSPACE_*`, `PAPERCLIP_PROJECT_ID`, `PAPERCLIP_AGENT_ID`, and `PAPERCLIP_ISSUE_*` environment variables so each repo can bootstrap itself however it wants.
+For project execution worktrees, Hermes Fabric can also run a project-defined provision command after it creates or reuses an isolated git worktree. Configure this on the project's execution workspace policy (`workspaceStrategy.provisionCommand`). The command runs inside the derived worktree and receives `HERMES_FABRIC_WORKSPACE_*`, `HERMES_FABRIC_PROJECT_ID`, `HERMES_FABRIC_AGENT_ID`, and `HERMES_FABRIC_ISSUE_*` environment variables so each repo can bootstrap itself however it wants.
 
 ## App-Shipped Skills Catalog
 
-The Paperclip app ships a curated catalog of company skills out of the box. The
+The Hermes Fabric app ships a curated catalog of company skills out of the box. The
 catalog is a workspace package at `packages/skills-catalog`:
 
 ```text
@@ -487,24 +487,24 @@ packages/skills-catalog/
 ```
 
 Server and CLI import the generated manifest; they do not crawl repository
-paths at request time. Root `skills/` remains reserved for Paperclip runtime
+paths at request time. Root `skills/` remains reserved for Hermes Fabric runtime
 skills and is not part of the catalog.
 
 Validate the catalog without writing the manifest:
 
 ```sh
-pnpm --filter @paperclipai/skills-catalog validate
+pnpm --filter @hermes-fabric/skills-catalog validate
 ```
 
 Regenerate `generated/catalog.json` after editing any catalog `SKILL.md`,
 frontmatter, file inventory, category, or slug:
 
 ```sh
-pnpm --filter @paperclipai/skills-catalog build:manifest
+pnpm --filter @hermes-fabric/skills-catalog build:manifest
 ```
 
 The package's `build` script runs `build:manifest` and then `tsc`; tests live
-under `pnpm --filter @paperclipai/skills-catalog test`. Validation fails when:
+under `pnpm --filter @hermes-fabric/skills-catalog test`. Validation fails when:
 
 - a catalog entry is not under `catalog/bundled/<category>/<slug>` or
   `catalog/optional/<category>/<slug>`
@@ -521,7 +521,7 @@ only), `assets` (other non-script files), or `scripts_executables` (any
 executable script). The build contract is documented in
 `doc/plans/2026-05-26-skills-cli-catalog-contract.md`.
 
-CI runs `pnpm --filter @paperclipai/skills-catalog validate` and the package's
+CI runs `pnpm --filter @hermes-fabric/skills-catalog validate` and the package's
 vitest suite, so always regenerate the manifest in the same commit as the
 catalog change.
 
@@ -544,13 +544,13 @@ packages/teams-catalog/
 Validate without writing the manifest:
 
 ```sh
-pnpm --filter @paperclipai/teams-catalog validate
+pnpm --filter @hermes-fabric/teams-catalog validate
 ```
 
 Regenerate `generated/catalog.json` after editing catalog team files:
 
 ```sh
-pnpm --filter @paperclipai/teams-catalog build:manifest
+pnpm --filter @hermes-fabric/teams-catalog build:manifest
 ```
 
 Team install/preview APIs enforce source policy. External skill sources require
@@ -576,7 +576,7 @@ Expected:
 To wipe local dev data and start fresh:
 
 ```sh
-rm -rf ~/.paperclip/instances/default/db
+rm -rf ~/.hermes-fabric/instances/default/db
 pnpm dev
 ```
 
@@ -586,35 +586,35 @@ If you set `DATABASE_URL`, the server will use that instead of embedded PostgreS
 
 ## Automatic DB Backups
 
-Paperclip can run automatic logical database backups on a timer. These backups cover
+Hermes Fabric can run automatic logical database backups on a timer. These backups cover
 non-system database schemas, including migration history and plugin-owned database
 schemas. Defaults:
 
 - enabled
 - every 60 minutes
 - retain 30 days
-- backup dir: `~/.paperclip/instances/default/data/backups`
+- backup dir: `~/.hermes-fabric/instances/default/data/backups`
 
 Configure these in:
 
 ```sh
-pnpm paperclipai configure --section database
+pnpm hermes-fabric configure --section database
 ```
 
 Run a one-off backup manually:
 
 ```sh
-pnpm paperclipai db:backup
+pnpm hermes-fabric db:backup
 # or:
 pnpm db:backup
 ```
 
 Environment overrides:
 
-- `PAPERCLIP_DB_BACKUP_ENABLED=true|false`
-- `PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES=<minutes>`
-- `PAPERCLIP_DB_BACKUP_RETENTION_DAYS=<days>`
-- `PAPERCLIP_DB_BACKUP_DIR=/absolute/or/~/path`
+- `HERMES_FABRIC_DB_BACKUP_ENABLED=true|false`
+- `HERMES_FABRIC_DB_BACKUP_INTERVAL_MINUTES=<minutes>`
+- `HERMES_FABRIC_DB_BACKUP_RETENTION_DAYS=<days>`
+- `HERMES_FABRIC_DB_BACKUP_DIR=/absolute/or/~/path`
 
 DB backups are not full instance filesystem backups. For full local disaster
 recovery, also back up local storage files and the local encrypted secrets key if
@@ -624,15 +624,15 @@ those providers are enabled.
 
 Agent env vars now support secret references. By default, secret values are stored with local encryption and only secret refs are persisted in agent config.
 
-- Default local key path: `~/.paperclip/instances/default/secrets/master.key`
-- Override key material directly: `PAPERCLIP_SECRETS_MASTER_KEY`
-- Override key file path: `PAPERCLIP_SECRETS_MASTER_KEY_FILE`
+- Default local key path: `~/.hermes-fabric/instances/default/secrets/master.key`
+- Override key material directly: `HERMES_FABRIC_SECRETS_MASTER_KEY`
+- Override key file path: `HERMES_FABRIC_SECRETS_MASTER_KEY_FILE`
 - Back up the key file and database together; either one alone is not enough to restore local encrypted secrets.
 
 Strict mode (recommended outside local trusted machines):
 
 ```sh
-PAPERCLIP_SECRETS_STRICT_MODE=true
+HERMES_FABRIC_SECRETS_STRICT_MODE=true
 ```
 
 When strict mode is enabled, sensitive env keys (for example `*_API_KEY`, `*_TOKEN`, `*_SECRET`) must use secret references instead of inline plain values.
@@ -640,9 +640,9 @@ Authenticated deployments default strict mode on unless explicitly overridden.
 
 CLI configuration support:
 
-- `pnpm paperclipai onboard` writes a default `secrets` config section (`local_encrypted`, strict mode off, key file path set) and creates a local key file when needed.
-- `pnpm paperclipai configure --section secrets` lets you update provider/strict mode/key path and creates the local key file when needed.
-- `pnpm paperclipai doctor` validates secrets adapter configuration, can create a missing local key file with `--repair`, and reports missing AWS Secrets Manager bootstrap env when that provider is selected.
+- `pnpm hermes-fabric onboard` writes a default `secrets` config section (`local_encrypted`, strict mode off, key file path set) and creates a local key file when needed.
+- `pnpm hermes-fabric configure --section secrets` lets you update provider/strict mode/key path and creates the local key file when needed.
+- `pnpm hermes-fabric doctor` validates secrets adapter configuration, can create a missing local key file with `--repair`, and reports missing AWS Secrets Manager bootstrap env when that provider is selected.
 - Provider health is available at `GET /api/companies/:companyId/secret-providers/health` and reports local key permission warnings plus backup guidance.
 
 Per-company provider vaults are configured in the board UI under
@@ -663,7 +663,7 @@ pnpm secrets:migrate-inline-env --apply # apply migration
 Company deletion is intended as a dev/debug capability and can be disabled at runtime:
 
 ```sh
-PAPERCLIP_ENABLE_COMPANY_DELETION=false
+HERMES_FABRIC_ENABLE_COMPANY_DELETION=false
 ```
 
 Default behavior:
@@ -673,27 +673,27 @@ Default behavior:
 
 ## CLI Client Operations
 
-Paperclip CLI now includes client-side control-plane commands in addition to setup commands.
+Hermes Fabric CLI now includes client-side control-plane commands in addition to setup commands.
 
 Quick examples:
 
 ```sh
-pnpm paperclipai issue list --company-id <company-id>
-pnpm paperclipai issue create --company-id <company-id> --title "Investigate checkout conflict"
-pnpm paperclipai issue update <issue-id> --status in_progress --comment "Started triage"
+pnpm hermes-fabric issue list --company-id <company-id>
+pnpm hermes-fabric issue create --company-id <company-id> --title "Investigate checkout conflict"
+pnpm hermes-fabric issue update <issue-id> --status in_progress --comment "Started triage"
 ```
 
 Set defaults once with context profiles:
 
 ```sh
-pnpm paperclipai context set --api-base http://localhost:3100 --company-id <company-id>
+pnpm hermes-fabric context set --api-base http://localhost:3100 --company-id <company-id>
 ```
 
 Then run commands without repeating flags:
 
 ```sh
-pnpm paperclipai issue list
-pnpm paperclipai dashboard get
+pnpm hermes-fabric issue list
+pnpm hermes-fabric dashboard get
 ```
 
 See full command reference in `doc/CLI.md`.
@@ -708,7 +708,7 @@ The board UI generates agent onboarding prompts from the add-agent modal (`+` in
 - `GET /api/invites/:token/onboarding` returns onboarding manifest details (registration endpoint, claim endpoint template, skill install hints).
 - `GET /api/invites/:token/onboarding.txt` returns a plain-text onboarding doc intended for both human operators and agents (llm.txt-style handoff), including optional inviter message and suggested network host candidates.
 - `GET /api/skills/index` lists available skill documents.
-- `GET /api/skills/paperclip` returns the Paperclip heartbeat skill markdown.
+- `GET /api/skills/fabric` returns the Hermes Fabric heartbeat skill markdown.
 
 Hermes gateway agents use this same generic agent invite flow with
 `adapterType=hermes_gateway` and `agentDefaultsPayload.apiBaseUrl` /
@@ -735,12 +735,12 @@ What it validates:
 Required permissions:
 
 - This script performs board-governed actions (create invite, approve join, wakeup another agent).
-- In authenticated mode, run with board auth via `PAPERCLIP_AUTH_HEADER` or `PAPERCLIP_COOKIE`.
+- In authenticated mode, run with board auth via `HERMES_FABRIC_AUTH_HEADER` or `HERMES_FABRIC_COOKIE`.
 
 Optional auth flags (for authenticated mode):
 
-- `PAPERCLIP_AUTH_HEADER` (for example `Bearer ...`)
-- `PAPERCLIP_COOKIE` (session cookie header value)
+- `HERMES_FABRIC_AUTH_HEADER` (for example `Bearer ...`)
+- `HERMES_FABRIC_COOKIE` (session cookie header value)
 
 ## OpenClaw Docker UI One-Command Script
 
@@ -763,11 +763,11 @@ Model behavior for this smoke script:
 
 State behavior for this smoke script:
 
-- defaults to isolated config dir `~/.openclaw-paperclip-smoke`
+- defaults to isolated config dir `~/.openclaw-fabric-smoke`
 - resets smoke agent state each run by default (`OPENCLAW_RESET_STATE=1`) to avoid stale provider/auth drift
 
 Networking behavior for this smoke script:
 
-- auto-detects and prints a Paperclip host URL reachable from inside OpenClaw Docker
-- default container-side host alias is `host.docker.internal` (override with `PAPERCLIP_HOST_FROM_CONTAINER` / `PAPERCLIP_HOST_PORT`)
-- if Paperclip rejects container hostnames in authenticated/private mode, allow `host.docker.internal` via `pnpm paperclipai allowed-hostname host.docker.internal` and restart Paperclip
+- auto-detects and prints a Hermes Fabric host URL reachable from inside OpenClaw Docker
+- default container-side host alias is `host.docker.internal` (override with `HERMES_FABRIC_HOST_FROM_CONTAINER` / `HERMES_FABRIC_HOST_PORT`)
+- if Hermes Fabric rejects container hostnames in authenticated/private mode, allow `host.docker.internal` via `pnpm hermes-fabric allowed-hostname host.docker.internal` and restart Hermes Fabric

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Bot, ChevronDown, ChevronRight, Clock, Search, Send, Users, Wifi, WifiOff } from "lucide-react";
-import type { HermesAgencyAgent, HermesAgencyAgentStatus, HermesAgencyDispatchRecord, HermesAgencyTaskPacketPreview } from "@paperclipai/shared";
+import type { HermesAgencyAgent, HermesAgencyAgentStatus, HermesAgencyDispatchRecord, HermesAgencyTaskPacketPreview } from "@hermes-fabric/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +75,7 @@ function buildDispatchPacket(agent: HermesAgencyAgent): HermesAgencyTaskPacketPr
   return {
     title: `Route a harmless Hermes Fabric check to ${agent.name}`,
     goal: "Validate that Hermes Fabric can hand a reviewed packet to Hermes Agency without hiding offline queue semantics.",
-    context: `Hermes Fabric roster dispatch smoke for ${agent.name}. Offline agents are valid targets; wake failures should remain queued/actionable.`,
+    context: `Hermes Agency roster dispatch smoke for ${agent.name}. Offline agents are valid targets; wake failures should remain queued/actionable.`,
     requestedSkills: agent.skills.slice(0, 3),
     targetAgentName: agent.name,
     dispatchMode: "direct-agent",

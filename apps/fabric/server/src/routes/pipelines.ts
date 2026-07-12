@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agents,
   documents,
@@ -22,7 +22,7 @@ import {
   pipelineTransitions,
   pipelines,
   routines,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import { validate } from "../middleware/validate.js";
 import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized, unprocessable } from "../errors.js";
 import {
@@ -68,7 +68,7 @@ import {
   type PipelineCaseLiveness,
   type PipelineHealthFailedAutomationInput,
   type PipelineHealthStageInput,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { documentAnnotationService } from "../services/document-annotations.js";
 import { logActivity } from "../services/activity-log.js";
 import {

@@ -17,11 +17,11 @@ describe("codex managed home", () => {
   });
 
   it("treats a concurrently-created expected auth symlink as success", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-home-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-home-"));
     const sharedCodexHome = path.join(root, "shared-codex-home");
-    const paperclipHome = path.join(root, "paperclip-home");
+    const fabricHome = path.join(root, "fabric-home");
     const managedCodexHome = path.join(
-      paperclipHome,
+      fabricHome,
       "instances",
       "default",
       "companies",
@@ -47,8 +47,8 @@ describe("codex managed home", () => {
         prepareManagedCodexHome(
           {
             CODEX_HOME: sharedCodexHome,
-            PAPERCLIP_HOME: paperclipHome,
-            PAPERCLIP_INSTANCE_ID: "default",
+            HERMES_FABRIC_HOME: fabricHome,
+            HERMES_FABRIC_INSTANCE_ID: "default",
           },
           async () => {},
           "company-1",
@@ -63,11 +63,11 @@ describe("codex managed home", () => {
   });
 
   it("still throws on EEXIST when a raced-in auth symlink points elsewhere", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-home-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-home-"));
     const sharedCodexHome = path.join(root, "shared-codex-home");
-    const paperclipHome = path.join(root, "paperclip-home");
+    const fabricHome = path.join(root, "fabric-home");
     const managedCodexHome = path.join(
-      paperclipHome,
+      fabricHome,
       "instances",
       "default",
       "companies",
@@ -95,8 +95,8 @@ describe("codex managed home", () => {
         prepareManagedCodexHome(
           {
             CODEX_HOME: sharedCodexHome,
-            PAPERCLIP_HOME: paperclipHome,
-            PAPERCLIP_INSTANCE_ID: "default",
+            HERMES_FABRIC_HOME: fabricHome,
+            HERMES_FABRIC_INSTANCE_ID: "default",
           },
           async () => {},
           "company-1",
@@ -110,19 +110,19 @@ describe("codex managed home", () => {
     }
   });
 
-  // Regression for #5028: older Paperclip versions copied auth.json into the
+  // Regression for #5028: older HermesFabric versions copied auth.json into the
   // managed home instead of symlinking. After upgrading to the symlink-based
   // logic, the stale regular file at the target stayed in place and every
   // subsequent codex_local run failed with refresh_token_reused as soon as the
   // source token rotated. `ensureSymlink` now heals the upgrade path by
   // unlinking the stale copy and creating a symlink to the live source.
   it("replaces a stale regular-file auth.json with a symlink to the live source (#5028)", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-home-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-home-"));
     try {
       const sharedCodexHome = path.join(root, "shared-codex-home");
-      const paperclipHome = path.join(root, "paperclip-home");
+      const fabricHome = path.join(root, "fabric-home");
       const managedCodexHome = path.join(
-        paperclipHome,
+        fabricHome,
         "instances",
         "default",
         "companies",
@@ -136,15 +136,15 @@ describe("codex managed home", () => {
       // The live source has rotated since the stale copy was written.
       await fs.writeFile(sharedAuth, '{"token":"fresh"}', "utf8");
 
-      // Simulate a stale copy left by a previous Paperclip version.
+      // Simulate a stale copy left by a previous HermesFabric version.
       await fs.mkdir(managedCodexHome, { recursive: true });
       await fs.writeFile(managedAuth, '{"token":"stale-from-copy"}', "utf8");
 
       await prepareManagedCodexHome(
         {
           CODEX_HOME: sharedCodexHome,
-          PAPERCLIP_HOME: paperclipHome,
-          PAPERCLIP_INSTANCE_ID: "default",
+          HERMES_FABRIC_HOME: fabricHome,
+          HERMES_FABRIC_INSTANCE_ID: "default",
         },
         async () => {},
         "company-1",
@@ -163,7 +163,7 @@ describe("codex managed home", () => {
   // ensureSymlink runs — so the heal branch never executes there. Call
   // ensureSymlink directly to prove the unlink-and-recreate path itself.
   it("ensureSymlink: unlinks a stale regular file and recreates the symlink", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-ensure-symlink-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-ensure-symlink-"));
     try {
       const source = path.join(root, "live-source.json");
       const target = path.join(root, "stale-target.json");
@@ -181,9 +181,9 @@ describe("codex managed home", () => {
 
   // The isDirectory() guard added with the heal branch must keep an unexpected
   // directory in place rather than throwing EISDIR. We treat a directory at
-  // this path as operator-owned, not a stale Paperclip copy.
+  // this path as operator-owned, not a stale HermesFabric copy.
   it("ensureSymlink: leaves an unexpected directory in place instead of throwing", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-ensure-symlink-dir-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-ensure-symlink-dir-"));
     try {
       const source = path.join(root, "live-source.json");
       const target = path.join(root, "unexpected-dir");
@@ -204,11 +204,11 @@ describe("codex managed home", () => {
 
 describe("isManagedCodexHomePath", () => {
   const env = {
-    PAPERCLIP_HOME: "/srv/paperclip",
-    PAPERCLIP_INSTANCE_ID: "default",
+    HERMES_FABRIC_HOME: "/srv/fabric",
+    HERMES_FABRIC_INSTANCE_ID: "default",
   } satisfies NodeJS.ProcessEnv;
   const companyRoot = path.resolve(
-    "/srv/paperclip/instances/default/companies/company-1",
+    "/srv/fabric/instances/default/companies/company-1",
   );
 
   it("treats the per-agent managed home as managed", () => {
@@ -233,7 +233,7 @@ describe("isManagedCodexHomePath", () => {
       isManagedCodexHomePath(
         env,
         "company-1",
-        path.resolve("/srv/paperclip/instances/default/companies/company-2/codex-home"),
+        path.resolve("/srv/fabric/instances/default/companies/company-2/codex-home"),
       ),
     ).toBe(false);
   });
@@ -247,7 +247,7 @@ describe("isManagedCodexHomePath", () => {
 
 describe("codexHomeHasUsableAuth", () => {
   it("is true for credential-bearing auth.json and false when missing", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-auth-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-auth-"));
     try {
       expect(await codexHomeHasUsableAuth(root)).toBe(false);
       await fs.writeFile(path.join(root, "auth.json"), "{}", "utf8");
@@ -262,7 +262,7 @@ describe("codexHomeHasUsableAuth", () => {
   });
 
   it("is false for a dangling auth.json symlink", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-auth-dangling-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-auth-dangling-"));
     try {
       await fs.symlink(path.join(root, "missing-source.json"), path.join(root, "auth.json"));
       expect(await codexHomeHasUsableAuth(root)).toBe(false);
@@ -274,7 +274,7 @@ describe("codexHomeHasUsableAuth", () => {
 
 describe("seedManagedCodexHome", () => {
   it("symlinks auth.json from the shared source into an explicit per-agent home", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-seed-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-seed-"));
     try {
       const sharedCodexHome = path.join(root, "shared-codex-home");
       const agentHome = path.join(
@@ -303,7 +303,7 @@ describe("seedManagedCodexHome", () => {
   });
 
   it("writes an API-key auth.json into the home when an apiKey is supplied", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-seed-apikey-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-seed-apikey-"));
     try {
       const agentHome = path.join(root, "agent-home");
       const emptyShared = path.join(root, "empty-shared");
@@ -323,11 +323,11 @@ describe("seedManagedCodexHome", () => {
 // Startup backfill for already-isolated managed homes.
 describe("reconcileManagedCodexHome", () => {
   async function makeFixture() {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-reconcile-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-reconcile-"));
     const sharedCodexHome = path.join(root, "shared-codex-home");
-    const paperclipHome = path.join(root, "paperclip-home");
+    const fabricHome = path.join(root, "fabric-home");
     const agentHome = path.join(
-      paperclipHome,
+      fabricHome,
       "instances",
       "default",
       "companies",
@@ -342,8 +342,8 @@ describe("reconcileManagedCodexHome", () => {
     await fs.writeFile(sharedAuth, '{"token":"shared"}', "utf8");
     const env = {
       CODEX_HOME: sharedCodexHome,
-      PAPERCLIP_HOME: paperclipHome,
-      PAPERCLIP_INSTANCE_ID: "default",
+      HERMES_FABRIC_HOME: fabricHome,
+      HERMES_FABRIC_INSTANCE_ID: "default",
     } satisfies NodeJS.ProcessEnv;
     return { root, sharedCodexHome, sharedAuth, agentHome, agentAuth, env };
   }

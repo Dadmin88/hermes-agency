@@ -1,4 +1,4 @@
-import { parseJson } from "@paperclipai/adapter-utils/server-utils";
+import { parseJson } from "@hermes-fabric/adapter-utils/server-utils";
 
 export const DEFAULT_CODEX_OUTPUT_INACTIVITY_TIMEOUT_MS = 7 * 60 * 1000;
 export const CODEX_OUTPUT_INACTIVITY_MONITOR_SIGTERM_GRACE_MS = 5_000;

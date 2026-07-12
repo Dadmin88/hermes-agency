@@ -1,5 +1,5 @@
-import type { Db } from "@paperclipai/db";
-import { companies, instanceSettings } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { companies, instanceSettings } from "@hermes-fabric/db";
 import {
   DEFAULT_FEEDBACK_DATA_SHARING_PREFERENCE,
   DEFAULT_BACKUP_RETENTION,
@@ -12,7 +12,7 @@ import {
   type InstanceSettings,
   type PatchInstanceSettings,
   type PatchInstanceExperimentalSettings,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { eq } from "drizzle-orm";
 
 const DEFAULT_SINGLETON_KEY = "default";

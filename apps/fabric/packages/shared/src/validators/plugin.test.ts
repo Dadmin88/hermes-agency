@@ -11,12 +11,12 @@ describe("plugin capability constants", () => {
 describe("plugin manifest validators", () => {
   it("accepts existing-style plugins that do not request access or authorization capabilities", () => {
     const parsed = pluginManifestV1Schema.parse({
-      id: "paperclip.compat-dashboard",
+      id: "fabric.compat-dashboard",
       apiVersion: 1,
       version: "0.1.0",
       displayName: "Compat Dashboard",
       description: "Dashboard-only plugin without access or authorization host APIs.",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["ui"],
       capabilities: ["ui.dashboardWidget.register"],
       entrypoints: {
@@ -63,12 +63,12 @@ describe("plugin managed routine validators", () => {
 
 describe("plugin managed skill validators", () => {
   const baseManifest = {
-    id: "paperclip.test-managed-skills",
+    id: "fabric.test-managed-skills",
     apiVersion: 1,
     version: "0.1.0",
     displayName: "Managed Skills",
     description: "Managed skills test plugin.",
-    author: "Paperclip",
+    author: "Hermes Fabric",
     categories: ["automation"],
     entrypoints: { worker: "./dist/worker.js" },
   } as const;

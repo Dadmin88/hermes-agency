@@ -1,6 +1,6 @@
 import type { CreateConfigValues } from "../components/AgentConfigForm";
 import { buildNewAgentRuntimeConfig } from "./new-agent-runtime-config";
-import type { AgentPermissions } from "@paperclipai/shared";
+import type { AgentPermissions } from "@hermes-fabric/shared";
 
 export function buildNewAgentHirePayload(input: {
   name: string;

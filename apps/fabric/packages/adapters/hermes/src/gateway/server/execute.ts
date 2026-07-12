@@ -2,15 +2,15 @@ import type {
   AdapterExecutionContext,
   AdapterExecutionResult,
   UsageSummary,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 import {
   asNumber,
   asString,
   parseObject,
-  readPaperclipIssueWorkModeFromContext,
-  renderPaperclipWakePrompt,
-  stringifyPaperclipWakePayload,
-} from "@paperclipai/adapter-utils/server-utils";
+  readHermesFabricIssueWorkModeFromContext,
+  renderHermesFabricWakePrompt,
+  stringifyHermesFabricWakePayload,
+} from "@hermes-fabric/adapter-utils/server-utils";
 import {
   ADAPTER_TYPE,
   DEFAULT_EVENT_RECONNECT_MS,
@@ -69,8 +69,8 @@ const SENSITIVE_KEY_PATTERN =
   /(^|[_-])(auth|authorization|token|secret|password|api[_-]?key|private[_-]?key)([_-]|$)/i;
 const BEARER_TOKEN_PATTERN = /Bearer\s+\S+/gi;
 const HERMES_SESSION_KEY_HEADER_PATTERN = /(X-Hermes-Session-Key\s*[:=]\s*)([^\s,;]+)/gi;
-const PAPERCLIP_SESSION_KEY_PATTERN =
-  /\bpaperclip:(?:company:[A-Za-z0-9-]+:agent:[A-Za-z0-9-]+(?::(?:issue|run):[A-Za-z0-9-]+)?|run:[A-Za-z0-9-]+)\b/gi;
+const HERMES_FABRIC_SESSION_KEY_PATTERN =
+  /\bfabric:(?:company:[A-Za-z0-9-]+:agent:[A-Za-z0-9-]+(?::(?:issue|run):[A-Za-z0-9-]+)?|run:[A-Za-z0-9-]+)\b/gi;
 
 const TERMINAL_STATUSES = new Set([
   "completed",
@@ -155,13 +155,13 @@ export function resolveSessionKey(input: {
 }): string | null {
   if (input.strategy === "none") return null;
   if (input.strategy === "agent") {
-    return `paperclip:company:${input.companyId}:agent:${input.agentId}`;
+    return `fabric:company:${input.companyId}:agent:${input.agentId}`;
   }
   if (input.strategy === "run") {
-    return `paperclip:run:${input.runId}`;
+    return `fabric:run:${input.runId}`;
   }
   const issuePart = input.issueId ? `issue:${input.issueId}` : `run:${input.runId}`;
-  return `paperclip:company:${input.companyId}:agent:${input.agentId}:${issuePart}`;
+  return `fabric:company:${input.companyId}:agent:${input.agentId}:${issuePart}`;
 }
 
 function stringifyForLog(value: unknown, maxChars = 4_000): string {
@@ -173,7 +173,7 @@ function sanitizeSensitiveText(value: string): string {
   return value
     .replace(BEARER_TOKEN_PATTERN, "Bearer [redacted]")
     .replace(HERMES_SESSION_KEY_HEADER_PATTERN, "$1[redacted]")
-    .replace(PAPERCLIP_SESSION_KEY_PATTERN, "[redacted-session-key]");
+    .replace(HERMES_FABRIC_SESSION_KEY_PATTERN, "[redacted-session-key]");
 }
 
 function escapeRegExp(value: string): string {
@@ -261,27 +261,27 @@ function buildHeaders(input: {
   };
 }
 
-function buildInput(ctx: AdapterExecutionContext, paperclipApiUrl: string | null): string {
-  const wakePrompt = renderPaperclipWakePrompt(ctx.context.paperclipWake);
-  const wakePayloadJson = stringifyPaperclipWakePayload(ctx.context.paperclipWake);
-  const taskMarkdown = nonEmpty(ctx.context.paperclipTaskMarkdown);
-  const sessionHandoff = nonEmpty(ctx.context.paperclipSessionHandoffMarkdown);
-  const issueWorkMode = readPaperclipIssueWorkModeFromContext(ctx.context);
+function buildInput(ctx: AdapterExecutionContext, fabricApiUrl: string | null): string {
+  const wakePrompt = renderHermesFabricWakePrompt(ctx.context.fabricWake);
+  const wakePayloadJson = stringifyHermesFabricWakePayload(ctx.context.fabricWake);
+  const taskMarkdown = nonEmpty(ctx.context.fabricTaskMarkdown);
+  const sessionHandoff = nonEmpty(ctx.context.fabricSessionHandoffMarkdown);
+  const issueWorkMode = readHermesFabricIssueWorkModeFromContext(ctx.context);
   const lines = [
-    `You are ${ctx.agent.name}, an AI agent employee in a Paperclip-managed company.`,
+    `You are ${ctx.agent.name}, an AI agent employee in a HermesFabric-managed company.`,
     "",
-    "Paperclip runtime identity:",
+    "HermesFabric runtime identity:",
     `- Agent ID: ${ctx.agent.id}`,
     `- Company ID: ${ctx.agent.companyId}`,
     `- Run ID: ${ctx.runId}`,
-    ...(paperclipApiUrl ? [`- Paperclip API URL: ${paperclipApiUrl}`] : []),
+    ...(fabricApiUrl ? [`- HermesFabric API URL: ${fabricApiUrl}`] : []),
     ...(issueWorkMode ? [`- Issue work mode: ${issueWorkMode}`] : []),
     "",
     "Execution contract:",
     "- Take concrete action in this run when the task is actionable.",
     "- Do not stop at a plan unless the issue asks for planning only.",
     "- Leave durable progress and update the issue to a clear final disposition.",
-    "- Use X-Paperclip-Run-Id on mutating Paperclip API requests when a Paperclip API key is available.",
+    "- Use X-HermesFabric-Run-Id on mutating HermesFabric API requests when a HermesFabric API key is available.",
     "",
     wakePrompt,
     ...(sessionHandoff ? ["", sessionHandoff] : []),
@@ -300,13 +300,13 @@ function buildInput(ctx: AdapterExecutionContext, paperclipApiUrl: string | null
 }
 
 function buildRunBody(ctx: AdapterExecutionContext, sessionKey: string | null): Record<string, unknown> {
-  const paperclipApiUrl = nonEmpty(ctx.config.paperclipApiUrl);
+  const fabricApiUrl = nonEmpty(ctx.config.fabricApiUrl);
   const payloadTemplate = parseObject(ctx.config.payloadTemplate);
-  const input = nonEmpty(payloadTemplate.input) ?? buildInput(ctx, paperclipApiUrl);
+  const input = nonEmpty(payloadTemplate.input) ?? buildInput(ctx, fabricApiUrl);
   const instructions =
     nonEmpty(ctx.config.instructions) ??
     nonEmpty(payloadTemplate.instructions) ??
-    "Follow the Paperclip wake instructions exactly. Do not expose secrets in logs, comments, or final output.";
+    "Follow the HermesFabric wake instructions exactly. Do not expose secrets in logs, comments, or final output.";
   return {
     ...payloadTemplate,
     input,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AgentPermissions, TrustPreset } from "@paperclipai/shared";
+import type { AgentPermissions, TrustPreset } from "@hermes-fabric/shared";
 import { Lock, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, CollapsibleSection } from "./agent-config-primitives";
@@ -213,7 +213,7 @@ export function TrustPresetSection({
                 Want to set more than one containment boundary?{" "}
                 <a
                   className="underline underline-offset-2 hover:text-foreground"
-                  href="https://github.com/paperclipai/paperclip"
+                  href="https://github.com/DeployFaith/Hermes_Agency"
                   target="_blank"
                   rel="noreferrer"
                 >

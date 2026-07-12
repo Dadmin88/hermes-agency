@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { catalogManifest, catalogSkills, resolveCatalogSkillRef } from "./index.js";
 
 const EXPECTED_BUNDLED_KEYS = [
-  "paperclipai/bundled/docs/doc-maintenance",
-  "paperclipai/bundled/paperclip-operations/issue-triage",
-  "paperclipai/bundled/paperclip-operations/task-planning",
-  "paperclipai/bundled/product/paperclip-capsules",
-  "paperclipai/bundled/product/wireframe",
-  "paperclipai/bundled/quality/qa-acceptance",
-  "paperclipai/bundled/software-development/github-pr-workflow",
+  "hermes-fabric/bundled/docs/doc-maintenance",
+  "hermes-fabric/bundled/fabric-operations/issue-triage",
+  "hermes-fabric/bundled/fabric-operations/task-planning",
+  "hermes-fabric/bundled/product/fabric-capsules",
+  "hermes-fabric/bundled/product/wireframe",
+  "hermes-fabric/bundled/quality/qa-acceptance",
+  "hermes-fabric/bundled/software-development/github-pr-workflow",
 ];
 
 const EXPECTED_OPTIONAL_KEYS = [
-  "paperclipai/optional/browser/agent-browser",
-  "paperclipai/optional/content/release-announcement",
-  "paperclipai/optional/product/design-critique",
-  "paperclipai/optional/research/last30days",
+  "hermes-fabric/optional/browser/agent-browser",
+  "hermes-fabric/optional/content/release-announcement",
+  "hermes-fabric/optional/product/design-critique",
+  "hermes-fabric/optional/research/last30days",
 ];
 
 describe("shipped skills catalog", () => {
@@ -39,7 +39,7 @@ describe("shipped skills catalog", () => {
     // carry the "assets" trust level and are installable.
     const scriptBearing = catalogSkills.filter((skill) => skill.trustLevel === "scripts_executables");
     expect(scriptBearing.map((skill) => skill.key)).toEqual([
-      "paperclipai/optional/research/last30days",
+      "hermes-fabric/optional/research/last30days",
     ]);
   });
 
@@ -62,11 +62,11 @@ describe("shipped skills catalog", () => {
     expect(issues).toEqual([]);
   });
 
-  it("uses canonical paperclipai keys derived from kind/category/slug", () => {
+  it("uses canonical hermes-fabric keys derived from kind/category/slug", () => {
     const violations: string[] = [];
     for (const skill of catalogSkills) {
-      const expectedKey = `paperclipai/${skill.kind}/${skill.category}/${skill.slug}`;
-      const expectedId = `paperclipai:${skill.kind}:${skill.category}:${skill.slug}`;
+      const expectedKey = `hermes-fabric/${skill.kind}/${skill.category}/${skill.slug}`;
+      const expectedId = `hermes-fabric:${skill.kind}:${skill.category}:${skill.slug}`;
       if (skill.key !== expectedKey) violations.push(`${skill.key} should be ${expectedKey}`);
       if (skill.id !== expectedId) violations.push(`${skill.id} should be ${expectedId}`);
     }
@@ -75,12 +75,12 @@ describe("shipped skills catalog", () => {
 
   it("exposes a stable manifest header for downstream consumers", () => {
     expect(catalogManifest.schemaVersion).toBe(1);
-    expect(catalogManifest.packageName).toBe("@paperclipai/skills-catalog");
+    expect(catalogManifest.packageName).toBe("@hermes-fabric/skills-catalog");
     expect(catalogSkills.length).toBe(EXPECTED_BUNDLED_KEYS.length + EXPECTED_OPTIONAL_KEYS.length);
   });
 
   it("resolves shipped skills by id, key, and unique slug", () => {
-    const sample = catalogSkills.find((skill) => skill.key === "paperclipai/bundled/software-development/github-pr-workflow");
+    const sample = catalogSkills.find((skill) => skill.key === "hermes-fabric/bundled/software-development/github-pr-workflow");
     expect(sample, "expected github-pr-workflow to ship in the bundled catalog").toBeDefined();
     if (!sample) return;
 

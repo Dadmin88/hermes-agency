@@ -1,4 +1,4 @@
-import type { UserProfileResponse } from "@paperclipai/shared";
+import type { UserProfileResponse } from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export const userProfilesApi = {

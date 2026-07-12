@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { AdapterModel } from "@paperclipai/adapter-utils";
+import type { AdapterModel } from "@hermes-fabric/adapter-utils";
 import { models as DIRECT_MODELS } from "../index.js";
 
 const ANTHROPIC_MODELS_ENDPOINT = "/v1/models";
@@ -92,7 +92,7 @@ async function fetchAnthropicModels(apiKey: string, baseUrl: string): Promise<Ad
     }
     return dedupeModels(models);
   } catch (error) {
-    console.warn("[paperclip] Claude model discovery failed", {
+    console.warn("[fabric] Claude model discovery failed", {
       error: error instanceof Error ? error.message : String(error),
     });
     return [];

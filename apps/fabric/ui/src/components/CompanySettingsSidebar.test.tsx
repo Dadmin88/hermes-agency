@@ -43,7 +43,7 @@ vi.mock("@/lib/router", () => ({
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({
     selectedCompanyId: "company-1",
-    selectedCompany: { id: "company-1", name: "Paperclip" },
+    selectedCompany: { id: "company-1", name: "Hermes Fabric" },
   }),
 }));
 
@@ -149,7 +149,7 @@ describe("CompanySettingsSidebar", () => {
     });
     await flushReact();
 
-    expect(container.textContent).toContain("Paperclip");
+    expect(container.textContent).toContain("Hermes Fabric");
     expect(container.textContent).toContain("Company Settings");
     expect(container.textContent).toContain("Company settings");
     expect(container.textContent).toContain("Instance settings");

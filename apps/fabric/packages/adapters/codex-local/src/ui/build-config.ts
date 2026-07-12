@@ -1,4 +1,4 @@
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import type { CreateConfigValues } from "@hermes-fabric/adapter-utils";
 import { DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX } from "../index.js";
 
 function parseCommaArgs(value: string): string[] {

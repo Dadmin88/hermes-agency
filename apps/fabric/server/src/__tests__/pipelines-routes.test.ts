@@ -30,7 +30,7 @@ import {
   projects,
   routineRuns,
   routines,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -59,7 +59,7 @@ describeEmbeddedPostgres("pipeline routes", () => {
   const noopHeartbeat = { wakeup: async () => null };
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-pipelines-routes-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-pipelines-routes-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

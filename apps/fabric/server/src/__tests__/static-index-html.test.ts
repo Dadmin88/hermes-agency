@@ -16,7 +16,7 @@ describe("static SPA fallback HTML", () => {
   });
 
   it("serves the current index.html instead of reusing stale asset hashes", async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-static-index-"));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fabric-static-index-"));
     tempDirs.push(tempDir);
     const indexPath = path.join(tempDir, "index.html");
     const app = express();

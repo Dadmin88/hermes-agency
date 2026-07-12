@@ -3,7 +3,7 @@ import { globMatch, resolveImage } from "../../src/image-allowlist.js";
 
 describe("globMatch", () => {
   it("matches exact image", () => {
-    expect(globMatch("ghcr.io/paperclipai/agent-runtime-claude:v1", "ghcr.io/paperclipai/agent-runtime-claude:v1")).toBe(true);
+    expect(globMatch("ghcr.io/hermes-fabric/agent-runtime-claude:v1", "ghcr.io/hermes-fabric/agent-runtime-claude:v1")).toBe(true);
   });
 
   it("matches single-character wildcard", () => {
@@ -12,21 +12,21 @@ describe("globMatch", () => {
   });
 
   it("matches multi-character wildcard", () => {
-    expect(globMatch("ghcr.io/paperclipai/*:v1", "ghcr.io/paperclipai/agent-runtime-claude:v1")).toBe(true);
-    expect(globMatch("ghcr.io/paperclipai/*:v1", "docker.io/other/img:v1")).toBe(false);
+    expect(globMatch("ghcr.io/hermes-fabric/*:v1", "ghcr.io/hermes-fabric/agent-runtime-claude:v1")).toBe(true);
+    expect(globMatch("ghcr.io/hermes-fabric/*:v1", "docker.io/other/img:v1")).toBe(false);
   });
 
   it("does not allow wildcard to span slashes by default", () => {
-    expect(globMatch("ghcr.io/*:v1", "ghcr.io/paperclipai/agent-runtime-claude:v1")).toBe(false);
+    expect(globMatch("ghcr.io/*:v1", "ghcr.io/hermes-fabric/agent-runtime-claude:v1")).toBe(false);
   });
 });
 
 describe("resolveImage", () => {
-  const defaults = { runtimeImage: "ghcr.io/paperclipai/agent-runtime-claude:v1" };
+  const defaults = { runtimeImage: "ghcr.io/hermes-fabric/agent-runtime-claude:v1" };
 
   it("uses adapter default when no override", () => {
     expect(resolveImage({ imageOverride: null }, defaults, { imageAllowList: [], imageRegistry: undefined })).toBe(
-      "ghcr.io/paperclipai/agent-runtime-claude:v1",
+      "ghcr.io/hermes-fabric/agent-runtime-claude:v1",
     );
   });
 
@@ -35,9 +35,9 @@ describe("resolveImage", () => {
       resolveImage(
         { imageOverride: null },
         defaults,
-        { imageAllowList: [], imageRegistry: "registry.example.com/paperclip" },
+        { imageAllowList: [], imageRegistry: "registry.example.com/fabric" },
       ),
-    ).toBe("registry.example.com/paperclip/agent-runtime-claude:v1");
+    ).toBe("registry.example.com/fabric/agent-runtime-claude:v1");
   });
 
   it("accepts imageOverride when in allowlist", () => {

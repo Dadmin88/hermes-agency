@@ -12,7 +12,7 @@
 
 # Hermes Fabric is the frontend for Hermes Agency.
 
-Hermes Fabric is a Paperclip-derived MIT frontend for Hermes Agency. The main product is **Hermes Agency**: the multi-agent workforce, agency-* roster, skill-fit routing, wake/queue behavior, A2A/P2P transport, and trust boundary. Hermes Fabric is the persistent visual surface for that workforce.
+Hermes Fabric is a Hermes Fabric-derived MIT frontend for Hermes Agency. The main product is **Hermes Agency**: the multi-agent workforce, agency-* roster, skill-fit routing, wake/queue behavior, A2A/P2P transport, and trust boundary. Hermes Fabric is the persistent visual surface for that workforce.
 
 See [`HERMES_FABRIC.md`](./HERMES_FABRIC.md) for the fork direction, product relationship, and first milestones.
 
@@ -20,7 +20,7 @@ Open-source orchestration for Hermes Agency teams.
 
 **Hermes Agency is the workforce. Hermes Fabric is the interface.**
 
-Hermes Fabric starts from Paperclip's Node.js server and React UI foundation, then builds toward roster visibility, skill-fit dispatch, task threads, artifacts, status, budgets, watchdogs, and human governance for Hermes Agency.
+Hermes Fabric starts from Hermes Fabric's Node.js server and React UI foundation, then builds toward roster visibility, skill-fit dispatch, task threads, artifacts, status, budgets, watchdogs, and human governance for Hermes Agency.
 
 It looks like a task manager. Under the hood: agency rosters, wake queues, task dispatch, artifacts, budgets, governance, liveness, and Hermes Agency coordination.
 
@@ -265,7 +265,7 @@ Hermes Fabric is a real frontend foundation, not a thin wrapper. Before building
 
 ## Quickstart
 
-Open source. Self-hosted. Source checkouts now expose a `hermes-fabric` CLI alias while keeping the upstream `paperclipai` command for compatibility.
+Open source. Self-hosted. Source checkouts now expose a `hermes-fabric` CLI alias while keeping the upstream `hermes-fabric` command for compatibility.
 
 ```bash
 pnpm hermes-fabric onboard --yes
@@ -273,7 +273,7 @@ pnpm hermes-fabric onboard --yes
 
 > **Troubleshooting: private npm registry `.npmrc`**
 >
-> If the compatibility fallback below fails with an `E404` for `paperclipai` (or similar) and you use a private npm registry (for example GitHub Packages) via a global `~/.npmrc`, `npx` may be resolving `paperclipai` against that private registry instead of the public npm registry.
+> If the compatibility fallback below fails with an `E404` for `hermes-fabric` (or similar) and you use a private npm registry (for example GitHub Packages) via a global `~/.npmrc`, `npx` may be resolving `hermes-fabric` against that private registry instead of the public npm registry.
 >
 > Diagnostic:
 >
@@ -284,7 +284,7 @@ pnpm hermes-fabric onboard --yes
 > Workaround (cross-platform; force the public npm registry for this command):
 >
 > ```bash
-> npx --registry https://registry.npmjs.org paperclipai onboard --yes
+> npx --registry https://registry.npmjs.org Hermes Fabricai onboard --yes
 > ```
 
 That quickstart path now defaults to trusted local loopback mode for the fastest first run. To start in authenticated/private mode instead, choose a bind preset explicitly:
@@ -295,12 +295,12 @@ pnpm hermes-fabric onboard --yes --bind lan
 pnpm hermes-fabric onboard --yes --bind tailnet
 ```
 
-If you already have the upstream app configured, rerunning `onboard` keeps the existing config in place. Use `hermes-fabric configure`; `paperclipai configure` remains as a compatibility alias during the rename window.
+If you already have the upstream app configured, rerunning `onboard` keeps the existing config in place. Use `hermes-fabric configure`; `hermes-fabric configure` remains as a compatibility alias during the rename window.
 
 Or manually:
 
 ```bash
-git clone https://github.com/paperclipai/paperclip.git Hermes_Fabric
+git clone https://github.com/DeployFaith/Hermes_Agency.git Hermes_Fabric
 cd Hermes_Fabric
 pnpm install
 pnpm hermes-fabric onboard --yes
@@ -309,7 +309,7 @@ pnpm dev
 
 This starts the API server at `http://localhost:3100`. An embedded PostgreSQL database is created automatically — no setup required.
 
-Hermes Kanban task projection is disabled unless explicitly configured. To enable it, set both `FABRIC_HERMES_KANBAN_DB` and `FABRIC_HERMES_KANBAN_COMPANY_ID` (or the legacy `PAPERCLIP_` aliases) so Fabric knows which local Kanban database to read and which single company should receive projected tasks. Without that explicit opt-in and scope, Fabric leaves Hermes tasks unprojected and returns `X-Hermes-Kanban-Sync: unavailable` plus `X-Hermes-Kanban-Sync-Message`. Projected issue descriptions include only task IDs, status, priority, assignee, and block kind by default; set `FABRIC_HERMES_KANBAN_INCLUDE_DETAILS=true` only if the operator intentionally wants task bodies, workspace paths, tenant labels, run summaries/errors, block reasons, and task results copied into Fabric issues.
+Hermes Kanban task projection is disabled unless explicitly configured. To enable it, set both `FABRIC_HERMES_KANBAN_DB` and `FABRIC_HERMES_KANBAN_COMPANY_ID` (or the legacy `HERMES_FABRIC_` aliases) so Fabric knows which local Kanban database to read and which single company should receive projected tasks. Without that explicit opt-in and scope, Fabric leaves Hermes tasks unprojected and returns `X-Hermes-Kanban-Sync: unavailable` plus `X-Hermes-Kanban-Sync-Message`. Projected issue descriptions include only task IDs, status, priority, assignee, and block kind by default; set `FABRIC_HERMES_KANBAN_INCLUDE_DETAILS=true` only if the operator intentionally wants task bodies, workspace paths, tenant labels, run summaries/errors, block reasons, and task results copied into Fabric issues.
 
 > **Requirements:** Node.js 20+, pnpm 9.15+
 
@@ -393,7 +393,7 @@ Telemetry is **enabled by default** and can be disabled with any of the followin
 
 | Method               | How                                                     |
 | -------------------- | ------------------------------------------------------- |
-| Environment variable | `PAPERCLIP_TELEMETRY_DISABLED=1`                        |
+| Environment variable | `HERMES_FABRIC_TELEMETRY_DISABLED=1`                        |
 | Standard convention  | `DO_NOT_TRACK=1`                                        |
 | CI environments      | Automatically disabled when `CI=true`                   |
 | Config file          | Set `telemetry.enabled: false` in the local app config |
@@ -406,7 +406,7 @@ We welcome contributions. See the [contributing guide](CONTRIBUTING.md) for deta
 
 ## License
 
-Hermes Fabric is a renamed fork of `paperclipai/paperclip`, which is MIT licensed. Preserve the upstream MIT license attribution in `LICENSE`.
+Hermes Fabric is a renamed fork of `hermes-fabric/fabric`, which is MIT licensed. Preserve the upstream MIT license attribution in `LICENSE`.
 
 <br/>
 

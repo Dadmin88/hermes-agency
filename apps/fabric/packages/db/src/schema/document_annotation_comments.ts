@@ -1,4 +1,4 @@
-import type { IssueCommentAuthorType, SourceTrustMetadata } from "@paperclipai/shared";
+import type { IssueCommentAuthorType, SourceTrustMetadata } from "@hermes-fabric/shared";
 import { sql } from "drizzle-orm";
 import { check, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { agents } from "./agents.js";

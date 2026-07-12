@@ -85,7 +85,7 @@ describe("secret routes", () => {
   it("rejects managed secret creation when externalRef is supplied", async () => {
     const res = await request(createApp()).post("/api/companies/company-1/secrets").send({
       name: "OpenAI API Key",
-      managedMode: "paperclip_managed",
+      managedMode: "fabric_managed",
       value: "secret-value",
       externalRef: "arn:aws:secretsmanager:us-east-1:123456789012:secret:shared/other",
     });
@@ -171,7 +171,7 @@ describe("secret routes", () => {
       provider: "aws_secrets_manager",
       nextToken: null,
       sampledSecretCount: 2,
-      skippedForeignPaperclipSampleCount: 0,
+      skippedForeignHermesFabricSampleCount: 0,
       candidates: [
         {
           provider: "aws_secrets_manager",
@@ -179,25 +179,25 @@ describe("secret routes", () => {
           config: {
             region: "us-east-1",
             namespace: "prod-use1",
-            secretNamePrefix: "paperclip",
+            secretNamePrefix: "fabric",
             environmentTag: "production",
             ownerTag: "platform",
             kmsKeyId: null,
           },
           sampleCount: 2,
           samples: [
-            { name: "paperclip/prod-use1/company-1/openai", hasKmsKey: false, tagKeys: ["environment"] },
+            { name: "fabric/prod-use1/company-1/openai", hasKmsKey: false, tagKeys: ["environment"] },
           ],
           signals: {
             namespace: "prod-use1",
-            secretNamePrefix: "paperclip",
+            secretNamePrefix: "fabric",
             environmentTag: "production",
             ownerTag: "platform",
             kmsKeyId: null,
             hasKmsKey: false,
             sampleCount: 2,
-            paperclipManagedSampleCount: 0,
-            skippedForeignPaperclipSampleCount: 0,
+            fabricManagedSampleCount: 0,
+            skippedForeignHermesFabricSampleCount: 0,
           },
           warnings: [],
         },
@@ -210,7 +210,7 @@ describe("secret routes", () => {
       .send({
         provider: "aws_secrets_manager",
         config: { region: "us-east-1" },
-        query: "paperclip",
+        query: "fabric",
         pageSize: 25,
       });
 
@@ -218,7 +218,7 @@ describe("secret routes", () => {
     expect(mockSecretService.previewProviderConfigDiscovery).toHaveBeenCalledWith("company-1", {
       provider: "aws_secrets_manager",
       config: { region: "us-east-1" },
-      query: "paperclip",
+      query: "fabric",
       nextToken: undefined,
       pageSize: 25,
     });
@@ -233,7 +233,7 @@ describe("secret routes", () => {
         warningCount: 0,
       },
     }));
-    expect(JSON.stringify(mockLogActivity.mock.calls)).not.toContain("paperclip/prod-use1/company-1/openai");
+    expect(JSON.stringify(mockLogActivity.mock.calls)).not.toContain("fabric/prod-use1/company-1/openai");
   });
 
   it("returns actionable sanitized provider vault discovery errors", async () => {
@@ -248,10 +248,10 @@ describe("secret routes", () => {
           providerConfigId: "discovery-preview",
           providerVaultContext: "draft_config",
           region: "us-east-1",
-          credentialPath: "Paperclip server runtime/provider credential path",
+          credentialPath: "HermesFabric server runtime/provider credential path",
           requiredCapability: "secretsmanager:ListSecrets",
           actionableMessage:
-            "AWS discovery preview needs secretsmanager:ListSecrets in the selected region for the Paperclip server runtime/provider credential path.",
+            "AWS discovery preview needs secretsmanager:ListSecrets in the selected region for the HermesFabric server runtime/provider credential path.",
           safeAlternative:
             "If the operator already knows the exact AWS Secrets Manager ARN, paste/link that ARN instead of using discovery. Exact-resource DescribeSecret and runtime read permissions are still required.",
         },
@@ -278,7 +278,7 @@ describe("secret routes", () => {
         requiredCapability: "secretsmanager:ListSecrets",
       },
     });
-    expect(res.body.details.actionableMessage).toContain("Paperclip server runtime/provider credential path");
+    expect(res.body.details.actionableMessage).toContain("HermesFabric server runtime/provider credential path");
     expect(res.body.details.safeAlternative).toContain("paste/link that ARN");
     expect(JSON.stringify(res.body)).not.toContain("arn:aws");
     expect(JSON.stringify(res.body)).not.toContain("123456789012");
@@ -552,7 +552,7 @@ describe("secret routes", () => {
             externalRef: "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/openai",
             name: "OpenAI API key",
             key: "openai-api-key",
-            description: "Operator-entered Paperclip description",
+            description: "Operator-entered HermesFabric description",
           },
         ],
       });
@@ -567,7 +567,7 @@ describe("secret routes", () => {
             externalRef: "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/openai",
             name: "OpenAI API key",
             key: "openai-api-key",
-            description: "Operator-entered Paperclip description",
+            description: "Operator-entered HermesFabric description",
           },
         ],
       },
@@ -623,7 +623,7 @@ describe("secret routes", () => {
       name: "OpenAI API Key__deleted__33333333-3333-4333-8333-333333333333",
       key: "openai-api-key__deleted__33333333-3333-4333-8333-333333333333",
       provider: "aws_secrets_manager",
-      managedMode: "paperclip_managed",
+      managedMode: "fabric_managed",
       status: "deleted",
     };
     mockSecretService.getById.mockResolvedValue(secret);

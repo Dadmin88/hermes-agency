@@ -10,7 +10,7 @@ import {
   issueComments,
   issues,
   plugins,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -21,8 +21,8 @@ import {
   externalObjectService,
   type ExternalObjectResolver,
 } from "../services/external-objects.js";
-import { canonicalizeExternalObjectUrl } from "@paperclipai/shared/external-objects-server";
-import type { PaperclipPluginManifestV1 } from "@paperclipai/shared";
+import { canonicalizeExternalObjectUrl } from "@hermes-fabric/shared/external-objects-server";
+import type { HermesFabricPluginManifestV1 } from "@hermes-fabric/shared";
 import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
 import { createGitHubExternalObjectProvider } from "../services/github-external-object-provider.js";
 
@@ -355,7 +355,7 @@ describeEmbeddedPostgres("externalObjectService", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-external-objects-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-external-objects-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -378,7 +378,7 @@ describeEmbeddedPostgres("externalObjectService", () => {
     const issueId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: `E${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -608,13 +608,13 @@ describeEmbeddedPostgres("externalObjectService", () => {
       })
       .where(eq(issues.id, issueId));
 
-    const manifest: PaperclipPluginManifestV1 = {
-      id: "paperclip.mock-object-provider",
+    const manifest: HermesFabricPluginManifestV1 = {
+      id: "fabric.mock-object-provider",
       apiVersion: 1,
       version: "1.0.0",
       displayName: "Mock Object Provider",
       description: "Detects mock tracker tickets",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       categories: ["connector"],
       capabilities: ["external.objects.detect", "external.objects.read"],
       entrypoints: { worker: "dist/worker.js" },
@@ -629,7 +629,7 @@ describeEmbeddedPostgres("externalObjectService", () => {
     };
     const [plugin] = await db.insert(plugins).values({
       pluginKey: manifest.id,
-      packageName: "@paperclip/mock-object-provider",
+      packageName: "@fabric/mock-object-provider",
       version: manifest.version,
       apiVersion: 1,
       categories: manifest.categories,

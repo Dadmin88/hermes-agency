@@ -1,29 +1,5 @@
-import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-export const BRAND_TERMS = ["Hermes Fabric", "HERMES_FABRIC", "PAPERCLIP", "Paperclip", "paperclip"];
-
-export const DEFAULT_EXCLUDED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-  ".next",
-  "__pycache__",
-]);
-
-export const DEFAULT_EXCLUDED_FILES = new Set([
-  "scripts/brand-rules.mjs",
-  "scripts/brand-inventory.mjs",
-  "scripts/check-product-branding.mjs",
-  "scripts/check-product-branding.test.mjs",
-  "scripts/brand-allowlist.json",
-  "scripts/brand-inventory-report.json",
-]);
 
 const TEXT_EXTENSIONS = new Set([
   ".cjs",
@@ -50,128 +26,144 @@ const TEXT_EXTENSIONS = new Set([
   ".yml",
 ]);
 
+const EXCLUDED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".cache",
+  ".next",
+  ".turbo",
+  "__pycache__",
+]);
+
+const SCANNER_FILES = new Set([
+  "scripts/brand-allowlist.json",
+  "scripts/brand-rules.mjs",
+  "scripts/check-product-branding.mjs",
+  "scripts/check-product-branding.test.mjs",
+]);
+
 export function toPosixPath(filePath) {
   return filePath.split(path.sep).join("/");
 }
 
-export function normalizeLine(line) {
-  return line.trim().replace(/\s+/g, " ");
-}
-
-export function lineHash(line) {
-  return createHash("sha256").update(normalizeLine(line)).digest("hex").slice(0, 16);
-}
-
-export function matchFingerprint(match) {
-  return `${match.file}::${match.term}::${match.lineHash}`;
-}
-
-export function isProbablyTextFile(filePath) {
-  const ext = path.extname(filePath);
+function isTextFile(filePath) {
   const base = path.basename(filePath);
-  return TEXT_EXTENSIONS.has(ext) || base.includes(".env") || base === "Dockerfile" || base === "LICENSE";
+  const extension = path.extname(filePath).toLowerCase();
+  return (
+    TEXT_EXTENSIONS.has(extension) ||
+    base.includes(".env") ||
+    base === "Dockerfile" ||
+    base === "LICENSE" ||
+    base === "NOTICE"
+  );
 }
 
-export async function walkFiles(rootDir, options = {}) {
-  const excludedDirs = new Set(options.excludedDirs ?? DEFAULT_EXCLUDED_DIRS);
-  const excludedFiles = new Set(options.excludedFiles ?? DEFAULT_EXCLUDED_FILES);
+export function categorizePath(file) {
+  const normalized = toPosixPath(file);
+  const lower = normalized.toLowerCase();
+  const base = path.posix.basename(lower);
+
+  if (SCANNER_FILES.has(normalized)) return "scanner";
+  if (
+    base === "license" ||
+    base.startsWith("license.") ||
+    base === "notice" ||
+    base.startsWith("notice.")
+  ) {
+    return "legal";
+  }
+  if (
+    lower === "changelog.md" ||
+    lower.includes("/changelog") ||
+    lower.includes("/releases/") ||
+    lower.includes("release-notes")
+  ) {
+    return "historical";
+  }
+  if (lower.startsWith(".upstream/conflicts/")) return "upstream-conflict";
+  if (
+    lower.includes("/__tests__/") ||
+    lower.startsWith("tests/") ||
+    lower.includes("/tests/") ||
+    lower.includes("/fixtures/") ||
+    /(^|[./-])(test|spec)\.[cm]?[jt]sx?$/.test(lower)
+  ) {
+    return "tests";
+  }
+  return "protected";
+}
+
+export async function walkTextFiles(rootDir) {
   const files = [];
 
-  async function visit(dir) {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+  async function visit(directory) {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.isDirectory() && excludedDirs.has(entry.name)) continue;
-      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory() && EXCLUDED_DIRS.has(entry.name)) continue;
+      const absolutePath = path.join(directory, entry.name);
       const relativePath = toPosixPath(path.relative(rootDir, absolutePath));
       if (entry.isDirectory()) {
         await visit(absolutePath);
-      } else if (entry.isFile() && isProbablyTextFile(relativePath) && !excludedFiles.has(relativePath)) {
+      } else if (entry.isFile() && isTextFile(relativePath)) {
         files.push({ absolutePath, relativePath });
       }
     }
   }
 
   await visit(rootDir);
-  return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 }
 
-export function categorizeMatch(file, line) {
-  const lowerFile = file.toLowerCase();
-  const lowerLine = line.toLowerCase();
-
-  if (lowerFile.includes("license") || lowerFile.includes("notice") || lowerLine.includes("mit license") || lowerLine.includes("upstream")) {
-    return "legal-upstream";
-  }
-
-  if (lowerFile.startsWith("releases/") || lowerFile.includes("changelog") || lowerFile.includes("release-notes")) {
-    return "historical";
-  }
-
-  if (
-    lowerLine.includes("paperclip_") ||
-    lowerLine.includes("hermes_fabric") ||
-    lowerLine.includes("~/.paperclip") ||
-    lowerLine.includes(".paperclip") ||
-    lowerLine.includes("paperclipai") ||
-    lowerLine.includes("paperclip-") ||
-    lowerLine.includes("paperclip/") ||
-    lowerLine.includes("paperclip:") ||
-    lowerLine.includes("paperclip=") ||
-    lowerLine.includes("postgres://paperclip")
-  ) {
-    return "env-config-compat";
-  }
-
-  if (
-    lowerFile.endsWith("package.json") ||
-    lowerFile.endsWith("pnpm-lock.yaml") ||
-    lowerFile.endsWith("tsconfig.json") ||
-    lowerFile.startsWith("packages/") ||
-    lowerLine.includes("@paperclipai/") ||
-    lowerLine.includes("from \\\"") ||
-    lowerLine.includes("from '") ||
-    lowerLine.includes("import(")
-  ) {
-    return "package-internal";
-  }
-
-  if (lowerFile.includes("/__tests__/") || lowerFile.includes("/tests/") || /(^|[./-])(test|spec)\.[cm]?[jt]sx?$/.test(lowerFile)) {
-    return "tests";
-  }
-
-  if (lowerFile.startsWith("ui/") || lowerFile.includes("/stories/") || lowerFile.includes(".stories.")) return "ui";
-  if (lowerFile.startsWith("server/")) return "server";
-  if (lowerFile.startsWith("doc/") || lowerFile.startsWith("docs/") || lowerFile.endsWith(".md")) return "docs";
-
-  return "package-internal";
+function classifyContentMatch(line, start) {
+  const tail = line.slice(start);
+  if (/^@paperclipai\//i.test(tail)) return "package-scope";
+  if (/^PAPERCLIP_[A-Z0-9_]*/.test(tail)) return "env-prefix";
+  if (/^(?:~\/|\/)?\.paperclip(?:\/|\b)/i.test(tail)) return "runtime-path";
+  if (/^paperclipai\b/i.test(tail)) return "package-name";
+  return "product-name";
 }
 
-export async function scanBrandMatches(rootDir, options = {}) {
-  const files = await walkFiles(rootDir, options);
+export async function scanLegacyBranding(rootDir) {
+  const files = await walkTextFiles(rootDir);
   const matches = [];
 
   for (const { absolutePath, relativePath } of files) {
+    const category = categorizePath(relativePath);
+    const lowerPath = relativePath.toLowerCase();
+    const pathIndex = lowerPath.indexOf("paperclip");
+    if (pathIndex !== -1) {
+      matches.push({
+        source: "path",
+        kind: "legacy-filename",
+        file: relativePath,
+        line: 0,
+        column: pathIndex + 1,
+        text: relativePath,
+        category,
+      });
+    }
+
     const content = await fs.readFile(absolutePath, "utf8").catch(() => null);
     if (content === null || content.includes("\u0000")) continue;
+
     const lines = content.split(/\r?\n/);
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index];
-      for (const term of BRAND_TERMS) {
-        let start = line.indexOf(term);
-        while (start !== -1) {
-          const match = {
-            file: relativePath,
-            line: index + 1,
-            column: start + 1,
-            term,
-            text: line.trim(),
-            lineHash: lineHash(line),
-            category: categorizeMatch(relativePath, line),
-          };
-          match.fingerprint = matchFingerprint(match);
-          matches.push(match);
-          start = line.indexOf(term, start + term.length);
-        }
+      const regex = /paperclip/giu;
+      for (const match of line.matchAll(regex)) {
+        const start = match.index ?? 0;
+        matches.push({
+          source: "content",
+          kind: classifyContentMatch(line, start),
+          file: relativePath,
+          line: index + 1,
+          column: start + 1,
+          text: line.trim(),
+          category,
+        });
       }
     }
   }
@@ -180,34 +172,16 @@ export async function scanBrandMatches(rootDir, options = {}) {
 }
 
 export function summarizeMatches(matches) {
-  const byTerm = Object.create(null);
+  const byKind = Object.create(null);
   const byCategory = Object.create(null);
-  const byFile = Object.create(null);
-  const byCategoryTerm = Object.create(null);
-
   for (const match of matches) {
-    byTerm[match.term] = (byTerm[match.term] ?? 0) + 1;
+    byKind[match.kind] = (byKind[match.kind] ?? 0) + 1;
     byCategory[match.category] = (byCategory[match.category] ?? 0) + 1;
-    byFile[match.file] = (byFile[match.file] ?? 0) + 1;
-    const key = `${match.category}:${match.term}`;
-    byCategoryTerm[key] = (byCategoryTerm[key] ?? 0) + 1;
   }
-
-  const topFiles = Object.entries(byFile)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 25)
-    .map(([file, count]) => ({ file, count }));
-
   return {
     totalMatches: matches.length,
-    totalFiles: Object.keys(byFile).length,
-    byTerm,
+    totalFiles: new Set(matches.map((match) => match.file)).size,
+    byKind,
     byCategory,
-    byCategoryTerm,
-    topFiles,
   };
-}
-
-export function getRepoRootFromScript(scriptUrl) {
-  return path.resolve(path.dirname(fileURLToPath(scriptUrl)), "..");
 }

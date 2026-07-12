@@ -1,21 +1,21 @@
 {
-  "name": "@paperclipai/hermes-paperclip-adapter",
+  "name": "@hermes-fabric/hermes-fabric-adapter",
   "version": "0.3.1",
-  "description": "Paperclip adapters for Hermes Agent local CLI and Hermes Gateway HTTP/SSE runs",
+  "description": "HermesFabric adapters for Hermes Agent local CLI and Hermes Gateway HTTP/SSE runs",
   "type": "module",
   "license": "MIT",
-  "author": "Paperclip",
+  "author": "Hermes Fabric",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
+    "url": "https://github.com/DeployFaith/Hermes_Agency",
     "directory": "packages/adapters/hermes"
   },
   "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
+    "url": "https://github.com/DeployFaith/Hermes_Agency/issues"
   },
-  "homepage": "https://github.com/paperclipai/paperclip/tree/master/packages/adapters/hermes#readme",
+  "homepage": "https://github.com/DeployFaith/Hermes_Agency/tree/master/packages/adapters/hermes#readme",
   "keywords": [
-    "paperclip",
+    "fabric",
     "hermes",
     "hermes-agent",
     "ai-agent",
@@ -34,7 +34,7 @@
     "./gateway/cli": "./src/gateway/cli/index.ts",
     "./gateway/ui-parser": "./gateway-ui-parser.cjs"
   },
-  "paperclip": {
+  "fabric": {
     "adapterUiParser": "1.0.0"
   },
   "publishConfig": {
@@ -99,7 +99,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@paperclipai/adapter-utils": "workspace:*",
+    "@hermes-fabric/adapter-utils": "workspace:*",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

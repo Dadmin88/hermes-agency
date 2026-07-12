@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
   CatalogTeam,
   CatalogTeamImportPreviewResult,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamCatalog, parseTeamRoute, teamRoute } from "./TeamCatalog";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -87,11 +87,11 @@ if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
 
 describe("TeamCatalog routes", () => {
   it("round-trips file paths containing literal tildes", () => {
-    const route = teamRoute("paperclipai/bundled/test/team", "agents/a~b/AGENTS.md");
+    const route = teamRoute("hermes-fabric/bundled/test/team", "agents/a~b/AGENTS.md");
 
-    expect(route).toBe("/teams-catalog/paperclipai%2Fbundled%2Ftest%2Fteam/files/agents%7Ea~b%7EAGENTS.md");
+    expect(route).toBe("/teams-catalog/hermes-fabric%2Fbundled%2Ftest%2Fteam/files/agents%7Ea~b%7EAGENTS.md");
     expect(parseTeamRoute(route.replace("/teams-catalog/", ""))).toEqual({
-      catalogRef: "paperclipai/bundled/test/team",
+      catalogRef: "hermes-fabric/bundled/test/team",
       filePath: "agents/a~b/AGENTS.md",
     });
   });
@@ -115,7 +115,7 @@ async function flushReact() {
 function makeTeam(overrides: Partial<CatalogTeam> = {}): CatalogTeam {
   return {
     id: "team-no-deps",
-    key: "paperclipai/bundled/company-defaults/team-no-deps",
+    key: "hermes-fabric/bundled/company-defaults/team-no-deps",
     kind: "bundled",
     category: "company-defaults",
     slug: "team-no-deps",
@@ -156,7 +156,7 @@ function makePreview(): CatalogTeamImportPreviewResult {
     portabilityPreview: {
       include: { company: false, agents: true, projects: true, issues: false, skills: true },
       targetCompanyId: "company-1",
-      targetCompanyName: "Paperclip",
+      targetCompanyName: "Hermes Fabric",
       collisionStrategy: "rename",
       selectedAgentSlugs: ["ceo", "cto"],
       plan: {
@@ -220,7 +220,7 @@ describe("TeamCatalog install preview path", () => {
     mockTeamCatalogApi.install.mockResolvedValue({
       team: makeTeam(),
       portabilityImport: {
-        company: { id: "company-1", name: "Paperclip", action: "unchanged" },
+        company: { id: "company-1", name: "Hermes Fabric", action: "unchanged" },
         agents: [],
         projects: [],
         envInputs: [],
@@ -406,7 +406,7 @@ describe("TeamCatalog install preview path", () => {
     mockTeamCatalogApi.installed.mockResolvedValue([
       {
         catalogId: "team-no-deps",
-        catalogKey: "paperclipai/bundled/company-defaults/team-no-deps",
+        catalogKey: "hermes-fabric/bundled/company-defaults/team-no-deps",
         present: true,
         currentContentHash: "sha256:deadbeefdeadbeefdeadbeef",
         installedOriginHashes: ["sha256:stale"],
@@ -434,7 +434,7 @@ describe("TeamCatalog install preview path", () => {
     mockTeamCatalogApi.installed.mockResolvedValue([
       {
         catalogId: "team-no-deps",
-        catalogKey: "paperclipai/bundled/company-defaults/team-no-deps",
+        catalogKey: "hermes-fabric/bundled/company-defaults/team-no-deps",
         present: true,
         currentContentHash: "sha256:deadbeefdeadbeefdeadbeef",
         installedOriginHashes: ["sha256:deadbeefdeadbeefdeadbeef"],

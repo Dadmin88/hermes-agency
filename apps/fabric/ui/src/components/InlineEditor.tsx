@@ -295,7 +295,7 @@ export function InlineEditor({
           {foldable ? (
             <FoldCurtain>
               <MarkdownBody
-                className={cn("paperclip-edit-in-place-content", className)}
+                className={cn("fabric-edit-in-place-content", className)}
                 externalReferences={externalReferences}
               >
                 {previewValue}
@@ -303,7 +303,7 @@ export function InlineEditor({
             </FoldCurtain>
           ) : (
             <MarkdownBody
-              className={cn("paperclip-edit-in-place-content", className)}
+              className={cn("fabric-edit-in-place-content", className)}
               externalReferences={externalReferences}
             >
               {previewValue}
@@ -345,7 +345,7 @@ export function InlineEditor({
           placeholder={placeholder}
           bordered={false}
           className="bg-transparent"
-          contentClassName={cn("paperclip-edit-in-place-content", className)}
+          contentClassName={cn("fabric-edit-in-place-content", className)}
           imageUploadHandler={imageUploadHandler}
           onDropFile={onDropFile}
           mentions={mentions}

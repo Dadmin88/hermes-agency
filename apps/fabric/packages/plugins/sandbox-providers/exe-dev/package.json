@@ -1,15 +1,15 @@
 {
-  "name": "@paperclipai/plugin-exe-dev",
+  "name": "@hermes-fabric/plugin-exe-dev",
   "version": "0.1.1",
-  "description": "exe.dev sandbox provider plugin for Paperclip environments",
+  "description": "exe.dev sandbox provider plugin for HermesFabric environments",
   "license": "MIT",
-  "homepage": "https://github.com/paperclipai/paperclip",
+  "homepage": "https://github.com/DeployFaith/Hermes_Agency",
   "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
+    "url": "https://github.com/DeployFaith/Hermes_Agency/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
+    "url": "https://github.com/DeployFaith/Hermes_Agency",
     "directory": "packages/plugins/sandbox-providers/exe-dev"
   },
   "type": "module",
@@ -30,21 +30,21 @@
   "files": [
     "dist"
   ],
-  "paperclipPlugin": {
+  "fabricPlugin": {
     "manifest": "./dist/manifest.js",
     "worker": "./dist/worker.js"
   },
   "keywords": [
-    "paperclip",
+    "fabric",
     "plugin",
     "sandbox",
     "exe.dev"
   ],
   "scripts": {
-    "prebuild": "pnpm -C ../../../.. --filter @paperclipai/plugin-sdk ensure-build-deps",
+    "prebuild": "pnpm -C ../../../.. --filter @hermes-fabric/plugin-sdk ensure-build-deps",
     "build": "rm -rf dist && tsc",
     "clean": "rm -rf dist",
-    "typecheck": "pnpm -C ../../../.. --filter @paperclipai/plugin-sdk ensure-build-deps && tsc --noEmit",
+    "typecheck": "pnpm -C ../../../.. --filter @hermes-fabric/plugin-sdk ensure-build-deps && tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "prepack": "rm -f package.dev.json && cp package.json package.dev.json && node ../../../../scripts/generate-plugin-package-json.mjs",
     "postpack": "if [ -f package.dev.json ]; then mv package.dev.json package.json; fi"

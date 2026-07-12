@@ -41,7 +41,7 @@ export function registerClientAuthCommands(auth: Command): void {
             apiBase: ctx.api.apiBase,
             requestedAccess: opts.instanceAdmin ? "instance_admin_required" : "board",
             requestedCompanyId: ctx.companyId ?? null,
-            command: "paperclipai auth login",
+            command: "hermes-fabric auth login",
             openBrowser: opts.browser,
           });
           printOutput(

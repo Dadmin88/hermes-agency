@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import type { Goal } from "@paperclipai/shared";
-import { createGoalSchema, updateGoalSchema } from "@paperclipai/shared";
+import type { Goal } from "@hermes-fabric/shared";
+import { createGoalSchema, updateGoalSchema } from "@hermes-fabric/shared";
 import {
   addCommonClientOptions,
   apiPath,

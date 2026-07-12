@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@/lib/router";
 import { ArrowLeft, Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import type { ModelSetDefinition } from "@paperclipai/shared";
+import type { ModelSetDefinition } from "@hermes-fabric/shared";
 import { modelSetsApi } from "@/api/model-sets";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import type { ExternalObjectMentionConfidence, ExternalObjectMentionSourceKind } from "@paperclipai/shared";
+import type { ExternalObjectMentionConfidence, ExternalObjectMentionSourceKind } from "@hermes-fabric/shared";
 import { companies } from "./companies.js";
 import { externalObjects } from "./external_objects.js";
 import { issues } from "./issues.js";

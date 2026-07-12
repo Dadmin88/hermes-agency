@@ -54,7 +54,7 @@ export function shutdownInstrumentation(): Promise<void> {
       await sdkShutdown();
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("[paperclip] OpenTelemetry shutdown failed", err);
+      console.error("[fabric] OpenTelemetry shutdown failed", err);
     }
   })();
   return shutdownPromise;
@@ -88,7 +88,7 @@ export function resolveProtocol(): {
     default:
       // eslint-disable-next-line no-console
       console.warn(
-        `[paperclip] Unknown OTEL_EXPORTER_OTLP_PROTOCOL=${raw}; falling back to grpc. ` +
+        `[fabric] Unknown OTEL_EXPORTER_OTLP_PROTOCOL=${raw}; falling back to grpc. ` +
           `Valid values: grpc, http/protobuf, http/json.`,
       );
       return {
@@ -141,7 +141,7 @@ async function bootstrapOtel(endpoint: string): Promise<void> {
 
     const sdk = new NodeSDK({
       resource: resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "paperclip",
+        [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "fabric",
         [ATTR_SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || "unknown",
       }),
       // For the HTTP protocols OTEL_EXPORTER_OTLP_ENDPOINT is a *base* URL
@@ -168,7 +168,7 @@ async function bootstrapOtel(endpoint: string): Promise<void> {
       // rejects the SDK's handshake should not take down the server.
       // eslint-disable-next-line no-console
       console.error(
-        "[paperclip] OpenTelemetry SDK failed to start; continuing without tracing",
+        "[fabric] OpenTelemetry SDK failed to start; continuing without tracing",
         err,
       );
       return;
@@ -198,7 +198,7 @@ async function bootstrapOtel(endpoint: string): Promise<void> {
     // with a single diagnostic so the opt-in path is self-documenting.
     // eslint-disable-next-line no-console
     console.warn(
-      "[paperclip] OTEL_EXPORTER_OTLP_ENDPOINT is set but the @opentelemetry/* " +
+      "[fabric] OTEL_EXPORTER_OTLP_ENDPOINT is set but the @opentelemetry/* " +
         `packages are not installed. Install @opentelemetry/sdk-node, ` +
         `@opentelemetry/auto-instrumentations-node, ${exporterPackage}, ` +
         `@opentelemetry/resources, and @opentelemetry/semantic-conventions to enable tracing.`,

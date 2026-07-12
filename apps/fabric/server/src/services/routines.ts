@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, ne, not, or, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agents,
   companySecretBindings,
@@ -22,7 +22,7 @@ import {
   routineDocuments,
   routines,
   routineTriggers,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import type {
   CreateRoutine,
   CreateRoutineTrigger,
@@ -40,7 +40,7 @@ import type {
   RunRoutine,
   UpdateRoutine,
   UpdateRoutineTrigger,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   WORKSPACE_BRANCH_ROUTINE_VARIABLE,
   getBuiltinRoutineVariableValues,
@@ -50,8 +50,8 @@ import {
   pluginOperationIssueOriginKind,
   stringifyRoutineVariableValue,
   syncRoutineVariablesWithTemplate,
-} from "@paperclipai/shared";
-import { trackRoutineRun } from "@paperclipai/shared/telemetry";
+} from "@hermes-fabric/shared";
+import { trackRoutineRun } from "@hermes-fabric/shared/telemetry";
 import { conflict, forbidden, notFound, unauthorized, unprocessable } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { getTelemetryClient } from "../telemetry.js";
@@ -346,7 +346,7 @@ function resolveRoutineVariableValues(
 
   for (const variable of variables) {
     // Workspace-derived automatic values are authoritative for variables that
-    // Paperclip manages from execution context, so callers cannot override them.
+    // HermesFabric manages from execution context, so callers cannot override them.
     const candidate = automaticVariables[variable.name] !== undefined
       ? automaticVariables[variable.name]
       : provided[variable.name] !== undefined
@@ -1289,7 +1289,7 @@ export function routineService(
           name: input.name,
           provider: input.provider,
           status: "active",
-          managedMode: "paperclip_managed",
+          managedMode: "fabric_managed",
           externalRef: prepared.externalRef,
           providerMetadata: null,
           latestVersion: 1,
@@ -2510,7 +2510,7 @@ export function routineService(
         const secretValue = await resolveTriggerSecret(trigger, routine.companyId);
         const rawBody = input.rawBody ?? Buffer.from(JSON.stringify(input.payload ?? {}));
         // Accept X-Hub-Signature-256 (GitHub/Sentry) or fall back to the
-        // generic X-Paperclip-Signature header so operators can use github_hmac
+        // generic X-HermesFabric-Signature header so operators can use github_hmac
         // mode with either header convention.
         const providedSignature = (input.hubSignatureHeader ?? input.signatureHeader)?.trim() ?? "";
         if (!providedSignature) throw unauthorized();

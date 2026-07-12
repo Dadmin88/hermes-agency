@@ -12,26 +12,26 @@ export interface AdapterModelEntry {
 export function parseAdapterModelsEnv(
   env: Record<string, string | undefined> = process.env,
 ): Record<string, AdapterModelEntry[]> | null {
-  const raw = (env.FABRIC_ADAPTER_MODELS ?? env.PAPERCLIP_ADAPTER_MODELS)?.trim();
+  const raw = (env.FABRIC_ADAPTER_MODELS ?? env.HERMES_FABRIC_ADAPTER_MODELS)?.trim();
   if (!raw) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
-    throw new Error(`PAPERCLIP_ADAPTER_MODELS must be valid JSON: ${(e as Error).message}`);
+    throw new Error(`HERMES_FABRIC_ADAPTER_MODELS must be valid JSON: ${(e as Error).message}`);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("PAPERCLIP_ADAPTER_MODELS must be a JSON object mapping adapterType to an array of {id,label}");
+    throw new Error("HERMES_FABRIC_ADAPTER_MODELS must be a JSON object mapping adapterType to an array of {id,label}");
   }
   const out: Record<string, AdapterModelEntry[]> = {};
   for (const [type, list] of Object.entries(parsed as Record<string, unknown>)) {
     if (!Array.isArray(list)) {
-      throw new Error(`PAPERCLIP_ADAPTER_MODELS[${type}] must be an array`);
+      throw new Error(`HERMES_FABRIC_ADAPTER_MODELS[${type}] must be an array`);
     }
     out[type] = list.map((m) => {
       const o = m as Record<string, unknown>;
       if (typeof o.id !== "string" || !o.id) {
-        throw new Error(`PAPERCLIP_ADAPTER_MODELS[${type}] entries require a non-empty string id`);
+        throw new Error(`HERMES_FABRIC_ADAPTER_MODELS[${type}] entries require a non-empty string id`);
       }
       return { id: o.id, label: typeof o.label === "string" ? o.label : o.id };
     });

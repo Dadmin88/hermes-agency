@@ -19,7 +19,7 @@ export interface BuildJobManifestInput {
 export function buildJobManifest(input: BuildJobManifestInput): Record<string, unknown> {
   const podLabels = {
     ...input.labels,
-    "paperclip.io/role": "agent",
+    "fabric.io/role": "agent",
   };
   return {
     apiVersion: "batch/v1",
@@ -37,7 +37,7 @@ export function buildJobManifest(input: BuildJobManifestInput): Record<string, u
         metadata: { labels: podLabels },
         spec: {
           serviceAccountName: input.serviceAccountName,
-          // Agent containers call back to paperclip-server via HTTPS egress;
+          // Agent containers call back to fabric-server via HTTPS egress;
           // they never call the Kubernetes API, so mounting an SA token is
           // unnecessary attack surface.
           automountServiceAccountToken: false,
@@ -59,12 +59,12 @@ export function buildJobManifest(input: BuildJobManifestInput): Record<string, u
               name: "agent",
               image: input.image,
               imagePullPolicy: "IfNotPresent",
-              command: ["/usr/bin/tini", "--", "/usr/local/bin/paperclip-agent-shim"],
+              command: ["/usr/bin/tini", "--", "/usr/local/bin/fabric-agent-shim"],
               // HOME must point at a writable mount; the image's default
               // HOME is inside the readOnly root filesystem. Agent runtimes
               // can silently exit with code 0 and no output when HOME is
               // unwritable, so set this explicitly.
-              env: [{ name: "HOME", value: "/home/paperclip" }],
+              env: [{ name: "HOME", value: "/home/fabric" }],
               envFrom: [{ secretRef: { name: input.envSecretName } }],
               securityContext: {
                 runAsNonRoot: true,
@@ -80,8 +80,8 @@ export function buildJobManifest(input: BuildJobManifestInput): Record<string, u
               },
               volumeMounts: [
                 { name: "workspace", mountPath: "/workspace" },
-                { name: "home", mountPath: "/home/paperclip" },
-                { name: "cache", mountPath: "/home/paperclip/.cache" },
+                { name: "home", mountPath: "/home/fabric" },
+                { name: "cache", mountPath: "/home/fabric/.cache" },
                 { name: "tmp", mountPath: "/tmp" },
               ],
             },

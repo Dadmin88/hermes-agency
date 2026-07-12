@@ -28,8 +28,8 @@ async function run(args: string[]): Promise<void> {
 describe("agent lifecycle commands", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -83,7 +83,7 @@ describe("agent lifecycle commands", () => {
     await run(["agent", "runtime-state:reset-session", AGENT_ID, "--task-key", "task-1"]);
     await run(["agent", "task-sessions", AGENT_ID]);
     await run(["agent", "skills", AGENT_ID]);
-    await run(["agent", "skills:sync", AGENT_ID, "--desired-skills", "paperclip,github"]);
+    await run(["agent", "skills:sync", AGENT_ID, "--desired-skills", "fabric,github"]);
     await run(["agent", "instructions-path:update", AGENT_ID, "--payload-json", JSON.stringify({ path: "/tmp/AGENTS.md" })]);
     await run(["agent", "instructions-bundle", AGENT_ID]);
     await run(["agent", "instructions-bundle:update", AGENT_ID, "--payload-json", JSON.stringify({ mode: "managed" })]);

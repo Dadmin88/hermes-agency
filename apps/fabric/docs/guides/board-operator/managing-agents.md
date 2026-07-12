@@ -32,13 +32,13 @@ Common adapter choices:
 - `hermes_gateway` / `openclaw_gateway` / `http` for webhook-based external agents
 - `process` for generic local command execution
 
-Use `hermes_local` when Paperclip should start the local Hermes CLI. Use
-`hermes_gateway` when Hermes is already running as an API server and Paperclip
+Use `hermes_local` when Hermes Fabric should start the local Hermes CLI. Use
+`hermes_gateway` when Hermes is already running as an API server and Hermes Fabric
 should call that server. Both are built-in adapter types from the unified
-`@paperclipai/hermes-paperclip-adapter` package.
+`@hermes-fabric/hermes-fabric-adapter` package.
 
 For `opencode_local`, configure an explicit `adapterConfig.model` (`provider/model`).
-Paperclip validates the selected model against live `opencode models` output.
+Hermes Fabric validates the selected model against live `opencode models` output.
 
 ## Agent Hiring via Governance
 

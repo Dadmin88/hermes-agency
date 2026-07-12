@@ -41,9 +41,9 @@ function makeMockClients() {
 
 describe("ensureTenant", () => {
   const baseInput = {
-    namespace: "paperclip-acme",
+    namespace: "fabric-acme",
     companyId: "11111111-1111-1111-1111-111111111111",
-    paperclipServerNamespace: "paperclip",
+    fabricServerNamespace: "fabric",
     serviceAccountAnnotations: {},
     egressMode: "standard" as const,
     egressAllowFqdns: ["api.anthropic.com"],
@@ -74,18 +74,18 @@ describe("ensureTenant", () => {
     expect(cnpCall).toBeDefined();
     const npCalls = clients.calls.filter((c) => c.kind === "NetworkPolicy");
     expect(npCalls).toHaveLength(1);
-    expect((npCalls[0].body as { metadata: { name: string } }).metadata.name).toBe("paperclip-deny-all");
+    expect((npCalls[0].body as { metadata: { name: string } }).metadata.name).toBe("fabric-deny-all");
   });
 
   it("applies serviceAccountAnnotations to the ServiceAccount", async () => {
     const clients = makeMockClients();
     await ensureTenant(clients as never, {
       ...baseInput,
-      serviceAccountAnnotations: { "eks.amazonaws.com/role-arn": "arn:aws:iam::123:role/paperclip" },
+      serviceAccountAnnotations: { "eks.amazonaws.com/role-arn": "arn:aws:iam::123:role/fabric" },
     });
     const saCall = clients.calls.find((c) => c.kind === "ServiceAccount");
     const sa = saCall!.body as { metadata: { annotations: Record<string, string> } };
-    expect(sa.metadata.annotations["eks.amazonaws.com/role-arn"]).toBe("arn:aws:iam::123:role/paperclip");
+    expect(sa.metadata.annotations["eks.amazonaws.com/role-arn"]).toBe("arn:aws:iam::123:role/fabric");
   });
 
   it("skips creates that already exist (idempotency)", async () => {

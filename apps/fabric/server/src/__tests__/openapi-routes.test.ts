@@ -29,12 +29,14 @@ const apiPrefixes: Record<string, string> = {
   "file-resources.ts": "/api",
   "goals.ts": "/api",
   "health.ts": "/api/health",
+  "hermes-agency.ts": "/api/hermes-agency",
   "inbox-dismissals.ts": "/api",
   "instance-database-backups.ts": "/api",
   "instance-settings.ts": "/api",
   "issues.ts": "/api",
   "issue-tree-control.ts": "/api",
   "llms.ts": "/api",
+  "model-sets.ts": "/api",
   "openapi.ts": "/api",
   "plugin-ui-static.ts": "/api",
   "plugins.ts": "/api",
@@ -181,7 +183,7 @@ describe("openapi routes", () => {
       { BoardSessionAuth: [] },
       { BoardApiKeyAuth: [] },
     ]);
-    expect(spec.paths["/api/plugins/install"].post["x-paperclip-authorization"]).toEqual({
+    expect(spec.paths["/api/plugins/install"].post["x-fabric-authorization"]).toEqual({
       actor: "board",
       instanceAdmin: true,
     });

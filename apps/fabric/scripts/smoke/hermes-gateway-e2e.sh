@@ -23,17 +23,17 @@ require_cmd() {
   command -v "$cmd" >/dev/null 2>&1 || fail "missing required command: ${cmd}"
 }
 
-PAPERCLIP_API_URL="${PAPERCLIP_API_URL:-http://127.0.0.1:3100}"
-API_BASE="${PAPERCLIP_API_URL%/}/api"
-COMPANY_ID="${COMPANY_ID:-${PAPERCLIP_COMPANY_ID:-}}"
+HERMES_FABRIC_API_URL="${HERMES_FABRIC_API_URL:-http://127.0.0.1:3100}"
+API_BASE="${HERMES_FABRIC_API_URL%/}/api"
+COMPANY_ID="${COMPANY_ID:-${HERMES_FABRIC_COMPANY_ID:-}}"
 COMPANY_SELECTOR="${COMPANY_SELECTOR:-}"
 
 RUN_SUFFIX="${HERMES_SMOKE_RUN_SUFFIX:-$(date +%Y%m%d-%H%M%S)-$$}"
-HERMES_IMAGE="${HERMES_IMAGE:-paperclip-hermes-gateway-smoke:local}"
+HERMES_IMAGE="${HERMES_IMAGE:-fabric-hermes-gateway-smoke:local}"
 HERMES_VERSION="${HERMES_VERSION:-0.18.0}"
 HERMES_BUILD="${HERMES_BUILD:-1}"
 HERMES_DOCKER_CONTEXT="${HERMES_DOCKER_CONTEXT:-docker/hermes-gateway-smoke}"
-HERMES_CONTAINER_NAME="${HERMES_CONTAINER_NAME:-paperclip-hermes-gateway-smoke-${RUN_SUFFIX}}"
+HERMES_CONTAINER_NAME="${HERMES_CONTAINER_NAME:-fabric-hermes-gateway-smoke-${RUN_SUFFIX}}"
 HERMES_GATEWAY_PORT="${HERMES_GATEWAY_PORT:-8642}"
 HERMES_GATEWAY_API_BASE_URL="${HERMES_GATEWAY_API_BASE_URL:-http://127.0.0.1:${HERMES_GATEWAY_PORT}}"
 HERMES_GATEWAY_PROBE_URL="${HERMES_GATEWAY_PROBE_URL:-http://127.0.0.1:${HERMES_GATEWAY_PORT}}"
@@ -47,13 +47,13 @@ HERMES_STOP_ASSERT="${HERMES_STOP_ASSERT:-auto}"
 HERMES_SMOKE_KEEP="${HERMES_SMOKE_KEEP:-0}"
 HERMES_SMOKE_NETWORK="${HERMES_SMOKE_NETWORK:-}"
 HERMES_DOCKER_ADD_HOST="${HERMES_DOCKER_ADD_HOST:-1}"
-HERMES_SMOKE_STATE_DIR="${HERMES_SMOKE_STATE_DIR:-${TMPDIR:-/tmp}/paperclip-hermes-gateway-smoke-${RUN_SUFFIX}}"
-HERMES_SMOKE_DIAG_DIR="${HERMES_SMOKE_DIAG_DIR:-${TMPDIR:-/tmp}/paperclip-hermes-gateway-e2e-diag-${RUN_SUFFIX}}"
+HERMES_SMOKE_STATE_DIR="${HERMES_SMOKE_STATE_DIR:-${TMPDIR:-/tmp}/fabric-hermes-gateway-smoke-${RUN_SUFFIX}}"
+HERMES_SMOKE_DIAG_DIR="${HERMES_SMOKE_DIAG_DIR:-${TMPDIR:-/tmp}/fabric-hermes-gateway-e2e-diag-${RUN_SUFFIX}}"
 HERMES_SMOKE_MODEL_PROVIDER="${HERMES_SMOKE_MODEL_PROVIDER:-}"
 HERMES_SMOKE_MODEL_DEFAULT="${HERMES_SMOKE_MODEL_DEFAULT:-}"
 HERMES_SMOKE_MODEL_BASE_URL="${HERMES_SMOKE_MODEL_BASE_URL:-}"
 HERMES_AGENT_NAME="${HERMES_AGENT_NAME:-Hermes Gateway Smoke Agent ${RUN_SUFFIX}}"
-PAPERCLIP_API_URL_FOR_HERMES="${PAPERCLIP_API_URL_FOR_HERMES:-http://host.docker.internal:3100}"
+HERMES_FABRIC_API_URL_FOR_HERMES="${HERMES_FABRIC_API_URL_FOR_HERMES:-http://host.docker.internal:3100}"
 RUN_TIMEOUT_SEC="${RUN_TIMEOUT_SEC:-420}"
 CASE_TIMEOUT_SEC="${CASE_TIMEOUT_SEC:-420}"
 GATEWAY_READY_TIMEOUT_SEC="${GATEWAY_READY_TIMEOUT_SEC:-90}"
@@ -72,22 +72,22 @@ print_usage() {
 Hermes gateway Docker E2E smoke
 
 Builds a fresh Hermes gateway container, verifies the gateway API directly,
-joins it to Paperclip as a hermes_gateway agent, wakes that agent on a smoke
+joins it to HermesFabric as a hermes_gateway agent, wakes that agent on a smoke
 issue, verifies the issue result, captures redacted diagnostics, and cleans up
-Paperclip and Docker state unless HERMES_SMOKE_KEEP=1.
+HermesFabric and Docker state unless HERMES_SMOKE_KEEP=1.
 
 Required:
-  PAPERCLIP_API_URL=http://127.0.0.1:3100
-  PAPERCLIP_AUTH_HEADER='Bearer <board-token>'     # or PAPERCLIP_COOKIE
+  HERMES_FABRIC_API_URL=http://127.0.0.1:3100
+  HERMES_FABRIC_AUTH_HEADER='Bearer <board-token>'     # or HERMES_FABRIC_COOKIE
 
 Common flags:
   COMPANY_ID=<uuid> or COMPANY_SELECTOR=<prefix|name|uuid>
   HERMES_VERSION=0.17.0
-  HERMES_IMAGE=paperclip-hermes-gateway-smoke:local
+  HERMES_IMAGE=fabric-hermes-gateway-smoke:local
   HERMES_GATEWAY_PORT=8642
   HERMES_GATEWAY_API_BASE_URL=http://127.0.0.1:8642
   HERMES_GATEWAY_PROBE_URL=http://127.0.0.1:8642
-  PAPERCLIP_API_URL_FOR_HERMES=http://host.docker.internal:3100
+  HERMES_FABRIC_API_URL_FOR_HERMES=http://host.docker.internal:3100
   HERMES_GATEWAY_ALLOW_INSECURE_HTTP=1             # dev-only non-loopback HTTP
   HERMES_SMOKE_NETWORK=<docker-network>
   HERMES_DOCKER_ADD_HOST=0|1
@@ -98,12 +98,12 @@ Common flags:
   HERMES_SMOKE_MODEL_BASE_URL=https://openrouter.ai/api/v1
 
 Mode notes:
-  HERMES_GATEWAY_API_BASE_URL is the URL stored on the Paperclip adapter and
-  must be reachable by the Paperclip server. HERMES_GATEWAY_PROBE_URL is the URL
+  HERMES_GATEWAY_API_BASE_URL is the URL stored on the HermesFabric adapter and
+  must be reachable by the HermesFabric server. HERMES_GATEWAY_PROBE_URL is the URL
   this operator shell uses for direct gateway checks. They can differ for Docker
   network and reverse-proxy smoke runs.
 
-  Raw Hermes and Paperclip API keys are redacted from logs and diagnostic files.
+  Raw Hermes and HermesFabric API keys are redacted from logs and diagnostic files.
   The E2E helper seeds a minimal non-secret Hermes config in the fresh container
   state, including command_allowlist: execute_code so gateway/API runs do not
   pause on an interactive approval prompt.
@@ -123,15 +123,15 @@ case "${1:-}" in
 esac
 
 AUTH_HEADERS=()
-if [[ -n "${PAPERCLIP_AUTH_HEADER:-}" ]]; then
-  AUTH_HEADERS+=(-H "Authorization: ${PAPERCLIP_AUTH_HEADER}")
-elif [[ -n "${PAPERCLIP_API_KEY:-}" ]]; then
-  AUTH_HEADERS+=(-H "Authorization: Bearer ${PAPERCLIP_API_KEY}")
+if [[ -n "${HERMES_FABRIC_AUTH_HEADER:-}" ]]; then
+  AUTH_HEADERS+=(-H "Authorization: ${HERMES_FABRIC_AUTH_HEADER}")
+elif [[ -n "${HERMES_FABRIC_API_KEY:-}" ]]; then
+  AUTH_HEADERS+=(-H "Authorization: Bearer ${HERMES_FABRIC_API_KEY}")
 fi
-if [[ -n "${PAPERCLIP_COOKIE:-}" ]]; then
-  AUTH_HEADERS+=(-H "Cookie: ${PAPERCLIP_COOKIE}")
-  PAPERCLIP_BROWSER_ORIGIN="${PAPERCLIP_BROWSER_ORIGIN:-${PAPERCLIP_API_URL%/}}"
-  AUTH_HEADERS+=(-H "Origin: ${PAPERCLIP_BROWSER_ORIGIN}" -H "Referer: ${PAPERCLIP_BROWSER_ORIGIN}/")
+if [[ -n "${HERMES_FABRIC_COOKIE:-}" ]]; then
+  AUTH_HEADERS+=(-H "Cookie: ${HERMES_FABRIC_COOKIE}")
+  HERMES_FABRIC_BROWSER_ORIGIN="${HERMES_FABRIC_BROWSER_ORIGIN:-${HERMES_FABRIC_API_URL%/}}"
+  AUTH_HEADERS+=(-H "Origin: ${HERMES_FABRIC_BROWSER_ORIGIN}" -H "Referer: ${HERMES_FABRIC_BROWSER_ORIGIN}/")
 fi
 
 RESPONSE_CODE=""
@@ -176,9 +176,9 @@ redact_text() {
   for secret in \
     "${HERMES_GATEWAY_API_KEY:-}" \
     "${AGENT_API_KEY:-}" \
-    "${PAPERCLIP_API_KEY:-}" \
-    "${PAPERCLIP_AUTH_HEADER:-}" \
-    "${PAPERCLIP_COOKIE:-}"; do
+    "${HERMES_FABRIC_API_KEY:-}" \
+    "${HERMES_FABRIC_AUTH_HEADER:-}" \
+    "${HERMES_FABRIC_COOKIE:-}"; do
     if [[ -n "$secret" ]]; then
       text="${text//$secret/[redacted len=${#secret}]}"
     fi
@@ -240,7 +240,7 @@ api_request() {
   if [[ "$path" == http://* || "$path" == https://* ]]; then
     url="$path"
   elif [[ "$path" == /api/* ]]; then
-    url="${PAPERCLIP_API_URL%/}${path}"
+    url="${HERMES_FABRIC_API_URL%/}${path}"
   else
     url="${API_BASE}${path}"
   fi
@@ -304,7 +304,7 @@ wait_http_ready() {
 
 require_board_auth() {
   if [[ ${#AUTH_HEADERS[@]} -eq 0 ]]; then
-    fail "board/operator auth required. Set PAPERCLIP_COOKIE, PAPERCLIP_AUTH_HEADER, or a board-capable PAPERCLIP_API_KEY."
+    fail "board/operator auth required. Set HERMES_FABRIC_COOKIE, HERMES_FABRIC_AUTH_HEADER, or a board-capable HERMES_FABRIC_API_KEY."
   fi
   api_request "GET" "/companies"
   if [[ "$RESPONSE_CODE" != "200" ]]; then
@@ -397,8 +397,8 @@ capture_diagnostics() {
     echo "image=${HERMES_IMAGE}"
     echo "gateway=${HERMES_GATEWAY_API_BASE_URL}"
     echo "gatewayProbe=${HERMES_GATEWAY_PROBE_URL}"
-    echo "paperclipApiUrl=${PAPERCLIP_API_URL}"
-    echo "paperclipApiUrlForHermes=${PAPERCLIP_API_URL_FOR_HERMES}"
+    echo "fabricApiUrl=${HERMES_FABRIC_API_URL}"
+    echo "fabricApiUrlForHermes=${HERMES_FABRIC_API_URL_FOR_HERMES}"
     echo "apiServerKeySha256=$(hash_prefix "${HERMES_GATEWAY_API_KEY:-}") len=${#HERMES_GATEWAY_API_KEY}"
     echo "agentApiKeySha256=$(hash_prefix "${AGENT_API_KEY:-}") len=${#AGENT_API_KEY}"
   } > "${HERMES_SMOKE_DIAG_DIR}/summary.env"
@@ -406,11 +406,11 @@ capture_diagnostics() {
   gateway_request "GET" "/health" "" "${HERMES_SMOKE_DIAG_DIR}/gateway-health.json" || true
   gateway_request "GET" "/v1/capabilities" "" "${HERMES_SMOKE_DIAG_DIR}/gateway-capabilities.json" || true
   capture_container_logs
-  capture_issue_diagnostics "$SMOKE_ISSUE_ID" "paperclip-smoke"
-  capture_run_diagnostics "$RUN_ID" "paperclip-smoke"
+  capture_issue_diagnostics "$SMOKE_ISSUE_ID" "fabric-smoke"
+  capture_run_diagnostics "$RUN_ID" "fabric-smoke"
 }
 
-cleanup_paperclip_state() {
+cleanup_fabric_state() {
   [[ "$KEEP_ON_EXIT" != "1" ]] || return 0
 
   if [[ -n "$SMOKE_ISSUE_ID" ]]; then
@@ -457,7 +457,7 @@ on_exit() {
     capture_diagnostics || true
   fi
 
-  cleanup_paperclip_state || true
+  cleanup_fabric_state || true
   cleanup_local_state || true
 
   if [[ "$KEEP_ON_EXIT" == "1" ]]; then
@@ -549,7 +549,7 @@ start_container() {
     -e API_SERVER_KEY="$HERMES_GATEWAY_API_KEY"
     -e API_SERVER_HOST=0.0.0.0
     -e API_SERVER_PORT=8642
-    -e PAPERCLIP_API_URL="$PAPERCLIP_API_URL_FOR_HERMES"
+    -e HERMES_FABRIC_API_URL="$HERMES_FABRIC_API_URL_FOR_HERMES"
     -e NO_COLOR=1
     -v "${HERMES_SMOKE_STATE_DIR}/hermes-home:/home/hermes/.hermes"
     -v "${HERMES_SMOKE_STATE_DIR}/workspace:/home/hermes/workspace"
@@ -582,24 +582,24 @@ start_container() {
 assert_fresh_container_state() {
   log "asserting container does not see host Hermes state"
   docker exec "$HERMES_CONTAINER_NAME" sh -lc 'test ! -e "$HERMES_HOME/host-sentinel.txt"'
-  docker exec "$HERMES_CONTAINER_NAME" sh -lc 'env | sort | grep -E "^(HOME|HERMES_HOME|XDG_|API_SERVER_|PAPERCLIP_API_URL)=" || true' > "${HERMES_SMOKE_DIAG_DIR}/container-env.txt"
+  docker exec "$HERMES_CONTAINER_NAME" sh -lc 'env | sort | grep -E "^(HOME|HERMES_HOME|XDG_|API_SERVER_|HERMES_FABRIC_API_URL)=" || true' > "${HERMES_SMOKE_DIAG_DIR}/container-env.txt"
   docker exec "$HERMES_CONTAINER_NAME" sh -lc 'find "$HERMES_HOME" -maxdepth 2 -type f -print | sort' > "${HERMES_SMOKE_DIAG_DIR}/container-hermes-home-files-before.txt" || true
-  if docker exec "$HERMES_CONTAINER_NAME" sh -lc 'env | grep -q "^PAPERCLIP_API_KEY="'; then
-    fail "container unexpectedly has PAPERCLIP_API_KEY before join/key claim"
+  if docker exec "$HERMES_CONTAINER_NAME" sh -lc 'env | grep -q "^HERMES_FABRIC_API_KEY="'; then
+    fail "container unexpectedly has HERMES_FABRIC_API_KEY before join/key claim"
   fi
 }
 
-probe_container_to_paperclip() {
-  log "probing container-to-Paperclip connectivity at ${PAPERCLIP_API_URL_FOR_HERMES}/api/health"
-  if ! docker exec "$HERMES_CONTAINER_NAME" curl -fsS --max-time 8 "${PAPERCLIP_API_URL_FOR_HERMES%/}/api/health" > "${HERMES_SMOKE_DIAG_DIR}/container-paperclip-health.json"; then
-    fail "Hermes container cannot reach Paperclip. Set PAPERCLIP_API_URL_FOR_HERMES to a URL reachable from inside Docker, or keep HERMES_DOCKER_ADD_HOST=1 for Linux host.docker.internal."
+probe_container_to_fabric() {
+  log "probing container-to-HermesFabric connectivity at ${HERMES_FABRIC_API_URL_FOR_HERMES}/api/health"
+  if ! docker exec "$HERMES_CONTAINER_NAME" curl -fsS --max-time 8 "${HERMES_FABRIC_API_URL_FOR_HERMES%/}/api/health" > "${HERMES_SMOKE_DIAG_DIR}/container-fabric-health.json"; then
+    fail "Hermes container cannot reach HermesFabric. Set HERMES_FABRIC_API_URL_FOR_HERMES to a URL reachable from inside Docker, or keep HERMES_DOCKER_ADD_HOST=1 for Linux host.docker.internal."
   fi
 }
 
 probe_gateway_readiness() {
   log "waiting for Hermes gateway health at ${HERMES_GATEWAY_PROBE_URL%/}/health"
   if [[ "$HERMES_GATEWAY_PROBE_URL" != "$HERMES_GATEWAY_API_BASE_URL" ]]; then
-    log "Paperclip will store Hermes gateway URL ${HERMES_GATEWAY_API_BASE_URL}"
+    log "HermesFabric will store Hermes gateway URL ${HERMES_GATEWAY_API_BASE_URL}"
   fi
   wait_http_ready "${HERMES_GATEWAY_PROBE_URL%/}/health" "$GATEWAY_READY_TIMEOUT_SEC" || fail "Hermes gateway health did not become ready"
 
@@ -653,8 +653,8 @@ assert_direct_gateway_run() {
   local payload
   payload="$(jq -nc \
     --arg marker "$marker" \
-    --arg session "paperclip-smoke-direct-${RUN_SUFFIX}" \
-    '{input: ("Reply with exactly " + $marker + " and no other text."), instructions: "You are running a Paperclip Hermes gateway smoke direct API assertion.", session_id: $session}')"
+    --arg session "fabric-smoke-direct-${RUN_SUFFIX}" \
+    '{input: ("Reply with exactly " + $marker + " and no other text."), instructions: "You are running a HermesFabric Hermes gateway smoke direct API assertion.", session_id: $session}')"
 
   log "asserting POST /v1/runs and SSE events"
   gateway_request "POST" "/v1/runs" "$payload" "${HERMES_SMOKE_DIAG_DIR}/direct-run-create.json"
@@ -697,7 +697,7 @@ assert_stop_behavior_if_deterministic() {
 
   local payload
   payload="$(jq -nc \
-    --arg session "paperclip-smoke-stop-${RUN_SUFFIX}" \
+    --arg session "fabric-smoke-stop-${RUN_SUFFIX}" \
     '{input: "Wait until stopped. If you cannot wait, emit a short acknowledgement.", instructions: "This run exists only to verify the Hermes gateway stop endpoint.", session_id: $session}')"
 
   log "probing /stop behavior (mode=${HERMES_STOP_ASSERT})"
@@ -752,11 +752,11 @@ join_hermes_agent() {
   HERMES_GATEWAY_ALLOW_INSECURE_HTTP="$HERMES_GATEWAY_ALLOW_INSECURE_HTTP" \
   HERMES_GATEWAY_SESSION_KEY_STRATEGY="$HERMES_GATEWAY_SESSION_KEY_STRATEGY" \
   HERMES_GATEWAY_TIMEOUT_SEC="$HERMES_ADAPTER_TIMEOUT_SEC" \
-  PAPERCLIP_API_URL="$PAPERCLIP_API_URL" \
-  PAPERCLIP_API_URL_FOR_HERMES="$PAPERCLIP_API_URL_FOR_HERMES" \
-  PAPERCLIP_AUTH_HEADER="${PAPERCLIP_AUTH_HEADER:-}" \
-  PAPERCLIP_API_KEY="${PAPERCLIP_API_KEY:-}" \
-  PAPERCLIP_COOKIE="${PAPERCLIP_COOKIE:-}" \
+  HERMES_FABRIC_API_URL="$HERMES_FABRIC_API_URL" \
+  HERMES_FABRIC_API_URL_FOR_HERMES="$HERMES_FABRIC_API_URL_FOR_HERMES" \
+  HERMES_FABRIC_AUTH_HEADER="${HERMES_FABRIC_AUTH_HEADER:-}" \
+  HERMES_FABRIC_API_KEY="${HERMES_FABRIC_API_KEY:-}" \
+  HERMES_FABRIC_COOKIE="${HERMES_FABRIC_COOKIE:-}" \
   COMPANY_ID="$COMPANY_ID" \
   COMPANY_SELECTOR="$COMPANY_SELECTOR" \
   HERMES_JOIN_OUTPUT_FILE="$JOIN_OUTPUT_FILE" \
@@ -779,23 +779,23 @@ join_hermes_agent() {
 }
 
 install_claimed_key_in_container() {
-  log "placing newly claimed Paperclip key in container workspace"
-  local key_file="${HERMES_SMOKE_STATE_DIR}/workspace/paperclip-claimed-api-key.json"
+  log "placing newly claimed HermesFabric key in container workspace"
+  local key_file="${HERMES_SMOKE_STATE_DIR}/workspace/fabric-claimed-api-key.json"
   jq -nc --arg token "$AGENT_API_KEY" '{token:$token,apiKey:$token}' > "$key_file"
   # The host-created bind-mounted file must be readable by the non-root hermes
   # user inside the container. The state dir is still per-run and deleted on
   # success unless HERMES_SMOKE_KEEP=1.
   chmod 644 "$key_file"
-  docker exec "$HERMES_CONTAINER_NAME" sh -lc 'test -f /home/hermes/workspace/paperclip-claimed-api-key.json && test ! -e "$HERMES_HOME/host-sentinel.txt"'
+  docker exec "$HERMES_CONTAINER_NAME" sh -lc 'test -f /home/hermes/workspace/fabric-claimed-api-key.json && test ! -e "$HERMES_HOME/host-sentinel.txt"'
 }
 
 patch_agent_instructions_with_claimed_key() {
-  log "patching Hermes agent instructions with claimed Paperclip API context"
+  log "patching Hermes agent instructions with claimed HermesFabric API context"
   api_request "GET" "/agents/${AGENT_ID}"
   assert_status "200"
 
   local instructions patch_payload
-  instructions="For this smoke run only, call Paperclip at ${PAPERCLIP_API_URL_FOR_HERMES}. Read /home/hermes/workspace/paperclip-claimed-api-key.json and use its token as PAPERCLIP_API_KEY for Paperclip API requests. Do not reveal this key. When mutating Paperclip, include X-Paperclip-Run-Id with the current Paperclip run id when available."
+  instructions="For this smoke run only, call HermesFabric at ${HERMES_FABRIC_API_URL_FOR_HERMES}. Read /home/hermes/workspace/fabric-claimed-api-key.json and use its token as HERMES_FABRIC_API_KEY for HermesFabric API requests. Do not reveal this key. When mutating HermesFabric, include X-HermesFabric-Run-Id with the current HermesFabric run id when available."
   patch_payload="$(jq -c --arg instructions "$instructions" '
     {adapterConfig: ((.adapterConfig // {}) + {instructions: $instructions})}
   ' <<<"$RESPONSE_BODY")"
@@ -804,10 +804,10 @@ patch_agent_instructions_with_claimed_key() {
 }
 
 create_smoke_issue() {
-  local marker="HERMES_PAPERCLIP_E2E_OK_${RUN_SUFFIX}"
+  local marker="HERMES_HERMES_FABRIC_E2E_OK_${RUN_SUFFIX}"
   local title="[Hermes Gateway Smoke] ${RUN_SUFFIX}"
   local description
-  description="Hermes gateway full Docker e2e smoke.\n\n1. Read this issue.\n2. Post a Paperclip issue comment containing exactly: ${marker}\n3. Mark this issue done.\n\nUse the Paperclip API URL and key provided in your run instructions. Do not reveal secrets."
+  description="Hermes gateway full Docker e2e smoke.\n\n1. Read this issue.\n2. Post a HermesFabric issue comment containing exactly: ${marker}\n3. Mark this issue done.\n\nUse the HermesFabric API URL and key provided in your run instructions. Do not reveal secrets."
 
   local payload
   payload="$(jq -nc \
@@ -821,7 +821,7 @@ create_smoke_issue() {
   SMOKE_ISSUE_IDENTIFIER="$(jq -r '.identifier // empty' <<<"$RESPONSE_BODY")"
   [[ -n "$SMOKE_ISSUE_ID" ]] || fail "smoke issue create missing id"
   log "created smoke issue ${SMOKE_ISSUE_ID} (${SMOKE_ISSUE_IDENTIFIER})"
-  echo "$marker" > "${HERMES_SMOKE_DIAG_DIR}/paperclip-marker.txt"
+  echo "$marker" > "${HERMES_SMOKE_DIAG_DIR}/fabric-marker.txt"
 }
 
 trigger_wakeup() {
@@ -835,7 +835,7 @@ trigger_wakeup() {
   fi
   RUN_ID="$(jq -r '.id // empty' <<<"$RESPONSE_BODY")"
   [[ -n "$RUN_ID" ]] || fail "wakeup response missing run id"
-  log "triggered Paperclip run ${RUN_ID}"
+  log "triggered HermesFabric run ${RUN_ID}"
 }
 
 get_run_status() {
@@ -909,14 +909,14 @@ issue_comments_contain() {
   jq -r --arg marker "$marker" '[.[] | (.body // "") | contains($marker)] | any' <<<"$RESPONSE_BODY"
 }
 
-assert_paperclip_wake_success() {
+assert_fabric_wake_success() {
   local marker
-  marker="$(cat "${HERMES_SMOKE_DIAG_DIR}/paperclip-marker.txt")"
+  marker="$(cat "${HERMES_SMOKE_DIAG_DIR}/fabric-marker.txt")"
 
   trigger_wakeup
   local run_status issue_status marker_found
   run_status="$(wait_for_run_terminal "$RUN_ID" "$RUN_TIMEOUT_SEC")"
-  log "Paperclip run ${RUN_ID} status=${run_status}"
+  log "HermesFabric run ${RUN_ID} status=${run_status}"
   issue_status="$(wait_for_issue_terminal "$SMOKE_ISSUE_ID" "$CASE_TIMEOUT_SEC")"
   marker_found="$(issue_comments_contain "$SMOKE_ISSUE_ID" "$marker")"
   log "smoke issue status=${issue_status} marker_found=${marker_found}"
@@ -925,7 +925,7 @@ assert_paperclip_wake_success() {
     capture_diagnostics
   fi
   if [[ "$STRICT_CASES" == "1" ]]; then
-    [[ "$run_status" == "succeeded" ]] || fail "Paperclip Hermes gateway run did not succeed"
+    [[ "$run_status" == "succeeded" ]] || fail "HermesFabric Hermes gateway run did not succeed"
     [[ "$issue_status" == "done" ]] || fail "smoke issue did not reach done"
     [[ "$marker_found" == "true" ]] || fail "smoke marker was not found in issue comments"
   fi
@@ -970,7 +970,7 @@ main() {
 
   api_request "GET" "/health"
   assert_status "200"
-  log "Paperclip health deploymentMode=$(jq -r '.deploymentMode // "unknown"' <<<"$RESPONSE_BODY") exposure=$(jq -r '.deploymentExposure // "unknown"' <<<"$RESPONSE_BODY")"
+  log "HermesFabric health deploymentMode=$(jq -r '.deploymentMode // "unknown"' <<<"$RESPONSE_BODY") exposure=$(jq -r '.deploymentExposure // "unknown"' <<<"$RESPONSE_BODY")"
   require_board_auth
   resolve_company_id
 
@@ -979,7 +979,7 @@ main() {
   build_image
   start_container
   assert_fresh_container_state
-  probe_container_to_paperclip
+  probe_container_to_fabric
   probe_gateway_readiness
   assert_capabilities
   assert_direct_gateway_run
@@ -988,7 +988,7 @@ main() {
   install_claimed_key_in_container
   patch_agent_instructions_with_claimed_key
   create_smoke_issue
-  assert_paperclip_wake_success
+  assert_fabric_wake_success
   capture_diagnostics
   scan_diagnostics_for_secret_leaks
 

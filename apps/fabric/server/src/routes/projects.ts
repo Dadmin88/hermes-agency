@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   createProjectSchema,
   createProjectWorkspaceSchema,
@@ -9,9 +9,9 @@ import {
   updateProjectSchema,
   updateProjectWorkspaceSchema,
   workspaceRuntimeControlTargetSchema,
-} from "@paperclipai/shared";
-import type { WorkspaceRuntimeDesiredState, WorkspaceRuntimeServiceStateMap } from "@paperclipai/shared";
-import { trackProjectCreated } from "@paperclipai/shared/telemetry";
+} from "@hermes-fabric/shared";
+import type { WorkspaceRuntimeDesiredState, WorkspaceRuntimeServiceStateMap } from "@hermes-fabric/shared";
+import { trackProjectCreated } from "@hermes-fabric/shared/telemetry";
 import { validate } from "../middleware/validate.js";
 import { accessService, projectService, logActivity, workspaceOperationService } from "../services/index.js";
 import { conflict, forbidden } from "../errors.js";

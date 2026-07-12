@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
-import { resolvePaperclipInstanceRootForAdapter } from "@paperclipai/adapter-utils/server-utils";
+import type { AdapterExecutionContext } from "@hermes-fabric/adapter-utils";
+import { resolveHermesFabricInstanceRootForAdapter } from "@hermes-fabric/adapter-utils/server-utils";
 
 const TRUTHY_ENV_RE = /^(1|true|yes|on)$/i;
 const COPIED_SHARED_FILES = ["config.json", "config.toml", "instructions.md"] as const;
@@ -47,16 +47,16 @@ export function resolveSharedCodexHomeDir(
 }
 
 function isWorktreeMode(env: NodeJS.ProcessEnv): boolean {
-  return TRUTHY_ENV_RE.test(env.PAPERCLIP_IN_WORKTREE ?? "");
+  return TRUTHY_ENV_RE.test(env.HERMES_FABRIC_IN_WORKTREE ?? "");
 }
 
 export function resolveManagedCodexHomeDir(
   env: NodeJS.ProcessEnv,
   companyId?: string,
 ): string {
-  const instanceRoot = resolvePaperclipInstanceRootForAdapter({
-    homeDir: nonEmpty(env.PAPERCLIP_HOME) ?? undefined,
-    instanceId: nonEmpty(env.PAPERCLIP_INSTANCE_ID) ?? undefined,
+  const instanceRoot = resolveHermesFabricInstanceRootForAdapter({
+    homeDir: nonEmpty(env.HERMES_FABRIC_HOME) ?? undefined,
+    instanceId: nonEmpty(env.HERMES_FABRIC_INSTANCE_ID) ?? undefined,
     env,
   });
   return companyId
@@ -65,11 +65,11 @@ export function resolveManagedCodexHomeDir(
 }
 
 /**
- * True when `homePath` lives under the Paperclip-managed company tree
+ * True when `homePath` lives under the HermesFabric-managed company tree
  * (`<instanceRoot>/companies/<companyId>/...`). This covers both the shared
  * company `codex-home` and the per-agent `agents/<agentId>/codex-home` set by
  * the server-side isolation guard. A path outside that tree is a genuine
- * external/user-supplied override that Paperclip must not seed or overwrite.
+ * external/user-supplied override that HermesFabric must not seed or overwrite.
  */
 export function isManagedCodexHomePath(
   env: NodeJS.ProcessEnv,
@@ -77,9 +77,9 @@ export function isManagedCodexHomePath(
   homePath: string,
 ): boolean {
   if (!companyId) return false;
-  const instanceRoot = resolvePaperclipInstanceRootForAdapter({
-    homeDir: nonEmpty(env.PAPERCLIP_HOME) ?? undefined,
-    instanceId: nonEmpty(env.PAPERCLIP_INSTANCE_ID) ?? undefined,
+  const instanceRoot = resolveHermesFabricInstanceRootForAdapter({
+    homeDir: nonEmpty(env.HERMES_FABRIC_HOME) ?? undefined,
+    instanceId: nonEmpty(env.HERMES_FABRIC_INSTANCE_ID) ?? undefined,
     env,
   });
   const companyRoot = path.resolve(instanceRoot, "companies", companyId);
@@ -150,15 +150,15 @@ export async function ensureSymlink(target: string, source: string): Promise<voi
   }
 
   if (!existing.isSymbolicLink()) {
-    // A previous Paperclip version copied this file into the managed home
+    // A previous HermesFabric version copied this file into the managed home
     // instead of symlinking it. Codex refresh tokens rotate and are
     // single-use, so a stale copy fails with refresh_token_reused on the next
     // run (#5028). Replace the regular file with a symlink so the CLI follows
     // the live source. Safe to delete: target is always under the
-    // Paperclip-managed company home, never the user's real ~/.codex.
+    // HermesFabric-managed company home, never the user's real ~/.codex.
     // Directories are left alone — `fs.unlink` would throw EISDIR on Unix
     // (and behave inconsistently on Windows). A directory at this path is not
-    // a Paperclip-written stale copy and warrants operator inspection rather
+    // a HermesFabric-written stale copy and warrants operator inspection rather
     // than silent removal.
     if (existing.isDirectory()) return;
     await fs.unlink(target);
@@ -193,7 +193,7 @@ export async function writeApiKeyAuthJson(home: string, apiKey: string): Promise
 }
 
 /**
- * Seeds auth/config into an explicit Paperclip-managed `targetHome`. Symlinks
+ * Seeds auth/config into an explicit HermesFabric-managed `targetHome`. Symlinks
  * `auth.json` from the shared source home (so ChatGPT-subscription credentials
  * stay live and single-use refresh tokens are not copied), copies the static
  * shared config files, and — when an API key is supplied — writes an API-key
@@ -240,7 +240,7 @@ export async function seedManagedCodexHome(
 
     await onLog(
       "stdout",
-      `[paperclip] Using ${isWorktreeMode(env) ? "worktree-isolated" : "Paperclip-managed"} Codex home "${targetHome}" (seeded from "${sourceHome}").\n`,
+      `[fabric] Using ${isWorktreeMode(env) ? "worktree-isolated" : "HermesFabric-managed"} Codex home "${targetHome}" (seeded from "${sourceHome}").\n`,
     );
   }
 
@@ -248,7 +248,7 @@ export async function seedManagedCodexHome(
     await writeApiKeyAuthJson(targetHome, apiKey);
     await onLog(
       "stdout",
-      `[paperclip] Wrote API-key auth.json into Codex home "${targetHome}" from configured OPENAI_API_KEY.\n`,
+      `[fabric] Wrote API-key auth.json into Codex home "${targetHome}" from configured OPENAI_API_KEY.\n`,
     );
   }
 }

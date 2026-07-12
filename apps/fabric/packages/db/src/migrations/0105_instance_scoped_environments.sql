@@ -14,16 +14,16 @@ BEGIN
         -- Only collapse classes that are globally singleton by design.
         -- Named remote environments may legitimately differ across companies
         -- even when they share the same display name.
-        WHEN e.driver = 'local' THEN '__paperclip_builtin_local__'
-        WHEN e.driver = 'sandbox' AND (e.metadata ->> 'managedByPaperclip')::boolean = true
-          THEN '__paperclip_managed_sandbox__'
+        WHEN e.driver = 'local' THEN '__fabric_builtin_local__'
+        WHEN e.driver = 'sandbox' AND (e.metadata ->> 'managedByHermesFabric')::boolean = true
+          THEN '__fabric_managed_sandbox__'
         ELSE e.id::text
       END AS group_key,
       row_number() OVER (
         PARTITION BY CASE
-          WHEN e.driver = 'local' THEN '__paperclip_builtin_local__'
-          WHEN e.driver = 'sandbox' AND (e.metadata ->> 'managedByPaperclip')::boolean = true
-            THEN '__paperclip_managed_sandbox__'
+          WHEN e.driver = 'local' THEN '__fabric_builtin_local__'
+          WHEN e.driver = 'sandbox' AND (e.metadata ->> 'managedByHermesFabric')::boolean = true
+            THEN '__fabric_managed_sandbox__'
           ELSE e.id::text
         END
         ORDER BY e.created_at ASC, e.id ASC
@@ -86,12 +86,12 @@ INSERT INTO "environments" (
 SELECT
   gen_random_uuid(),
   'Local',
-  'Default execution environment for Paperclip runs on this machine.',
+  'Default execution environment for HermesFabric runs on this machine.',
   'local',
   'active',
   '{}'::jsonb,
   '{}'::jsonb,
-  '{"managedByPaperclip": true, "defaultForInstance": true}'::jsonb,
+  '{"managedByHermesFabric": true, "defaultForInstance": true}'::jsonb,
   now(),
   now()
 WHERE NOT EXISTS (
@@ -102,7 +102,7 @@ WHERE NOT EXISTS (
 --> statement-breakpoint
 UPDATE "environments"
 SET
-  "metadata" = COALESCE("metadata", '{}'::jsonb) || '{"managedByPaperclip": true, "defaultForInstance": true}'::jsonb,
+  "metadata" = COALESCE("metadata", '{}'::jsonb) || '{"managedByHermesFabric": true, "defaultForInstance": true}'::jsonb,
   "updated_at" = now()
 WHERE "driver" = 'local';
 --> statement-breakpoint
@@ -165,6 +165,6 @@ CREATE UNIQUE INDEX "environments_local_driver_idx"
 --> statement-breakpoint
 CREATE UNIQUE INDEX "environments_managed_sandbox_idx"
   ON "environments" USING btree ("driver")
-  WHERE "driver" = 'sandbox' AND ("metadata" ->> 'managedByPaperclip')::boolean = true;
+  WHERE "driver" = 'sandbox' AND ("metadata" ->> 'managedByHermesFabric')::boolean = true;
 --> statement-breakpoint
 CREATE UNIQUE INDEX "environments_name_idx" ON "environments" USING btree ("name");

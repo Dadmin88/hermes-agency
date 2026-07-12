@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { createAgentKeySchema, createBoardApiKeySchema, type Agent } from "@paperclipai/shared";
+import { createAgentKeySchema, createBoardApiKeySchema, type Agent } from "@hermes-fabric/shared";
 import {
   addCommonClientOptions,
   apiPath,
@@ -59,7 +59,7 @@ interface BoardKeyRow {
 }
 
 export function registerTokenCommands(program: Command): void {
-  const token = program.command("token").description("Manage Paperclip API tokens");
+  const token = program.command("token").description("Manage HermesFabric API tokens");
   const agent = token.command("agent").description("Manage agent API keys");
 
   addCommonClientOptions(

@@ -399,7 +399,7 @@ export async function prepareSandboxManagedRuntime(input: {
   onRuntimeProgress?: RuntimeStatusSink;
 }): Promise<PreparedSandboxManagedRuntime> {
   const workspaceRemoteDir = input.workspaceRemoteDir ?? input.spec.remoteCwd;
-  const runtimeRootDir = path.posix.join(workspaceRemoteDir, ".paperclip-runtime", input.adapterKey);
+  const runtimeRootDir = path.posix.join(workspaceRemoteDir, ".fabric-runtime", input.adapterKey);
   const gitSnapshot = await readGitWorkspaceSnapshot(input.workspaceLocalDir);
   const gitIgnoredExcludes = gitSnapshot?.ignoredPaths;
   const workspaceArchiveExclude = mergeExcludes(
@@ -411,7 +411,7 @@ export async function prepareSandboxManagedRuntime(input: {
   const restoreExclude = mergeExcludes(
     SANDBOX_WORKSPACE_HEAVY_DIR_EXCLUDES,
     [...GIT_ARCHIVE_EXCLUDES],
-    [".paperclip-runtime"],
+    [".fabric-runtime"],
     input.preserveAbsentOnRestore,
     input.workspaceExclude,
     gitIgnoredExcludes,
@@ -420,9 +420,9 @@ export async function prepareSandboxManagedRuntime(input: {
     exclude: restoreExclude,
   });
 
-  await withTempDir("paperclip-sandbox-sync-", async (tempDir) => {
+  await withTempDir("fabric-sandbox-sync-", async (tempDir) => {
     const preservedNames = new Set([
-      ".paperclip-runtime",
+      ".fabric-runtime",
       ...(gitSnapshot ? [".git"] : []),
       ...(input.preserveAbsentOnRestore ?? []),
     ]);
@@ -436,7 +436,7 @@ export async function prepareSandboxManagedRuntime(input: {
         await createTarballFromDirectory({
           localDir: cloneDir,
           archivePath: gitTarPath,
-          exclude: [".paperclip-runtime"],
+          exclude: [".fabric-runtime"],
         });
         const gitTarBytes = await fs.readFile(gitTarPath);
         const remoteGitTar = path.posix.join(runtimeRootDir, "git-workspace-upload.tar");
@@ -447,7 +447,7 @@ export async function prepareSandboxManagedRuntime(input: {
         await input.client.run(
           `sh -c ${shellQuote(
             `mkdir -p ${shellQuote(workspaceRemoteDir)} && ` +
-              `find ${shellQuote(workspaceRemoteDir)} -mindepth 1 -maxdepth 1 ${preserveFindArgs([".paperclip-runtime"])} -exec rm -rf -- {} + && ` +
+              `find ${shellQuote(workspaceRemoteDir)} -mindepth 1 -maxdepth 1 ${preserveFindArgs([".fabric-runtime"])} -exec rm -rf -- {} + && ` +
               `tar -xf ${shellQuote(remoteGitTar)} -C ${shellQuote(workspaceRemoteDir)} && ` +
               `rm -f ${shellQuote(remoteGitTar)}`,
           )}`,
@@ -542,7 +542,7 @@ export async function prepareSandboxManagedRuntime(input: {
     assetDirs,
     restoreWorkspace: async (onProgress?: RuntimeProgressSink) => {
       const restoreSink = onProgress ?? input.onProgress;
-      await withTempDir("paperclip-sandbox-restore-", async (tempDir) => {
+      await withTempDir("fabric-sandbox-restore-", async (tempDir) => {
         let importedRef: string | null = null;
         let importedHead: string | null = null;
         let remoteWorkspaceStatus = "dirty";

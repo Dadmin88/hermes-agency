@@ -1,6 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
-import { agents, costEvents, modelPricing, type Db } from "@paperclipai/db";
-import type { ModelCostEstimateItem, ModelCostEstimateMethod } from "@paperclipai/shared";
+import { agents, costEvents, modelPricing, type Db } from "@hermes-fabric/db";
+import type { ModelCostEstimateItem, ModelCostEstimateMethod } from "@hermes-fabric/shared";
 
 type PricingRow = typeof modelPricing.$inferSelect;
 type AgentRow = typeof agents.$inferSelect;

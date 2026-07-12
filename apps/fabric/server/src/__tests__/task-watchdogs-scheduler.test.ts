@@ -14,7 +14,7 @@ import {
   issueWorkProducts,
   issues,
   issueWatchdogs,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -35,7 +35,7 @@ describeEmbeddedPostgres("task watchdog scheduler", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-task-watchdogs-scheduler-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-task-watchdogs-scheduler-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

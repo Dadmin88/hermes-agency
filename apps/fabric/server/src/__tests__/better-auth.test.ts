@@ -8,45 +8,45 @@ import {
   shouldDisableSecureAuthCookies,
 } from "../auth/better-auth.js";
 
-const ORIGINAL_INSTANCE_ID = process.env.PAPERCLIP_INSTANCE_ID;
-const ORIGINAL_PUBLIC_URL = process.env.PAPERCLIP_PUBLIC_URL;
+const ORIGINAL_INSTANCE_ID = process.env.HERMES_FABRIC_INSTANCE_ID;
+const ORIGINAL_PUBLIC_URL = process.env.HERMES_FABRIC_PUBLIC_URL;
 
 afterEach(() => {
-  if (ORIGINAL_INSTANCE_ID === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
-  else process.env.PAPERCLIP_INSTANCE_ID = ORIGINAL_INSTANCE_ID;
-  if (ORIGINAL_PUBLIC_URL === undefined) delete process.env.PAPERCLIP_PUBLIC_URL;
-  else process.env.PAPERCLIP_PUBLIC_URL = ORIGINAL_PUBLIC_URL;
+  if (ORIGINAL_INSTANCE_ID === undefined) delete process.env.HERMES_FABRIC_INSTANCE_ID;
+  else process.env.HERMES_FABRIC_INSTANCE_ID = ORIGINAL_INSTANCE_ID;
+  if (ORIGINAL_PUBLIC_URL === undefined) delete process.env.HERMES_FABRIC_PUBLIC_URL;
+  else process.env.HERMES_FABRIC_PUBLIC_URL = ORIGINAL_PUBLIC_URL;
 });
 
 describe("Better Auth cookie scoping", () => {
   it("derives an instance-scoped cookie prefix", () => {
-    expect(deriveAuthCookiePrefix("default")).toBe("paperclip-default");
-    expect(deriveAuthCookiePrefix("PAP-1601-worktree")).toBe("paperclip-PAP-1601-worktree");
+    expect(deriveAuthCookiePrefix("default")).toBe("fabric-default");
+    expect(deriveAuthCookiePrefix("PAP-1601-worktree")).toBe("fabric-PAP-1601-worktree");
   });
 
-  it("uses PAPERCLIP_INSTANCE_ID for the Better Auth cookie prefix", () => {
-    process.env.PAPERCLIP_INSTANCE_ID = "sat-worktree";
+  it("uses HERMES_FABRIC_INSTANCE_ID for the Better Auth cookie prefix", () => {
+    process.env.HERMES_FABRIC_INSTANCE_ID = "sat-worktree";
 
     const advanced = buildBetterAuthAdvancedOptions({ disableSecureCookies: false });
 
     expect(advanced).toEqual({
-      cookiePrefix: "paperclip-sat-worktree",
+      cookiePrefix: "fabric-sat-worktree",
     });
     expect(getCookies({ advanced } as BetterAuthOptions).sessionToken.name).toMatch(
-      /paperclip-sat-worktree\.session_token$/,
+      /fabric-sat-worktree\.session_token$/,
     );
   });
 
   it("keeps local http auth cookies non-secure while preserving the scoped prefix", () => {
-    process.env.PAPERCLIP_INSTANCE_ID = "pap-worktree";
+    process.env.HERMES_FABRIC_INSTANCE_ID = "pap-worktree";
 
     expect(buildBetterAuthAdvancedOptions({ disableSecureCookies: true })).toEqual({
-      cookiePrefix: "paperclip-pap-worktree",
+      cookiePrefix: "fabric-pap-worktree",
       useSecureCookies: false,
     });
     expect(getCookies({
       advanced: buildBetterAuthAdvancedOptions({ disableSecureCookies: true }),
-    } as BetterAuthOptions).sessionToken.name).toBe("paperclip-pap-worktree.session_token");
+    } as BetterAuthOptions).sessionToken.name).toBe("fabric-pap-worktree.session_token");
   });
 
   it("disables secure cookies for authenticated private auto-origin dev servers", () => {
@@ -75,20 +75,20 @@ describe("Better Auth cookie scoping", () => {
       deploymentExposure: "private",
       authBaseUrlMode: "auto",
       authPublicBaseUrl: undefined,
-      publicUrl: "https://paperclip.example.test",
+      publicUrl: "https://fabric.example.test",
     })).toBe(false);
 
     expect(shouldDisableSecureAuthCookies({
       deploymentMode: "authenticated",
       deploymentExposure: "public",
       authBaseUrlMode: "explicit",
-      authPublicBaseUrl: "http://paperclip.local.test:3100",
+      authPublicBaseUrl: "http://fabric.local.test:3100",
       publicUrl: undefined,
     })).toBe(true);
   });
 
   it("disables secure cookies when no canonical public auth URL is configured", () => {
-    delete process.env.PAPERCLIP_PUBLIC_URL;
+    delete process.env.HERMES_FABRIC_PUBLIC_URL;
 
     expect(shouldDisableSecureAuthCookies({
       deploymentMode: "authenticated",
@@ -98,28 +98,28 @@ describe("Better Auth cookie scoping", () => {
   });
 
   it("derives secure cookie behavior from the configured public auth URL", () => {
-    delete process.env.PAPERCLIP_PUBLIC_URL;
+    delete process.env.HERMES_FABRIC_PUBLIC_URL;
 
     expect(shouldDisableSecureAuthCookies({
       deploymentMode: "authenticated",
       authBaseUrlMode: "explicit",
-      authPublicBaseUrl: "http://paperclip-dev:46259",
+      authPublicBaseUrl: "http://fabric-dev:46259",
     } as Parameters<typeof shouldDisableSecureAuthCookies>[0])).toBe(true);
     expect(shouldDisableSecureAuthCookies({
       deploymentMode: "authenticated",
       authBaseUrlMode: "explicit",
-      authPublicBaseUrl: "https://paperclip.example.test",
+      authPublicBaseUrl: "https://fabric.example.test",
     } as Parameters<typeof shouldDisableSecureAuthCookies>[0])).toBe(false);
   });
 
   it("uses the caller-resolved public URL for cookie security", () => {
-    process.env.PAPERCLIP_PUBLIC_URL = "https://ignored.example.test";
+    process.env.HERMES_FABRIC_PUBLIC_URL = "https://ignored.example.test";
 
     expect(shouldDisableSecureAuthCookies({
       deploymentMode: "authenticated",
       authBaseUrlMode: "explicit",
-      authPublicBaseUrl: "https://paperclip.example.test",
-      publicUrl: "http://paperclip-dev:46259",
+      authPublicBaseUrl: "https://fabric.example.test",
+      publicUrl: "http://fabric-dev:46259",
     } as Parameters<typeof shouldDisableSecureAuthCookies>[0])).toBe(true);
   });
 

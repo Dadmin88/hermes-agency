@@ -78,12 +78,12 @@ export async function prepareRemoteManagedRuntime(input: {
   const baseWorkspaceRemoteDir = input.workspaceRemoteDir ?? input.spec.remoteCwd;
   const workspaceRemoteDir = path.posix.join(
     baseWorkspaceRemoteDir,
-    ".paperclip-runtime",
+    ".fabric-runtime",
     "runs",
     input.runId,
     "workspace",
   );
-  const runtimeRootDir = path.posix.join(workspaceRemoteDir, ".paperclip-runtime", input.adapterKey);
+  const runtimeRootDir = path.posix.join(workspaceRemoteDir, ".fabric-runtime", input.adapterKey);
 
   const preparedWorkspace = await prepareWorkspaceForSshExecution({
     spec: input.spec,
@@ -91,7 +91,7 @@ export async function prepareRemoteManagedRuntime(input: {
     remoteDir: workspaceRemoteDir,
     onProgress: input.onProgress,
   });
-  const restoreExclude = preparedWorkspace.gitBacked ? [...GIT_ARCHIVE_EXCLUDES, ".paperclip-runtime"] : [".paperclip-runtime"];
+  const restoreExclude = preparedWorkspace.gitBacked ? [...GIT_ARCHIVE_EXCLUDES, ".fabric-runtime"] : [".fabric-runtime"];
   const baselineSnapshot = await captureDirectorySnapshot(input.workspaceLocalDir, {
     exclude: restoreExclude,
   });

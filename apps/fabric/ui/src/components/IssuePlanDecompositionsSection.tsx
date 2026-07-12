@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Agent, AcceptedPlanDecompositionSummary } from "@paperclipai/shared";
+import type { Agent, AcceptedPlanDecompositionSummary } from "@hermes-fabric/shared";
 import { ChevronRight, GitBranch, Repeat, CheckCircle2, Loader2 } from "lucide-react";
 import { Link } from "@/lib/router";
 import { issuesApi } from "../api/issues";

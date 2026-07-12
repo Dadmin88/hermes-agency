@@ -6,18 +6,18 @@ import type {
   CompanySecret,
   EnvBinding,
   Environment,
-} from "@paperclipai/shared";
-import { AGENT_DEFAULT_MAX_CONCURRENT_RUNS, supportedEnvironmentDriversForAdapter } from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
+import { AGENT_DEFAULT_MAX_CONCURRENT_RUNS, supportedEnvironmentDriversForAdapter } from "@hermes-fabric/shared";
 import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
 import { environmentsApi } from "../api/environments";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { secretsApi } from "../api/secrets";
 import { assetsApi } from "../api/assets";
-import { DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX } from "@paperclipai/adapter-codex-local";
-import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
-import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
-import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@paperclipai/adapter-opencode-local";
+import { DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX } from "@hermes-fabric/adapter-codex-local";
+import { DEFAULT_CURSOR_LOCAL_MODEL } from "@hermes-fabric/adapter-cursor-local";
+import { DEFAULT_GEMINI_LOCAL_MODEL } from "@hermes-fabric/adapter-gemini-local";
+import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@hermes-fabric/adapter-opencode-local";
 import {
   Popover,
   PopoverContent,
@@ -59,10 +59,10 @@ import { resolveForcedKubernetesEnvironment } from "../lib/forced-kubernetes-env
 
 /* ---- Create mode values ---- */
 
-// Canonical type lives in @paperclipai/adapter-utils; re-exported here
+// Canonical type lives in @hermes-fabric/adapter-utils; re-exported here
 // so existing imports from this file keep working.
-export type { CreateConfigValues } from "@paperclipai/adapter-utils";
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+export type { CreateConfigValues } from "@hermes-fabric/adapter-utils";
+import type { CreateConfigValues } from "@hermes-fabric/adapter-utils";
 
 /* ---- Props ---- */
 

@@ -3,7 +3,7 @@ import type {
   IssueCommentMetadata,
   IssueCommentPresentation,
   SourceTrustMetadata,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { pgTable, uuid, text, timestamp, index, jsonb } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { issues } from "./issues.js";

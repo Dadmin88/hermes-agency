@@ -2,12 +2,12 @@
 
 <!--
   Required. Trace your reasoning from the top of the project down to this
-  specific change. Start with what Paperclip is, then narrow through the
+  specific change. Start with what Hermes Fabric is, then narrow through the
   subsystem, the problem, and why this PR exists. Use blockquote style.
   Aim for 5–8 steps. See CONTRIBUTING.md for full examples.
 -->
 
-> - Paperclip is the open source app people use to manage AI agents for work
+> - Hermes Fabric is the open source app people use to manage AI agents for work
 > - [Which subsystem or capability is involved]
 > - [What problem or gap exists]
 > - [Why it needs to be addressed]
@@ -23,7 +23,7 @@
       or `Refs #123`. Include duplicates and closely related issues too.
 
   Only reference PUBLIC GitHub issues/PRs here. Do NOT paste internal,
-  instance-local Paperclip references — ticket ids like PAPA-123 / PAP-224,
+  instance-local Hermes Fabric references — ticket ids like PAPA-123 / PAP-224,
   /PAP/issues/... or agent://... links, or localhost/tailnet URLs. Other
   contributors cannot open them. See CONTRIBUTING.md → "No Internal Issue
   References".
@@ -87,12 +87,12 @@
 - [ ] I have checked ROADMAP.md and confirmed this PR does not duplicate planned core work
 - [ ] I have searched GitHub for duplicate or related PRs and linked them above
 - [ ] I have either (a) linked existing issues with `Fixes: #` / `Closes #` / `Refs #` OR (b) described the issue in-PR following the relevant issue template
-- [ ] I have not referenced internal/instance-local Paperclip issues or links (only public GitHub `#NNN` / `github.com/paperclipai/paperclip` URLs)
-- [ ] My branch name describes the change (e.g. `docs/...`, `fix/...`) and contains no internal Paperclip ticket id or instance-derived details
+- [ ] I have not referenced internal/instance-local Hermes Fabric issues or links (only public GitHub `#NNN` / `github.com/DeployFaith/Hermes_Agency` URLs)
+- [ ] My branch name describes the change (e.g. `docs/...`, `fix/...`) and contains no internal Hermes Fabric ticket id or instance-derived details
 - [ ] I have run tests locally and they pass
 - [ ] I have added or updated tests where applicable
 - [ ] I have updated relevant documentation to reflect my changes
 - [ ] I have considered and documented any risks above
-- [ ] All Paperclip CI gates are green
+- [ ] All Hermes Fabric CI gates are green
 - [ ] Greptile is 5/5 with no open P2s, recommendations, or follow-ups
 - [ ] I will address all Greptile and reviewer comments before requesting merge

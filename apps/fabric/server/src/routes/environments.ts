@@ -1,12 +1,12 @@
 import { Router, type Request } from "express";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   AGENT_ADAPTER_TYPES,
   createEnvironmentSchema,
   getEnvironmentCapabilities,
   probeEnvironmentConfigSchema,
   updateEnvironmentSchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { conflict, forbidden, unprocessable } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import {

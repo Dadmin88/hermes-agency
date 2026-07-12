@@ -2,8 +2,8 @@ import { accessSync, constants, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import type { SourceTrustMetadata } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import type { SourceTrustMetadata } from "@hermes-fabric/shared";
 import {
   agents,
   approvals,
@@ -15,7 +15,7 @@ import {
   labels,
   projects,
   projectWorkspaces,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import { logger } from "../middleware/logger.js";
 import { fabricEnv } from "../fabric-env.js";
 
@@ -27,7 +27,7 @@ const HERMES_KANBAN_SYNC_MIN_INTERVAL_MS = 1_000;
 const HERMES_KANBAN_SYNC_MAX_BACKOFF_MS = 60_000;
 
 const HERMES_KANBAN_OPT_IN_MESSAGE =
-  "Hermes Kanban projection requires explicit FABRIC_HERMES_KANBAN_DB and FABRIC_HERMES_KANBAN_COMPANY_ID (or PAPERCLIP_ aliases).";
+  "Hermes Kanban projection requires explicit FABRIC_HERMES_KANBAN_DB and FABRIC_HERMES_KANBAN_COMPANY_ID (or HERMES_FABRIC_ aliases).";
 
 type HermesKanbanTaskRow = {
   id: string;

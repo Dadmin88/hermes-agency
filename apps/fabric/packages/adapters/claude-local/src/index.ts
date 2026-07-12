@@ -1,4 +1,4 @@
-import type { AdapterModelProfileDefinition } from "@paperclipai/adapter-utils";
+import type { AdapterModelProfileDefinition } from "@hermes-fabric/adapter-utils";
 
 export const type = "claude_local";
 export const label = "Claude Code (local)";
@@ -54,5 +54,5 @@ Operational fields:
 - graceSec (number, optional): SIGTERM grace period in seconds
 
 Notes:
-- When Paperclip realizes a workspace/runtime for a run, it injects PAPERCLIP_WORKSPACE_* and PAPERCLIP_RUNTIME_* env vars for agent-side tooling.
+- When HermesFabric realizes a workspace/runtime for a run, it injects HERMES_FABRIC_WORKSPACE_* and HERMES_FABRIC_RUNTIME_* env vars for agent-side tooling.
 `;
