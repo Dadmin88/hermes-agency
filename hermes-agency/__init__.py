@@ -53,9 +53,12 @@ if __package__:
         """Inject cached team/orchestrator context through Hermes' plugin context path."""
 
         blocks = []
-        team_context = manager.cached_team_context()
-        if team_context:
-            blocks.append(team_context)
+        # Do not retrieve a previously cached roster when prompt injection is
+        # disabled. This avoids both stale context and unnecessary refresh work.
+        if get_config().team.inject_context:
+            team_context = manager.cached_team_context()
+            if team_context:
+                blocks.append(team_context)
         orchestrator_context = manager.cached_orchestrator_context()
         if orchestrator_context:
             blocks.append(orchestrator_context)

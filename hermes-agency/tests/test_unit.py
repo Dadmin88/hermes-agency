@@ -3157,6 +3157,27 @@ def test_register_disabled_plugin_has_no_model_tools_and_no_start(plugin_modules
     assert start_calls == []
 
 
+def test_team_context_hook_skips_cached_roster_when_injection_disabled(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(team=cfg_mod.TeamConfig(inject_context=False))
+    monkeypatch.setattr(init_mod, "get_config", lambda: cfg)
+
+    def should_not_read_cached_team_context():
+        raise AssertionError("disabled team injection must not read cached roster context")
+
+    monkeypatch.setattr(
+        init_mod.manager, "cached_team_context", should_not_read_cached_team_context
+    )
+    monkeypatch.setattr(init_mod.manager, "cached_orchestrator_context", lambda: "")
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+    pre_llm_hook = next(handler for name, handler in ctx.hooks if name == "pre_llm_call")
+
+    assert pre_llm_hook() is None
+
+
 def test_register_sdk_absent_gates_tools_and_does_not_start(plugin_modules, monkeypatch):
     init_mod = _load_plugin_package_module(monkeypatch)
     cfg_mod = plugin_modules.config
