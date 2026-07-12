@@ -368,6 +368,7 @@ class NodeManager(
         self._thread_ready = threading.Event()
         self._thread_lock = threading.RLock()
         self._start_future: Any | None = None
+        self._startup_task: asyncio.Task[Any] | None = None
         self.state = NodeState()
         atexit.register(self._atexit_stop)
 
@@ -443,7 +444,7 @@ class NodeManager(
         )
         return kwargs
 
-    async def _start_impl(self) -> Any:
+    async def _start_impl_once(self) -> Any:
         """Start the configured Agency transport node on the lifecycle loop."""
 
         if self._node is not None and self.state.started:

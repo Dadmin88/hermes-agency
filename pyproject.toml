@@ -145,7 +145,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_extended_status_discord.py", "hermes-agency/tests/test_keryx_transport.py"]
+testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_extended_status_discord.py", "hermes-agency/tests/test_keryx_transport.py", "hermes-agency/tests/test_node_lifecycle.py"]
 markers = [
     "integration: mark test as integration test (requires relay/daemon binaries)",
 ]

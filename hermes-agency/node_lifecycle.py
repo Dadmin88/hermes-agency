@@ -111,6 +111,19 @@ class NodeLifecycleMixin:
             raise RuntimeError(self.state.error or "Hermes Agency node did not start")
 
     async def _start_impl(self) -> Any:
+        """Join concurrent callers to one startup transition."""
+
+        startup_task = self._startup_task
+        if startup_task is None:
+            startup_task = asyncio.create_task(self._start_impl_once())
+            self._startup_task = startup_task
+        try:
+            return await asyncio.shield(startup_task)
+        finally:
+            if startup_task.done() and self._startup_task is startup_task:
+                self._startup_task = None
+
+    async def _start_impl_once(self) -> Any:
         if self._node is not None and self.state.started:
             self._register_incoming_handler(self._node)
             self._ensure_incoming_runtime(self._nm().get_config())
