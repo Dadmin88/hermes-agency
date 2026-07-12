@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   catalogSkillListQuerySchema,
   companySkillCommentCreateSchema,
@@ -15,8 +15,8 @@ import {
   companySkillResetSchema,
   companySkillUpdateSchema,
   companySkillVersionCreateSchema,
-} from "@paperclipai/shared";
-import { trackSkillImported } from "@paperclipai/shared/telemetry";
+} from "@hermes-fabric/shared";
+import { trackSkillImported } from "@hermes-fabric/shared/telemetry";
 import { validate } from "../middleware/validate.js";
 import { accessService, agentService, companySkillService, logActivity } from "../services/index.js";
 import {

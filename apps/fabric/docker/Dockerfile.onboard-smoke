@@ -1,20 +1,20 @@
 FROM ubuntu:24.04
 
 ARG NODE_MAJOR=20
-ARG PAPERCLIPAI_VERSION=latest
+ARG HERMES_FABRIC_VERSION=latest
 ARG HOST_UID=10001
 
 ENV DEBIAN_FRONTEND=noninteractive \
-  PAPERCLIP_HOME=/paperclip \
-  PAPERCLIP_OPEN_ON_LISTEN=false \
+  HERMES_FABRIC_HOME=/fabric \
+  HERMES_FABRIC_OPEN_ON_LISTEN=false \
   HOST=0.0.0.0 \
   PORT=3100 \
-  HOME=/home/paperclip \
+  HOME=/home/fabric \
   LANG=en_US.UTF-8 \
   LC_ALL=en_US.UTF-8 \
   NPM_CONFIG_UPDATE_NOTIFIER=false \
   NODE_MAJOR=${NODE_MAJOR} \
-  PAPERCLIPAI_VERSION=${PAPERCLIPAI_VERSION}
+  HERMES_FABRIC_VERSION=${HERMES_FABRIC_VERSION}
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl gnupg locales \
@@ -26,15 +26,15 @@ RUN apt-get update \
   && apt-get update \
   && apt-get install -y --no-install-recommends nodejs \
   && locale-gen en_US.UTF-8 \
-  && groupadd --gid 10001 paperclip \
-  && useradd --create-home --shell /bin/bash --uid "${HOST_UID}" --gid 10001 paperclip \
-  && mkdir -p /paperclip /home/paperclip/workspace \
-  && chown -R paperclip:paperclip /paperclip /home/paperclip \
+  && groupadd --gid 10001 fabric \
+  && useradd --create-home --shell /bin/bash --uid "${HOST_UID}" --gid 10001 fabric \
+  && mkdir -p /fabric /home/fabric/workspace \
+  && chown -R fabric:fabric /fabric /home/fabric \
   && rm -rf /var/lib/apt/lists/*
 
-VOLUME ["/paperclip"]
-WORKDIR /home/paperclip/workspace
+VOLUME ["/fabric"]
+WORKDIR /home/fabric/workspace
 EXPOSE 3100
-USER paperclip
+USER fabric
 
-CMD ["bash", "-lc", "set -euo pipefail; mkdir -p \"$PAPERCLIP_HOME\"; npx --yes \"paperclipai@${PAPERCLIPAI_VERSION}\" onboard --yes --data-dir \"$PAPERCLIP_HOME\""]
+CMD ["bash", "-lc", "set -euo pipefail; mkdir -p \"$HERMES_FABRIC_HOME\"; npx --yes \"hermes-fabric@${HERMES_FABRIC_VERSION}\" onboard --yes --data-dir \"$HERMES_FABRIC_HOME\""]

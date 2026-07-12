@@ -16,7 +16,7 @@
   "topbarLinks": [
     {
       "name": "GitHub",
-      "url": "https://github.com/paperclipai/paperclip"
+      "url": "https://github.com/DeployFaith/Hermes_Agency"
     }
   ],
   "navigation": {
@@ -27,7 +27,7 @@
           {
             "group": "Introduction",
             "pages": [
-              "start/what-is-paperclip",
+              "start/what-is-fabric",
               "start/quickstart",
               "start/core-concepts",
               "start/architecture"
@@ -146,6 +146,6 @@
     ]
   },
   "footerSocials": {
-    "github": "https://github.com/paperclip-ai/paperclip"
+    "github": "https://github.com/fabric-ai/fabric"
   }
 }

@@ -5,7 +5,7 @@ import type {
   ResolvedWorkspaceResource,
   WorkspaceFileContent,
   WorkspaceFileSelector,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { FileViewerProvider } from "@/context/FileViewerContext";
 import { FileViewerSheet } from "@/components/FileViewerSheet";
 import { queryKeys } from "@/lib/queryKeys";

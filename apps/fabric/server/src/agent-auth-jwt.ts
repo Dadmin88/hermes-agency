@@ -39,8 +39,8 @@ function jwtConfig() {
   return {
     secret,
     ttlSeconds: parseNumber(fabricEnv("AGENT_JWT_TTL_SECONDS"), 60 * 60),
-    issuer: fabricEnv("AGENT_JWT_ISSUER") ?? "paperclip",
-    audience: fabricEnv("AGENT_JWT_AUDIENCE") ?? "paperclip-api",
+    issuer: fabricEnv("AGENT_JWT_ISSUER") ?? "fabric",
+    audience: fabricEnv("AGENT_JWT_AUDIENCE") ?? "fabric-api",
     disableLegacyFallback: parseBooleanEnv(fabricEnv("AGENT_JWT_DISABLE_LEGACY_FALLBACK")),
   };
 }
@@ -143,8 +143,8 @@ export function verifyLocalAgentJwt(token: string): LocalAgentJwtClaims | null {
   // continue to verify — this preserves backward compatibility for any
   // outstanding tokens (TTL bounds the legacy window naturally).
   //
-  // Operators should set `PAPERCLIP_AGENT_JWT_DISABLE_LEGACY_FALLBACK=true`
-  // approximately one JWT TTL (~1h by default, see PAPERCLIP_AGENT_JWT_TTL_SECONDS)
+  // Operators should set `HERMES_FABRIC_AGENT_JWT_DISABLE_LEGACY_FALLBACK=true`
+  // approximately one JWT TTL (~1h by default, see HERMES_FABRIC_AGENT_JWT_TTL_SECONDS)
   // after deploying per-company signing. Once set, the master-secret fallback
   // is disabled and only tokens validating under the per-company derived key
   // are accepted — closing the window in which a leaked master secret could

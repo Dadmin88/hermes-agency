@@ -79,12 +79,12 @@ function loadReleaseManifest() {
   });
 }
 
-// Sections whose @paperclipai workspace deps are rewritten to the calver release
+// Sections whose @hermes-fabric workspace deps are rewritten to the calver release
 // version by replaceWorkspaceDeps() and that consumers resolve at install time.
 const RESOLVED_DEP_SECTIONS = ["dependencies", "optionalDependencies", "peerDependencies"];
 
 // A publishFromCi:true package gets republished at the unified calver version every
-// release, and every @paperclipai/* workspace: dep it declares is rewritten to that
+// release, and every @hermes-fabric/* workspace: dep it declares is rewritten to that
 // same calver version. If the target is NOT publishFromCi:true it never gets a calver
 // publish, so the rewritten spec points at a version that will never exist on npm and
 // the package becomes uninstallable. Detect those edges so the release fails fast
@@ -101,7 +101,7 @@ function findUnpublishableWorkspaceEdges(packages) {
       if (!deps) continue;
 
       for (const [depName, spec] of Object.entries(deps)) {
-        if (!depName.startsWith("@paperclipai/")) continue;
+        if (!depName.startsWith("@hermes-fabric/")) continue;
         if (typeof spec !== "string" || !spec.startsWith("workspace:")) continue;
         if (publishFromCiByName.get(depName) === true) continue;
 
@@ -219,7 +219,7 @@ function replaceWorkspaceDeps(deps, version) {
   const next = { ...deps };
 
   for (const [name, value] of Object.entries(next)) {
-    if (!name.startsWith("@paperclipai/")) continue;
+    if (!name.startsWith("@hermes-fabric/")) continue;
     if (typeof value !== "string" || !value.startsWith("workspace:")) continue;
     next[name] = version;
   }

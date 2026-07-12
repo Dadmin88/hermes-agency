@@ -1,6 +1,6 @@
 export interface BuildNetworkPolicyInput {
   namespace: string;
-  paperclipServerNamespace: string;
+  fabricServerNamespace: string;
   egressAllowCidrs: string[];
   /**
    * Adapter-configured FQDNs (e.g. `api.anthropic.com`). Standard
@@ -34,20 +34,20 @@ const PRIVATE_AND_LINK_LOCAL_EXCEPT_CIDRS = [
 ];
 
 // Design note: the deny-all baseline blocks all ingress to agent pods.
-// Paperclip-server does NOT push to agent pods — the agent shim makes
-// outbound calls to paperclip-server via the egress allow-list (port 3100).
+// HermesFabric-server does NOT push to agent pods — the agent shim makes
+// outbound calls to fabric-server via the egress allow-list (port 3100).
 // This pull/callback model means no ingress rule is needed. If a future
 // feature requires server→agent push (e.g. forced shutdown, live exec),
-// add a targeted ingress rule here scoped to the paperclip-server pod
+// add a targeted ingress rule here scoped to the fabric-server pod
 // selector.
 export function buildNetworkPolicyManifests(input: BuildNetworkPolicyInput): Record<string, unknown>[] {
   const denyAll = {
     apiVersion: "networking.k8s.io/v1",
     kind: "NetworkPolicy",
     metadata: {
-      name: "paperclip-deny-all",
+      name: "fabric-deny-all",
       namespace: input.namespace,
-      labels: { "paperclip.io/managed-by": "paperclip-k8s-plugin" },
+      labels: { "fabric.io/managed-by": "fabric-k8s-plugin" },
     },
     spec: {
       podSelector: {},
@@ -59,12 +59,12 @@ export function buildNetworkPolicyManifests(input: BuildNetworkPolicyInput): Rec
     apiVersion: "networking.k8s.io/v1",
     kind: "NetworkPolicy",
     metadata: {
-      name: "paperclip-egress-allow",
+      name: "fabric-egress-allow",
       namespace: input.namespace,
-      labels: { "paperclip.io/managed-by": "paperclip-k8s-plugin" },
+      labels: { "fabric.io/managed-by": "fabric-k8s-plugin" },
     },
     spec: {
-      podSelector: { matchLabels: { "paperclip.io/role": "agent" } },
+      podSelector: { matchLabels: { "fabric.io/role": "agent" } },
       policyTypes: ["Egress"],
       egress: [
         {
@@ -82,8 +82,8 @@ export function buildNetworkPolicyManifests(input: BuildNetworkPolicyInput): Rec
         {
           to: [
             {
-              namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": input.paperclipServerNamespace } },
-              podSelector: { matchLabels: { app: "paperclip-server" } },
+              namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": input.fabricServerNamespace } },
+              podSelector: { matchLabels: { app: "fabric-server" } },
             },
           ],
           ports: [{ protocol: "TCP", port: 3100 }],

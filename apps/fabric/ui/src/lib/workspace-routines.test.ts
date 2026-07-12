@@ -1,4 +1,4 @@
-import type { RoutineListItem } from "@paperclipai/shared";
+import type { RoutineListItem } from "@hermes-fabric/shared";
 import { describe, expect, it } from "vitest";
 import {
   getWorkspaceSpecificRoutineVariableNames,

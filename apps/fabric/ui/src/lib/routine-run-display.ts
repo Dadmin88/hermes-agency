@@ -1,4 +1,4 @@
-import type { RoutineRunSummary, RoutineVariable } from "@paperclipai/shared";
+import type { RoutineRunSummary, RoutineVariable } from "@hermes-fabric/shared";
 
 /**
  * Format a single resolved variable value for the runs-row subtitle (§3.6).

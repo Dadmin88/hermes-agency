@@ -9,7 +9,7 @@ import {
   getSshEnvLabSupport,
   startSshEnvLabFixture,
   stopSshEnvLabFixture,
-} from "@paperclipai/adapter-utils/ssh";
+} from "@hermes-fabric/adapter-utils/ssh";
 import {
   agents,
   companies,
@@ -22,7 +22,7 @@ import {
   heartbeatRuns,
   plugins,
   projects,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -310,7 +310,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
         version: "1.0.0",
         displayName: "Reusable Sandbox Provider",
         description: "Test provider with reusable lease support",
-        author: "Paperclip",
+        author: "Hermes Fabric",
         categories: ["automation"],
         capabilities: ["environment.drivers.register"],
         entrypoints: { worker: "dist/worker.js" },
@@ -453,7 +453,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
         host: "ssh.example.test",
         port: 22,
         username: "ssh-user",
-        remoteWorkspacePath: "/srv/paperclip/workspace",
+        remoteWorkspacePath: "/srv/fabric/workspace",
         privateKey: null,
         knownHosts: null,
         strictHostKeyChecking: true,
@@ -493,7 +493,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
       return;
     }
 
-    const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), "paperclip-environment-runtime-ssh-"));
+    const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), "fabric-environment-runtime-ssh-"));
     fixtureRoots.push(fixtureRoot);
     const statePath = path.join(fixtureRoot, "state.json");
     const fixture = await startSshEnvLabFixture({ statePath });
@@ -590,18 +590,18 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
     });
     await db.insert(plugins).values({
       id: pluginId,
-      pluginKey: "paperclip.fake-plugin-sandbox-provider",
-      packageName: "@paperclipai/plugin-fake-sandbox",
+      pluginKey: "fabric.fake-plugin-sandbox-provider",
+      packageName: "@hermes-fabric/plugin-fake-sandbox",
       version: "1.0.0",
       apiVersion: 1,
       categories: ["automation"],
       manifestJson: {
-        id: "paperclip.fake-plugin-sandbox-provider",
+        id: "fabric.fake-plugin-sandbox-provider",
         apiVersion: 1,
         version: "1.0.0",
         displayName: "Fake Plugin Sandbox Provider",
         description: "Test fake plugin provider",
-        author: "Paperclip",
+        author: "Hermes Fabric",
         categories: ["automation"],
         capabilities: ["environment.drivers.register"],
         entrypoints: { worker: "dist/worker.js" },
@@ -744,7 +744,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
         version: "1.0.0",
         displayName: "Secure Sandbox Provider",
         description: "Test schema-driven provider",
-        author: "Paperclip",
+        author: "Hermes Fabric",
         categories: ["automation"],
         capabilities: ["environment.drivers.register"],
         entrypoints: { worker: "dist/worker.js" },
@@ -975,7 +975,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
         version: "1.0.0",
         displayName: "Long Lease Sandbox Provider",
         description: "Test plugin worker acquire timeout",
-        author: "Paperclip",
+        author: "Hermes Fabric",
         categories: ["automation"],
         capabilities: ["environment.drivers.register"],
         entrypoints: { worker: "dist/worker.js" },
@@ -1071,7 +1071,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
         version: "1.0.0",
         displayName: "Fake Sandbox Provider",
         description: "Test schema-driven provider",
-        author: "Paperclip",
+        author: "Hermes Fabric",
         categories: ["automation"],
         capabilities: ["environment.drivers.register"],
         entrypoints: { worker: "dist/worker.js" },
@@ -1250,7 +1250,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
         version: "1.0.0",
         displayName: "Non-reusable Sandbox Provider",
         description: "Test provider without reusable lease support",
-        author: "Paperclip",
+        author: "Hermes Fabric",
         categories: ["automation"],
         capabilities: ["environment.drivers.register"],
         entrypoints: { worker: "dist/worker.js" },
@@ -1536,7 +1536,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
     await db.insert(plugins).values({
       id: pluginId,
       pluginKey: "acme.environments",
-      packageName: "@acme/paperclip-environments",
+      packageName: "@acme/fabric-environments",
       version: "1.0.0",
       apiVersion: 1,
       categories: ["automation"],
@@ -1660,7 +1660,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
     await db.insert(plugins).values({
       id: pluginId,
       pluginKey: "acme.environments",
-      packageName: "@acme/paperclip-environments",
+      packageName: "@acme/fabric-environments",
       version: "1.0.0",
       apiVersion: 1,
       categories: ["automation"],
@@ -1811,7 +1811,7 @@ describeEmbeddedPostgres("environmentRuntimeService", () => {
     await db.insert(plugins).values({
       id: pluginId,
       pluginKey: "acme.environments",
-      packageName: "@acme/paperclip-environments",
+      packageName: "@acme/fabric-environments",
       version: "1.0.0",
       apiVersion: 1,
       categories: ["automation"],

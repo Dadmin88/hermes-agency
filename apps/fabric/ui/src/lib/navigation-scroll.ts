@@ -1,7 +1,7 @@
 export type NavigationType = "POP" | "PUSH" | "REPLACE";
 
 export const SIDEBAR_SCROLL_RESET_STATE = {
-  paperclipSidebarScrollReset: true,
+  fabricSidebarScrollReset: true,
 } as const;
 
 export function shouldResetScrollOnNavigation(params: {
@@ -66,7 +66,7 @@ export function resetNavigationScroll(mainElement: HTMLElement | null): void {
 
 function hasSidebarScrollResetState(state: unknown): boolean {
   if (!state || typeof state !== "object") return false;
-  return (state as Record<string, unknown>).paperclipSidebarScrollReset === true;
+  return (state as Record<string, unknown>).fabricSidebarScrollReset === true;
 }
 
 function isIssueDetailPathChange(previousPathname: string, pathname: string): boolean {

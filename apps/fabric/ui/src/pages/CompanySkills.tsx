@@ -20,7 +20,7 @@ import type {
   CompanySkillUpdateRequest,
   CompanySkillUpdateStatus,
   CompanySkillVersion,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { companySkillsApi } from "../api/companySkills";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
@@ -207,6 +207,15 @@ export function legacyProductLabel(value: string | null | undefined) {
   if (!value) return value ?? null;
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
+  const migratedPrefix = "fabric";
+  if (lower === `${migratedPrefix} bundled`) return "Hermes Agency bundled";
+  if (lower === `${migratedPrefix} workspace`) return "Hermes Agency workspace";
+  if (lower === `${migratedPrefix}-board`) return "Hermes Agency dashboard";
+  if (lower === `${migratedPrefix}-capsules`) return "Hermes Agency capsules";
+  if (lower.startsWith(`${migratedPrefix}-`)) {
+    const suffix = trimmed.slice(`${migratedPrefix}-`.length).replace(/[-_]+/g, " ");
+    return `Hermes Agency ${suffix}`;
+  }
   const legacyLower = ["paper", "clip"].join("");
   const legacyTitle = "Paper" + "clip";
   if (lower === `@${legacyLower}ai/skills-catalog`) return "Hermes Agency skills catalog";
@@ -252,7 +261,7 @@ export function sourceMeta(sourceBadge: CompanySkillSourceBadge, sourceLabel: st
       return { icon: Link2, label: sourceLabel?.trim() || "URL", managedLabel: "URL managed" };
     case "local":
       return { icon: Folder, label: sourceLabel?.trim() || "Folder", managedLabel: "Folder managed" };
-    case "paperclip":
+    case "fabric":
       return { icon: Boxes, label: legacyProductLabel(sourceLabel) ?? "Hermes Agency", managedLabel: "Hermes Agency managed" };
     default:
       return { icon: Boxes, label: sourceLabel?.trim() || "Catalog", managedLabel: "Catalog managed" };
@@ -330,7 +339,7 @@ function classifySource(skill: {
   catalogKind?: "bundled" | "optional" | null;
   metadata?: Record<string, unknown> | null;
 }): SourceFilter {
-  if (skill.sourceBadge === "paperclip") return "company";
+  if (skill.sourceBadge === "fabric") return "company";
   if (skill.sourceType === "local_path" && !skill.sourceBadge.toString().includes("github")) {
     return "company";
   }
@@ -706,7 +715,7 @@ export function buildDiscoveryCards(
     installedKeys.add(skill.key);
     const catalogMatch = catalogByKey.get(skill.key) ?? null;
     const required = skill.catalogKind === "bundled" || catalogMatch?.kind === "bundled";
-    const trustedLegacyBrand = skill.sourceBadge === "paperclip" || required;
+    const trustedLegacyBrand = skill.sourceBadge === "fabric" || required;
     cards.push({
       key: skill.key,
       skillId: skill.id,

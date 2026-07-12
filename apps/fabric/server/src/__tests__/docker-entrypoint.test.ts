@@ -78,7 +78,7 @@ describe("docker-entrypoint.sh", () => {
     expect(calls).not.toContain("chown");
   });
 
-  it("remaps the node user and chowns /paperclip before gosu when root requests a different UID/GID", async () => {
+  it("remaps the node user and chowns /fabric before gosu when root requests a different UID/GID", async () => {
     installStubs({ uid: 0, gid: 0 });
 
     const { stdout, calls } = await runEntrypoint({ USER_UID: "1001", USER_GID: "1001" });
@@ -86,7 +86,7 @@ describe("docker-entrypoint.sh", () => {
     expect(stdout).toContain("ENTRYPOINT-CMD-RAN");
     expect(calls).toContain("usermod -o -u 1001 node");
     expect(calls).toContain("groupmod -o -g 1001 node");
-    expect(calls).toContain("chown -R node:node /paperclip");
+    expect(calls).toContain("chown -R node:node /fabric");
     expect(calls).toContain("gosu node echo ENTRYPOINT-CMD-RAN");
   });
 

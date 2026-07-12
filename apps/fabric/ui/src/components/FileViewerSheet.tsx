@@ -50,10 +50,10 @@ import type {
   ResolvedWorkspaceResource,
   WorkspaceFileContent,
   WorkspaceFileSelector,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
-const FILE_VIEWER_LABELLED_BY_ID = "paperclip-file-viewer-title";
-const FILE_VIEWER_DESCRIBED_BY_ID = "paperclip-file-viewer-description";
+const FILE_VIEWER_LABELLED_BY_ID = "fabric-file-viewer-title";
+const FILE_VIEWER_DESCRIBED_BY_ID = "fabric-file-viewer-description";
 const MIN_FILE_TREE_WIDTH = 220;
 const MAX_FILE_TREE_WIDTH = 520;
 
@@ -354,7 +354,7 @@ export function FileContentViewer({ content, highlightedLine, onLoaded }: FileCo
       role="region"
       aria-label={`${resource.title} source`}
       tabIndex={0}
-      className="paperclip-file-viewer-code flex-1 overflow-auto bg-[var(--paperclip-code-bg,theme(colors.muted.DEFAULT))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      className="fabric-file-viewer-code flex-1 overflow-auto bg-[var(--fabric-code-bg,theme(colors.muted.DEFAULT))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
     >
       <pre className="m-0 font-mono text-xs leading-5">
         {lines.map((lineText, index) => {
@@ -367,16 +367,16 @@ export function FileContentViewer({ content, highlightedLine, onLoaded }: FileCo
               data-line-number={lineNumber}
               className={cn(
                 "grid grid-cols-[auto_minmax(0,1fr)]",
-                isHighlighted && "bg-[var(--paperclip-code-highlight-bg,rgba(250,204,21,0.12))]",
+                isHighlighted && "bg-[var(--fabric-code-highlight-bg,rgba(250,204,21,0.12))]",
               )}
             >
               <span
                 aria-hidden="true"
                 className={cn(
-                  "sticky left-0 z-10 shrink-0 select-none pl-3 pr-4 text-right text-[var(--paperclip-code-gutter-fg,theme(colors.muted.foreground))] opacity-70",
-                  "bg-[var(--paperclip-code-bg,theme(colors.muted.DEFAULT))]",
+                  "sticky left-0 z-10 shrink-0 select-none pl-3 pr-4 text-right text-[var(--fabric-code-gutter-fg,theme(colors.muted.foreground))] opacity-70",
+                  "bg-[var(--fabric-code-bg,theme(colors.muted.DEFAULT))]",
                   isHighlighted &&
-                    "opacity-100 bg-[var(--paperclip-code-highlight-bg,rgba(250,204,21,0.12))] border-l-2 border-[var(--paperclip-code-highlight-border,rgb(234,179,8))]",
+                    "opacity-100 bg-[var(--fabric-code-highlight-bg,rgba(250,204,21,0.12))] border-l-2 border-[var(--fabric-code-highlight-border,rgb(234,179,8))]",
                 )}
                 style={{ width: gutterWidth, minWidth: gutterWidth }}
               >

@@ -3,75 +3,80 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { scanBrandMatches } from "./brand-rules.mjs";
+
 import { evaluateBranding } from "./check-product-branding.mjs";
 
 async function makeFixture() {
-  const root = await mkdtemp(path.join(os.tmpdir(), "brand-check-"));
-  await mkdir(path.join(root, "ui", "src"), { recursive: true });
-  await mkdir(path.join(root, "packages", "example"), { recursive: true });
-  const allowlistPath = path.join(root, "brand-allowlist.json");
-  await writeFile(
-    allowlistPath,
-    JSON.stringify(
-      {
-        schemaVersion: 1,
-        allowedCategories: ["package-internal", "env-config-compat", "legal-upstream", "historical", "tests"],
-        allowedPathPrefixes: [],
-        allowedLinePatterns: [],
-        protectedCategories: ["ui", "server", "docs"],
-        baselineFingerprints: []
-      },
-      null,
-      2
-    )
-  );
-  return { root, allowlistPath };
+  const root = await mkdtemp(path.join(os.tmpdir(), "hermes-fabric-branding-"));
+  await writeFile(path.join(root, "package.json"), '{"name":"hermes-fabric"}\n');
+  await writeFile(path.join(root, "README.md"), "# Hermes Fabric\n");
+  await writeFile(path.join(root, "HERMES_FABRIC.md"), "# Hermes Fabric\n");
+  return root;
 }
 
-test("flags unallowlisted user-facing legacy product names", async () => {
-  const { root, allowlistPath } = await makeFixture();
-  await writeFile(path.join(root, "ui", "src", "App.tsx"), "export const title = 'Welcome to Paperclip';\n");
+async function writeFixture(root, relativePath, content) {
+  const target = path.join(root, relativePath);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, content);
+}
 
-  const result = await evaluateBranding({ root, allowlistPath });
+test("rejects a legacy runtime product name", async () => {
+  const root = await makeFixture();
+  await writeFixture(root, "server/src/runtime.ts", 'export const productName = "Paperclip";\n');
+
+  const result = await evaluateBranding({ root });
 
   assert.equal(result.violationCount, 1);
-  assert.equal(result.violations[0].file, "ui/src/App.tsx");
-  assert.equal(result.violations[0].term, "Paperclip");
+  assert.equal(result.violations[0].kind, "content");
+  assert.equal(result.violations[0].rule, "legacy-product-name");
 });
 
-test("allows internal package compatibility references", async () => {
-  const { root, allowlistPath } = await makeFixture();
-  await writeFile(path.join(root, "packages", "example", "package.json"), '{"name":"@paperclipai/example"}\n');
+test("rejects a legacy package scope", async () => {
+  const root = await makeFixture();
+  await writeFixture(root, "packages/example/package.json", '{"name":"@paperclipai/example"}\n');
 
-  const result = await evaluateBranding({ root, allowlistPath });
+  const result = await evaluateBranding({ root });
 
-  assert.equal(result.violationCount, 0);
+  assert.equal(result.violationCount, 1);
+  assert.equal(result.violations[0].rule, "legacy-package-scope");
 });
 
-test("honors baseline fingerprints for staged cleanup", async () => {
-  const { root, allowlistPath } = await makeFixture();
-  const filePath = path.join(root, "ui", "src", "Skills.tsx");
-  await writeFile(filePath, "export const label = 'Paperclip bundled';\n");
-  const [match] = await scanBrandMatches(root);
-  assert.ok(match?.fingerprint);
-  await writeFile(
-    allowlistPath,
-    JSON.stringify(
-      {
-        schemaVersion: 1,
-        allowedCategories: ["package-internal", "env-config-compat", "legal-upstream", "historical", "tests"],
-        allowedPathPrefixes: [],
-        allowedLinePatterns: [],
-        protectedCategories: ["ui", "server", "docs"],
-        baselineFingerprints: [match.fingerprint]
-      },
-      null,
-      2
-    )
+test("rejects a legacy environment prefix", async () => {
+  const root = await makeFixture();
+  await writeFixture(root, "server/src/config.ts", 'const value = process.env.PAPERCLIP_DATABASE_URL;\n');
+
+  const result = await evaluateBranding({ root });
+
+  assert.equal(result.violationCount, 1);
+  assert.equal(result.violations[0].rule, "legacy-env-prefix");
+});
+
+test("rejects a legacy filename", async () => {
+  const root = await makeFixture();
+  await writeFixture(root, "skills/paperclip-board/SKILL.md", "# Board skill\n");
+
+  const result = await evaluateBranding({ root });
+
+  assert.equal(result.violationCount, 1);
+  assert.equal(result.violations[0].kind, "path");
+  assert.equal(result.violations[0].rule, "legacy-path-token");
+});
+
+test("allows legal attribution and explicit upstream normalization fixtures", async () => {
+  const root = await makeFixture();
+  await writeFixture(root, "NOTICE", "Derived from Paperclip under the MIT License.\n");
+  await writeFixture(
+    root,
+    "scripts/normalize-upstream-import.py",
+    'LEGACY_ALIASES = ["Paperclip", "@paperclipai/"]\n',
+  );
+  await writeFixture(
+    root,
+    "docs/history.md",
+    "The legacy Paperclip name is retained here for historical attribution.\n",
   );
 
-  const result = await evaluateBranding({ root, allowlistPath });
+  const result = await evaluateBranding({ root });
 
   assert.equal(result.violationCount, 0);
 });

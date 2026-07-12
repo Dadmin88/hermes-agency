@@ -5,7 +5,7 @@ import {
   type Agent,
   type Issue,
   type PipelineCaseDocumentPayload,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { FilePenLine, FileText, Loader2 } from "lucide-react";
 import { ApiError } from "../api/client";
 import { issuesApi } from "../api/issues";
@@ -242,7 +242,7 @@ export function PipelineItemBodyDocument({
     [conversationIssueId, doc?.latestRevisionId, latestBody, onStartConversation, pushToast, saveMutation],
   );
 
-  const bodyContentClassName = "paperclip-edit-in-place-content min-h-[220px] text-[15px] leading-7";
+  const bodyContentClassName = "fabric-edit-in-place-content min-h-[220px] text-[15px] leading-7";
 
   const renderReadOnlyBody = (body: string) => (
     <FoldCurtain className="max-w-3xl">

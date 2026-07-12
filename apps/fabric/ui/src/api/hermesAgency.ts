@@ -3,7 +3,7 @@ import type {
   HermesAgencyDispatchRecord,
   HermesAgencyRosterResponse,
   HermesAgencyTaskPacketPreview,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export const hermesAgencyApi = {

@@ -1,9 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import { and, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
-import { heartbeatRuns, instanceUserRoles, invites } from "@paperclipai/db";
-import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
+import { heartbeatRuns, instanceUserRoles, invites } from "@hermes-fabric/db";
+import type { DeploymentExposure, DeploymentMode } from "@hermes-fabric/shared";
 import { readPersistedDevServerStatus, toDevServerHealthStatus, writeDevServerRestartRequest } from "../dev-server-status.js";
 import { logger } from "../middleware/logger.js";
 import { getServerInfoSnapshot, type ServerInfoSnapshot } from "../server-info.js";
@@ -94,7 +94,7 @@ export function healthRoutes(
     // already access-controlled field.
     const serverInfo = opts.serverInfo ?? getServerInfoSnapshot();
     const exposeDevServerDetails =
-      exposeFullDetails || hasDevServerStatusToken(req.get("x-paperclip-dev-server-status-token"));
+      exposeFullDetails || hasDevServerStatusToken(req.get("x-hermesfabric-dev-server-status-token"));
 
     if (!db) {
       res.json(

@@ -11,9 +11,9 @@ import {
   formatEmbeddedPostgresError,
   prepareEmbeddedPostgresNativeRuntime,
   routines,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import { eq, inArray } from "drizzle-orm";
-import { loadPaperclipEnvFile } from "../config/env.js";
+import { loadHermesFabricEnvFile } from "../config/env.js";
 import { readConfig, resolveConfigPath } from "../config/store.js";
 
 type RoutinesDisableAllOptions = {
@@ -133,8 +133,8 @@ async function ensureEmbeddedPostgres(dataDir: string, preferredPort: number): P
   const logBuffer = createEmbeddedPostgresLogBuffer();
   const instance = new EmbeddedPostgres({
     databaseDir: dataDir,
-    user: "paperclip",
-    password: "paperclip",
+    user: "fabric",
+    password: "fabric",
     port,
     persistent: true,
     initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
@@ -195,9 +195,9 @@ async function openConfiguredDb(configPath: string): Promise<{
         config.database.embeddedPostgresDataDir,
         config.database.embeddedPostgresPort,
       );
-      const adminConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${embeddedHandle.port}/postgres`;
-      await ensurePostgresDatabase(adminConnectionString, "paperclip");
-      const connectionString = `postgres://paperclip:paperclip@127.0.0.1:${embeddedHandle.port}/paperclip`;
+      const adminConnectionString = `postgres://fabric:fabric@127.0.0.1:${embeddedHandle.port}/postgres`;
+      await ensurePostgresDatabase(adminConnectionString, "fabric");
+      const connectionString = `postgres://fabric:fabric@127.0.0.1:${embeddedHandle.port}/fabric`;
       await applyPendingMigrations(connectionString);
       const db = createDb(connectionString) as ClosableDb;
       return {
@@ -236,13 +236,13 @@ export async function disableAllRoutinesInConfig(
   options: Pick<RoutinesDisableAllOptions, "config" | "companyId">,
 ): Promise<DisableAllRoutinesResult> {
   const configPath = resolveConfigPath(options.config);
-  loadPaperclipEnvFile(configPath);
+  loadHermesFabricEnvFile(configPath);
   const companyId =
     nonEmpty(options.companyId)
-    ?? nonEmpty(process.env.PAPERCLIP_COMPANY_ID)
+    ?? nonEmpty(process.env.HERMES_FABRIC_COMPANY_ID)
     ?? null;
   if (!companyId) {
-    throw new Error("Company ID is required. Pass --company-id or set PAPERCLIP_COMPANY_ID.");
+    throw new Error("Company ID is required. Pass --company-id or set HERMES_FABRIC_COMPANY_ID.");
   }
 
   const config = readConfig(configPath);
@@ -258,9 +258,9 @@ export async function disableAllRoutinesInConfig(
         config.database.embeddedPostgresDataDir,
         config.database.embeddedPostgresPort,
       );
-      const adminConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${embeddedHandle.port}/postgres`;
-      await ensurePostgresDatabase(adminConnectionString, "paperclip");
-      const connectionString = `postgres://paperclip:paperclip@127.0.0.1:${embeddedHandle.port}/paperclip`;
+      const adminConnectionString = `postgres://fabric:fabric@127.0.0.1:${embeddedHandle.port}/postgres`;
+      await ensurePostgresDatabase(adminConnectionString, "fabric");
+      const connectionString = `postgres://fabric:fabric@127.0.0.1:${embeddedHandle.port}/fabric`;
       await applyPendingMigrations(connectionString);
       db = createDb(connectionString) as ClosableDb;
     } else {
@@ -339,7 +339,7 @@ export function registerRoutineCommands(program: Command): void {
     .command("disable-all")
     .description("Pause all non-archived routines in the configured local instance for one company")
     .option("-c, --config <path>", "Path to config file")
-    .option("-d, --data-dir <path>", "Paperclip data directory root (isolates state from ~/.paperclip)")
+    .option("-d, --data-dir <path>", "HermesFabric data directory root (isolates state from ~/.hermes-fabric)")
     .option("-C, --company-id <id>", "Company ID")
     .option("--json", "Output raw JSON")
     .action(async (opts: RoutinesDisableAllOptions) => {

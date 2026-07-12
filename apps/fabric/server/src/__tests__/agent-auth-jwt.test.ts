@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocalAgentJwt, verifyLocalAgentJwt } from "../agent-auth-jwt.js";
 
 describe("agent local JWT", () => {
-  const secretEnv = "PAPERCLIP_AGENT_JWT_SECRET";
+  const secretEnv = "HERMES_FABRIC_AGENT_JWT_SECRET";
   const betterAuthSecretEnv = "BETTER_AUTH_SECRET";
-  const ttlEnv = "PAPERCLIP_AGENT_JWT_TTL_SECONDS";
-  const issuerEnv = "PAPERCLIP_AGENT_JWT_ISSUER";
-  const audienceEnv = "PAPERCLIP_AGENT_JWT_AUDIENCE";
-  const disableLegacyFallbackEnv = "PAPERCLIP_AGENT_JWT_DISABLE_LEGACY_FALLBACK";
+  const ttlEnv = "HERMES_FABRIC_AGENT_JWT_TTL_SECONDS";
+  const issuerEnv = "HERMES_FABRIC_AGENT_JWT_ISSUER";
+  const audienceEnv = "HERMES_FABRIC_AGENT_JWT_AUDIENCE";
+  const disableLegacyFallbackEnv = "HERMES_FABRIC_AGENT_JWT_DISABLE_LEGACY_FALLBACK";
 
   const originalEnv = {
     secret: process.env[secretEnv],
@@ -56,8 +56,8 @@ describe("agent local JWT", () => {
       company_id: "company-1",
       adapter_type: "claude_local",
       run_id: "run-1",
-      iss: "paperclip",
-      aud: "paperclip-api",
+      iss: "fabric",
+      aud: "fabric-api",
     });
   });
 
@@ -68,7 +68,7 @@ describe("agent local JWT", () => {
     expect(verifyLocalAgentJwt("abc.def.ghi")).toBeNull();
   });
 
-  it("falls back to BETTER_AUTH_SECRET when PAPERCLIP_AGENT_JWT_SECRET is absent", () => {
+  it("falls back to BETTER_AUTH_SECRET when HERMES_FABRIC_AGENT_JWT_SECRET is absent", () => {
     delete process.env[secretEnv];
     process.env[betterAuthSecretEnv] = "fallback-secret";
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
@@ -99,8 +99,8 @@ describe("agent local JWT", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     const token = createLocalAgentJwt("agent-1", "company-1", "codex_local", "run-1");
 
-    process.env[issuerEnv] = "paperclip";
-    process.env[audienceEnv] = "paperclip-api";
+    process.env[issuerEnv] = "fabric";
+    process.env[audienceEnv] = "fabric-api";
     expect(verifyLocalAgentJwt(token!)).toBeNull();
   });
 
@@ -141,8 +141,8 @@ describe("agent local JWT", () => {
       run_id: "run-legacy",
       iat: now,
       exp: now + 3600,
-      iss: "paperclip",
-      aud: "paperclip-api",
+      iss: "fabric",
+      aud: "fabric-api",
     };
     const headerB64 = Buffer.from(JSON.stringify(header), "utf8").toString("base64url");
     const claimsB64 = Buffer.from(JSON.stringify(claims), "utf8").toString("base64url");
@@ -159,7 +159,7 @@ describe("agent local JWT", () => {
     });
   });
 
-  it("defaults TTL to 1h when PAPERCLIP_AGENT_JWT_TTL_SECONDS is unset", () => {
+  it("defaults TTL to 1h when HERMES_FABRIC_AGENT_JWT_TTL_SECONDS is unset", () => {
     delete process.env[ttlEnv];
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");
@@ -179,8 +179,8 @@ describe("agent local JWT", () => {
       run_id: "run-legacy",
       iat: now,
       exp: now + 3600,
-      iss: "paperclip",
-      aud: "paperclip-api",
+      iss: "fabric",
+      aud: "fabric-api",
     };
     const headerB64 = Buffer.from(JSON.stringify(header), "utf8").toString("base64url");
     const claimsB64 = Buffer.from(JSON.stringify(claims), "utf8").toString("base64url");
@@ -189,7 +189,7 @@ describe("agent local JWT", () => {
     return `${signingInput}.${legacySig}`;
   }
 
-  it("accepts master-secret-signed tokens when PAPERCLIP_AGENT_JWT_DISABLE_LEGACY_FALLBACK is unset", () => {
+  it("accepts master-secret-signed tokens when HERMES_FABRIC_AGENT_JWT_DISABLE_LEGACY_FALLBACK is unset", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     delete process.env[disableLegacyFallbackEnv];
     const legacyToken = craftLegacyMasterSecretToken(process.env[secretEnv]!, "company-legacy");
@@ -198,14 +198,14 @@ describe("agent local JWT", () => {
     expect(verified!.company_id).toBe("company-legacy");
   });
 
-  it("rejects master-secret-signed tokens when PAPERCLIP_AGENT_JWT_DISABLE_LEGACY_FALLBACK is enabled", () => {
+  it("rejects master-secret-signed tokens when HERMES_FABRIC_AGENT_JWT_DISABLE_LEGACY_FALLBACK is enabled", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     process.env[disableLegacyFallbackEnv] = "true";
     const legacyToken = craftLegacyMasterSecretToken(process.env[secretEnv]!, "company-legacy");
     expect(verifyLocalAgentJwt(legacyToken)).toBeNull();
   });
 
-  it("still verifies per-company-signed tokens when PAPERCLIP_AGENT_JWT_DISABLE_LEGACY_FALLBACK is enabled", () => {
+  it("still verifies per-company-signed tokens when HERMES_FABRIC_AGENT_JWT_DISABLE_LEGACY_FALLBACK is enabled", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     process.env[disableLegacyFallbackEnv] = "true";
     const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");

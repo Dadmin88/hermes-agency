@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, integer, timestamp, index, jsonb } from "drizzle-orm/pg-core";
-import type { SourceTrustMetadata } from "@paperclipai/shared";
+import type { SourceTrustMetadata } from "@hermes-fabric/shared";
 import { companies } from "./companies.js";
 import { agents } from "./agents.js";
 

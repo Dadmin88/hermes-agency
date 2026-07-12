@@ -1,11 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { plugins, pluginState } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { plugins, pluginState } from "@hermes-fabric/db";
 import type {
   PluginStateScopeKind,
   SetPluginState,
   ListPluginState,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { notFound } from "../errors.js";
 
 // ---------------------------------------------------------------------------

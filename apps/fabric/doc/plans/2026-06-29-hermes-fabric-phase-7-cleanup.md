@@ -12,13 +12,13 @@ Current workspace package names still use the upstream namespace:
 
 - Root package: `hermes-fabric`
 - CLI package: `hermes-fabric`
-- Compatibility CLI bin: `paperclipai`
-- Internal packages: `@paperclipai/*`
-- Adapter/plugin package names: `@paperclipai/adapter-*`, `@paperclipai/plugin-*`, `@paperclipai/*-catalog`
+- Compatibility CLI bin: `hermes-fabric`
+- Internal packages: `@hermes-fabric/*`
+- Adapter/plugin package names: `@hermes-fabric/adapter-*`, `@hermes-fabric/plugin-*`, `@hermes-fabric/*-catalog`
 
 ### Decision
 
-Keep `@paperclipai/*` internal package names temporarily for compatibility.
+Keep `@hermes-fabric/*` internal package names temporarily for compatibility.
 
 ### Target
 
@@ -47,7 +47,7 @@ Implemented a safe alias-first rename:
   "name": "hermes-fabric",
   "bin": {
     "hermes-fabric": "./dist/index.js",
-    "paperclipai": "./dist/index.js"
+    "hermes-fabric": "./dist/index.js"
   }
 }
 ```
@@ -56,18 +56,18 @@ Root package scripts now expose:
 
 ```bash
 pnpm hermes-fabric ...
-pnpm paperclipai ...
+pnpm hermes-fabric ...
 ```
 
-`paperclipai` remains as compatibility alias during the transition.
+`hermes-fabric` remains as compatibility alias during the transition.
 
 ## Config Path Rename
 
 Current runtime config and data paths still use:
 
 ```text
-~/.paperclip
-PAPERCLIP_* environment variables
+~/.hermes-fabric
+HERMES_FABRIC_* environment variables
 ```
 
 ### Decision
@@ -76,15 +76,15 @@ Do not move config/data in this phase.
 
 ### Reason
 
-The current app has existing local dev data under `~/.paperclip`; moving it now risks losing embedded Postgres data, logs, secrets, auth, backups, and local instance settings.
+The current app has existing local dev data under `~/.hermes-fabric`; moving it now risks losing embedded Postgres data, logs, secrets, auth, backups, and local instance settings.
 
 ### Future migration strategy
 
 1. Add Hermes Fabric path support as opt-in first.
-2. Copy existing `~/.paperclip` data into the new path; do not move/delete.
+2. Copy existing `~/.hermes-fabric` data into the new path; do not move/delete.
 3. Verify config, DB, logs, storage, auth, secrets key, and backups resolve correctly.
 4. Run typecheck, tests, build, and dev smoke.
-5. Only then consider deprecating `PAPERCLIP_*` names.
+5. Only then consider deprecating `HERMES_FABRIC_*` names.
 
 ## Docs and Assets
 
@@ -97,11 +97,11 @@ Updated in this phase:
 
 Deferred intentionally:
 
-- Deep docs rewrite across historical Paperclip guides and releases.
+- Deep docs rewrite across historical Hermes Fabric guides and releases.
 - Full screenshot/video replacement.
 - Full internal package namespace rename.
-- Removing `paperclipai` command compatibility.
+- Removing `hermes-fabric` command compatibility.
 
 ## Attribution
 
-Keep upstream Paperclip MIT attribution in `LICENSE` and fork documentation.
+Keep upstream Hermes Fabric MIT attribution in `LICENSE` and fork documentation.

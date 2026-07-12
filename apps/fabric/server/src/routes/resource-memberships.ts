@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
-import type { Db } from "@paperclipai/db";
-import { updateResourceMembershipSchema } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import { updateResourceMembershipSchema } from "@hermes-fabric/shared";
 import { validate } from "../middleware/validate.js";
 import { getActorInfo } from "./authz.js";
 import { logActivity, resourceMembershipService } from "../services/index.js";

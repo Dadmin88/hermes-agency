@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import type { CreateConfigValues } from "@hermes-fabric/adapter-utils";
 import { buildOpenClawGatewayConfig } from "./build-config.js";
 
 function baseValues(): CreateConfigValues {

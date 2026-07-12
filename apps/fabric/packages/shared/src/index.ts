@@ -877,7 +877,7 @@ export type {
   PluginApiRouteDeclaration,
   PluginObjectReferenceRefreshPolicy,
   PluginObjectReferenceProviderDeclaration,
-  PaperclipPluginManifestV1,
+  HermesFabricPluginManifestV1,
   PluginRecord,
   PluginDatabaseNamespaceRecord,
   PluginMigrationRecord,
@@ -1574,7 +1574,7 @@ export {
 } from "./routine-variables.js";
 
 export {
-  paperclipConfigSchema,
+  fabricConfigSchema,
   configMetaSchema,
   llmConfigSchema,
   databaseBackupConfigSchema,
@@ -1589,7 +1589,7 @@ export {
   secretsLocalEncryptedConfigSchema,
   telemetryConfigSchema,
   type TelemetryConfig,
-  type PaperclipConfig,
+  type HermesFabricConfig,
   type LlmConfig,
   type DatabaseBackupConfig,
   type DatabaseConfig,

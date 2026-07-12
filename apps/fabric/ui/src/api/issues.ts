@@ -24,7 +24,7 @@ import type {
   ReleaseIssueTreeHold,
   UpsertIssueWatchdog,
   UpsertIssueDocument,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { api } from "./client";
 
 export type IssueUpdateResponse = Issue & {

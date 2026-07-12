@@ -10,8 +10,8 @@ import {
   issues,
   principalPermissionGrants,
   projects,
-} from "@paperclipai/db";
-import { LOW_TRUST_REVIEW_PRESET } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import { LOW_TRUST_REVIEW_PRESET } from "@hermes-fabric/shared";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -124,7 +124,7 @@ describeEmbeddedPostgres("authorization service", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-authorization-service-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-authorization-service-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

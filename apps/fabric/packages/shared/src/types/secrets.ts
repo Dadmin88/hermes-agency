@@ -146,8 +146,8 @@ export interface SecretProviderConfigDiscoverySignal {
   kmsKeyId: string | null;
   hasKmsKey: boolean;
   sampleCount: number;
-  paperclipManagedSampleCount: number;
-  skippedForeignPaperclipSampleCount: number;
+  fabricManagedSampleCount: number;
+  skippedForeignHermesFabricSampleCount: number;
 }
 
 export interface SecretProviderConfigDiscoverySample {
@@ -170,7 +170,7 @@ export interface SecretProviderConfigDiscoveryPreviewResult {
   provider: SecretProvider;
   nextToken: string | null;
   sampledSecretCount: number;
-  skippedForeignPaperclipSampleCount: number;
+  skippedForeignHermesFabricSampleCount: number;
   candidates: SecretProviderConfigDiscoveryCandidate[];
   warnings: string[];
 }

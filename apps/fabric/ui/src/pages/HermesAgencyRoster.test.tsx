@@ -3,7 +3,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { HermesAgencyAgent, HermesAgencyRosterResponse } from "@paperclipai/shared";
+import type { HermesAgencyAgent, HermesAgencyRosterResponse } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HermesAgencyRoster } from "./HermesAgencyRoster";
 
@@ -127,6 +127,14 @@ describe("HermesAgencyRoster", () => {
     expect(container.textContent).toContain("1 wake failed");
     expect(container.textContent).toContain("agency-backend-engineer");
     expect(container.textContent).toContain("Offline target");
+    const backendRow = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("agency-backend-engineer"),
+    ) as HTMLButtonElement | undefined;
+    expect(backendRow).toBeTruthy();
+    await act(async () => {
+      backendRow?.click();
+    });
+    await flushReact();
     expect(container.textContent).toContain("Error: profile agency-backend-engineer not found");
   });
 
@@ -191,8 +199,25 @@ describe("HermesAgencyRoster", () => {
     const { container, root } = await renderPage();
     roots.push(root);
 
+    const agentRow = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("agency-backend-engineer"),
+    ) as HTMLButtonElement | undefined;
+    const taskControls = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.trim() === "Task controls",
+    ) as HTMLButtonElement | undefined;
+    expect(agentRow).toBeTruthy();
+    expect(taskControls).toBeTruthy();
     await act(async () => {
-      (container.querySelector("button") as HTMLButtonElement).click();
+      agentRow?.click();
+      taskControls?.click();
+    });
+    await flushReact();
+    const sendTask = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Send task"),
+    ) as HTMLButtonElement | undefined;
+    expect(sendTask).toBeTruthy();
+    await act(async () => {
+      sendTask?.click();
     });
     await flushReact();
 

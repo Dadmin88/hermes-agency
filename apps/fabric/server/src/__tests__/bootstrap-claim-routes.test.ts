@@ -157,8 +157,8 @@ describe("POST /bootstrap/claim", () => {
 
     const allowed = await request(app)
       .post("/api/bootstrap/claim")
-      .set("Host", "paperclip.local")
-      .set("Origin", "http://paperclip.local")
+      .set("Host", "fabric.local")
+      .set("Origin", "http://fabric.local")
       .send({});
     expect(allowed.status).toBe(200);
     expect(claimFirstInstanceAdminMock).toHaveBeenCalledTimes(1);

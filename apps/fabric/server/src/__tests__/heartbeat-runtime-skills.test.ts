@@ -4,8 +4,8 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { agents, companies, companySkills, createDb } from "@paperclipai/db";
-import type { PaperclipSkillEntry } from "@paperclipai/adapter-utils/server-utils";
+import { agents, companies, companySkills, createDb } from "@hermes-fabric/db";
+import type { HermesFabricSkillEntry } from "@hermes-fabric/adapter-utils/server-utils";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -41,23 +41,23 @@ async function waitForRunToFinish(
 describeEmbeddedPostgres("heartbeat runtime skill version pins", () => {
   let db!: ReturnType<typeof createDb>;
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
-  let oldPaperclipHome: string | undefined;
-  let paperclipHome: string | null = null;
-  const capturedRuns: Array<{ agentId: string; skills: PaperclipSkillEntry[] }> = [];
+  let oldHermesFabricHome: string | undefined;
+  let fabricHome: string | null = null;
+  const capturedRuns: Array<{ agentId: string; skills: HermesFabricSkillEntry[] }> = [];
   const cleanupDirs = new Set<string>();
 
   beforeAll(async () => {
     tempDb = await startEmbeddedPostgresTestDatabase("heartbeat-runtime-skills-");
     db = createDb(tempDb.connectionString);
-    oldPaperclipHome = process.env.PAPERCLIP_HOME;
-    paperclipHome = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-skills-home-"));
-    process.env.PAPERCLIP_HOME = paperclipHome;
+    oldHermesFabricHome = process.env.HERMES_FABRIC_HOME;
+    fabricHome = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-runtime-skills-home-"));
+    process.env.HERMES_FABRIC_HOME = fabricHome;
     registerServerAdapter({
       type: TEST_ADAPTER_TYPE,
       execute: async (ctx) => {
         capturedRuns.push({
           agentId: ctx.agent.id,
-          skills: (ctx.config.paperclipRuntimeSkills ?? []) as PaperclipSkillEntry[],
+          skills: (ctx.config.fabricRuntimeSkills ?? []) as HermesFabricSkillEntry[],
         });
         return {
           exitCode: 0,
@@ -98,10 +98,10 @@ describeEmbeddedPostgres("heartbeat runtime skill version pins", () => {
 
   afterAll(async () => {
     unregisterServerAdapter(TEST_ADAPTER_TYPE);
-    if (oldPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
-    else process.env.PAPERCLIP_HOME = oldPaperclipHome;
-    if (paperclipHome) {
-      await fs.rm(paperclipHome, { recursive: true, force: true });
+    if (oldHermesFabricHome === undefined) delete process.env.HERMES_FABRIC_HOME;
+    else process.env.HERMES_FABRIC_HOME = oldHermesFabricHome;
+    if (fabricHome) {
+      await fs.rm(fabricHome, { recursive: true, force: true });
     }
     await tempDb?.cleanup();
   });
@@ -113,12 +113,12 @@ describeEmbeddedPostgres("heartbeat runtime skill version pins", () => {
     const secondAgentId = randomUUID();
     const issuePrefix = `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
     const skillKey = `company/${companyId}/runtime-coach`;
-    const skillDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-versioned-runtime-skill-"));
+    const skillDir = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-versioned-runtime-skill-"));
     cleanupDirs.add(skillDir);
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix,
       requireBoardApprovalForNewAgents: false,
     });
@@ -167,7 +167,7 @@ describeEmbeddedPostgres("heartbeat runtime skill version pins", () => {
         status: "idle",
         adapterType: TEST_ADAPTER_TYPE,
         adapterConfig: {
-          paperclipSkillSync: {
+          fabricSkillSync: {
             desiredSkills: [{ key: skillKey, versionId: versionOne.id }],
           },
         },
@@ -182,7 +182,7 @@ describeEmbeddedPostgres("heartbeat runtime skill version pins", () => {
         status: "idle",
         adapterType: TEST_ADAPTER_TYPE,
         adapterConfig: {
-          paperclipSkillSync: {
+          fabricSkillSync: {
             desiredSkills: [{ key: skillKey, versionId: versionTwo.id }],
           },
         },

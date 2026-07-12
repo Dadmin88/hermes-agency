@@ -3,20 +3,20 @@ import { fileURLToPath } from "node:url";
 import type {
   AdapterSkillContext,
   AdapterSkillSnapshot,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 import {
   buildRuntimeMountedSkillSnapshot,
-  readPaperclipRuntimeSkillEntries,
-  resolvePaperclipDesiredSkillNames,
-} from "@paperclipai/adapter-utils/server-utils";
+  readHermesFabricRuntimeSkillEntries,
+  resolveHermesFabricDesiredSkillNames,
+} from "@hermes-fabric/adapter-utils/server-utils";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 async function buildGrokSkillSnapshot(
   config: Record<string, unknown>,
 ): Promise<AdapterSkillSnapshot> {
-  const availableEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
-  const desiredSkills = resolvePaperclipDesiredSkillNames(config, availableEntries);
+  const availableEntries = await readHermesFabricRuntimeSkillEntries(config, __moduleDir);
+  const desiredSkills = resolveHermesFabricDesiredSkillNames(config, availableEntries);
   return buildRuntimeMountedSkillSnapshot({
     adapterType: "grok_local",
     availableEntries,

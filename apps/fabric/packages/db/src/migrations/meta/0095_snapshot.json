@@ -4526,7 +4526,7 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'paperclip_managed'"
+          "default": "'fabric_managed'"
         },
         "external_ref": {
           "name": "external_ref",
@@ -7586,21 +7586,21 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'paperclip-feedback-envelope-v2'"
+          "default": "'fabric-feedback-envelope-v2'"
         },
         "bundle_version": {
           "name": "bundle_version",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'paperclip-feedback-bundle-v2'"
+          "default": "'fabric-feedback-bundle-v2'"
         },
         "payload_version": {
           "name": "payload_version",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'paperclip-feedback-v1'"
+          "default": "'fabric-feedback-v1'"
         },
         "payload_digest": {
           "name": "payload_digest",

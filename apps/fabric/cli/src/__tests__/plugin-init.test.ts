@@ -8,10 +8,10 @@ const mocks = vi.hoisted(() => ({
   scaffoldPluginProject: vi.fn((options: { outputDir: string }) => options.outputDir),
 }));
 
-vi.mock("../../../packages/plugins/create-paperclip-plugin/src/index.js", async () => {
+vi.mock("../../../packages/plugins/create-fabric-plugin/src/index.js", async () => {
   const actual =
-    await vi.importActual<typeof import("../../../packages/plugins/create-paperclip-plugin/src/index.js")>(
-      "../../../packages/plugins/create-paperclip-plugin/src/index.js",
+    await vi.importActual<typeof import("../../../packages/plugins/create-fabric-plugin/src/index.js")>(
+      "../../../packages/plugins/create-fabric-plugin/src/index.js",
     );
   return {
     ...actual,
@@ -31,7 +31,7 @@ import {
 const tempDirs: string[] = [];
 
 function makeTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-cli-plugin-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fabric-cli-plugin-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -49,7 +49,7 @@ describe("plugin init", () => {
   });
 
   it("maps package name and flags to scaffolder options", () => {
-    const cwd = path.resolve("/tmp/paperclip-cli-test");
+    const cwd = path.resolve("/tmp/fabric-cli-test");
     const options = buildPluginInitScaffoldOptions(
       "@acme/plugin-linear",
       {
@@ -59,7 +59,7 @@ describe("plugin init", () => {
         displayName: "Linear Bridge",
         description: "Syncs Linear issues",
         author: "Acme",
-        sdkPath: "../paperclip/packages/plugins/sdk",
+        sdkPath: "../fabric/packages/plugins/sdk",
       },
       cwd,
     );
@@ -72,7 +72,7 @@ describe("plugin init", () => {
       displayName: "Linear Bridge",
       description: "Syncs Linear issues",
       author: "Acme",
-      sdkPath: "../paperclip/packages/plugins/sdk",
+      sdkPath: "../fabric/packages/plugins/sdk",
     });
   });
 
@@ -81,7 +81,7 @@ describe("plugin init", () => {
       "cd '/tmp/acme plugin'",
       "pnpm install",
       "pnpm dev",
-      "paperclipai plugin install '/tmp/acme plugin'",
+      "hermes-fabric plugin install '/tmp/acme plugin'",
     ]);
   });
 
@@ -97,7 +97,7 @@ describe("plugin init", () => {
         "init",
         "demo-plugin",
         "--output",
-        "/tmp/paperclip-init-output",
+        "/tmp/fabric-init-output",
         "--template",
         "workspace",
         "--category",
@@ -107,7 +107,7 @@ describe("plugin init", () => {
         "--description",
         "Demo description",
         "--author",
-        "Paperclip",
+        "Hermes Fabric",
         "--sdk-path",
         "/repo/packages/plugins/sdk",
       ],
@@ -117,12 +117,12 @@ describe("plugin init", () => {
     expect(mocks.scaffoldPluginProject).toHaveBeenCalledTimes(1);
     expect(mocks.scaffoldPluginProject).toHaveBeenCalledWith({
       pluginName: "demo-plugin",
-      outputDir: path.resolve("/tmp/paperclip-init-output", "demo-plugin"),
+      outputDir: path.resolve("/tmp/fabric-init-output", "demo-plugin"),
       template: "workspace",
       category: "workspace",
       displayName: "Demo Plugin",
       description: "Demo description",
-      author: "Paperclip",
+      author: "Hermes Fabric",
       sdkPath: "/repo/packages/plugins/sdk",
     });
   });
@@ -191,14 +191,14 @@ describe("plugin target diagnostics", () => {
 
   it("marks the target unreachable when the health probe throws", async () => {
     const get = vi.fn(async () => {
-      throw new Error("Could not reach the Paperclip API.\nRequest: GET ...");
+      throw new Error("Could not reach the HermesFabric API.\nRequest: GET ...");
     });
 
     const diag = await probeTargetDiagnostics({ apiBase: "http://other-host:9999", get });
 
     expect(diag.apiBase).toBe("http://other-host:9999");
     expect(diag.reachable).toBe(false);
-    expect(diag.error).toContain("Could not reach the Paperclip API.");
+    expect(diag.error).toContain("Could not reach the HermesFabric API.");
   });
 
   it("formats reachable diagnostics with version and mode", () => {
@@ -222,6 +222,6 @@ describe("plugin target diagnostics", () => {
 
     expect(rendered).toContain("unreachable");
     expect(rendered).toContain("--api-base");
-    expect(rendered).toContain("PAPERCLIP_API_URL");
+    expect(rendered).toContain("HERMES_FABRIC_API_URL");
   });
 });

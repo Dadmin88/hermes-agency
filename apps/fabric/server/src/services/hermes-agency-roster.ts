@@ -2,7 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { HermesAgencyAgent, HermesAgencyAgentStatus, HermesAgencyRosterResponse } from "@paperclipai/shared";
+import type { HermesAgencyAgent, HermesAgencyAgentStatus, HermesAgencyRosterResponse } from "@hermes-fabric/shared";
 
 export class HermesAgencyRosterUnavailableError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {

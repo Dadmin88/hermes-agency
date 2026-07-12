@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { agents, companies, companyMemberships, createDb, issues, principalPermissionGrants } from "@paperclipai/db";
+import { agents, companies, companyMemberships, createDb, issues, principalPermissionGrants } from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -25,7 +25,7 @@ describeEmbeddedPostgres("issue list routes assigneeAgentId filter", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-issue-list-routes-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-issue-list-routes-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -90,7 +90,7 @@ describeEmbeddedPostgres("issue list routes assigneeAgentId filter", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: uniqueIssuePrefix(),
       requireBoardApprovalForNewAgents: false,
     });
@@ -143,7 +143,7 @@ describeEmbeddedPostgres("issue list routes assigneeAgentId filter", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: uniqueIssuePrefix(),
       requireBoardApprovalForNewAgents: false,
     });
@@ -204,7 +204,7 @@ describeEmbeddedPostgres("issue list routes assigneeAgentId filter", () => {
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: uniqueIssuePrefix(),
       requireBoardApprovalForNewAgents: false,
     });

@@ -8,7 +8,7 @@ import {
   type SourceTrustMetadata,
   type TrustAuthorizationPolicy,
   type TrustPreset,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 export type LowTrustBoundaryTarget =
   | { type: "project"; id: string }
@@ -23,7 +23,7 @@ export const TRUST_PRESET_LABELS: Record<TrustPreset, string> = {
 export const TRUST_PRESET_DESCRIPTIONS: Record<TrustPreset, string> = {
   standard: "Company-visible collaboration. This is the default for normal work.",
   low_trust_review:
-    "Contained for hostile or untrusted input. Narrow Paperclip API, quarantined output. Use for PR review and external-content triage.",
+    "Contained for hostile or untrusted input. Narrow HermesFabric API, quarantined output. Use for PR review and external-content triage.",
 };
 
 export function getTrustPreset(permissions: Partial<AgentPermissions> | null | undefined): TrustPreset {

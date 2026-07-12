@@ -110,7 +110,7 @@ import {
   // Instance settings
   patchInstanceGeneralSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 extendZodWithOpenApi(z);
 
@@ -326,9 +326,9 @@ function applyDocumentFixups(document: any): any {
     [BOARD_SESSION_AUTH_SCHEME]: {
       type: "apiKey",
       in: "cookie",
-      name: "paperclip_session",
+      name: "fabric_session",
       description:
-        "Board session cookie in authenticated mode. Paperclip uses Better Auth; cookie transport may vary by deployment.",
+        "Board session cookie in authenticated mode. HermesFabric uses Better Auth; cookie transport may vary by deployment.",
     },
     [BOARD_API_KEY_AUTH_SCHEME]: {
       type: "http",
@@ -341,7 +341,7 @@ function applyDocumentFixups(document: any): any {
       scheme: "bearer",
       bearerFormat: "Agent API Key or Agent JWT",
       description:
-        "Agent API key or Paperclip-issued local agent JWT presented in the Authorization bearer header.",
+        "Agent API key or HermesFabric-issued local agent JWT presented in the Authorization bearer header.",
     },
   };
   document.security = AUTHENTICATED_SECURITY;
@@ -357,7 +357,7 @@ function applyDocumentFixups(document: any): any {
         operation.security = BOARD_SECURITY;
       }
 
-      operation["x-paperclip-authorization"] =
+      operation["x-fabric-authorization"] =
         authLevel === "instance_admin"
           ? { actor: "board", instanceAdmin: true }
           : authLevel === "board"
@@ -3576,9 +3576,9 @@ export function buildOpenApiSpec(): any {
   return applyDocumentFixups(generator.generateDocument({
     openapi: "3.0.0",
     info: {
-      title: "Paperclip API",
+      title: "HermesFabric API",
       version: "1.0.0",
-      description: "REST API for the Paperclip AI agent management platform",
+      description: "REST API for the HermesFabric AI agent management platform",
     },
     servers: [{ url: "/" }],
   }));

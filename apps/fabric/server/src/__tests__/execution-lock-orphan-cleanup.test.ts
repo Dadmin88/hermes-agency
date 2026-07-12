@@ -10,7 +10,7 @@ import {
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -31,7 +31,7 @@ describeEmbeddedPostgres("execution lock orphan cleanup", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-exec-lock-orphan-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-exec-lock-orphan-");
     db = createDb(tempDb.connectionString);
   }, 30_000);
 
@@ -53,7 +53,7 @@ describeEmbeddedPostgres("execution lock orphan cleanup", () => {
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });

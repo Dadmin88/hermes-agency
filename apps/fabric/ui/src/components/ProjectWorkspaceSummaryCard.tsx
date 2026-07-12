@@ -1,5 +1,5 @@
 import { Link } from "@/lib/router";
-import type { ExecutionWorkspace } from "@paperclipai/shared";
+import type { ExecutionWorkspace } from "@hermes-fabric/shared";
 import { Button } from "@/components/ui/button";
 import { CopyText } from "./CopyText";
 import { IssuesQuicklook } from "./IssuesQuicklook";

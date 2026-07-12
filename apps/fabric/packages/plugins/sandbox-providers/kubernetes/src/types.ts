@@ -9,7 +9,7 @@ export const kubernetesProviderConfigSchema = z
     inCluster: z.boolean().default(false),
     kubeconfig: z.string().optional(),
 
-    namespacePrefix: z.string().regex(/^[a-z0-9-]{1,32}$/).default("paperclip-"),
+    namespacePrefix: z.string().regex(/^[a-z0-9-]{1,32}$/).default("fabric-"),
     companySlug: z.string().regex(/^[a-z0-9-]{1,32}$/).optional(),
 
     imageRegistry: z.string().url().optional(),
@@ -58,7 +58,7 @@ export const kubernetesProviderConfigSchema = z
      *
      * - `"sandbox-cr"` (default, alpha) — uses the kubernetes-sigs/agent-sandbox
      *   Sandbox CRD (agents.x-k8s.io/v1alpha1). Creates a long-lived pod that
-     *   paperclip-server can exec into for multi-command adapter-install workflows.
+     *   fabric-server can exec into for multi-command adapter-install workflows.
      *   Requires the agent-sandbox controller to be installed in the cluster.
      *
      * - `"job"` — uses batch/v1 Job (stable fallback). One-shot entrypoint; does

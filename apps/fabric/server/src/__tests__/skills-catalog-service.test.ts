@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CatalogSkill } from "@paperclipai/shared";
+import type { CatalogSkill } from "@hermes-fabric/shared";
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -41,8 +41,8 @@ vi.doMock("../middleware/logger.js", () => ({
 
 function catalogSkill(slug: string, name = slug): CatalogSkill {
   return {
-    id: `paperclipai:bundled:software-development:${slug}`,
-    key: `paperclipai/bundled/software-development/${slug}`,
+    id: `hermes-fabric:bundled:software-development:${slug}`,
+    key: `hermes-fabric/bundled/software-development/${slug}`,
     kind: "bundled",
     category: "software-development",
     slug,
@@ -68,7 +68,7 @@ function sha256(value: string | Buffer) {
 function manifest(skills: CatalogSkill[], packageVersion = "0.3.1") {
   return JSON.stringify({
     schemaVersion: 1,
-    packageName: "@paperclipai/skills-catalog",
+    packageName: "@hermes-fabric/skills-catalog",
     packageVersion,
     generatedAt: "2026-05-28T00:00:00.000Z",
     skills,
@@ -93,11 +93,11 @@ describe("skills catalog service", () => {
     }));
     mockReadFile.mockImplementation(async (filePath: string) => `content:${filePath}`);
     mockRequireResolve.mockImplementation((specifier: string) => {
-      if (specifier === "@paperclipai/skills-catalog/package.json") {
-        return "/published/node_modules/@paperclipai/skills-catalog/package.json";
+      if (specifier === "@hermes-fabric/skills-catalog/package.json") {
+        return "/published/node_modules/@hermes-fabric/skills-catalog/package.json";
       }
-      if (specifier === "@paperclipai/skills-catalog/catalog.json") {
-        return "/published/node_modules/@paperclipai/skills-catalog/generated/catalog.json";
+      if (specifier === "@hermes-fabric/skills-catalog/catalog.json") {
+        return "/published/node_modules/@hermes-fabric/skills-catalog/generated/catalog.json";
       }
       throw new Error(`Unexpected specifier: ${specifier}`);
     });
@@ -107,10 +107,10 @@ describe("skills catalog service", () => {
     const service = await import("../services/skills-catalog.js");
 
     expect(service.listCatalogSkills().map((skill) => skill.key)).toEqual([
-      "paperclipai/bundled/software-development/old-skill",
+      "hermes-fabric/bundled/software-development/old-skill",
     ]);
     expect(service.listCatalogSkills().map((skill) => skill.key)).toEqual([
-      "paperclipai/bundled/software-development/old-skill",
+      "hermes-fabric/bundled/software-development/old-skill",
     ]);
     expect(mockReadFileSync).toHaveBeenCalledTimes(1);
 
@@ -118,12 +118,12 @@ describe("skills catalog service", () => {
     manifestMtimeMs += 1;
 
     expect(service.listCatalogSkills().map((skill) => skill.key)).toEqual([
-      "paperclipai/bundled/software-development/new-skill",
+      "hermes-fabric/bundled/software-development/new-skill",
     ]);
     expect(mockReadFileSync).toHaveBeenCalledTimes(2);
     expect(() => service.getCatalogSkillOrThrow("old-skill")).toThrow("Catalog skill not found");
     expect(service.getCatalogPackageMetadata()).toEqual({
-      packageName: "@paperclipai/skills-catalog",
+      packageName: "@hermes-fabric/skills-catalog",
       packageVersion: "0.3.2",
     });
   });
@@ -194,7 +194,7 @@ describe("skills catalog service", () => {
     const service = await import("../services/skills-catalog.js");
 
     expect(service.getCatalogPackageMetadata()).toEqual({
-      packageName: "@paperclipai/skills-catalog",
+      packageName: "@hermes-fabric/skills-catalog",
       packageVersion: "0.3.2",
     });
     await expect(service.readCatalogSkillFile(publishedSkill.id, "SKILL.md")).resolves.toMatchObject({
@@ -204,14 +204,14 @@ describe("skills catalog service", () => {
       markdown: true,
     });
     expect(mockReadFileSync).toHaveBeenCalledWith(
-      "/published/node_modules/@paperclipai/skills-catalog/generated/catalog.json",
+      "/published/node_modules/@hermes-fabric/skills-catalog/generated/catalog.json",
       "utf8",
     );
     expect(mockReadFile).toHaveBeenCalledWith(
-      "/published/node_modules/@paperclipai/skills-catalog/catalog/bundled/software-development/published-skill/SKILL.md",
+      "/published/node_modules/@hermes-fabric/skills-catalog/catalog/bundled/software-development/published-skill/SKILL.md",
     );
-    expect(mockRequireResolve).toHaveBeenCalledWith("@paperclipai/skills-catalog/package.json");
-    expect(mockRequireResolve).toHaveBeenCalledWith("@paperclipai/skills-catalog/catalog.json");
+    expect(mockRequireResolve).toHaveBeenCalledWith("@hermes-fabric/skills-catalog/package.json");
+    expect(mockRequireResolve).toHaveBeenCalledWith("@hermes-fabric/skills-catalog/catalog.json");
   });
 
   it("returns an empty list, caches package-resolution failure, and logs only once when the manifest cannot be resolved", async () => {

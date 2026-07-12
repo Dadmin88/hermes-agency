@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
-import type { Db } from "@paperclipai/db";
-import { agents as agentsTable, companies, heartbeatRuns, issues as issuesTable, projects as projectsTable } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { agents as agentsTable, companies, heartbeatRuns, issues as issuesTable, projects as projectsTable } from "@hermes-fabric/db";
 import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import {
   agentSkillSyncSchema,
@@ -27,13 +27,13 @@ import {
   updateAgentSchema,
   supportedEnvironmentDriversForAdapter,
   LOW_TRUST_REVIEW_PRESET,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
-  resolvePaperclipInstanceRootForAdapter,
-  readPaperclipSkillSyncPreference,
-  writePaperclipSkillSyncPreference,
-} from "@paperclipai/adapter-utils/server-utils";
-import { trackAgentCreated } from "@paperclipai/shared/telemetry";
+  resolveHermesFabricInstanceRootForAdapter,
+  readHermesFabricSkillSyncPreference,
+  writeHermesFabricSkillSyncPreference,
+} from "@hermes-fabric/adapter-utils/server-utils";
+import { trackAgentCreated } from "@hermes-fabric/shared/telemetry";
 import { validate } from "../middleware/validate.js";
 import {
   agentService,
@@ -61,11 +61,11 @@ import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
 import { environmentService } from "../services/environments.js";
 import { resolveEnvironmentExecutionTarget } from "../services/environment-execution-target.js";
 import { environmentRuntimeService } from "../services/environment-runtime.js";
-import type { AdapterExecutionTarget } from "@paperclipai/adapter-utils/execution-target";
+import type { AdapterExecutionTarget } from "@hermes-fabric/adapter-utils/execution-target";
 import type {
   AdapterEnvironmentCheck,
   AdapterEnvironmentTestResult,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 import { skillVersionSelectionMap } from "../services/runtime-skill-selections.js";
 import { secretService } from "../services/secrets.js";
 import {
@@ -81,18 +81,18 @@ import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
-import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
+import { runClaudeLogin } from "@hermes-fabric/adapter-claude-local/server";
 import {
   DEFAULT_ACPX_LOCAL_AGENT,
   DEFAULT_ACPX_LOCAL_MODE,
   DEFAULT_ACPX_LOCAL_NON_INTERACTIVE_PERMISSIONS,
   DEFAULT_ACPX_LOCAL_PERMISSION_MODE,
-} from "@paperclipai/adapter-acpx-local";
-import { DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX } from "@paperclipai/adapter-codex-local";
-import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
-import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
-import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@paperclipai/adapter-opencode-local";
-import { requireOpenCodeModelId } from "@paperclipai/adapter-opencode-local/server";
+} from "@hermes-fabric/adapter-acpx-local";
+import { DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX } from "@hermes-fabric/adapter-codex-local";
+import { DEFAULT_CURSOR_LOCAL_MODEL } from "@hermes-fabric/adapter-cursor-local";
+import { DEFAULT_GEMINI_LOCAL_MODEL } from "@hermes-fabric/adapter-gemini-local";
+import { DEFAULT_OPENCODE_LOCAL_MODEL } from "@hermes-fabric/adapter-opencode-local";
+import { requireOpenCodeModelId } from "@hermes-fabric/adapter-opencode-local/server";
 import {
   loadDefaultAgentInstructionsBundle,
   resolveDefaultAgentInstructionsBundleRole,
@@ -124,8 +124,8 @@ function readLiveRunsQueryInt(value: unknown, max: number, fallback = 0) {
 function readRunIssueId(context: Record<string, unknown> | null) {
   const directIssueId = context?.issueId;
   if (typeof directIssueId === "string" && isUuidLike(directIssueId)) return directIssueId;
-  const paperclipIssue = readObject(context?.paperclipIssue);
-  const nestedIssueId = paperclipIssue?.id;
+  const fabricIssue = readObject(context?.fabricIssue);
+  const nestedIssueId = fabricIssue?.id;
   return typeof nestedIssueId === "string" && isUuidLike(nestedIssueId) ? nestedIssueId : null;
 }
 
@@ -236,7 +236,7 @@ export function agentRoutes(
    * Resolve the execution target the adapter should run its test probes against.
    *
    * - No environmentId / local environment → returns a local target so the
-   *   adapter probes the Paperclip host (legacy behavior).
+   *   adapter probes the HermesFabric host (legacy behavior).
    * - SSH environment → builds an SSH execution target from the environment
    *   config so the adapter probes the remote box. No lease is required:
    *   the SSH spec is fully derived from the saved environment config.
@@ -1146,7 +1146,7 @@ export function agentRoutes(
   }
 
   function codexLocalAgentHome(companyId: string, agentId: string): string {
-    const instanceRoot = resolvePaperclipInstanceRootForAdapter({
+    const instanceRoot = resolveHermesFabricInstanceRootForAdapter({
       homeDir: asNonEmptyString(fabricEnv("HOME")) ?? undefined,
       instanceId: asNonEmptyString(fabricEnv("INSTANCE_ID")) ?? undefined,
       env: process.env,
@@ -1431,7 +1431,7 @@ export function agentRoutes(
       materializeMissing?: boolean;
     } = {},
   ) {
-    const preference = readPaperclipSkillSyncPreference(config);
+    const preference = readHermesFabricSkillSyncPreference(config);
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(companyId, {
       materializeMissing: options.materializeMissing
         ?? shouldMaterializeRuntimeSkillsForAdapter(adapterType),
@@ -1439,7 +1439,7 @@ export function agentRoutes(
     });
     return {
       ...config,
-      paperclipRuntimeSkills: runtimeSkillEntries,
+      fabricRuntimeSkills: runtimeSkillEntries,
     };
   }
 
@@ -1472,7 +1472,7 @@ export function agentRoutes(
     const desiredSkills = desiredSkillEntries.map((entry) => entry.key);
 
     return {
-      adapterConfig: writePaperclipSkillSyncPreference(adapterConfig, desiredSkillEntries),
+      adapterConfig: writeHermesFabricSkillSyncPreference(adapterConfig, desiredSkillEntries),
       desiredSkills,
       desiredSkillEntries,
       runtimeSkillEntries,
@@ -1688,7 +1688,7 @@ export function agentRoutes(
 
     const adapter = findActiveServerAdapter(agent.adapterType);
     if (!adapter?.listSkills) {
-      const preference = readPaperclipSkillSyncPreference(
+      const preference = readHermesFabricSkillSyncPreference(
         agent.adapterConfig as Record<string, unknown>,
       );
       const desiredSkillEntries = preference.desiredSkillEntries.filter(
@@ -1766,7 +1766,7 @@ export function agentRoutes(
       );
       const runtimeSkillConfig = {
         ...runtimeConfig,
-        paperclipRuntimeSkills: runtimeSkillEntries,
+        fabricRuntimeSkills: runtimeSkillEntries,
       };
       const snapshot = adapter?.syncSkills
         ? await adapter.syncSkills({

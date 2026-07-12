@@ -2,13 +2,13 @@
  * Shared attachment content-type configuration.
  *
  * By default a curated set of image/document/text/media types are allowed. Set the
- * `PAPERCLIP_ALLOWED_ATTACHMENT_TYPES` environment variable to a
+ * `HERMES_FABRIC_ALLOWED_ATTACHMENT_TYPES` environment variable to a
  * comma-separated list of MIME types or wildcard patterns to expand the
  * allowed set for routes that use this allowlist.
  *
  * Examples:
- *   PAPERCLIP_ALLOWED_ATTACHMENT_TYPES=image/*,application/pdf
- *   PAPERCLIP_ALLOWED_ATTACHMENT_TYPES=image/*,application/pdf,text/*
+ *   HERMES_FABRIC_ALLOWED_ATTACHMENT_TYPES=image/*,application/pdf
+ *   HERMES_FABRIC_ALLOWED_ATTACHMENT_TYPES=image/*,application/pdf,text/*
  *
  * Supported pattern syntax:
  *   - Exact types:   "application/pdf"
@@ -17,7 +17,7 @@
 import {
   DEFAULT_COMPANY_ATTACHMENT_MAX_BYTES,
   MAX_COMPANY_ATTACHMENT_MAX_BYTES,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { fabricEnv } from "./fabric-env.js";
 
 export const DEFAULT_ALLOWED_TYPES: readonly string[] = [

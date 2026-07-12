@@ -17,7 +17,7 @@
 | Service (committed core) | **Good** — resolution precedence, packaged vs custom, preferences |
 | Service (WIP: apply + profile sync + gateway restart) | **Reasonable direction** — needs tests and barrel fix |
 | Tests | **8/8 passed** (`model-sets-routes`, `model-sets-service`) |
-| `@paperclipai/shared` typecheck (worktree) | **Fails** — broken `index.ts` re-exports |
+| `@hermes-fabric/shared` typecheck (worktree) | **Fails** — broken `index.ts` re-exports |
 
 **`approved`:** `false`
 
@@ -56,7 +56,7 @@ This does **not** match the task note about a ~746-line migration with unrelated
 
 while that block still lists **company-skill** and **catalog-skill** symbols (`companySkillSourceTypeSchema`, `catalogSkillKindSchema`, etc.). Those exports live in `./validators/company-skill.js` / `./validators/index.js`, not `model-set.js`.
 
-**Evidence:** `@paperclipai/shared` `tsc --noEmit` reports dozens of `TS2305` missing export errors from `model-set.js`.
+**Evidence:** `@hermes-fabric/shared` `tsc --noEmit` reports dozens of `TS2305` missing export errors from `model-set.js`.
 
 **Fix (minimal):**
 
@@ -69,7 +69,7 @@ while that block still lists **company-skill** and **catalog-skill** symbols (`c
 export type { ModelSetListItem, … } from "./types/model-set-api.js";
 ```
 
-**Do not merge** until `pnpm --filter @paperclipai/shared exec tsc --noEmit` passes.
+**Do not merge** until `pnpm --filter @hermes-fabric/shared exec tsc --noEmit` passes.
 
 ---
 
@@ -77,7 +77,7 @@ export type { ModelSetListItem, … } from "./types/model-set-api.js";
 
 Beyond the barrel bug, `pnpm -r typecheck` may still surface **pre-existing** server errors (e.g. `pipelines.ts`, `issue-execution-policy.ts`). For Phase 1 sign-off, require at minimum:
 
-- `@paperclipai/shared` clean after index fix
+- `@hermes-fabric/shared` clean after index fix
 - Model-set tests green (already **8/8**)
 - No **new** errors in `model-sets.ts` / `model-sets.ts` routes
 
@@ -113,7 +113,7 @@ Beyond the barrel bug, `pnpm -r typecheck` may still surface **pre-existing** se
 **Suggestions (non-blocking)**
 
 1. **`model-set-api.ts` types** include `monthlyEstimateLabel`, `agentCostBreakdown`, etc., while list/get handlers return slimmer rows today — fine for forward-compatible UI phase; document or narrow types until cost endpoints land.
-2. **Packaged set cache** (`cachedPackagedSets`) never invalidates if `PAPERCLIP_MODEL_SETS_DIR` changes at runtime — restart-only; note in ops docs.
+2. **Packaged set cache** (`cachedPackagedSets`) never invalidates if `HERMES_FABRIC_MODEL_SETS_DIR` changes at runtime — restart-only; note in ops docs.
 3. **`JSON.stringify` adapter config equality** in apply/preview can false-positive on key order — low risk for JSONB objects; optional normalized compare later.
 4. **Tests:** Add coverage for `restartIdleGateways` apply flag, profile config write skip/error paths, and `model-set-cost` / pricing auto-detect when those modules are part of the same PR.
 
@@ -122,7 +122,7 @@ Beyond the barrel bug, `pnpm -r typecheck` may still surface **pre-existing** se
 ## Test verification
 
 ```text
-pnpm --filter @paperclipai/server exec vitest run \
+pnpm --filter @hermes-fabric/server exec vitest run \
   src/__tests__/model-sets-routes.test.ts \
   src/__tests__/model-sets-service.test.ts
 
@@ -153,7 +153,7 @@ Tests       8 passed (8)
 
 - [x] Migration 0125 scoped and additive — **approved to run**
 - [ ] `packages/shared/src/index.ts` barrel fixed
-- [ ] `@paperclipai/shared` typecheck passes
+- [ ] `@hermes-fabric/shared` typecheck passes
 - [x] Model-set vitest suite passes
 - [ ] Human sign-off after fix (this review)
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseStatusFilter } from "../services/issues.ts";
 
 /**
- * Unit tests for the helper introduced in https://github.com/paperclipai/paperclip/issues/4628
+ * Unit tests for the helper introduced in https://github.com/DeployFaith/Hermes_Agency/issues/4628
  *
  * Express's default `qs` parser binds repeated query keys (`?status=todo&status=in_progress`)
  * to a `string[]`, but `services/issues.ts` previously called `.split(",")`

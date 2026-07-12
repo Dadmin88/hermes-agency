@@ -16,7 +16,7 @@ import {
   issueExecutionDecisions,
   issueReadStates,
   issues,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -38,7 +38,7 @@ describeEmbeddedPostgres("cleanup removal services", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-cleanup-removal-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-cleanup-removal-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -70,7 +70,7 @@ describeEmbeddedPostgres("cleanup removal services", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix,
       requireBoardApprovalForNewAgents: false,
     });
@@ -168,10 +168,10 @@ describeEmbeddedPostgres("cleanup removal services", () => {
     await db.insert(companySkills).values({
       id: randomUUID(),
       companyId,
-      key: "paperclipai/paperclip/paperclip",
-      slug: "paperclip",
-      name: "Paperclip",
-      markdown: "# Paperclip",
+      key: "hermes-fabric/fabric/fabric",
+      slug: "fabric",
+      name: "Hermes Fabric",
+      markdown: "# HermesFabric",
     });
 
     await db.insert(activityLog).values({

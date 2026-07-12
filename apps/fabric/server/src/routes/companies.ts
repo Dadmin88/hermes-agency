@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Router, type Request } from "express";
 import { and, count as countFn, eq } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { agents as agentsTable } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { agents as agentsTable } from "@hermes-fabric/db";
 import {
   DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION,
   companyArtifactsQuerySchema,
@@ -15,7 +15,7 @@ import {
   feedbackVoteValueSchema,
   updateCompanyBrandingSchema,
   updateCompanySchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { badRequest, forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import {
@@ -198,7 +198,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     const rawImportBody: unknown = req.body;
     const actor = getActorInfo(req);
     const boardUserId = req.actor.type === "board" ? req.actor.userId : null;
-    if (req.header("x-paperclip-cloud-async-import") === "1") {
+    if (req.header("x-fabric-cloud-async-import") === "1") {
       assertCloudTenantCaller(req);
       cleanupTerminalImportJobs(importJobs, importJobTerminalRetentionMs);
       const job = createImportJob(cloudTenantRequestKey(req));
@@ -498,8 +498,8 @@ function assertCloudTenantCaller(req: Request) {
 function cloudTenantRequestKey(req: Request) {
   return [
     req.actor.userId ?? "",
-    req.header("x-paperclip-cloud-stack-id")?.trim() ?? "",
-    req.header("x-paperclip-cloud-paperclip-company-id")?.trim() ?? "",
+    req.header("x-fabric-cloud-stack-id")?.trim() ?? "",
+    req.header("x-fabric-cloud-fabric-company-id")?.trim() ?? "",
   ].join(":");
 }
 

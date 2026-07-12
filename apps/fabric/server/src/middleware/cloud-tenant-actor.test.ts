@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Request } from "express";
-import type { Db } from "@paperclipai/db";
-import { authUsers, companies, companyMemberships, instanceUserRoles } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { authUsers, companies, companyMemberships, instanceUserRoles } from "@hermes-fabric/db";
 import { resolveCloudTenantActor } from "./auth.js";
 
 // Minimal fake Drizzle Db: records every table passed to .insert() / .delete() and
@@ -38,19 +38,19 @@ function fakeReq(headers: Record<string, string>): Request {
 }
 
 const VALID_HEADERS = {
-  "x-paperclip-cloud-tenant-token": "test-server-token",
-  "x-paperclip-cloud-user-id": "user-123",
-  "x-paperclip-cloud-user-email": "Owner@Example.com",
-  "x-paperclip-cloud-stack-id": "stack-abc",
-  "x-paperclip-cloud-stack-role": "owner",
+  "x-fabric-cloud-tenant-token": "test-server-token",
+  "x-fabric-cloud-user-id": "user-123",
+  "x-fabric-cloud-user-email": "Owner@Example.com",
+  "x-fabric-cloud-stack-id": "stack-abc",
+  "x-fabric-cloud-stack-role": "owner",
 };
 
 describe("resolveCloudTenantActor (shared-pool hardening)", () => {
   beforeEach(() => {
-    process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN = "test-server-token";
+    process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN = "test-server-token";
   });
   afterEach(() => {
-    delete process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN;
+    delete process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN;
   });
 
   it("never grants instance admin", async () => {
@@ -87,7 +87,7 @@ describe("resolveCloudTenantActor (shared-pool hardening)", () => {
   });
 
   it("returns null when the server token is unset", async () => {
-    delete process.env.PAPERCLIP_CLOUD_TENANT_SERVER_TOKEN;
+    delete process.env.HERMES_FABRIC_CLOUD_TENANT_SERVER_TOKEN;
     const { db } = createFakeDb();
     const actor = await resolveCloudTenantActor(db, fakeReq(VALID_HEADERS));
     expect(actor).toBeNull();
@@ -97,7 +97,7 @@ describe("resolveCloudTenantActor (shared-pool hardening)", () => {
     const { db } = createFakeDb({ companyId: "company-y", membershipRole: "member", status: "active" });
     const actor = await resolveCloudTenantActor(
       db,
-      fakeReq({ ...VALID_HEADERS, "x-paperclip-cloud-stack-role": "member" }),
+      fakeReq({ ...VALID_HEADERS, "x-fabric-cloud-stack-role": "member" }),
     );
     expect(actor!.isInstanceAdmin).toBe(false);
     expect(actor?.memberships?.[0]?.membershipRole).toBe("member");

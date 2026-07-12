@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createDb, plugins } from "@paperclipai/db";
+import { createDb, plugins } from "@hermes-fabric/db";
 import {
   ensureLocalPluginBuilt,
   pluginLoader,
@@ -61,8 +61,8 @@ async function createBundledPluginFixture(
   options: { rootDir?: string; buildDistImmediately?: boolean } = {},
 ): Promise<FixturePlugin> {
   const slug = `plugin-autobuild-${nameSuffix}-${randomUUID().slice(0, 8)}`;
-  const packageName = `@paperclipai/${slug}`;
-  const pluginKey = `paperclip.${slug.replace(/^plugin-/, "").replace(/-/g, "_")}`;
+  const packageName = `@hermes-fabric/${slug}`;
+  const pluginKey = `fabric.${slug.replace(/^plugin-/, "").replace(/-/g, "_")}`;
   const packageRoot = path.join(options.rootDir ?? repoPluginRoot, slug);
   const distDir = path.join(packageRoot, "dist");
   const isStandaloneFixture = (options.rootDir ?? repoPluginRoot) === standaloneRepoPluginRoot;
@@ -82,7 +82,7 @@ async function createBundledPluginFixture(
         ...(postinstallScript ? { postinstall: postinstallScript } : {}),
         build: "node ./scripts/build.mjs",
       },
-      paperclipPlugin: {
+      fabricPlugin: {
         manifest: "./dist/manifest.js",
         worker: "./dist/worker.js",
         ui: "./dist/ui/",
@@ -97,7 +97,7 @@ async function createBundledPluginFixture(
     version: "0.1.0",
     displayName: "Autobuild Fixture",
     description: "Bundled plugin fixture for install-time auto-build coverage.",
-    author: "Paperclip",
+    author: "Hermes Fabric",
     categories: ["automation"],
     capabilities: ["companies.read"],
     entrypoints: {
@@ -175,7 +175,7 @@ describe("ensureLocalPluginBuilt", () => {
   });
 
   it("skips auto-build for local plugin paths outside the repo", async () => {
-    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "paperclip-plugin-outside-"));
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "fabric-plugin-outside-"));
     const packageRoot = path.join(tempRoot, "plugin-outside");
     cleanupPaths.add(path.dirname(packageRoot));
     await mkdir(packageRoot, { recursive: true });
@@ -184,8 +184,8 @@ describe("ensureLocalPluginBuilt", () => {
     await ensureLocalPluginBuilt(
       packageRoot,
       {
-        name: "@paperclipai/plugin-outside",
-        paperclipPlugin: {
+        name: "@hermes-fabric/plugin-outside",
+        fabricPlugin: {
           manifest: "./dist/manifest.js",
           worker: "./dist/worker.js",
         },
@@ -196,7 +196,7 @@ describe("ensureLocalPluginBuilt", () => {
     expect(execStub).not.toHaveBeenCalled();
   });
 
-  it("skips auto-build when PAPERCLIP_DISABLE_PLUGIN_AUTOBUILD=1", async () => {
+  it("skips auto-build when HERMES_FABRIC_DISABLE_PLUGIN_AUTOBUILD=1", async () => {
     const fixture = await createBundledPluginFixture("skip");
     cleanupPaths.add(fixture.packageRoot);
 
@@ -205,7 +205,7 @@ describe("ensureLocalPluginBuilt", () => {
       fixture.packageRoot,
       JSON.parse(await readFile(path.join(fixture.packageRoot, "package.json"), "utf8")) as Record<string, unknown>,
       {
-        processEnv: { PAPERCLIP_DISABLE_PLUGIN_AUTOBUILD: "1" },
+        processEnv: { HERMES_FABRIC_DISABLE_PLUGIN_AUTOBUILD: "1" },
         execFileAsyncImpl: execStub,
       },
     );
@@ -219,7 +219,7 @@ describe("ensureLocalPluginBuilt", () => {
 
     const execStub = vi.fn(async (_file: string, args: readonly string[]) => {
       if (args.join(" ") === "install --ignore-workspace --no-lockfile") {
-        await mkdir(path.join(fixture.packageRoot, "node_modules", "@paperclipai", "plugin-sdk"), { recursive: true });
+        await mkdir(path.join(fixture.packageRoot, "node_modules", "@hermes-fabric", "plugin-sdk"), { recursive: true });
       }
       if (args.join(" ") === "build") {
         await mkdir(path.join(fixture.distDir, "ui"), { recursive: true });
@@ -258,7 +258,7 @@ describe("ensureLocalPluginBuilt", () => {
     cleanupPaths.add(fixture.packageRoot);
 
     const execStub = vi.fn(async () => {
-      await mkdir(path.join(fixture.packageRoot, "node_modules", "@paperclipai", "plugin-sdk"), { recursive: true });
+      await mkdir(path.join(fixture.packageRoot, "node_modules", "@hermes-fabric", "plugin-sdk"), { recursive: true });
       return { stdout: "", stderr: "" };
     });
     await ensureLocalPluginBuilt(
@@ -283,7 +283,7 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
   const cleanupPaths = new Set<string>();
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-plugin-autobuild-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-plugin-autobuild-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -294,7 +294,7 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
       await rm(cleanupPath, { recursive: true, force: true });
     }
     cleanupPaths.clear();
-    delete process.env["PAPERCLIP_DISABLE_PLUGIN_AUTOBUILD"];
+    delete process.env["HERMES_FABRIC_DISABLE_PLUGIN_AUTOBUILD"];
   });
 
   afterAll(async () => {
@@ -339,7 +339,7 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
     expect(existsSync(path.join(fixture.distDir, "manifest.js"))).toBe(true);
     expect(existsSync(path.join(fixture.distDir, "worker.js"))).toBe(true);
     expect(existsSync(path.join(fixture.distDir, "ui", "index.js"))).toBe(true);
-    expect(existsSync(path.join(fixture.packageRoot, "node_modules", "@paperclipai", "plugin-sdk"))).toBe(true);
+    expect(existsSync(path.join(fixture.packageRoot, "node_modules", "@hermes-fabric", "plugin-sdk"))).toBe(true);
     expect(mockLifecycle.load).toHaveBeenCalledTimes(1);
   }, 60_000);
 
@@ -352,7 +352,7 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
     const app = await createInstallApp(db);
 
     expect(existsSync(path.join(fixture.distDir, "manifest.js"))).toBe(true);
-    expect(existsSync(path.join(fixture.packageRoot, "node_modules", "@paperclipai", "plugin-sdk"))).toBe(false);
+    expect(existsSync(path.join(fixture.packageRoot, "node_modules", "@hermes-fabric", "plugin-sdk"))).toBe(false);
 
     const res = await request(app)
       .post("/api/plugins/install")
@@ -361,12 +361,12 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
     expect(res.status).toBe(200);
     expect(res.body.packageName).toBe(fixture.packageName);
     expect(res.body.pluginKey).toBe(fixture.pluginKey);
-    expect(existsSync(path.join(fixture.packageRoot, "node_modules", "@paperclipai", "plugin-sdk"))).toBe(true);
+    expect(existsSync(path.join(fixture.packageRoot, "node_modules", "@hermes-fabric", "plugin-sdk"))).toBe(true);
     expect(mockLifecycle.load).toHaveBeenCalledTimes(1);
   }, 60_000);
 
   it("returns the manual build command when auto-build is disabled and dist is missing", async () => {
-    process.env["PAPERCLIP_DISABLE_PLUGIN_AUTOBUILD"] = "1";
+    process.env["HERMES_FABRIC_DISABLE_PLUGIN_AUTOBUILD"] = "1";
     const fixture = await createBundledPluginFixture("disabled");
     cleanupPaths.add(fixture.packageRoot);
     const app = await createInstallApp(db);
@@ -376,14 +376,14 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
       .send({ packageName: fixture.packageRoot, isLocalPath: true });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("does not appear to be a Paperclip plugin (no manifest found)");
+    expect(res.body.error).toContain("does not appear to be a HermesFabric plugin (no manifest found)");
     expect(res.body.error).toContain(`pnpm --filter ${fixture.packageName} build`);
     expect(existsSync(path.join(fixture.distDir, "manifest.js"))).toBe(false);
     expect(mockLifecycle.load).not.toHaveBeenCalled();
   }, 20_000);
 
   it("returns the standalone bootstrap command when auto-build is disabled for sandbox-provider plugins", async () => {
-    process.env["PAPERCLIP_DISABLE_PLUGIN_AUTOBUILD"] = "1";
+    process.env["HERMES_FABRIC_DISABLE_PLUGIN_AUTOBUILD"] = "1";
     const fixture = await createBundledPluginFixture("standalone-disabled", { rootDir: standaloneRepoPluginRoot });
     cleanupPaths.add(fixture.packageRoot);
     const app = await createInstallApp(db);
@@ -393,7 +393,7 @@ describeEmbeddedPostgres("plugin install auto-build route", () => {
       .send({ packageName: fixture.packageRoot, isLocalPath: true });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("does not appear to be a Paperclip plugin (no manifest found)");
+    expect(res.body.error).toContain("does not appear to be a HermesFabric plugin (no manifest found)");
     expect(res.body.error).toContain(path.relative(REPO_ROOT, fixture.packageRoot));
     expect(res.body.error).toContain("pnpm install --ignore-workspace --no-lockfile && pnpm build");
     expect(existsSync(path.join(fixture.distDir, "manifest.js"))).toBe(false);

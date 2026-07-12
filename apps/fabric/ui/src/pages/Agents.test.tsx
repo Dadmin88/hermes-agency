@@ -4,11 +4,11 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Agent, Environment, EnvironmentCapabilities } from "@paperclipai/shared";
+import type { Agent, Environment, EnvironmentCapabilities } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../context/ToastContext";
 import { Agents } from "./Agents";
-import type { AgentOrgChainHealth } from "@paperclipai/shared";
+import type { AgentOrgChainHealth } from "@hermes-fabric/shared";
 
 const mockAgentsApi = vi.hoisted(() => ({
   list: vi.fn(),
@@ -396,7 +396,7 @@ describe("Agents", () => {
     await flushReact();
 
     expect(container.textContent).toContain("Dev Laptop");
-    expect(container.textContent).toContain("Paperclip host");
+    expect(container.textContent).toContain("HermesFabric host");
   });
 
   it("reserves the environment column while environment metadata is loading", async () => {
@@ -678,7 +678,7 @@ describe("Agents", () => {
     // The title cell carries a constant width (`w-56`), not a content-sized
     // `min-w-[7rem]`, so the `meta` group starts at the same x on every row and
     // the model + timestamp columns line up vertically.
-    const titleCell = container.querySelector(".w-56");
+    const titleCell = container.querySelector('[class~="sm:w-56"]');
     expect(titleCell).not.toBeNull();
     expect(titleCell?.textContent).toContain("Alpha");
     expect(container.querySelector(".min-w-\\[7rem\\]")).toBeNull();

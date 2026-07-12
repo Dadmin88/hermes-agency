@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { agents, heartbeatRuns, projects } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { agents, heartbeatRuns, projects } from "@hermes-fabric/db";
 import {
   LOW_TRUST_REVIEW_PRESET,
   type SourceTrustMetadata,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { forbidden } from "../errors.js";
 import { readObject } from "../lib/objects.js";
 import { resolveCoreTrustPreset } from "./trust-preset-resolver.js";

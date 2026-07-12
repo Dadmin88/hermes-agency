@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { agents, heartbeatRuns } from "@paperclipai/db";
+import { agents, heartbeatRuns } from "@hermes-fabric/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { restartIdleGateways } from "../services/hermes-gateway-restart.js";
 

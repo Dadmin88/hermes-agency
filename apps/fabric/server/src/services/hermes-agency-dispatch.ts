@@ -8,7 +8,7 @@ import type {
   HermesAgencyDispatchRecord,
   HermesAgencyDispatchStatus,
   HermesAgencyTaskPacketPreview,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 export interface HermesAgencyDispatchClientInput {
   mode: HermesAgencyDispatchMode;
@@ -40,7 +40,7 @@ interface DispatchStoreFile {
   dispatches: HermesAgencyDispatchRecord[];
 }
 
-const DEFAULT_DISPATCH_STORE_PATH = path.join(os.homedir(), ".paperclip", "hermes-agency-dispatches.json");
+const DEFAULT_DISPATCH_STORE_PATH = path.join(os.homedir(), ".fabric", "hermes-agency-dispatches.json");
 
 export class HermesAgencyDispatchUnavailableError extends Error {
   constructor(message: string) {

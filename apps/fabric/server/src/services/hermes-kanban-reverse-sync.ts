@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { and, eq, inArray } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { agents, authUsers, companyMemberships, issues, projects } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { agents, authUsers, companyMemberships, issues, projects } from "@hermes-fabric/db";
 import { logger } from "../middleware/logger.js";
 import { fabricEnv } from "../fabric-env.js";
 import {
@@ -74,7 +74,7 @@ function nameKey(agent: { name: string; metadata: Record<string, unknown> | null
 export function resolveHermesKanbanBoard(env: NodeJS.ProcessEnv = process.env): string | null {
   const configured = env === process.env
     ? fabricEnv("HERMES_KANBAN_BOARD")
-    : env.FABRIC_HERMES_KANBAN_BOARD ?? env.PAPERCLIP_HERMES_KANBAN_BOARD;
+    : env.FABRIC_HERMES_KANBAN_BOARD;
   return configured?.trim()
     || env.HERMES_KANBAN_BOARD?.trim()
     || null;

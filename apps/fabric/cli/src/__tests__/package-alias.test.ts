@@ -12,14 +12,13 @@ function readCliPackageJson() {
   };
 }
 
-describe("Hermes Fabric CLI package alias", () => {
-  it("keeps paperclipai compatibility while exposing hermes-fabric", () => {
+describe("Hermes Fabric CLI package identity", () => {
+  it("publishes only the Hermes Fabric command", () => {
     const pkg = readCliPackageJson();
 
     expect(pkg.name).toBe("hermes-fabric");
     expect(pkg.bin).toEqual({
       "hermes-fabric": "./dist/index.js",
-      paperclipai: "./dist/index.js",
     });
     expect(pkg.description).toMatch(/Hermes Fabric CLI/);
   });

@@ -1,13 +1,13 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { issueRecoveryActions } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { issueRecoveryActions } from "@hermes-fabric/db";
 import type {
   IssueRecoveryAction,
   IssueRecoveryActionKind,
   IssueRecoveryActionOwnerType,
   IssueRecoveryActionOutcome,
   IssueRecoveryActionStatus,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 const ACTIVE_RECOVERY_ACTION_STATUSES = ["active", "escalated"] as const satisfies readonly IssueRecoveryActionStatus[];
 const MAX_UPSERT_RETRIES = 3;

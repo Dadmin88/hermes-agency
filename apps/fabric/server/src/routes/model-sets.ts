@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   applyModelSetSchema,
   createModelSetSchema,
@@ -9,7 +9,7 @@ import {
   putModelPricingSchema,
   updateModelSetSchema,
   upsertProfileOverrideSchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { badRequest } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import { logActivity, modelSetService } from "../services/index.js";

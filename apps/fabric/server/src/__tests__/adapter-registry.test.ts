@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { buildSandboxNpmInstallCommand } from "@paperclipai/adapter-utils";
+import { buildSandboxNpmInstallCommand } from "@hermes-fabric/adapter-utils";
 import type { ServerAdapterModule } from "../adapters/index.js";
 
 import {

@@ -1,4 +1,4 @@
-import { SECRET_PROVIDERS, type SecretProvider } from "@paperclipai/shared";
+import { SECRET_PROVIDERS, type SecretProvider } from "@hermes-fabric/shared";
 import { fabricEnv } from "../fabric-env.js";
 
 export function getConfiguredSecretProvider(): SecretProvider {

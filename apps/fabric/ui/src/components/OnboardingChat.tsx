@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { IssueComment } from "@paperclipai/shared";
+import type { IssueComment } from "@hermes-fabric/shared";
 import { issuesApi } from "../api/issues";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";

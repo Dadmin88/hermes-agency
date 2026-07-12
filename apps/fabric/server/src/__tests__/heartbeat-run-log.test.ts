@@ -18,24 +18,24 @@ describe("compactRunLogChunk", () => {
     const compacted = compactRunLogChunk(chunk, 16_384);
 
     expect(compacted.length).toBeLessThan(chunk.length);
-    expect(compacted).toContain("[paperclip truncated run log chunk:");
+    expect(compacted).toContain("[fabric truncated run log chunk:");
     expect(compacted.endsWith("tail")).toBe(true);
   });
 
-  it("redacts Paperclip credential shapes before persisting run-log chunks", () => {
+  it("redacts HermesFabric credential shapes before persisting run-log chunks", () => {
     const chunk = [
       "Authorization: Bearer live-bearer-token-value",
-      `export PAPERCLIP_API_KEY='paperclip-shell-secret'`,
-      `payload {"PAPERCLIP_API_KEY":"paperclip-json-secret"}`,
-      "--paperclip-api-key=paperclip-flag-secret",
+      `export HERMES_FABRIC_API_KEY='fabric-shell-secret'`,
+      `payload {"HERMES_FABRIC_API_KEY":"fabric-json-secret"}`,
+      "--fabric-api-key=fabric-flag-secret",
     ].join("\n");
 
     const compacted = compactRunLogChunk(chunk);
 
     expect(compacted).toContain("***REDACTED***");
     expect(compacted).not.toContain("live-bearer-token-value");
-    expect(compacted).not.toContain("paperclip-shell-secret");
-    expect(compacted).not.toContain("paperclip-json-secret");
-    expect(compacted).not.toContain("paperclip-flag-secret");
+    expect(compacted).not.toContain("fabric-shell-secret");
+    expect(compacted).not.toContain("fabric-json-secret");
+    expect(compacted).not.toContain("fabric-flag-secret");
   });
 });

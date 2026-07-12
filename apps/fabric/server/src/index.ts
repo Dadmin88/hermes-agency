@@ -28,7 +28,7 @@ import {
   companies,
   companyMemberships,
   instanceUserRoles,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import detectPort from "detect-port";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
@@ -178,7 +178,7 @@ export async function startServer(): Promise<StartedServer> {
       if (!apply) {
         throw new Error(
           `${label} has pending migrations (${formatPendingMigrationSummary(state.pendingMigrations)}). ` +
-            "Refusing to start against a stale schema. Run pnpm db:migrate or set PAPERCLIP_MIGRATION_AUTO_APPLY=true.",
+            "Refusing to start against a stale schema. Run pnpm db:migrate or set HERMES_FABRIC_MIGRATION_AUTO_APPLY=true.",
         );
       }
 
@@ -191,7 +191,7 @@ export async function startServer(): Promise<StartedServer> {
     if (!apply) {
       throw new Error(
         `${label} has pending migrations (${formatPendingMigrationSummary(state.pendingMigrations)}). ` +
-          "Refusing to start against a stale schema. Run pnpm db:migrate or set PAPERCLIP_MIGRATION_AUTO_APPLY=true.",
+          "Refusing to start against a stale schema. Run pnpm db:migrate or set HERMES_FABRIC_MIGRATION_AUTO_APPLY=true.",
       );
     }
 
@@ -244,7 +244,7 @@ export async function startServer(): Promise<StartedServer> {
   }
 
   const LOCAL_BOARD_USER_ID = "local-board";
-  const LOCAL_BOARD_USER_EMAIL = "local@paperclip.local";
+  const LOCAL_BOARD_USER_EMAIL = "local@fabric.local";
   const LOCAL_BOARD_USER_NAME = "Board";
 
   async function ensureLocalTrustedBoardPrincipal(db: any): Promise<void> {
@@ -404,7 +404,7 @@ export async function startServer(): Promise<StartedServer> {
     if (runningPid) {
       logger.warn(`Embedded PostgreSQL already running; reusing existing process (pid=${runningPid}, port=${port})`);
     } else {
-      const configuredAdminConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${configuredPort}/postgres`;
+      const configuredAdminConnectionString = `postgres://fabric:fabric@127.0.0.1:${configuredPort}/postgres`;
       try {
         const actualDataDir = await getPostgresDataDirectory(configuredAdminConnectionString);
         if (
@@ -413,7 +413,7 @@ export async function startServer(): Promise<StartedServer> {
         ) {
           throw new Error("reachable postgres does not use the expected embedded data directory");
         }
-        await ensurePostgresDatabase(configuredAdminConnectionString, "paperclip");
+        await ensurePostgresDatabase(configuredAdminConnectionString, "fabric");
         logger.warn(
           `Embedded PostgreSQL appears to already be reachable without a pid file; reusing existing server on configured port ${configuredPort}`,
         );
@@ -426,8 +426,8 @@ export async function startServer(): Promise<StartedServer> {
         logger.info(`Using embedded PostgreSQL because no DATABASE_URL set (dataDir=${dataDir}, port=${port})`);
         embeddedPostgres = new EmbeddedPostgres({
           databaseDir: dataDir,
-          user: "paperclip",
-          password: "paperclip",
+          user: "fabric",
+          password: "fabric",
           port,
           persistent: true,
           initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
@@ -466,13 +466,13 @@ export async function startServer(): Promise<StartedServer> {
       }
     }
 
-    const embeddedAdminConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${port}/postgres`;
-    const dbStatus = await ensurePostgresDatabase(embeddedAdminConnectionString, "paperclip");
+    const embeddedAdminConnectionString = `postgres://fabric:fabric@127.0.0.1:${port}/postgres`;
+    const dbStatus = await ensurePostgresDatabase(embeddedAdminConnectionString, "fabric");
     if (dbStatus === "created") {
-      logger.info("Created embedded PostgreSQL database: paperclip");
+      logger.info("Created embedded PostgreSQL database: fabric");
     }
 
-    const embeddedConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${port}/paperclip`;
+    const embeddedConnectionString = `postgres://fabric:fabric@127.0.0.1:${port}/fabric`;
     const shouldAutoApplyFirstRunMigrations = !clusterAlreadyInitialized || dbStatus === "created";
     if (shouldAutoApplyFirstRunMigrations) {
       logger.info("Detected first-run embedded PostgreSQL setup; applying pending migrations automatically");
@@ -609,7 +609,7 @@ export async function startServer(): Promise<StartedServer> {
         connectionString: activeDatabaseConnectionString,
         backupDir: config.databaseBackupDir,
         retention,
-        filenamePrefix: "paperclip",
+        filenamePrefix: "fabric",
       });
       const finishedAt = new Date();
       const response: InstanceDatabaseBackupRunResult = {
@@ -754,9 +754,9 @@ export async function startServer(): Promise<StartedServer> {
     });
 
   // Force the instance onto the Kubernetes sandbox provider when configured via
-  // env (PAPERCLIP_EXECUTION_MODE=kubernetes). Runs BEFORE the heartbeat resumes
+  // env (HERMES_FABRIC_EXECUTION_MODE=kubernetes). Runs BEFORE the heartbeat resumes
   // queued runs so the policy + managed k8s environments are in place. A bad
-  // PAPERCLIP_EXECUTION_MODE / PAPERCLIP_K8S_* value throws and fails startup
+  // HERMES_FABRIC_EXECUTION_MODE / HERMES_FABRIC_K8S_* value throws and fails startup
   // (fail-loud) rather than silently allowing local execution.
   try {
     const policyResult = await bootstrapExecutionPolicyFromEnv(db as any);
@@ -966,14 +966,14 @@ export async function startServer(): Promise<StartedServer> {
   await waitForExternalAdapters();
 
   // Reconcile the agent-creation picker to the declaratively-configured adapter
-  // set (PAPERCLIP_ADAPTERS). Must run after external adapters are loaded so the
+  // set (HERMES_FABRIC_ADAPTERS). Must run after external adapters are loaded so the
   // known-adapter list is complete. Fail loud on misconfig (a declared adapter
   // with no implementation), consistent with the execution-policy bootstrap:
   // log the structured error, then rethrow to fail startup.
   try {
     reconcileAdapterAvailability(parseAdapterRegistryEnv());
   } catch (err) {
-    logger.error({ err }, "failed to reconcile adapter availability from PAPERCLIP_ADAPTERS");
+    logger.error({ err }, "failed to reconcile adapter availability from HERMES_FABRIC_ADAPTERS");
     throw err;
   }
 
@@ -1046,7 +1046,7 @@ export async function startServer(): Promise<StartedServer> {
         await telemetryClient.flush();
       }
 
-      const appShutdown = (app as { locals?: { paperclipShutdown?: () => void } }).locals?.paperclipShutdown;
+      const appShutdown = (app as { locals?: { fabricShutdown?: () => void } }).locals?.fabricShutdown;
       appShutdown?.();
 
       if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {

@@ -3,12 +3,12 @@ import { fileURLToPath } from "node:url";
 import type {
   AdapterSkillContext,
   AdapterSkillSnapshot,
-} from "@paperclipai/adapter-utils";
+} from "@hermes-fabric/adapter-utils";
 import {
   buildRuntimeMountedSkillSnapshot,
-  readPaperclipRuntimeSkillEntries,
-  resolvePaperclipDesiredSkillNames,
-} from "@paperclipai/adapter-utils/server-utils";
+  readHermesFabricRuntimeSkillEntries,
+  resolveHermesFabricDesiredSkillNames,
+} from "@hermes-fabric/adapter-utils/server-utils";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,18 +29,18 @@ function configuredDetail(agent: AcpxSkillAgent): string {
 }
 
 function unsupportedDetail(): string {
-  return "Desired state is stored in Paperclip only; custom ACP commands need an explicit skill integration contract before runtime sync is available.";
+  return "Desired state is stored in HermesFabric only; custom ACP commands need an explicit skill integration contract before runtime sync is available.";
 }
 
 async function buildAcpxSkillSnapshot(config: Record<string, unknown>): Promise<AdapterSkillSnapshot> {
   const acpxAgent = normalizeAcpxSkillAgent(config);
-  const availableEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
-  const desiredSkills = resolvePaperclipDesiredSkillNames(config, availableEntries);
+  const availableEntries = await readHermesFabricRuntimeSkillEntries(config, __moduleDir);
+  const desiredSkills = resolveHermesFabricDesiredSkillNames(config, availableEntries);
   const supported = acpxAgent !== "custom";
   const warnings: string[] = supported
     ? []
     : [
-        "Custom ACP commands do not expose a Paperclip skill integration contract yet; selected skills are tracked only.",
+        "Custom ACP commands do not expose a HermesFabric skill integration contract yet; selected skills are tracked only.",
       ];
 
   return buildRuntimeMountedSkillSnapshot({

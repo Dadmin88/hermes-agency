@@ -79,15 +79,15 @@ export const runningProcesses = new Map<string, RunningProcess>();
 export const MAX_CAPTURE_BYTES = 4 * 1024 * 1024;
 export const MAX_EXCERPT_BYTES = 32 * 1024;
 const TERMINAL_RESULT_SCAN_OVERLAP_CHARS = 64 * 1024;
-const DEFAULT_PAPERCLIP_INSTANCE_ID = "default";
+const DEFAULT_HERMES_FABRIC_INSTANCE_ID = "default";
 const PATH_SEGMENT_RE = /^[a-zA-Z0-9_-]+$/;
 const SENSITIVE_ENV_KEY = /(key|token|secret|password|passwd|authorization|cookie)/i;
 const REDACTED_LOG_VALUE = "***REDACTED***";
-const PAPERCLIP_SKILL_ROOT_RELATIVE_CANDIDATES = [
+const HERMES_FABRIC_SKILL_ROOT_RELATIVE_CANDIDATES = [
   "../../skills",
   "../../../../../skills",
 ];
-const MATERIALIZED_SKILL_SENTINEL = ".paperclip-materialized-skill.json";
+const MATERIALIZED_SKILL_SENTINEL = ".fabric-materialized-skill.json";
 const MATERIALIZED_SKILL_LOCK_OWNER = "owner.json";
 const MATERIALIZED_SKILL_LOCK_STALE_MS = 30_000;
 
@@ -97,21 +97,21 @@ function expandHomePrefix(value: string): string {
   return value;
 }
 
-export function resolvePaperclipInstanceRootForAdapter(input: {
+export function resolveHermesFabricInstanceRootForAdapter(input: {
   homeDir?: string;
   instanceId?: string;
   env?: NodeJS.ProcessEnv;
 } = {}): string {
   const env = input.env ?? process.env;
-  const homeRaw = input.homeDir?.trim() || env.PAPERCLIP_HOME?.trim();
-  const homeDir = path.resolve(homeRaw ? expandHomePrefix(homeRaw) : path.resolve(os.homedir(), ".paperclip"));
-  const instanceId = input.instanceId?.trim() || env.PAPERCLIP_INSTANCE_ID?.trim() || DEFAULT_PAPERCLIP_INSTANCE_ID;
-  if (!PATH_SEGMENT_RE.test(instanceId)) throw new Error(`Invalid PAPERCLIP_INSTANCE_ID '${instanceId}'.`);
+  const homeRaw = input.homeDir?.trim() || env.HERMES_FABRIC_HOME?.trim();
+  const homeDir = path.resolve(homeRaw ? expandHomePrefix(homeRaw) : path.resolve(os.homedir(), ".fabric"));
+  const instanceId = input.instanceId?.trim() || env.HERMES_FABRIC_INSTANCE_ID?.trim() || DEFAULT_HERMES_FABRIC_INSTANCE_ID;
+  if (!PATH_SEGMENT_RE.test(instanceId)) throw new Error(`Invalid HERMES_FABRIC_INSTANCE_ID '${instanceId}'.`);
   return path.resolve(homeDir, "instances", instanceId);
 }
 
-export const DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE = [
-  "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+export const DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE = [
+  "You are agent {{agent.id}} ({{agent.name}}). Continue your HermesFabric work.",
   "",
   "Execution contract:",
   "- Start actionable work in this heartbeat; do not stop at a plan unless the issue asks for planning.",
@@ -138,7 +138,7 @@ export const WATCHDOG_DEFAULT_MANDATE = [
   "- Do not accept \"I could not\" or \"waiting for approval\" as automatically valid. Read the evidence before deciding.",
   "- If a stopped leaf is genuinely complete, leave it alone and record why you believe so.",
   "- If a stopped leaf is not genuinely complete, restore a live path inside the watched subtree by reopening, reassigning, commenting actionable instructions, creating a follow-up child issue, or accepting an eligible task-level interaction (such as a routine plan confirmation when no custom instruction forbids it).",
-  "- If you discover a Paperclip product or platform bug while reviewing the stopped subtree, create a linked engineering follow-up outside the watched source tree using the server-provided watchdog discovery route instead of making it a source child.",
+  "- If you discover a HermesFabric product or platform bug while reviewing the stopped subtree, create a linked engineering follow-up outside the watched source tree using the server-provided watchdog discovery route instead of making it a source child.",
   "- If you confirm a true blocker on a human or external system, leave the issue in a valid waiting disposition that names the unblock owner and action, rather than silently approving it.",
   "",
   "Safety constraints (these always apply, even if custom instructions disagree):",
@@ -155,7 +155,7 @@ export const WATCHDOG_DEFAULT_MANDATE = [
   "- Keep the work moving. Do not loop on the same unchanged state.",
 ].join("\n");
 
-type PaperclipWakeTaskWatchdogLeaf = {
+type HermesFabricWakeTaskWatchdogLeaf = {
   id: string | null;
   identifier: string | null;
   title: string | null;
@@ -165,7 +165,7 @@ type PaperclipWakeTaskWatchdogLeaf = {
   summary: string | null;
 };
 
-type PaperclipWakeTaskWatchdogCapabilities = {
+type HermesFabricWakeTaskWatchdogCapabilities = {
   operations: string[];
   deniedOperations: string[];
   targetScope: {
@@ -177,17 +177,17 @@ type PaperclipWakeTaskWatchdogCapabilities = {
   } | null;
 };
 
-export type PaperclipWakeTaskWatchdogContext = {
+export type HermesFabricWakeTaskWatchdogContext = {
   watchedIssueId: string | null;
   watchedIssueIdentifier: string | null;
   watchedIssueTitle: string | null;
   stopFingerprint: string | null;
-  terminalLeafSummaries: PaperclipWakeTaskWatchdogLeaf[];
+  terminalLeafSummaries: HermesFabricWakeTaskWatchdogLeaf[];
   customInstructions: string | null;
-  capabilities: PaperclipWakeTaskWatchdogCapabilities | null;
+  capabilities: HermesFabricWakeTaskWatchdogCapabilities | null;
 };
 
-export interface PaperclipSkillEntry {
+export interface HermesFabricSkillEntry {
   key: string;
   runtimeName: string;
   source: string;
@@ -197,7 +197,7 @@ export interface PaperclipSkillEntry {
   missingDetail?: string | null;
 }
 
-export interface PaperclipDesiredSkillEntry {
+export interface HermesFabricDesiredSkillEntry {
   key: string;
   versionId: string | null;
 }
@@ -207,14 +207,14 @@ export interface InstalledSkillTarget {
   kind: "symlink" | "directory" | "file";
 }
 
-export interface MaterializedPaperclipSkillCopyResult {
+export interface MaterializedHermesFabricSkillCopyResult {
   copiedFiles: number;
   skippedSymlinks: string[];
 }
 
 interface PersistentSkillSnapshotOptions {
   adapterType: string;
-  availableEntries: PaperclipSkillEntry[];
+  availableEntries: HermesFabricSkillEntry[];
   desiredSkills: string[];
   installed: Map<string, InstalledSkillTarget>;
   skillsHome: string;
@@ -228,13 +228,13 @@ interface PersistentSkillSnapshotOptions {
 
 interface RuntimeMountedSkillSnapshotOptions {
   adapterType: string;
-  availableEntries: PaperclipSkillEntry[];
+  availableEntries: HermesFabricSkillEntry[];
   desiredSkills: string[];
-  configuredDetail: string | ((entry: PaperclipSkillEntry) => string | null);
+  configuredDetail: string | ((entry: HermesFabricSkillEntry) => string | null);
   missingDetail?: string;
   mode?: "ephemeral" | "unsupported";
   supported?: boolean;
-  unsupportedDetail?: string | ((entry: PaperclipSkillEntry) => string | null);
+  unsupportedDetail?: string | ((entry: HermesFabricSkillEntry) => string | null);
   warnings?: string[];
   externalInstalled?: Map<string, InstalledSkillTarget>;
   externalLocationLabel?: string | null;
@@ -262,25 +262,25 @@ function buildManagedSkillOrigin(): Pick<
 > {
   return {
     origin: "company_managed",
-    originLabel: "Managed by Paperclip",
+    originLabel: "Managed by Hermes Fabric",
     readOnly: false,
   };
 }
 
-function isPaperclipSkillSourceMissing(entry: PaperclipSkillEntry) {
+function isHermesFabricSkillSourceMissing(entry: HermesFabricSkillEntry) {
   return entry.sourceStatus === "missing";
 }
 
-function resolvePaperclipSkillMissingDetail(
-  entry: PaperclipSkillEntry,
+function resolveHermesFabricSkillMissingDetail(
+  entry: HermesFabricSkillEntry,
   fallback: string,
 ) {
   return entry.missingDetail?.trim() || fallback;
 }
 
 function resolveSkillDetail(
-  detail: string | ((entry: PaperclipSkillEntry) => string | null) | null | undefined,
-  entry: PaperclipSkillEntry,
+  detail: string | ((entry: HermesFabricSkillEntry) => string | null) | null | undefined,
+  entry: HermesFabricSkillEntry,
 ): string | null {
   if (typeof detail === "function") return detail(entry);
   if (typeof detail === "string") return detail;
@@ -394,7 +394,7 @@ export function joinPromptSections(
     .join(separator);
 }
 
-type PaperclipWakeIssue = {
+type HermesFabricWakeIssue = {
   id: string | null;
   identifier: string | null;
   title: string | null;
@@ -403,18 +403,18 @@ type PaperclipWakeIssue = {
   priority: string | null;
 };
 
-type PaperclipWakeExecutionPrincipal = {
+type HermesFabricWakeExecutionPrincipal = {
   type: "agent" | "user" | null;
   agentId: string | null;
   userId: string | null;
 };
 
-type PaperclipWakeExecutionStage = {
+type HermesFabricWakeExecutionStage = {
   wakeRole: "reviewer" | "approver" | "executor" | null;
   stageId: string | null;
   stageType: string | null;
-  currentParticipant: PaperclipWakeExecutionPrincipal | null;
-  returnAssignee: PaperclipWakeExecutionPrincipal | null;
+  currentParticipant: HermesFabricWakeExecutionPrincipal | null;
+  returnAssignee: HermesFabricWakeExecutionPrincipal | null;
   reviewRequest: {
     instructions: string;
   } | null;
@@ -422,7 +422,7 @@ type PaperclipWakeExecutionStage = {
   allowedActions: string[];
 };
 
-type PaperclipWakeComment = {
+type HermesFabricWakeComment = {
   id: string | null;
   issueId: string | null;
   body: string;
@@ -432,7 +432,7 @@ type PaperclipWakeComment = {
   authorId: string | null;
 };
 
-type PaperclipWakeContinuationSummary = {
+type HermesFabricWakeContinuationSummary = {
   key: string | null;
   title: string | null;
   body: string;
@@ -440,7 +440,7 @@ type PaperclipWakeContinuationSummary = {
   updatedAt: string | null;
 };
 
-type PaperclipWakeLivenessContinuation = {
+type HermesFabricWakeLivenessContinuation = {
   attempt: number | null;
   maxAttempts: number | null;
   sourceRunId: string | null;
@@ -449,7 +449,7 @@ type PaperclipWakeLivenessContinuation = {
   instruction: string | null;
 };
 
-type PaperclipWakeChildIssueSummary = {
+type HermesFabricWakeChildIssueSummary = {
   id: string | null;
   identifier: string | null;
   title: string | null;
@@ -458,7 +458,7 @@ type PaperclipWakeChildIssueSummary = {
   summary: string | null;
 };
 
-type PaperclipWakeBlockerSummary = {
+type HermesFabricWakeBlockerSummary = {
   id: string | null;
   identifier: string | null;
   title: string | null;
@@ -466,33 +466,33 @@ type PaperclipWakeBlockerSummary = {
   priority: string | null;
 };
 
-type PaperclipWakeTreeHoldSummary = {
+type HermesFabricWakeTreeHoldSummary = {
   holdId: string | null;
   rootIssueId: string | null;
   mode: string | null;
   reason: string | null;
 };
 
-type PaperclipWakePayload = {
+type HermesFabricWakePayload = {
   reason: string | null;
-  issue: PaperclipWakeIssue | null;
+  issue: HermesFabricWakeIssue | null;
   checkedOutByHarness: boolean;
   dependencyBlockedInteraction: boolean;
   treeHoldInteraction: boolean;
-  activeTreeHold: PaperclipWakeTreeHoldSummary | null;
+  activeTreeHold: HermesFabricWakeTreeHoldSummary | null;
   unresolvedBlockerIssueIds: string[];
-  unresolvedBlockerSummaries: PaperclipWakeBlockerSummary[];
-  executionStage: PaperclipWakeExecutionStage | null;
-  continuationSummary: PaperclipWakeContinuationSummary | null;
-  livenessContinuation: PaperclipWakeLivenessContinuation | null;
-  taskWatchdog: PaperclipWakeTaskWatchdogContext | null;
+  unresolvedBlockerSummaries: HermesFabricWakeBlockerSummary[];
+  executionStage: HermesFabricWakeExecutionStage | null;
+  continuationSummary: HermesFabricWakeContinuationSummary | null;
+  livenessContinuation: HermesFabricWakeLivenessContinuation | null;
+  taskWatchdog: HermesFabricWakeTaskWatchdogContext | null;
   interactionKind: string | null;
   interactionStatus: string | null;
-  childIssueSummaries: PaperclipWakeChildIssueSummary[];
+  childIssueSummaries: HermesFabricWakeChildIssueSummary[];
   childIssueSummaryTruncated: boolean;
   commentIds: string[];
   latestCommentId: string | null;
-  comments: PaperclipWakeComment[];
+  comments: HermesFabricWakeComment[];
   requestedCount: number;
   includedCount: number;
   missingCount: number;
@@ -500,7 +500,7 @@ type PaperclipWakePayload = {
   fallbackFetchNeeded: boolean;
 };
 
-function normalizePaperclipWakeIssue(value: unknown): PaperclipWakeIssue | null {
+function normalizeHermesFabricWakeIssue(value: unknown): HermesFabricWakeIssue | null {
   const issue = parseObject(value);
   const id = asString(issue.id, "").trim() || null;
   const identifier = asString(issue.identifier, "").trim() || null;
@@ -519,7 +519,7 @@ function normalizePaperclipWakeIssue(value: unknown): PaperclipWakeIssue | null 
   };
 }
 
-function normalizePaperclipWakeComment(value: unknown): PaperclipWakeComment | null {
+function normalizeHermesFabricWakeComment(value: unknown): HermesFabricWakeComment | null {
   const comment = parseObject(value);
   const author = parseObject(comment.author);
   const body = asString(comment.body, "");
@@ -535,7 +535,7 @@ function normalizePaperclipWakeComment(value: unknown): PaperclipWakeComment | n
   };
 }
 
-function normalizePaperclipWakeContinuationSummary(value: unknown): PaperclipWakeContinuationSummary | null {
+function normalizeHermesFabricWakeContinuationSummary(value: unknown): HermesFabricWakeContinuationSummary | null {
   const summary = parseObject(value);
   const body = asString(summary.body, "").trim();
   if (!body) return null;
@@ -548,7 +548,7 @@ function normalizePaperclipWakeContinuationSummary(value: unknown): PaperclipWak
   };
 }
 
-function normalizePaperclipWakeLivenessContinuation(value: unknown): PaperclipWakeLivenessContinuation | null {
+function normalizeHermesFabricWakeLivenessContinuation(value: unknown): HermesFabricWakeLivenessContinuation | null {
   const continuation = parseObject(value);
   const attempt = asNumber(continuation.attempt, 0);
   const maxAttempts = asNumber(continuation.maxAttempts, 0);
@@ -567,7 +567,7 @@ function normalizePaperclipWakeLivenessContinuation(value: unknown): PaperclipWa
   };
 }
 
-function normalizePaperclipWakeChildIssueSummary(value: unknown): PaperclipWakeChildIssueSummary | null {
+function normalizeHermesFabricWakeChildIssueSummary(value: unknown): HermesFabricWakeChildIssueSummary | null {
   const child = parseObject(value);
   const id = asString(child.id, "").trim() || null;
   const identifier = asString(child.identifier, "").trim() || null;
@@ -579,7 +579,7 @@ function normalizePaperclipWakeChildIssueSummary(value: unknown): PaperclipWakeC
   return { id, identifier, title, status, priority, summary };
 }
 
-function normalizePaperclipWakeBlockerSummary(value: unknown): PaperclipWakeBlockerSummary | null {
+function normalizeHermesFabricWakeBlockerSummary(value: unknown): HermesFabricWakeBlockerSummary | null {
   const blocker = parseObject(value);
   const id = asString(blocker.id, "").trim() || null;
   const identifier = asString(blocker.identifier, "").trim() || null;
@@ -590,7 +590,7 @@ function normalizePaperclipWakeBlockerSummary(value: unknown): PaperclipWakeBloc
   return { id, identifier, title, status, priority };
 }
 
-function normalizePaperclipWakeTreeHoldSummary(value: unknown): PaperclipWakeTreeHoldSummary | null {
+function normalizeHermesFabricWakeTreeHoldSummary(value: unknown): HermesFabricWakeTreeHoldSummary | null {
   const hold = parseObject(value);
   const holdId = asString(hold.holdId, "").trim() || null;
   const rootIssueId = asString(hold.rootIssueId, "").trim() || null;
@@ -600,7 +600,7 @@ function normalizePaperclipWakeTreeHoldSummary(value: unknown): PaperclipWakeTre
   return { holdId, rootIssueId, mode, reason };
 }
 
-function normalizePaperclipWakeExecutionPrincipal(value: unknown): PaperclipWakeExecutionPrincipal | null {
+function normalizeHermesFabricWakeExecutionPrincipal(value: unknown): HermesFabricWakeExecutionPrincipal | null {
   const principal = parseObject(value);
   const typeRaw = asString(principal.type, "").trim().toLowerCase();
   if (typeRaw !== "agent" && typeRaw !== "user") return null;
@@ -615,7 +615,7 @@ const MAX_WATCHDOG_INSTRUCTIONS_CHARS = 4_000;
 const MAX_WATCHDOG_LEAF_SUMMARIES = 25;
 const MAX_WATCHDOG_CAPABILITY_ITEMS = 50;
 
-function normalizePaperclipWakeTaskWatchdogLeaf(value: unknown): PaperclipWakeTaskWatchdogLeaf | null {
+function normalizeHermesFabricWakeTaskWatchdogLeaf(value: unknown): HermesFabricWakeTaskWatchdogLeaf | null {
   const leaf = parseObject(value);
   const id = asString(leaf.id, "").trim() || null;
   const identifier = asString(leaf.identifier, "").trim() || null;
@@ -636,7 +636,7 @@ function normalizeStringList(value: unknown, maxItems: number) {
     .slice(0, maxItems);
 }
 
-function normalizePaperclipWakeTaskWatchdogCapabilities(value: unknown): PaperclipWakeTaskWatchdogCapabilities | null {
+function normalizeHermesFabricWakeTaskWatchdogCapabilities(value: unknown): HermesFabricWakeTaskWatchdogCapabilities | null {
   const capabilities = parseObject(value);
   const operations = normalizeStringList(capabilities.operations, MAX_WATCHDOG_CAPABILITY_ITEMS);
   const deniedOperations = normalizeStringList(capabilities.deniedOperations, MAX_WATCHDOG_CAPABILITY_ITEMS);
@@ -663,7 +663,7 @@ function normalizePaperclipWakeTaskWatchdogCapabilities(value: unknown): Papercl
   };
 }
 
-function normalizePaperclipWakeTaskWatchdog(value: unknown): PaperclipWakeTaskWatchdogContext | null {
+function normalizeHermesFabricWakeTaskWatchdog(value: unknown): HermesFabricWakeTaskWatchdogContext | null {
   const watchdog = parseObject(value);
   const watchedIssueId = asString(watchdog.watchedIssueId, "").trim() || null;
   const watchedIssueIdentifier = asString(watchdog.watchedIssueIdentifier, "").trim() || null;
@@ -679,10 +679,10 @@ function normalizePaperclipWakeTaskWatchdog(value: unknown): PaperclipWakeTaskWa
   const terminalLeafSummaries = Array.isArray(watchdog.terminalLeafSummaries)
     ? watchdog.terminalLeafSummaries
         .slice(0, MAX_WATCHDOG_LEAF_SUMMARIES)
-        .map((entry) => normalizePaperclipWakeTaskWatchdogLeaf(entry))
-        .filter((entry): entry is PaperclipWakeTaskWatchdogLeaf => Boolean(entry))
+        .map((entry) => normalizeHermesFabricWakeTaskWatchdogLeaf(entry))
+        .filter((entry): entry is HermesFabricWakeTaskWatchdogLeaf => Boolean(entry))
     : [];
-  const capabilities = normalizePaperclipWakeTaskWatchdogCapabilities(watchdog.capabilities);
+  const capabilities = normalizeHermesFabricWakeTaskWatchdogCapabilities(watchdog.capabilities);
 
   if (
     !watchedIssueId &&
@@ -707,7 +707,7 @@ function normalizePaperclipWakeTaskWatchdog(value: unknown): PaperclipWakeTaskWa
   };
 }
 
-function normalizePaperclipWakeExecutionStage(value: unknown): PaperclipWakeExecutionStage | null {
+function normalizeHermesFabricWakeExecutionStage(value: unknown): HermesFabricWakeExecutionStage | null {
   const stage = parseObject(value);
   const wakeRoleRaw = asString(stage.wakeRole, "").trim().toLowerCase();
   const wakeRole =
@@ -719,8 +719,8 @@ function normalizePaperclipWakeExecutionStage(value: unknown): PaperclipWakeExec
         .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
         .map((entry) => entry.trim())
     : [];
-  const currentParticipant = normalizePaperclipWakeExecutionPrincipal(stage.currentParticipant);
-  const returnAssignee = normalizePaperclipWakeExecutionPrincipal(stage.returnAssignee);
+  const currentParticipant = normalizeHermesFabricWakeExecutionPrincipal(stage.currentParticipant);
+  const returnAssignee = normalizeHermesFabricWakeExecutionPrincipal(stage.returnAssignee);
   const reviewRequestRaw = parseObject(stage.reviewRequest);
   const reviewInstructions = asString(reviewRequestRaw.instructions, "").trim();
   const reviewRequest = reviewInstructions ? { instructions: reviewInstructions } : null;
@@ -744,12 +744,12 @@ function normalizePaperclipWakeExecutionStage(value: unknown): PaperclipWakeExec
   };
 }
 
-export function normalizePaperclipWakePayload(value: unknown): PaperclipWakePayload | null {
+export function normalizeHermesFabricWakePayload(value: unknown): HermesFabricWakePayload | null {
   const payload = parseObject(value);
   const comments = Array.isArray(payload.comments)
     ? payload.comments
-        .map((entry) => normalizePaperclipWakeComment(entry))
-        .filter((entry): entry is PaperclipWakeComment => Boolean(entry))
+        .map((entry) => normalizeHermesFabricWakeComment(entry))
+        .filter((entry): entry is HermesFabricWakeComment => Boolean(entry))
     : [];
   const commentWindow = parseObject(payload.commentWindow);
   const commentIds = Array.isArray(payload.commentIds)
@@ -757,14 +757,14 @@ export function normalizePaperclipWakePayload(value: unknown): PaperclipWakePayl
         .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
         .map((entry) => entry.trim())
     : [];
-  const executionStage = normalizePaperclipWakeExecutionStage(payload.executionStage);
-  const continuationSummary = normalizePaperclipWakeContinuationSummary(payload.continuationSummary);
-  const livenessContinuation = normalizePaperclipWakeLivenessContinuation(payload.livenessContinuation);
-  const taskWatchdog = normalizePaperclipWakeTaskWatchdog(payload.taskWatchdog);
+  const executionStage = normalizeHermesFabricWakeExecutionStage(payload.executionStage);
+  const continuationSummary = normalizeHermesFabricWakeContinuationSummary(payload.continuationSummary);
+  const livenessContinuation = normalizeHermesFabricWakeLivenessContinuation(payload.livenessContinuation);
+  const taskWatchdog = normalizeHermesFabricWakeTaskWatchdog(payload.taskWatchdog);
   const childIssueSummaries = Array.isArray(payload.childIssueSummaries)
     ? payload.childIssueSummaries
-        .map((entry) => normalizePaperclipWakeChildIssueSummary(entry))
-        .filter((entry): entry is PaperclipWakeChildIssueSummary => Boolean(entry))
+        .map((entry) => normalizeHermesFabricWakeChildIssueSummary(entry))
+        .filter((entry): entry is HermesFabricWakeChildIssueSummary => Boolean(entry))
     : [];
   const unresolvedBlockerIssueIds = Array.isArray(payload.unresolvedBlockerIssueIds)
     ? payload.unresolvedBlockerIssueIds
@@ -773,18 +773,18 @@ export function normalizePaperclipWakePayload(value: unknown): PaperclipWakePayl
     : [];
   const unresolvedBlockerSummaries = Array.isArray(payload.unresolvedBlockerSummaries)
     ? payload.unresolvedBlockerSummaries
-        .map((entry) => normalizePaperclipWakeBlockerSummary(entry))
-        .filter((entry): entry is PaperclipWakeBlockerSummary => Boolean(entry))
+        .map((entry) => normalizeHermesFabricWakeBlockerSummary(entry))
+        .filter((entry): entry is HermesFabricWakeBlockerSummary => Boolean(entry))
     : [];
 
-  const activeTreeHold = normalizePaperclipWakeTreeHoldSummary(payload.activeTreeHold);
-  if (comments.length === 0 && commentIds.length === 0 && childIssueSummaries.length === 0 && unresolvedBlockerIssueIds.length === 0 && unresolvedBlockerSummaries.length === 0 && !activeTreeHold && !executionStage && !continuationSummary && !livenessContinuation && !taskWatchdog && !normalizePaperclipWakeIssue(payload.issue)) {
+  const activeTreeHold = normalizeHermesFabricWakeTreeHoldSummary(payload.activeTreeHold);
+  if (comments.length === 0 && commentIds.length === 0 && childIssueSummaries.length === 0 && unresolvedBlockerIssueIds.length === 0 && unresolvedBlockerSummaries.length === 0 && !activeTreeHold && !executionStage && !continuationSummary && !livenessContinuation && !taskWatchdog && !normalizeHermesFabricWakeIssue(payload.issue)) {
     return null;
   }
 
   return {
     reason: asString(payload.reason, "").trim() || null,
-    issue: normalizePaperclipWakeIssue(payload.issue),
+    issue: normalizeHermesFabricWakeIssue(payload.issue),
     checkedOutByHarness: asBoolean(payload.checkedOutByHarness, false),
     dependencyBlockedInteraction: asBoolean(payload.dependencyBlockedInteraction, false),
     treeHoldInteraction: asBoolean(payload.treeHoldInteraction, false),
@@ -810,30 +810,30 @@ export function normalizePaperclipWakePayload(value: unknown): PaperclipWakePayl
   };
 }
 
-export function stringifyPaperclipWakePayload(value: unknown): string | null {
-  const normalized = normalizePaperclipWakePayload(value);
+export function stringifyHermesFabricWakePayload(value: unknown): string | null {
+  const normalized = normalizeHermesFabricWakePayload(value);
   if (!normalized) return null;
   return JSON.stringify(normalized);
 }
 
-export function readPaperclipIssueWorkModeFromContext(value: unknown): string | null {
+export function readHermesFabricIssueWorkModeFromContext(value: unknown): string | null {
   const context = parseObject(value);
-  const issue = parseObject(context.paperclipIssue);
+  const issue = parseObject(context.fabricIssue);
   const direct = asString(issue.workMode, "").trim();
   if (direct) return direct;
-  const wake = normalizePaperclipWakePayload(context.paperclipWake);
+  const wake = normalizeHermesFabricWakePayload(context.fabricWake);
   return wake?.issue?.workMode ?? null;
 }
 
-export function renderPaperclipWakePrompt(
+export function renderHermesFabricWakePrompt(
   value: unknown,
   options: { resumedSession?: boolean } = {},
 ): string {
-  const normalized = normalizePaperclipWakePayload(value);
+  const normalized = normalizeHermesFabricWakePayload(value);
   if (!normalized) return "";
   const resumedSession = options.resumedSession === true;
   const executionStage = normalized.executionStage;
-  const principalLabel = (principal: PaperclipWakeExecutionPrincipal | null) => {
+  const principalLabel = (principal: HermesFabricWakeExecutionPrincipal | null) => {
     if (!principal || !principal.type) return "unknown";
     if (principal.type === "agent") return principal.agentId ? `agent ${principal.agentId}` : "agent";
     return principal.userId ? `user ${principal.userId}` : "user";
@@ -841,9 +841,9 @@ export function renderPaperclipWakePrompt(
 
   const lines = resumedSession
       ? [
-        "## Paperclip Resume Delta",
+        "## HermesFabric Resume Delta",
         "",
-        "You are resuming an existing Paperclip session.",
+        "You are resuming an existing HermesFabric session.",
         "This heartbeat is scoped to the issue below. Do not switch to another issue until you have handled this wake.",
         "Focus on the new wake delta below and continue the current task without restating the full heartbeat boilerplate.",
         "Fetch the API thread only when `fallbackFetchNeeded` is true or you need broader history than this batch.",
@@ -857,7 +857,7 @@ export function renderPaperclipWakePrompt(
         `- fallback fetch needed: ${normalized.fallbackFetchNeeded ? "yes" : "no"}`,
       ]
     : [
-        "## Paperclip Wake Payload",
+        "## HermesFabric Wake Payload",
         "",
         "Treat this wake payload as the highest-priority change for the current heartbeat.",
         "This heartbeat is scoped to the issue below. Do not switch to another issue until you have handled this wake.",
@@ -1141,13 +1141,13 @@ export function buildInvocationEnvForLogs(
 
   const resolvedCommand = options.resolvedCommand?.trim();
   if (resolvedCommand) {
-    merged[options.resolvedCommandEnvKey ?? "PAPERCLIP_RESOLVED_COMMAND"] = redactCommandTextForLogs(resolvedCommand);
+    merged[options.resolvedCommandEnvKey ?? "HERMES_FABRIC_RESOLVED_COMMAND"] = redactCommandTextForLogs(resolvedCommand);
   }
 
   return redactEnvForLogs(merged);
 }
 
-export function buildPaperclipEnv(agent: { id: string; companyId: string }): Record<string, string> {
+export function buildHermesFabricEnv(agent: { id: string; companyId: string }): Record<string, string> {
   const resolveHostForUrl = (rawHost: string): string => {
     const host = rawHost.trim();
     if (!host || host === "0.0.0.0" || host === "::") return "localhost";
@@ -1155,22 +1155,22 @@ export function buildPaperclipEnv(agent: { id: string; companyId: string }): Rec
     return host;
   };
   const vars: Record<string, string> = {
-    PAPERCLIP_AGENT_ID: agent.id,
-    PAPERCLIP_COMPANY_ID: agent.companyId,
+    HERMES_FABRIC_AGENT_ID: agent.id,
+    HERMES_FABRIC_COMPANY_ID: agent.companyId,
   };
   const runtimeHost = resolveHostForUrl(
-    process.env.PAPERCLIP_LISTEN_HOST ?? process.env.HOST ?? "localhost",
+    process.env.HERMES_FABRIC_LISTEN_HOST ?? process.env.HOST ?? "localhost",
   );
-  const runtimePort = process.env.PAPERCLIP_LISTEN_PORT ?? process.env.PORT ?? "3100";
+  const runtimePort = process.env.HERMES_FABRIC_LISTEN_PORT ?? process.env.PORT ?? "3100";
   const apiUrl =
-    process.env.PAPERCLIP_RUNTIME_API_URL ??
-    process.env.PAPERCLIP_API_URL ??
+    process.env.HERMES_FABRIC_RUNTIME_API_URL ??
+    process.env.HERMES_FABRIC_API_URL ??
     `http://${runtimeHost}:${runtimePort}`;
-  vars.PAPERCLIP_API_URL = apiUrl;
+  vars.HERMES_FABRIC_API_URL = apiUrl;
   return vars;
 }
 
-export function applyPaperclipWorkspaceEnv(
+export function applyHermesFabricWorkspaceEnv(
   env: Record<string, string>,
   input: {
     workspaceCwd?: string | null;
@@ -1185,14 +1185,14 @@ export function applyPaperclipWorkspaceEnv(
   },
 ): Record<string, string> {
   const mappings = [
-    ["PAPERCLIP_WORKSPACE_CWD", input.workspaceCwd],
-    ["PAPERCLIP_WORKSPACE_SOURCE", input.workspaceSource],
-    ["PAPERCLIP_WORKSPACE_STRATEGY", input.workspaceStrategy],
-    ["PAPERCLIP_WORKSPACE_ID", input.workspaceId],
-    ["PAPERCLIP_WORKSPACE_REPO_URL", input.workspaceRepoUrl],
-    ["PAPERCLIP_WORKSPACE_REPO_REF", input.workspaceRepoRef],
-    ["PAPERCLIP_WORKSPACE_BRANCH", input.workspaceBranch],
-    ["PAPERCLIP_WORKSPACE_WORKTREE_PATH", input.workspaceWorktreePath],
+    ["HERMES_FABRIC_WORKSPACE_CWD", input.workspaceCwd],
+    ["HERMES_FABRIC_WORKSPACE_SOURCE", input.workspaceSource],
+    ["HERMES_FABRIC_WORKSPACE_STRATEGY", input.workspaceStrategy],
+    ["HERMES_FABRIC_WORKSPACE_ID", input.workspaceId],
+    ["HERMES_FABRIC_WORKSPACE_REPO_URL", input.workspaceRepoUrl],
+    ["HERMES_FABRIC_WORKSPACE_REPO_REF", input.workspaceRepoRef],
+    ["HERMES_FABRIC_WORKSPACE_BRANCH", input.workspaceBranch],
+    ["HERMES_FABRIC_WORKSPACE_WORKTREE_PATH", input.workspaceWorktreePath],
     ["AGENT_HOME", input.agentHome],
   ] as const;
 
@@ -1205,7 +1205,7 @@ export function applyPaperclipWorkspaceEnv(
   return env;
 }
 
-export function shapePaperclipWorkspaceEnvForExecution(input: {
+export function shapeHermesFabricWorkspaceEnvForExecution(input: {
   workspaceCwd?: string | null;
   workspaceWorktreePath?: string | null;
   workspaceHints?: Array<Record<string, unknown>>;
@@ -1247,7 +1247,7 @@ export function shapePaperclipWorkspaceEnvForExecution(input: {
   if (executionCwd === null) {
     // eslint-disable-next-line no-console
     console.warn(
-      "[paperclip] shapePaperclipWorkspaceEnvForExecution called with executionCwd=null on a remote target; " +
+      "[fabric] shapeHermesFabricWorkspaceEnvForExecution called with executionCwd=null on a remote target; " +
         "stripping workspaceCwd to avoid leaking local paths into the remote environment.",
     );
   }
@@ -1315,7 +1315,7 @@ export function rewriteWorkspaceCwdEnvVarsForExecution(input: {
   return nextEnv;
 }
 
-export function refreshPaperclipWorkspaceEnvForExecution(input: {
+export function refreshHermesFabricWorkspaceEnvForExecution(input: {
   env: Record<string, string>;
   envConfig?: Record<string, unknown>;
   workspaceCwd?: string | null;
@@ -1335,7 +1335,7 @@ export function refreshPaperclipWorkspaceEnvForExecution(input: {
   workspaceWorktreePath: string | null;
   workspaceHints: Array<Record<string, unknown>>;
 } {
-  const shapedWorkspaceEnv = shapePaperclipWorkspaceEnvForExecution({
+  const shapedWorkspaceEnv = shapeHermesFabricWorkspaceEnvForExecution({
     workspaceCwd: input.workspaceCwd,
     workspaceWorktreePath: input.workspaceWorktreePath,
     workspaceHints: input.workspaceHints,
@@ -1343,11 +1343,11 @@ export function refreshPaperclipWorkspaceEnvForExecution(input: {
     executionCwd: input.executionCwd,
   });
 
-  delete input.env.PAPERCLIP_WORKSPACE_CWD;
-  delete input.env.PAPERCLIP_WORKSPACE_WORKTREE_PATH;
-  delete input.env.PAPERCLIP_WORKSPACES_JSON;
+  delete input.env.HERMES_FABRIC_WORKSPACE_CWD;
+  delete input.env.HERMES_FABRIC_WORKSPACE_WORKTREE_PATH;
+  delete input.env.HERMES_FABRIC_WORKSPACES_JSON;
 
-  applyPaperclipWorkspaceEnv(input.env, {
+  applyHermesFabricWorkspaceEnv(input.env, {
     workspaceCwd: shapedWorkspaceEnv.workspaceCwd,
     workspaceSource: input.workspaceSource,
     workspaceStrategy: input.workspaceStrategy,
@@ -1360,7 +1360,7 @@ export function refreshPaperclipWorkspaceEnvForExecution(input: {
   });
 
   if (shapedWorkspaceEnv.workspaceHints.length > 0) {
-    input.env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(shapedWorkspaceEnv.workspaceHints);
+    input.env.HERMES_FABRIC_WORKSPACES_JSON = JSON.stringify(shapedWorkspaceEnv.workspaceHints);
   }
 
   const shapedEnvConfig = rewriteWorkspaceCwdEnvVarsForExecution({
@@ -1377,9 +1377,9 @@ export function refreshPaperclipWorkspaceEnvForExecution(input: {
 }
 
 const INHERITED_RUNTIME_ENV_ALLOWLIST = new Set([
-  "PAPERCLIP_RUNTIME_API_URL",
-  "PAPERCLIP_LISTEN_HOST",
-  "PAPERCLIP_LISTEN_PORT",
+  "HERMES_FABRIC_RUNTIME_API_URL",
+  "HERMES_FABRIC_LISTEN_HOST",
+  "HERMES_FABRIC_LISTEN_PORT",
   "FABRIC_RUNTIME_API_URL",
   "FABRIC_LISTEN_HOST",
   "FABRIC_LISTEN_PORT",
@@ -1388,7 +1388,7 @@ const INHERITED_RUNTIME_ENV_ALLOWLIST = new Set([
 export function sanitizeInheritedRuntimeEnv(baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...baseEnv };
   for (const key of Object.keys(env)) {
-    if (!key.startsWith("PAPERCLIP_") && !key.startsWith("FABRIC_")) continue;
+    if (!key.startsWith("HERMES_FABRIC_") && !key.startsWith("FABRIC_")) continue;
     if (INHERITED_RUNTIME_ENV_ALLOWLIST.has(key)) continue;
     delete env[key];
   }
@@ -1572,12 +1572,12 @@ export async function ensureAbsoluteDirectory(
   }
 }
 
-export async function resolvePaperclipSkillsDir(
+export async function resolveHermesFabricSkillsDir(
   moduleDir: string,
   additionalCandidates: string[] = [],
 ): Promise<string | null> {
   const candidates = [
-    ...PAPERCLIP_SKILL_ROOT_RELATIVE_CANDIDATES.map((relativePath) => path.resolve(moduleDir, relativePath)),
+    ...HERMES_FABRIC_SKILL_ROOT_RELATIVE_CANDIDATES.map((relativePath) => path.resolve(moduleDir, relativePath)),
     ...additionalCandidates.map((candidate) => path.resolve(candidate)),
   ];
   const seenRoots = new Set<string>();
@@ -1592,18 +1592,18 @@ export async function resolvePaperclipSkillsDir(
   return null;
 }
 
-export async function listPaperclipSkillEntries(
+export async function listHermesFabricSkillEntries(
   moduleDir: string,
   additionalCandidates: string[] = [],
-): Promise<PaperclipSkillEntry[]> {
-  const root = await resolvePaperclipSkillsDir(moduleDir, additionalCandidates);
+): Promise<HermesFabricSkillEntry[]> {
+  const root = await resolveHermesFabricSkillsDir(moduleDir, additionalCandidates);
   if (!root) return [];
 
   try {
     const entries = await fs.readdir(root, { withFileTypes: true });
     const dirs = entries.filter((entry) => entry.isDirectory());
     return dirs.map((entry) => ({
-      key: `paperclipai/paperclip/${entry.name}`,
+      key: `hermes-fabric/fabric/${entry.name}`,
       runtimeName: entry.name,
       source: path.join(root, entry.name),
     }));
@@ -1631,11 +1631,11 @@ export function buildRuntimeMountedSkillSnapshot(
     availableEntries,
     desiredSkills,
     configuredDetail,
-    missingDetail = "Paperclip cannot find this skill in the local runtime skills directory.",
+    missingDetail = "Hermes Fabric cannot find this skill in the local runtime skills directory.",
     mode = "ephemeral",
     externalInstalled,
     externalLocationLabel,
-    externalDetail = "Installed outside Paperclip management.",
+    externalDetail = "Installed outside HermesFabric management.",
     skillsHome,
   } = options;
   const supported = options.supported ?? mode !== "unsupported";
@@ -1646,7 +1646,7 @@ export function buildRuntimeMountedSkillSnapshot(
 
   for (const available of availableEntries) {
     const desired = desiredSet.has(available.key);
-    if (isPaperclipSkillSourceMissing(available)) {
+    if (isHermesFabricSkillSourceMissing(available)) {
       entries.push({
         key: available.key,
         runtimeName: available.runtimeName,
@@ -1657,7 +1657,7 @@ export function buildRuntimeMountedSkillSnapshot(
         state: "missing",
         sourcePath: null,
         targetPath: null,
-        detail: resolvePaperclipSkillMissingDetail(available, missingDetail),
+        detail: resolveHermesFabricSkillMissingDetail(available, missingDetail),
         ...buildManagedSkillOrigin(),
       });
       continue;
@@ -1679,7 +1679,7 @@ export function buildRuntimeMountedSkillSnapshot(
           ? resolveSkillDetail(configuredDetail, available)
           : resolveSkillDetail(
               options.unsupportedDetail
-                ?? "Desired state is stored in Paperclip only; this adapter cannot apply skills at runtime.",
+                ?? "Desired state is stored in HermesFabric only; this adapter cannot apply skills at runtime.",
               available,
             )
         : null,
@@ -1689,7 +1689,7 @@ export function buildRuntimeMountedSkillSnapshot(
 
   for (const desiredSkill of desiredSkills) {
     if (availableByKey.has(desiredSkill)) continue;
-    warnings.push(`Desired skill "${desiredSkill}" is not available from the Paperclip skills directory.`);
+    warnings.push(`Desired skill "${desiredSkill}" is not available from the HermesFabric skills directory.`);
     entries.push({
       key: desiredSkill,
       runtimeName: null,
@@ -1764,7 +1764,7 @@ export function buildPersistentSkillSnapshot(
   for (const available of availableEntries) {
     const installedEntry = installed.get(available.runtimeName) ?? null;
     const desired = desiredSet.has(available.key);
-    if (isPaperclipSkillSourceMissing(available)) {
+    if (isHermesFabricSkillSourceMissing(available)) {
       entries.push({
         key: available.key,
         runtimeName: available.runtimeName,
@@ -1775,7 +1775,7 @@ export function buildPersistentSkillSnapshot(
         state: "missing",
         sourcePath: null,
         targetPath: path.join(skillsHome, available.runtimeName),
-        detail: resolvePaperclipSkillMissingDetail(
+        detail: resolveHermesFabricSkillMissingDetail(
           available,
           missingDetail,
         ),
@@ -1817,7 +1817,7 @@ export function buildPersistentSkillSnapshot(
 
   for (const desiredSkill of desiredSkills) {
     if (availableByKey.has(desiredSkill)) continue;
-    warnings.push(`Desired skill "${desiredSkill}" is not available from the Paperclip skills directory.`);
+    warnings.push(`Desired skill "${desiredSkill}" is not available from the HermesFabric skills directory.`);
     entries.push({
       key: desiredSkill,
       runtimeName: null,
@@ -1826,7 +1826,7 @@ export function buildPersistentSkillSnapshot(
       state: "missing",
       sourcePath: null,
       targetPath: null,
-      detail: "Paperclip cannot find this skill in the local runtime skills directory.",
+      detail: "Hermes Fabric cannot find this skill in the local runtime skills directory.",
       origin: "external_unknown",
       originLabel: "External or unavailable",
       readOnly: false,
@@ -1867,9 +1867,9 @@ export function buildPersistentSkillSnapshot(
   };
 }
 
-function normalizeConfiguredPaperclipRuntimeSkills(value: unknown): PaperclipSkillEntry[] {
+function normalizeConfiguredHermesFabricRuntimeSkills(value: unknown): HermesFabricSkillEntry[] {
   if (!Array.isArray(value)) return [];
-  const out: PaperclipSkillEntry[] = [];
+  const out: HermesFabricSkillEntry[] = [];
   for (const rawEntry of value) {
     const entry = parseObject(rawEntry);
     const key = asString(entry.key, asString(entry.name, "")).trim();
@@ -1898,24 +1898,24 @@ function normalizeConfiguredPaperclipRuntimeSkills(value: unknown): PaperclipSki
   return out;
 }
 
-export async function readPaperclipRuntimeSkillEntries(
+export async function readHermesFabricRuntimeSkillEntries(
   config: Record<string, unknown>,
   moduleDir: string,
   additionalCandidates: string[] = [],
-): Promise<PaperclipSkillEntry[]> {
-  const configuredEntries = normalizeConfiguredPaperclipRuntimeSkills(config.paperclipRuntimeSkills);
+): Promise<HermesFabricSkillEntry[]> {
+  const configuredEntries = normalizeConfiguredHermesFabricRuntimeSkills(config.fabricRuntimeSkills);
   if (configuredEntries.length > 0) return configuredEntries;
-  return listPaperclipSkillEntries(moduleDir, additionalCandidates);
+  return listHermesFabricSkillEntries(moduleDir, additionalCandidates);
 }
 
-export async function readPaperclipSkillMarkdown(
+export async function readHermesFabricSkillMarkdown(
   moduleDir: string,
   skillKey: string,
 ): Promise<string | null> {
   const normalized = skillKey.trim().toLowerCase();
   if (!normalized) return null;
 
-  const entries = await listPaperclipSkillEntries(moduleDir);
+  const entries = await listHermesFabricSkillEntries(moduleDir);
   const match = entries.find((entry) => entry.key === normalized);
   if (!match) return null;
 
@@ -1926,19 +1926,19 @@ export async function readPaperclipSkillMarkdown(
   }
 }
 
-export function readPaperclipSkillSyncPreference(config: Record<string, unknown>): {
+export function readHermesFabricSkillSyncPreference(config: Record<string, unknown>): {
   explicit: boolean;
   desiredSkills: string[];
-  desiredSkillEntries: PaperclipDesiredSkillEntry[];
+  desiredSkillEntries: HermesFabricDesiredSkillEntry[];
 } {
-  const raw = config.paperclipSkillSync;
+  const raw = config.fabricSkillSync;
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     return { explicit: false, desiredSkills: [], desiredSkillEntries: [] };
   }
   const syncConfig = raw as Record<string, unknown>;
   const desiredValues = syncConfig.desiredSkills;
   const desired = Array.isArray(desiredValues)
-    ? desiredValues.flatMap((value): PaperclipDesiredSkillEntry[] => {
+    ? desiredValues.flatMap((value): HermesFabricDesiredSkillEntry[] => {
         if (typeof value === "string") {
           const key = value.trim();
           return key ? [{ key, versionId: null }] : [];
@@ -1955,7 +1955,7 @@ export function readPaperclipSkillSyncPreference(config: Record<string, unknown>
         return [];
       })
     : [];
-  const byKey = new Map<string, PaperclipDesiredSkillEntry>();
+  const byKey = new Map<string, HermesFabricDesiredSkillEntry>();
   for (const entry of desired) {
     if (!byKey.has(entry.key)) byKey.set(entry.key, entry);
   }
@@ -1967,7 +1967,7 @@ export function readPaperclipSkillSyncPreference(config: Record<string, unknown>
   };
 }
 
-function canonicalizeDesiredPaperclipSkillReference(
+function canonicalizeDesiredHermesFabricSkillReference(
   reference: string,
   availableEntries: Array<{ key: string; runtimeName?: string | null }>,
 ): string {
@@ -1990,29 +1990,29 @@ function canonicalizeDesiredPaperclipSkillReference(
   return normalizedReference;
 }
 
-export function resolvePaperclipDesiredSkillNames(
+export function resolveHermesFabricDesiredSkillNames(
   config: Record<string, unknown>,
   availableEntries: Array<{ key: string; runtimeName?: string | null }>,
 ): string[] {
-  const preference = readPaperclipSkillSyncPreference(config);
+  const preference = readHermesFabricSkillSyncPreference(config);
   if (!preference.explicit) return [];
   const desiredSkills = preference.desiredSkills
-    .map((reference) => canonicalizeDesiredPaperclipSkillReference(reference, availableEntries))
+    .map((reference) => canonicalizeDesiredHermesFabricSkillReference(reference, availableEntries))
     .filter(Boolean);
   return Array.from(new Set(desiredSkills));
 }
 
-export function writePaperclipSkillSyncPreference(
+export function writeHermesFabricSkillSyncPreference(
   config: Record<string, unknown>,
-  desiredSkills: Array<string | PaperclipDesiredSkillEntry>,
+  desiredSkills: Array<string | HermesFabricDesiredSkillEntry>,
 ): Record<string, unknown> {
   const next = { ...config };
-  const raw = next.paperclipSkillSync;
+  const raw = next.fabricSkillSync;
   const current =
     typeof raw === "object" && raw !== null && !Array.isArray(raw)
       ? { ...(raw as Record<string, unknown>) }
       : {};
-  const entries = desiredSkills.flatMap((value): PaperclipDesiredSkillEntry[] => {
+  const entries = desiredSkills.flatMap((value): HermesFabricDesiredSkillEntry[] => {
     if (typeof value === "string") {
       const key = value.trim();
       return key ? [{ key, versionId: null }] : [];
@@ -2021,7 +2021,7 @@ export function writePaperclipSkillSyncPreference(
     if (!key) return [];
     return [{ key, versionId: value.versionId ?? null }];
   });
-  const byKey = new Map<string, PaperclipDesiredSkillEntry>();
+  const byKey = new Map<string, HermesFabricDesiredSkillEntry>();
   for (const entry of entries) {
     if (!byKey.has(entry.key)) byKey.set(entry.key, entry);
   }
@@ -2029,11 +2029,11 @@ export function writePaperclipSkillSyncPreference(
   current.desiredSkills = normalized.some((entry) => entry.versionId)
     ? normalized
     : normalized.map((entry) => entry.key);
-  next.paperclipSkillSync = current;
+  next.fabricSkillSync = current;
   return next;
 }
 
-export async function ensurePaperclipSkillSymlink(
+export async function ensureHermesFabricSkillSymlink(
   source: string,
   target: string,
   linkSkill: (source: string, target: string) => Promise<void> = (linkSource, linkTarget) =>
@@ -2128,7 +2128,7 @@ async function acquireMaterializeLock(lockDir: string): Promise<() => Promise<vo
       if (code !== "EEXIST") throw err;
       if (await removeStaleMaterializeLock(lockDir, MATERIALIZED_SKILL_LOCK_STALE_MS)) continue;
       if (Date.now() >= deadline) {
-        throw new Error(`Timed out waiting for Paperclip skill materialization lock at ${lockDir}`);
+        throw new Error(`Timed out waiting for HermesFabric skill materialization lock at ${lockDir}`);
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -2165,10 +2165,10 @@ async function removeStaleMaterializeLock(lockDir: string, staleMs: number): Pro
   return true;
 }
 
-export async function materializePaperclipSkillCopy(
+export async function materializeHermesFabricSkillCopy(
   source: string,
   target: string,
-): Promise<MaterializedPaperclipSkillCopyResult> {
+): Promise<MaterializedHermesFabricSkillCopyResult> {
   const sourceRoot = path.resolve(source);
   const targetRoot = path.resolve(target);
   const relativeTarget = path.relative(sourceRoot, targetRoot);
@@ -2187,10 +2187,10 @@ export async function materializePaperclipSkillCopy(
     throw new Error("Refusing to materialize a skill root that is itself a symlink.");
   }
   if (!rootStat.isDirectory()) {
-    throw new Error("Paperclip skills must be directories.");
+    throw new Error("HermesFabric skills must be directories.");
   }
 
-  const result: MaterializedPaperclipSkillCopyResult = {
+  const result: MaterializedHermesFabricSkillCopyResult = {
     copiedFiles: 0,
     skippedSymlinks: [],
   };
@@ -2337,8 +2337,8 @@ export async function runChildProcess(
 
     // Strip Claude Code nesting-guard env vars so spawned `claude` processes
     // don't refuse to start with "cannot be launched inside another session".
-    // These vars leak in when the Paperclip server itself is started from
-    // within a Claude Code session (e.g. `npx paperclipai run` in a terminal
+    // These vars leak in when the HermesFabric server itself is started from
+    // within a Claude Code session (e.g. `npx hermes-fabric run` in a terminal
     // owned by Claude Code) or when cron inherits a contaminated shell env.
     const CLAUDE_CODE_NESTING_VARS = [
       "CLAUDECODE",

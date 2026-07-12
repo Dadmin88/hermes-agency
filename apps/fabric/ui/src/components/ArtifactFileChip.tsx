@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { FileCode2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { WorkspaceFileRef } from "@paperclipai/shared";
+import type { WorkspaceFileRef } from "@hermes-fabric/shared";
 import { useFileViewer } from "@/context/FileViewerContext";
 
 export interface ArtifactFileChipProps {
@@ -43,7 +43,7 @@ export function ArtifactFileChip({
     : `Workspace file ${workspaceFileRef.displayPath}${lineSuffix}`);
 
   const classNames = cn(
-    "paperclip-artifact-file-chip inline-flex items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-xs leading-tight text-foreground/90 align-middle no-underline hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+    "fabric-artifact-file-chip inline-flex items-center gap-1 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-xs leading-tight text-foreground/90 align-middle no-underline hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
     canOpen ? "cursor-pointer" : null,
     className,
   );

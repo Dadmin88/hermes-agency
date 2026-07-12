@@ -272,16 +272,16 @@ describe("JsonSchemaForm secret-ref rendering", () => {
               apiKey: { type: "string", format: "secret-ref" },
               sshPort: {
                 type: "number",
-                "x-paperclip-advanced": true,
-                "x-paperclip-group": "SSH access",
+                "x-fabric-advanced": true,
+                "x-fabric-group": "SSH access",
               },
               namePrefix: {
                 type: "string",
-                "x-paperclip-advanced": true,
+                "x-fabric-advanced": true,
               },
             },
           }}
-          values={{ apiKey: "", sshPort: 22, namePrefix: "paperclip" }}
+          values={{ apiKey: "", sshPort: 22, namePrefix: "fabric" }}
           onChange={() => {}}
         />,
       );
@@ -324,7 +324,7 @@ describe("JsonSchemaForm secret-ref rendering", () => {
         apiKey: { type: "string" as const, format: "secret-ref" as const },
         sshPort: {
           type: "number" as const,
-          "x-paperclip-advanced": true,
+          "x-fabric-advanced": true,
         },
       },
     };

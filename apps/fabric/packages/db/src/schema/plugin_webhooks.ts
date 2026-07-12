@@ -9,7 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { plugins } from "./plugins.js";
-import type { PluginWebhookDeliveryStatus } from "@paperclipai/shared";
+import type { PluginWebhookDeliveryStatus } from "@hermes-fabric/shared";
 
 /**
  * `plugin_webhook_deliveries` table — inbound webhook delivery history for plugins.

@@ -137,7 +137,7 @@ This blocks the most likely confused-deputy chain:
 
 1. hostile PR injects the low-trust reviewer
 2. reviewer emits poisoned freeform output
-3. Paperclip copies that output into a higher-trust assignee wake
+3. Hermes Fabric copies that output into a higher-trust assignee wake
 4. higher-trust agent executes with broader capabilities
 
 ## Must-block surfaces
@@ -220,7 +220,7 @@ Add typed columns only if one of these becomes a real requirement:
 ## Residual risk
 
 - Hostile review output can still mislead a human board operator if the sanitized summary is poor.
-- Repo workspace content itself remains hostile; this contract narrows Paperclip API authority, not the semantic risk of reading bad code.
+- Repo workspace content itself remains hostile; this contract narrows Hermes Fabric API authority, not the semantic risk of reading bad code.
 - A future plugin or runtime integration could silently widen the surface unless the preset enforcement layer sits above per-feature route checks.
 
 ## Follow-up issues implied by this contract

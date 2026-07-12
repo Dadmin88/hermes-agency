@@ -10,14 +10,14 @@ import {
   modelProfileOverrides,
   modelSets,
   type Db,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   modelSetDefinitionSchema,
   type ModelDepartmentOverrideInput,
   type ModelPricingItem,
   type ModelSetDefinition,
   type ModelSetDefinitionPatch,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 import {
   buildCostEstimateItems,
@@ -94,7 +94,7 @@ function emptyProfileConfigSummary(): ProfileConfigApplySummary {
 type SettingsDb = Pick<Db, "select" | "update" | "insert">;
 
 const packagedModelSetsDir =
-  process.env.PAPERCLIP_MODEL_SETS_DIR?.trim() ||
+  process.env.HERMES_FABRIC_MODEL_SETS_DIR?.trim() ||
   fileURLToPath(new URL("../../../../../hermes-agency/model_sets", import.meta.url));
 
 let packagedCache: Promise<PackagedModelSetMap> | null = null;

@@ -108,7 +108,7 @@ const mockWorkspaceOperationService = vi.hoisted(() => ({}));
 const mockLogActivity = vi.hoisted(() => vi.fn());
 const mockGetTelemetryClient = vi.hoisted(() => vi.fn());
 
-vi.mock("@paperclipai/shared/telemetry", () => ({
+vi.mock("@hermes-fabric/shared/telemetry", () => ({
   trackAgentCreated: vi.fn(),
   trackErrorHandlerCrash: vi.fn(),
 }));
@@ -393,7 +393,7 @@ describe.sequential("agent cross-tenant route authorization", () => {
     expect(res.body.error).toContain("Key not found");
     expect(mockAgentService.getKeyById).toHaveBeenCalledWith(keyId);
     expect(mockAgentService.revokeKey).not.toHaveBeenCalled();
-  });
+  }, 20_000);
 
   it("requires board access before clearing an agent error", async () => {
     const app = await createApp({

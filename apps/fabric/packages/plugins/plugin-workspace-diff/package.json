@@ -1,15 +1,15 @@
 {
-  "name": "@paperclipai/plugin-workspace-diff",
+  "name": "@hermes-fabric/plugin-workspace-diff",
   "version": "0.1.0",
   "description": "First-party execution workspace Changes tab powered by plugin-local workspace metadata",
   "license": "MIT",
-  "homepage": "https://github.com/paperclipai/paperclip",
+  "homepage": "https://github.com/DeployFaith/Hermes_Agency",
   "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
+    "url": "https://github.com/DeployFaith/Hermes_Agency/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
+    "url": "https://github.com/DeployFaith/Hermes_Agency",
     "directory": "packages/plugins/plugin-workspace-diff"
   },
   "type": "module",
@@ -30,28 +30,28 @@
   "files": [
     "dist"
   ],
-  "paperclipPlugin": {
+  "fabricPlugin": {
     "manifest": "./dist/manifest.js",
     "worker": "./dist/worker.js",
     "ui": "./dist/ui/"
   },
   "keywords": [
-    "paperclip",
+    "fabric",
     "plugin",
     "workspace",
     "diff"
   ],
   "scripts": {
-    "prebuild": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps",
+    "prebuild": "pnpm --filter @hermes-fabric/plugin-sdk ensure-build-deps",
     "build": "tsc && node ./scripts/build-ui.mjs",
     "clean": "rm -rf dist",
-    "typecheck": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "typecheck": "pnpm --filter @hermes-fabric/plugin-sdk ensure-build-deps && tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "prepack": "rm -f package.dev.json && cp package.json package.dev.json && node ../../../scripts/generate-plugin-package-json.mjs",
     "postpack": "if [ -f package.dev.json ]; then mv package.dev.json package.json; fi"
   },
   "dependencies": {
-    "@paperclipai/plugin-sdk": "workspace:*",
+    "@hermes-fabric/plugin-sdk": "workspace:*",
     "@pierre/diffs": "^1.1.22"
   },
   "devDependencies": {

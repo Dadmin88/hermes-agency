@@ -9,7 +9,7 @@ import {
   integer,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { CompanySkillFileInventoryEntry, CompanySkillSharingScope } from "@paperclipai/shared";
+import type { CompanySkillFileInventoryEntry, CompanySkillSharingScope } from "@hermes-fabric/shared";
 import { agents } from "./agents.js";
 import { companies } from "./companies.js";
 

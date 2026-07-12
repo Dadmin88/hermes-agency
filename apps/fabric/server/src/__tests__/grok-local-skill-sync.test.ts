@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   listGrokSkills,
   syncGrokSkills,
-} from "@paperclipai/adapter-grok-local/server";
+} from "@hermes-fabric/adapter-grok-local/server";
 
 describe("grok local skill sync", () => {
-  const paperclipKey = "paperclipai/paperclip/paperclip";
+  const fabricKey = "hermes-fabric/fabric/fabric";
 
   it("reports Grok skills as ephemeral workspace-mounted state", async () => {
     const snapshot = await listGrokSkills({
@@ -13,8 +13,8 @@ describe("grok local skill sync", () => {
       companyId: "company-1",
       adapterType: "grok_local",
       config: {
-        paperclipSkillSync: {
-          desiredSkills: [paperclipKey],
+        fabricSkillSync: {
+          desiredSkills: [fabricKey],
         },
       },
     });
@@ -22,8 +22,8 @@ describe("grok local skill sync", () => {
     expect(snapshot.adapterType).toBe("grok_local");
     expect(snapshot.supported).toBe(true);
     expect(snapshot.mode).toBe("ephemeral");
-    expect(snapshot.desiredSkills).toContain(paperclipKey);
-    expect(snapshot.entries.find((entry) => entry.key === paperclipKey)).toMatchObject({
+    expect(snapshot.desiredSkills).toContain(fabricKey);
+    expect(snapshot.entries.find((entry) => entry.key === fabricKey)).toMatchObject({
       state: "configured",
       detail: "Will be copied into `.claude/skills` in the execution workspace on the next run.",
     });
@@ -35,8 +35,8 @@ describe("grok local skill sync", () => {
       companyId: "company-1",
       adapterType: "grok_local",
       config: {
-        paperclipRuntimeSkills: [],
-        paperclipSkillSync: {
+        fabricRuntimeSkills: [],
+        fabricSkillSync: {
           desiredSkills: ["unknown-skill"],
         },
       },
@@ -44,7 +44,7 @@ describe("grok local skill sync", () => {
 
     expect(snapshot.mode).toBe("ephemeral");
     expect(snapshot.warnings).toContain(
-      'Desired skill "unknown-skill" is not available from the Paperclip skills directory.',
+      'Desired skill "unknown-skill" is not available from the HermesFabric skills directory.',
     );
     expect(snapshot.entries).toContainEqual(expect.objectContaining({
       key: "unknown-skill",

@@ -4,7 +4,7 @@ const ensureDirectoryMock = vi.hoisted(() => vi.fn(async () => {}));
 const ensureCommandMock = vi.hoisted(() => vi.fn(async () => {}));
 const runProcessMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@paperclipai/adapter-utils/execution-target", () => ({
+vi.mock("@hermes-fabric/adapter-utils/execution-target", () => ({
   describeAdapterExecutionTarget: () => "local",
   ensureAdapterExecutionTargetCommandResolvable: ensureCommandMock,
   ensureAdapterExecutionTargetDirectory: ensureDirectoryMock,

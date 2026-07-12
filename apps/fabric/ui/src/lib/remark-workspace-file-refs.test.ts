@@ -115,7 +115,7 @@ describe("remarkWorkspaceFileRefs", () => {
       raw: `${targetPath}:5`,
       projectId: "17acae7d-9d0c-46bf-9c82-be9694ac3461",
       workspaceId: "0de5f74f-a7d4-4f73-a9a0-455a2b968cf2",
-      projectName: "Paperclip Content",
+      projectName: "HermesFabric Content",
     });
     const parsed = parseWorkspaceFileHref(href);
     expect(parsed).toMatchObject({
@@ -124,7 +124,7 @@ describe("remarkWorkspaceFileRefs", () => {
       column: null,
       projectId: "17acae7d-9d0c-46bf-9c82-be9694ac3461",
       workspaceId: "0de5f74f-a7d4-4f73-a9a0-455a2b968cf2",
-      projectName: "Paperclip Content",
+      projectName: "HermesFabric Content",
     });
   });
 

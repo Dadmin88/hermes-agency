@@ -17,7 +17,7 @@ import { companies } from "./companies.js";
 import { heartbeatRuns } from "./heartbeat_runs.js";
 import { projectWorkspaces } from "./project_workspaces.js";
 import { executionWorkspaces } from "./execution_workspaces.js";
-import type { SourceTrustMetadata } from "@paperclipai/shared";
+import type { SourceTrustMetadata } from "@hermes-fabric/shared";
 
 export const issues = pgTable(
   "issues",

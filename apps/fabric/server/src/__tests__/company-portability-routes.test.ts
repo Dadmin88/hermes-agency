@@ -128,7 +128,7 @@ const exportRequest = {
 
 function createExportResult() {
   return {
-    rootPath: "paperclip",
+    rootPath: "fabric",
     manifest: {
       agents: [],
       skills: [],
@@ -154,8 +154,8 @@ const importRequest = {
 };
 
 const cloudHeaders = {
-  "x-paperclip-cloud-stack-id": "stack-alpha",
-  "x-paperclip-cloud-paperclip-company-id": companyId,
+  "x-fabric-cloud-stack-id": "stack-alpha",
+  "x-fabric-cloud-fabric-company-id": companyId,
 };
 
 function cloudTenantActor() {
@@ -208,13 +208,13 @@ describe.sequential("company portability routes", () => {
     }));
     mockCompanyPortabilityService.exportBundle.mockResolvedValue(createExportResult());
     mockCompanyPortabilityService.previewExport.mockResolvedValue({
-      rootPath: "paperclip",
+      rootPath: "fabric",
       manifest: { agents: [], skills: [], projects: [], issues: [], envInputs: [], includes: { company: true, agents: true, projects: true, issues: false, skills: false }, company: null, schemaVersion: 1, generatedAt: new Date().toISOString(), source: null },
       files: {},
       fileInventory: [],
       counts: { files: 0, agents: 0, skills: 0, projects: 0, issues: 0 },
       warnings: [],
-      paperclipExtensionPath: ".paperclip.yaml",
+      fabricExtensionPath: ".fabric.yaml",
     });
     mockCompanyPortabilityService.previewImport.mockResolvedValue({ ok: true });
     mockCompanyPortabilityService.importBundle.mockResolvedValue({
@@ -280,13 +280,13 @@ describe.sequential("company portability routes", () => {
 
   it.sequential("allows CEO agents to use company-scoped export preview routes", async () => {
     mockCompanyPortabilityService.previewExport.mockResolvedValue({
-      rootPath: "paperclip",
+      rootPath: "fabric",
       manifest: { agents: [], skills: [], projects: [], issues: [], envInputs: [], includes: { company: true, agents: true, projects: true, issues: false, skills: false }, company: null, schemaVersion: 1, generatedAt: new Date().toISOString(), source: null },
       files: {},
       fileInventory: [],
       counts: { files: 0, agents: 0, skills: 0, projects: 0, issues: 0 },
       warnings: [],
-      paperclipExtensionPath: ".paperclip.yaml",
+      fabricExtensionPath: ".fabric.yaml",
     });
     const app = await createApp({
       type: "agent",
@@ -301,7 +301,7 @@ describe.sequential("company portability routes", () => {
       .send(exportRequest);
 
     expect(res.status).toBe(200);
-    expect(res.body.rootPath).toBe("paperclip");
+    expect(res.body.rootPath).toBe("fabric");
   });
 
   it.sequential("allows CEO agents to export through legacy and CEO-safe bundle routes", async () => {
@@ -318,7 +318,7 @@ describe.sequential("company portability routes", () => {
       const res = await request(app).post(path).send(exportRequest);
 
       expect(res.status).toBe(200);
-      expect(res.body.rootPath).toBe("paperclip");
+      expect(res.body.rootPath).toBe("fabric");
     }
     expect(mockCompanyPortabilityService.exportBundle).toHaveBeenCalledTimes(2);
     expect(mockCompanyPortabilityService.exportBundle).toHaveBeenNthCalledWith(1, companyId, exportRequest);
@@ -339,7 +339,7 @@ describe.sequential("company portability routes", () => {
       const res = await request(app).post(path).send(exportRequest);
 
       expect(res.status).toBe(200);
-      expect(res.body.rootPath).toBe("paperclip");
+      expect(res.body.rootPath).toBe("fabric");
     }
     expect(mockCompanyPortabilityService.exportBundle).toHaveBeenCalledTimes(2);
   });
@@ -626,7 +626,7 @@ describe.sequential("company portability routes", () => {
 
     const accepted = await request(app)
       .post("/api/companies/import")
-      .set("x-paperclip-cloud-async-import", "1")
+      .set("x-fabric-cloud-async-import", "1")
       .set(cloudHeaders)
       .send(importRequest);
 
@@ -671,7 +671,7 @@ describe.sequential("company portability routes", () => {
 
     const accepted = await request(app)
       .post("/api/companies/import")
-      .set("x-paperclip-cloud-async-import", "1")
+      .set("x-fabric-cloud-async-import", "1")
       .set(cloudHeaders)
       .send(importRequest);
 
@@ -691,7 +691,7 @@ describe.sequential("company portability routes", () => {
 
     const accepted = await request(app)
       .post("/api/companies/import")
-      .set("x-paperclip-cloud-async-import", "1")
+      .set("x-fabric-cloud-async-import", "1")
       .set(cloudHeaders)
       .send({ target: { mode: "existing_company", companyId } });
 

@@ -103,7 +103,7 @@ describe("create issue work product with resource ref", () => {
   it("accepts work product with resourceRef in metadata", () => {
     const result = createIssueWorkProductSchema.parse({
       type: "artifact",
-      provider: "paperclip",
+      provider: "fabric",
       title: "Build output",
       status: "active",
       metadata: {

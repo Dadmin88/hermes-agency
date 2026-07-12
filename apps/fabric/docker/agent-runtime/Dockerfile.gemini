@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 ARG BASE_TAG=dev
-FROM paperclipai/agent-runtime-base:${BASE_TAG}
+FROM hermes-fabric/agent-runtime-base:${BASE_TAG}
 
 USER root
 RUN npm install -g @google/gemini-cli@latest \
@@ -17,5 +17,5 @@ RUN command -v gemini >/dev/null 2>&1 || (echo "gemini not on PATH"; exit 1)
 # schema generations are written (selectedAuthType = legacy, security.auth
 # .selectedType = current). Correct for managed-gateway AND BYOK api-key modes;
 # OAuth flows are interactive and out of scope for sandbox pods.
-RUN mkdir -p /home/paperclip/.gemini \
-    && printf '%s\n' '{"selectedAuthType":"gemini-api-key","security":{"auth":{"selectedType":"gemini-api-key"}}}' > /home/paperclip/.gemini/settings.json
+RUN mkdir -p /home/fabric/.gemini \
+    && printf '%s\n' '{"selectedAuthType":"gemini-api-key","security":{"auth":{"selectedType":"gemini-api-key"}}}' > /home/fabric/.gemini/settings.json

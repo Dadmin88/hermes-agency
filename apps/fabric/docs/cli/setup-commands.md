@@ -5,35 +5,35 @@ summary: Onboard, run, doctor, and configure
 
 Instance setup and diagnostics commands.
 
-## `paperclipai run`
+## `hermes-fabric run`
 
 One-command bootstrap and start:
 
 ```sh
-pnpm paperclipai run
+pnpm hermes-fabric run
 ```
 
 Does:
 
 1. Auto-onboards if config is missing
-2. Runs `paperclipai doctor` with repair enabled
+2. Runs `hermes-fabric doctor` with repair enabled
 3. Starts the server when checks pass
 
 Choose a specific instance:
 
 ```sh
-pnpm paperclipai run --instance dev
+pnpm hermes-fabric run --instance dev
 ```
 
-## `paperclipai onboard`
+## `hermes-fabric onboard`
 
 Interactive first-time setup:
 
 ```sh
-pnpm paperclipai onboard
+pnpm hermes-fabric onboard
 ```
 
-If Paperclip is already configured, rerunning `onboard` keeps the existing config in place. Use `paperclipai configure` to change settings on an existing install.
+If Hermes Fabric is already configured, rerunning `onboard` keeps the existing config in place. Use `hermes-fabric configure` to change settings on an existing install.
 
 First prompt:
 
@@ -43,24 +43,24 @@ First prompt:
 Start immediately after onboarding:
 
 ```sh
-pnpm paperclipai onboard --run
+pnpm hermes-fabric onboard --run
 ```
 
 Non-interactive defaults + immediate start (opens browser on server listen):
 
 ```sh
-pnpm paperclipai onboard --yes
+pnpm hermes-fabric onboard --yes
 ```
 
-On an existing install, `--yes` now preserves the current config and just starts Paperclip with that setup.
+On an existing install, `--yes` now preserves the current config and just starts Hermes Fabric with that setup.
 
-## `paperclipai doctor`
+## `hermes-fabric doctor`
 
 Health checks with optional auto-repair:
 
 ```sh
-pnpm paperclipai doctor
-pnpm paperclipai doctor --repair
+pnpm hermes-fabric doctor
+pnpm hermes-fabric doctor --repair
 ```
 
 Validates:
@@ -72,14 +72,14 @@ Validates:
 - Storage configuration
 - Missing key files
 
-## `paperclipai configure`
+## `hermes-fabric configure`
 
 Update configuration sections:
 
 ```sh
-pnpm paperclipai configure --section server
-pnpm paperclipai configure --section secrets
-pnpm paperclipai configure --section storage
+pnpm hermes-fabric configure --section server
+pnpm hermes-fabric configure --section secrets
+pnpm hermes-fabric configure --section storage
 ```
 
 `--section secrets` updates the deployment-level provider used as the fallback
@@ -89,43 +89,43 @@ coming-soon GCP/Vault) live in the board UI under
 `Company Settings → Secrets → Provider vaults` and the
 `/api/companies/{companyId}/secret-provider-configs` API.
 
-## `paperclipai env`
+## `hermes-fabric env`
 
 Show resolved environment configuration:
 
 ```sh
-pnpm paperclipai env
+pnpm hermes-fabric env
 ```
 
-This now includes bind-oriented deployment settings such as `PAPERCLIP_BIND` and `PAPERCLIP_BIND_HOST` when configured.
+This now includes bind-oriented deployment settings such as `HERMES_FABRIC_BIND` and `HERMES_FABRIC_BIND_HOST` when configured.
 
-## `paperclipai allowed-hostname`
+## `hermes-fabric allowed-hostname`
 
 Allow a private hostname for authenticated/private mode:
 
 ```sh
-pnpm paperclipai allowed-hostname my-tailscale-host
+pnpm hermes-fabric allowed-hostname my-tailscale-host
 ```
 
 ## Local Storage Paths
 
 | Data | Default Path |
 |------|-------------|
-| Config | `~/.paperclip/instances/default/config.json` |
-| Database | `~/.paperclip/instances/default/db` |
-| Logs | `~/.paperclip/instances/default/logs` |
-| Storage | `~/.paperclip/instances/default/data/storage` |
-| Secrets key | `~/.paperclip/instances/default/secrets/master.key` |
+| Config | `~/.hermes-fabric/instances/default/config.json` |
+| Database | `~/.hermes-fabric/instances/default/db` |
+| Logs | `~/.hermes-fabric/instances/default/logs` |
+| Storage | `~/.hermes-fabric/instances/default/data/storage` |
+| Secrets key | `~/.hermes-fabric/instances/default/secrets/master.key` |
 
 Override with:
 
 ```sh
-PAPERCLIP_HOME=/custom/home PAPERCLIP_INSTANCE_ID=dev pnpm paperclipai run
+HERMES_FABRIC_HOME=/custom/home HERMES_FABRIC_INSTANCE_ID=dev pnpm hermes-fabric run
 ```
 
 Or pass `--data-dir` directly on any command:
 
 ```sh
-pnpm paperclipai run --data-dir ./tmp/paperclip-dev
-pnpm paperclipai doctor --data-dir ./tmp/paperclip-dev
+pnpm hermes-fabric run --data-dir ./tmp/fabric-dev
+pnpm hermes-fabric doctor --data-dir ./tmp/fabric-dev
 ```

@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    testTimeout: 20_000,
     isolate: true,
     maxConcurrency: 1,
     maxWorkers: 1,

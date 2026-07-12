@@ -11,11 +11,18 @@ import { externalObjectProviderKeySchema, externalObjectTypeSchema } from "./val
 
 describe("external object references", () => {
   it("extracts external urls without changing internal issue reference behavior", () => {
-    expect(
-      findExternalObjectUrlMatches(
-        "See PAP-1, /issues/PAP-2, https://paperclip.ing/PAP/issues/PAP-3, and https://github.com/acme/app/pull/4.",
-      ),
-    ).toEqual([{ index: 70, length: 34, matchedText: "https://github.com/acme/app/pull/4" }]);
+    const externalUrl = "https://github.com/acme/app/pull/4";
+    const source =
+      "See PAP-1, /issues/PAP-2, https://fabric.ing/PAP/issues/PAP-3, and " +
+      `${externalUrl}.`;
+
+    expect(findExternalObjectUrlMatches(source)).toEqual([
+      {
+        index: source.indexOf(externalUrl),
+        length: externalUrl.length,
+        matchedText: externalUrl,
+      },
+    ]);
   });
 
   it("ignores urls inside inline and fenced code", () => {

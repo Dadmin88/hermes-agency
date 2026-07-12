@@ -11,7 +11,7 @@ export interface ComposerViewportSnapshot {
  * scroll. The desktop app shell pins the body to `overflow: hidden` and renders
  * a fixed-height (`h-dvh`) flex column, so scrolling the window there does not
  * move content — it translates the entire shell (sidebar included) out of the
- * viewport, the regression reported in paperclipai/paperclip#7972. The mobile
+ * viewport, the regression reported in hermes-fabric/fabric#7972. The mobile
  * shell and the auth-free perf fixture leave the body scrollable, where window
  * scrolling is the correct behaviour.
  */
@@ -97,7 +97,7 @@ export function restoreComposerViewportSnapshot(
   // Falling back to the window is only safe when the page itself scrolls. In
   // the fixed-height desktop shell the body is `overflow: hidden`, so a window
   // scroll would shift the whole app shell — sidebar included — off-screen
-  // (paperclipai/paperclip#7972). There is nothing to restore in that case.
+  // (hermes-fabric/fabric#7972). There is nothing to restore in that case.
   if (!isWindowScrollable(doc, win)) return;
 
   win.scrollBy({ top: delta, left: 0, behavior: "auto" });

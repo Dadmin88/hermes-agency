@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PAPERCLIP_E2E_SKIP_LLM: ${{ inputs.skip_llm && 'true' || 'false' }}
+      HERMES_FABRIC_E2E_SKIP_LLM: ${{ inputs.skip_llm && 'true' || 'false' }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v7
@@ -33,7 +33,7 @@ jobs:
 
       - name: Run e2e tests
         env:
-          PAPERCLIP_PLAYWRIGHT_CHANNEL: "chrome"
+          HERMES_FABRIC_PLAYWRIGHT_CHANNEL: "chrome"
         run: pnpm run test:e2e
 
       - uses: actions/upload-artifact@v7

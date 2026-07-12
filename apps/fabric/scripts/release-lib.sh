@@ -276,7 +276,7 @@ publish_package_to_npm() {
   local package_version="$3"
   local publish_log
 
-  publish_log="$(mktemp "${TMPDIR:-/tmp}/paperclip-npm-publish.XXXXXX")"
+  publish_log="$(mktemp "${TMPDIR:-/tmp}/fabric-npm-publish.XXXXXX")"
 
   if (set -o pipefail; pnpm publish --no-git-checks --tag "$dist_tag" --access public 2>&1 | tee "$publish_log"); then
     rm -f "$publish_log"

@@ -22,7 +22,7 @@ import type {
   CatalogTeamTrustLevel,
 } from "./types.js";
 
-const CATALOG_PACKAGE_NAME = "@paperclipai/teams-catalog";
+const CATALOG_PACKAGE_NAME = "@hermes-fabric/teams-catalog";
 const CATALOG_SCHEMA_VERSION = 1;
 const TEAM_ENTRYPOINT = "TEAM.md";
 const MAX_CATALOG_FILE_BYTES = 1024 * 1024;
@@ -140,7 +140,7 @@ export async function validateCatalog(packageDir: string): Promise<BuildCatalogM
   if (generatedText !== null) {
     const expectedText = formatCatalogManifest(expected.manifest);
     if (generatedText !== expectedText) {
-      errors.push("generated/catalog.json is stale. Run pnpm --filter @paperclipai/teams-catalog build:manifest.");
+      errors.push("generated/catalog.json is stale. Run pnpm --filter @hermes-fabric/teams-catalog build:manifest.");
     }
   }
 
@@ -178,7 +178,7 @@ async function readExistingManifest(packageDir: string): Promise<CatalogManifest
 
 async function loadCatalogSkills(packageDir: string, errors: string[]): Promise<CatalogSkillSummary[]> {
   try {
-    const catalogPackageName = "@paperclipai/skills-catalog";
+    const catalogPackageName = "@hermes-fabric/skills-catalog";
     const catalog = await import(catalogPackageName) as { catalogSkills: CatalogSkillSummary[] };
     const skills = catalog.catalogSkills as CatalogSkillSummary[];
     return skills.map((skill) => ({ id: skill.id, key: skill.key, slug: skill.slug }));
@@ -188,7 +188,7 @@ async function loadCatalogSkills(packageDir: string, errors: string[]): Promise<
       const manifest = JSON.parse(await fs.readFile(siblingManifestPath, "utf8")) as { skills?: CatalogSkillSummary[] };
       return (manifest.skills ?? []).map((skill) => ({ id: skill.id, key: skill.key, slug: skill.slug }));
     } catch (error) {
-      errors.push(`Could not load @paperclipai/skills-catalog for skill requirement validation: ${errorMessage(error)}`);
+      errors.push(`Could not load @hermes-fabric/skills-catalog for skill requirement validation: ${errorMessage(error)}`);
       return [];
     }
   }
@@ -262,8 +262,8 @@ async function buildCatalogTeam(
   validateSlug("category", candidate.category, prefix, errors);
   validateSlug("slug", candidate.slug, prefix, errors);
 
-  const id = `paperclipai:${candidate.kind}:${candidate.category}:${candidate.slug}`;
-  const key = `paperclipai/${candidate.kind}/${candidate.category}/${candidate.slug}`;
+  const id = `hermes-fabric:${candidate.kind}:${candidate.category}:${candidate.slug}`;
+  const key = `hermes-fabric/${candidate.kind}/${candidate.category}/${candidate.slug}`;
   const teamMarkdownPath = path.join(candidate.absolutePath, TEAM_ENTRYPOINT);
   const parsed = parseFrontmatterMarkdown(await fs.readFile(teamMarkdownPath, "utf8"));
 
@@ -608,7 +608,7 @@ function resolveSkillRequirement(
     };
   }
 
-  errors.push(`${prefix} skill reference "${ref}" does not resolve to a local team skill or @paperclipai/skills-catalog skill.`);
+  errors.push(`${prefix} skill reference "${ref}" does not resolve to a local team skill or @hermes-fabric/skills-catalog skill.`);
   return {
     type: "catalog",
     ref,
@@ -833,7 +833,7 @@ function classifyCatalogFile(relativePath: string): CatalogTeamFileKind {
   if (relativePath.endsWith("/PROJECT.md") || relativePath === "PROJECT.md") return "project";
   if (relativePath.endsWith("/TASK.md") || relativePath === "TASK.md") return "task";
   if (relativePath.endsWith("/SKILL.md") || relativePath === "SKILL.md") return "skill";
-  if (relativePath === ".paperclip.yaml") return "extension";
+  if (relativePath === ".fabric.yaml") return "extension";
   if (relativePath === "README.md") return "readme";
   if (relativePath.startsWith("references/")) return "reference";
   if (relativePath.startsWith("scripts/")) return "script";
@@ -865,8 +865,8 @@ function collectUniquenessErrors(teams: CatalogTeam[], errors: string[]) {
 
 function collectCandidateUniquenessErrors(candidates: TeamCandidate[], errors: string[]) {
   const projected = candidates.map((candidate) => ({
-    id: `paperclipai:${candidate.kind}:${candidate.category}:${candidate.slug}`,
-    key: `paperclipai/${candidate.kind}/${candidate.category}/${candidate.slug}`,
+    id: `hermes-fabric:${candidate.kind}:${candidate.category}:${candidate.slug}`,
+    key: `hermes-fabric/${candidate.kind}/${candidate.category}/${candidate.slug}`,
     slug: candidate.slug,
     path: toPosixPath(path.join("catalog", candidate.kind, candidate.category, candidate.slug)),
   })) as CatalogTeam[];

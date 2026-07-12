@@ -11,7 +11,7 @@ describe("resolveSessionKey", () => {
         runId: "run-123",
         issueId: null,
       }),
-    ).toBe("agent:meridian:paperclip:run:run-123");
+    ).toBe("agent:meridian:fabric:run:run-123");
   });
 
   it("prefixes issue-scoped session keys with the configured agent", () => {
@@ -23,45 +23,45 @@ describe("resolveSessionKey", () => {
         runId: "run-123",
         issueId: "issue-456",
       }),
-    ).toBe("agent:meridian:paperclip:issue:issue-456");
+    ).toBe("agent:meridian:fabric:issue:issue-456");
   });
 
   it("prefixes fixed session keys with the configured agent", () => {
     expect(
       resolveSessionKey({
         strategy: "fixed",
-        configuredSessionKey: "paperclip",
+        configuredSessionKey: "fabric",
         agentId: "meridian",
         runId: "run-123",
         issueId: null,
       }),
-    ).toBe("agent:meridian:paperclip");
+    ).toBe("agent:meridian:fabric");
   });
 
   it("does not double-prefix an already-routed session key", () => {
     expect(
       resolveSessionKey({
         strategy: "fixed",
-        configuredSessionKey: "agent:meridian:paperclip",
+        configuredSessionKey: "agent:meridian:fabric",
         agentId: "meridian",
         runId: "run-123",
         issueId: null,
       }),
-    ).toBe("agent:meridian:paperclip");
+    ).toBe("agent:meridian:fabric");
   });
 });
 
 describe("buildAgentParams", () => {
-  it("strips root-level paperclip fields from gateway agent params", () => {
+  it("strips root-level fabric fields from gateway agent params", () => {
     expect(
       buildAgentParams({
         payloadTemplate: {
           text: "old text",
-          paperclip: { stale: true },
+          fabric: { stale: true },
           keep: "value",
         },
         message: "wake text",
-        sessionKey: "agent:meridian:paperclip:issue:issue-456",
+        sessionKey: "agent:meridian:fabric:issue:issue-456",
         runId: "run-123",
         configuredAgentId: "meridian",
         waitTimeoutMs: 30_000,
@@ -69,7 +69,7 @@ describe("buildAgentParams", () => {
     ).toEqual({
       keep: "value",
       message: "wake text",
-      sessionKey: "agent:meridian:paperclip:issue:issue-456",
+      sessionKey: "agent:meridian:fabric:issue:issue-456",
       idempotencyKey: "run-123",
       agentId: "meridian",
       timeout: 30_000,
@@ -84,7 +84,7 @@ describe("buildAgentParams", () => {
           timeout: 5_000,
         },
         message: "wake text",
-        sessionKey: "paperclip",
+        sessionKey: "fabric",
         runId: "run-123",
         configuredAgentId: "configured-agent",
         waitTimeoutMs: 30_000,
@@ -93,7 +93,7 @@ describe("buildAgentParams", () => {
       agentId: "template-agent",
       timeout: 5_000,
       message: "wake text",
-      sessionKey: "paperclip",
+      sessionKey: "fabric",
       idempotencyKey: "run-123",
     });
   });

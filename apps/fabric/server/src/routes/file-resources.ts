@@ -2,14 +2,14 @@ import { createReadStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Router } from "express";
 import { ZodError } from "zod";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   workspaceFileListQuerySchema,
   workspaceFileResourceQuerySchema,
   type ResolvedWorkspaceResource,
   type WorkspaceFileContent,
   type WorkspaceFileListResponse,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { HttpError, unprocessable } from "../errors.js";
 import { workspaceFileResourceService } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";

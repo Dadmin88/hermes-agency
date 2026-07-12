@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
-import type { Db } from "@paperclipai/db";
-import { AGENT_ICON_NAMES } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import { AGENT_ICON_NAMES } from "@hermes-fabric/shared";
 import { forbidden } from "../errors.js";
 import { listServerAdapters } from "../adapters/index.js";
 import { hermesGatewayAgentConfigurationDoc } from "../adapters/hermes-gateway-doc.js";
@@ -59,7 +59,7 @@ export function llmRoutes(db: Db) {
       "Notes:",
       "- Sensitive values are redacted in configuration read APIs.",
       "- New hires may be created in pending_approval state depending on company settings.",
-      "- Use the `paperclip-create-agent` hiring skill (compatibility name) for end-to-end hiring: adapter reflection, config comparison, instruction source selection, icon choice, desiredSkills, sourceIssueId/sourceIssueIds, and approval follow-up.",
+      "- Use the `fabric-create-agent` hiring skill (compatibility name) for end-to-end hiring: adapter reflection, config comparison, instruction source selection, icon choice, desiredSkills, sourceIssueId/sourceIssueIds, and approval follow-up.",
       "- Timer heartbeats are opt-in for new hires. Leave runtimeConfig.heartbeat.enabled false unless the role truly needs scheduled work or the user explicitly asked for it.",
       "",
     ];

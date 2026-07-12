@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Issue } from "@paperclipai/shared";
+import type { Issue } from "@hermes-fabric/shared";
 import {
   applyLocalQueuedIssueCommentState,
   applyOptimisticIssueFieldUpdate,
@@ -606,8 +606,8 @@ describe("optimistic issue comments", () => {
             defaultRef: null,
             repoName: null,
             localFolder: null,
-            managedFolder: "/tmp/paperclip",
-            effectiveLocalFolder: "/tmp/paperclip",
+            managedFolder: "/tmp/fabric",
+            effectiveLocalFolder: "/tmp/fabric",
             origin: "local_folder",
           },
           workspaces: [],
@@ -627,7 +627,7 @@ describe("optimistic issue comments", () => {
           branchName: null,
           status: "active",
           name: "Execution workspace",
-          cwd: "/tmp/paperclip",
+          cwd: "/tmp/fabric",
           repoUrl: null,
           baseRef: null,
           providerType: "local_fs",

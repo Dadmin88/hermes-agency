@@ -8,7 +8,7 @@ import type {
   CatalogTeamImportOptions,
   CatalogTeamSourcePolicy,
   InstalledCatalogTeam,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   addCommonClientOptions,
   apiPath,
@@ -218,7 +218,7 @@ export function registerTeamCommands(program: Command): void {
         "When install is denied by agents:create permissions, create a board approval request instead of exiting with the raw 403",
         false,
       )
-      .option("--approval-issue-id <id>", "Issue ID to link to the fallback approval request; defaults to PAPERCLIP_TASK_ID when set")
+      .option("--approval-issue-id <id>", "Issue ID to link to the fallback approval request; defaults to HERMES_FABRIC_TASK_ID when set")
       .action(async (catalogRef: string, opts: TeamInstallOptions) => {
         try {
           const ctx = resolveCommandContext(opts, { requireCompany: true });
@@ -376,14 +376,14 @@ const INSTALL_APPROVAL_FALLBACK_MESSAGES = [
 const SECRET_VALUE_REDACTION = "[redacted]";
 
 function shouldRequestInstallApproval(error: unknown, opts: TeamInstallOptions): error is ApiRequestError {
-  if (!(opts.requestApprovalOnForbidden || isPaperclipTaskRun())) return false;
+  if (!(opts.requestApprovalOnForbidden || isHermesFabricTaskRun())) return false;
   if (!(error instanceof ApiRequestError) || error.status !== 403) return false;
   const message = error.message.toLowerCase();
   return INSTALL_APPROVAL_FALLBACK_MESSAGES.some((expected) => message.includes(expected));
 }
 
-function isPaperclipTaskRun(): boolean {
-  return Boolean(process.env.PAPERCLIP_TASK_ID?.trim());
+function isHermesFabricTaskRun(): boolean {
+  return Boolean(process.env.HERMES_FABRIC_TASK_ID?.trim());
 }
 
 async function requestInstallApproval(
@@ -404,7 +404,7 @@ async function requestInstallApproval(
     payload: {
       title: `Approve catalog team install: ${trimmedRef}`,
       summary:
-        `A Paperclip CLI agent-run attempted to install catalog team "${trimmedRef}" into company "${ctx.companyId}", ` +
+        `A HermesFabric CLI agent-run attempted to install catalog team "${trimmedRef}" into company "${ctx.companyId}", ` +
         `but the API denied the install with: ${error.message}.`,
       recommendedAction:
         "Approve the catalog team source and rerun the install with a board or agent-creator token, or grant agents:create to the requesting agent and rerun the same command.",
@@ -453,7 +453,7 @@ function redactInstallSecretValues(options: CatalogTeamInstallOptions): CatalogT
 }
 
 function resolveApprovalIssueIds(opts: TeamInstallOptions): string[] | undefined {
-  const issueId = opts.approvalIssueId?.trim() || process.env.PAPERCLIP_TASK_ID?.trim();
+  const issueId = opts.approvalIssueId?.trim() || process.env.HERMES_FABRIC_TASK_ID?.trim();
   if (!issueId) return undefined;
   return isUuidLike(issueId) ? [issueId] : undefined;
 }

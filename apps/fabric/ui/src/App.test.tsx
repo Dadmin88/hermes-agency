@@ -159,7 +159,7 @@ describe("CloudAccessGate", () => {
 
     expect(container.textContent).toContain("Finish setting up Hermes Fabric");
     expect(container.textContent).toContain("Sign in / Create account");
-    expect(container.textContent).toContain("pnpm paperclipai auth bootstrap-ceo");
+    expect(container.textContent).toContain("pnpm hermes-fabric auth bootstrap-ceo");
     expect(mockAccessApi.getCurrentBoardAccess).not.toHaveBeenCalled();
 
     unmountRoot(root);

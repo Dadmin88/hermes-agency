@@ -4,7 +4,7 @@ import type {
   CompanySkillDetail,
   CompanySkillFileDetail,
   CompanySkillVersion,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { SkillDetailPage } from "@/pages/CompanySkills";
 
 type DetailTab = "overview" | "files" | "versions" | "agents";
@@ -14,14 +14,14 @@ const NOW = new Date("2026-06-01T12:00:00Z");
 const MOCK_DETAIL: CompanySkillDetail = {
   id: "skill-1",
   companyId: "company-1",
-  key: "paperclipai/paperclip/deep-research",
+  key: "hermes-fabric/fabric/deep-research",
   slug: "deep-research",
   name: "deep-research",
   description:
     "Fan-out web searches, fetch sources, adversarially verify claims, and synthesize a cited report. Best for multi-source, fact-checked research where one search angle will not find everything.",
   markdown: "# deep-research\n\nResearch harness.",
   sourceType: "github",
-  sourceLocator: "github.com/paperclipai/skills",
+  sourceLocator: "github.com/DeployFaith/skills",
   sourceRef: "a1b2c3d4e5f6",
   trustLevel: "scripts_executables",
   compatibility: "compatible",
@@ -58,7 +58,7 @@ const MOCK_DETAIL: CompanySkillDetail = {
   editableReason: null,
   sourceLabel: "GitHub",
   sourceBadge: "github",
-  sourcePath: "github.com/paperclipai/skills/tree/main/deep-research",
+  sourcePath: "github.com/DeployFaith/skills/tree/main/deep-research",
   currentVersion: {
     id: "v-2",
     companyId: "company-1",

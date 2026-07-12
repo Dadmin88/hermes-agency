@@ -1,4 +1,4 @@
-import type { ModelSetDefinition } from "@paperclipai/shared";
+import type { ModelSetDefinition } from "@hermes-fabric/shared";
 import type { ModelSetPreviewChange } from "@/api/model-sets";
 
 export const MODEL_SET_PROVIDER_OPTIONS = [

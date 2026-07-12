@@ -28,7 +28,7 @@ describe("createRuntimeProgressReporter", () => {
 
     await reporter.report(12.6 * MB, 31.4 * MB);
 
-    expect(lines).toEqual(["[paperclip] Syncing workspace to sandbox: 40% (12.6/31.4 MB)\n"]);
+    expect(lines).toEqual(["[fabric] Syncing workspace to sandbox: 40% (12.6/31.4 MB)\n"]);
   });
 
   it("omits the label when none is provided (e.g. git history)", async () => {
@@ -44,7 +44,7 @@ describe("createRuntimeProgressReporter", () => {
 
     await reporter.report(4 * MB, 4 * MB);
 
-    expect(lines).toEqual(["[paperclip] Importing git history to ssh: 100% (4.0/4.0 MB)\n"]);
+    expect(lines).toEqual(["[fabric] Importing git history to ssh: 100% (4.0/4.0 MB)\n"]);
   });
 
   it("suppresses intermediate emits that neither cross a step nor exceed the interval", async () => {
@@ -68,7 +68,7 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.report(5 * MB, 100 * MB); // 5%
 
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toBe("[paperclip] Syncing workspace to sandbox: 1% (1.0/100.0 MB)\n");
+    expect(lines[0]).toBe("[fabric] Syncing workspace to sandbox: 1% (1.0/100.0 MB)\n");
   });
 
   it("emits when the percentage crosses a 10% step", async () => {
@@ -89,7 +89,7 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.report(15 * MB, 100 * MB); // 15% -> crosses into step 1 -> emit
 
     expect(lines).toHaveLength(2);
-    expect(lines[1]).toBe("[paperclip] Syncing workspace to sandbox: 15% (15.0/100.0 MB)\n");
+    expect(lines[1]).toBe("[fabric] Syncing workspace to sandbox: 15% (15.0/100.0 MB)\n");
   });
 
   it("emits on the time threshold even without a step crossing", async () => {
@@ -112,7 +112,7 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.report(3 * MB, 100 * MB); // 3% same step, but 2s elapsed -> emit
 
     expect(lines).toHaveLength(2);
-    expect(lines[1]).toBe("[paperclip] Syncing workspace to sandbox: 3% (3.0/100.0 MB)\n");
+    expect(lines[1]).toBe("[fabric] Syncing workspace to sandbox: 3% (3.0/100.0 MB)\n");
   });
 
   it("always emits the terminal 100% line via report reaching the total", async () => {
@@ -133,7 +133,7 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.report(100 * MB, 100 * MB); // terminal -> always emit
 
     expect(lines[lines.length - 1]).toBe(
-      "[paperclip] Restoring workspace from sandbox: 100% (100.0/100.0 MB)\n",
+      "[fabric] Restoring workspace from sandbox: 100% (100.0/100.0 MB)\n",
     );
   });
 
@@ -156,7 +156,7 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.complete();
 
     expect(lines[lines.length - 1]).toBe(
-      "[paperclip] Syncing workspace to sandbox: 100% (100.0/100.0 MB)\n",
+      "[fabric] Syncing workspace to sandbox: 100% (100.0/100.0 MB)\n",
     );
   });
 
@@ -200,9 +200,9 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.complete();
 
     expect(lines).toEqual([
-      "[paperclip] Restoring workspace from ssh: 2.0 MB\n",
-      "[paperclip] Restoring workspace from ssh: 8.0 MB\n",
-      "[paperclip] Restoring workspace from ssh: 8.0 MB\n",
+      "[fabric] Restoring workspace from ssh: 2.0 MB\n",
+      "[fabric] Restoring workspace from ssh: 8.0 MB\n",
+      "[fabric] Restoring workspace from ssh: 8.0 MB\n",
     ]);
   });
 
@@ -224,8 +224,8 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.fail();
 
     expect(lines).toEqual([
-      "[paperclip] Syncing workspace to ssh: 40% (40.0/100.0 MB)\n",
-      "[paperclip] Syncing workspace to ssh: failed at 40% (40.0/100.0 MB)\n",
+      "[fabric] Syncing workspace to ssh: 40% (40.0/100.0 MB)\n",
+      "[fabric] Syncing workspace to ssh: failed at 40% (40.0/100.0 MB)\n",
     ]);
   });
 
@@ -243,7 +243,7 @@ describe("createRuntimeProgressReporter", () => {
     await reporter.report(3 * MB, null);
     await reporter.fail();
 
-    expect(lines.at(-1)).toBe("[paperclip] Restoring from ssh: failed after 3.0 MB\n");
+    expect(lines.at(-1)).toBe("[fabric] Restoring from ssh: failed after 3.0 MB\n");
   });
 
   it("fail() is suppressed after a terminal completion and complete() after a failure", async () => {

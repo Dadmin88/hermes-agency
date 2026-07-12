@@ -12,7 +12,7 @@ function writeExecutable(path, body) {
 }
 
 function runPublishHelper({ pnpmMode, npmVersionExists = false, distTag = "canary", callerPipefail = true }) {
-  const fixtureDir = mkdtempSync(join(tmpdir(), "paperclip-release-lib-"));
+  const fixtureDir = mkdtempSync(join(tmpdir(), "fabric-release-lib-"));
   const binDir = join(fixtureDir, "bin");
   const stateDir = join(fixtureDir, "state");
   const callLog = join(fixtureDir, "calls.log");
@@ -78,7 +78,7 @@ exit 1
   const script = `
 ${shellOptions}
 source "${repoRoot}/scripts/release-lib.sh"
-publish_package_to_npm ${distTag} @paperclipai/example 1.2.3
+publish_package_to_npm ${distTag} @hermes-fabric/example 1.2.3
 `;
 
   let status = 0;
@@ -123,7 +123,7 @@ test("publish_package_to_npm retries duplicate tlog failures without provenance"
   const result = runPublishHelper({ pnpmMode: "tlog-then-success" });
 
   assert.equal(result.status, 0);
-  assert.match(result.calls, /^npm view @paperclipai\/example@1\.2\.3 version$/m);
+  assert.match(result.calls, /^npm view @hermes-fabric\/example@1\.2\.3 version$/m);
   assert.match(
     result.calls,
     /^pnpm publish --no-git-checks --tag canary --access public --provenance=false$/m,
@@ -134,7 +134,7 @@ test("publish_package_to_npm treats a duplicate tlog failure as complete when np
   const result = runPublishHelper({ pnpmMode: "tlog-always-fails", npmVersionExists: true });
 
   assert.equal(result.status, 0);
-  assert.match(result.calls, /^npm view @paperclipai\/example@1\.2\.3 version$/m);
+  assert.match(result.calls, /^npm view @hermes-fabric\/example@1\.2\.3 version$/m);
   assert.doesNotMatch(result.calls, /--provenance=false/);
 });
 
@@ -158,6 +158,6 @@ test("publish_package_to_npm does not retry stable publishes without provenance"
   const result = runPublishHelper({ pnpmMode: "tlog-then-success", distTag: "latest" });
 
   assert.notEqual(result.status, 0);
-  assert.match(result.calls, /^npm view @paperclipai\/example@1\.2\.3 version$/m);
+  assert.match(result.calls, /^npm view @hermes-fabric\/example@1\.2\.3 version$/m);
   assert.doesNotMatch(result.calls, /--provenance=false/);
 });

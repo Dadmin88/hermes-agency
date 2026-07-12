@@ -94,7 +94,7 @@ export function SidebarShell({
   collapsed = false,
   peeking = false,
   resizable = false,
-  storageKey = "paperclip.sidebar.width",
+  storageKey = "fabric.sidebar.width",
   className,
   onPanelMouseEnter,
   onPanelMouseLeave,

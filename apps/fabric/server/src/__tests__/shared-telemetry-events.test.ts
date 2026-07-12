@@ -4,8 +4,8 @@ import {
   trackAgentFirstHeartbeat,
   trackAgentTaskCompleted,
   trackInstallCompleted,
-} from "@paperclipai/shared/telemetry";
-import type { TelemetryClient } from "@paperclipai/shared/telemetry";
+} from "@hermes-fabric/shared/telemetry";
+import type { TelemetryClient } from "@hermes-fabric/shared/telemetry";
 
 function createClient(): TelemetryClient {
   return {

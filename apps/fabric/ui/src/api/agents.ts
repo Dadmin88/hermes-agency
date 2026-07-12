@@ -16,12 +16,12 @@ import type {
   AgentConfigRevision,
   ClearAgentErrorResponse,
   AgentApiKeyScope,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import type {
   AdapterModelProfileDefinition,
   AdapterModelProfileKey,
-} from "@paperclipai/adapter-utils";
-import { isUuidLike, normalizeAgentUrlKey } from "@paperclipai/shared";
+} from "@hermes-fabric/adapter-utils";
+import { isUuidLike, normalizeAgentUrlKey } from "@hermes-fabric/shared";
 import { ApiError, api } from "./client";
 
 export interface AgentKey {
@@ -239,5 +239,5 @@ export const agentsApi = {
 export interface AvailableSkill {
   name: string;
   description: string;
-  isPaperclipManaged: boolean;
+  isHermesFabricManaged: boolean;
 }

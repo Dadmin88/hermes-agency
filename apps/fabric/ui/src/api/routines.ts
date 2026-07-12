@@ -8,7 +8,7 @@ import type {
   RoutineRunSummary,
   RoutineTrigger,
   RoutineTriggerSecretMaterial,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { activityApi } from "./activity";
 import { api } from "./client";
 

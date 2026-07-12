@@ -2,7 +2,7 @@ import type {
   DocumentAnnotationAnchorConfidence,
   DocumentAnnotationAnchorSnapshot,
   DocumentAnnotationAnchorState,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { documentAnnotationThreads } from "./document_annotation_threads.js";

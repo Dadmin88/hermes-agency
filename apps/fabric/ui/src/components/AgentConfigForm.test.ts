@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Environment } from "@paperclipai/shared";
+import type { Environment } from "@hermes-fabric/shared";
 import { supportsAdapterModelRefresh } from "./AgentConfigForm";
 import { resolveForcedKubernetesEnvironment } from "../lib/forced-kubernetes-environment";
 

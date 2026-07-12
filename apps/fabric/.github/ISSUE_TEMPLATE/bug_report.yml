@@ -20,16 +20,16 @@ body:
       options:
         - label: I have searched existing open and closed issues and this is not a duplicate.
           required: true
-        - label: I am on the latest released version of Paperclip (or can reproduce on `master`).
+        - label: I am on the latest released version of HermesFabric (or can reproduce on `master`).
           required: true
-        - label: I have confirmed the error originates in Paperclip itself — not in my agent adapter, API provider, or local configuration.
+        - label: I have confirmed the error originates in HermesFabric itself — not in my agent adapter, API provider, or local configuration.
           required: true
 
   - type: textarea
     id: what-happened
     attributes:
       label: What happened?
-      description: A clear description of the bug. Be specific about which Paperclip command, endpoint, or UI action was involved.
+      description: A clear description of the bug. Be specific about which HermesFabric command, endpoint, or UI action was involved.
       placeholder: When I do X, Y happens instead of Z.
     validations:
       required: true
@@ -55,10 +55,10 @@ body:
       required: true
 
   - type: input
-    id: paperclip-version
+    id: fabric-version
     attributes:
-      label: Paperclip version or commit
-      description: Output of `paperclipai --version` or the commit SHA you are running.
+      label: HermesFabric version or commit
+      description: Output of `hermes-fabric --version` or the commit SHA you are running.
       placeholder: e.g. 0.42.0 or 78dc3625ac
     validations:
       required: true
@@ -155,7 +155,7 @@ body:
       description: |
         If the bug is config-related, paste the relevant snippet.
 
-        **⚠️ PII warning:** Paperclip config may contain API keys, encrypted-secrets paths, company names, or tokens. **Remove all secrets before pasting.**
+        **⚠️ PII warning:** HermesFabric config may contain API keys, encrypted-secrets paths, company names, or tokens. **Remove all secrets before pasting.**
       render: json
 
   - type: textarea

@@ -1,10 +1,10 @@
 ---
 name: Core Exec Team
-description: Default leadership and engineering team for bootstrapping a Paperclip company with a CEO, CTO, QA Engineer, starter project, and a recurring CEO heartbeat review task.
+description: Default leadership and engineering team for bootstrapping a Hermes Fabric company with a CEO, CTO, QA Engineer, starter project, and a recurring CEO heartbeat review task.
 schema: agentcompanies/v1
 slug: core-exec-team
 category: company-defaults
-key: paperclipai/bundled/company-defaults/core-exec-team
+key: hermes-fabric/bundled/company-defaults/core-exec-team
 manager: agents/ceo/AGENTS.md
 includes:
   - agents/cto/AGENTS.md
@@ -21,15 +21,15 @@ tags:
   - engineering
   - qa
 requiredSkills:
-  - paperclipai/bundled/paperclip-operations/task-planning
-  - paperclipai/bundled/paperclip-operations/issue-triage
-  - paperclipai/bundled/software-development/github-pr-workflow
-  - paperclipai/bundled/quality/qa-acceptance
+  - hermes-fabric/bundled/fabric-operations/task-planning
+  - hermes-fabric/bundled/fabric-operations/issue-triage
+  - hermes-fabric/bundled/software-development/github-pr-workflow
+  - hermes-fabric/bundled/quality/qa-acceptance
 ---
 
 # Core Exec Team
 
-The Core Exec Team is the bundled default install for a new Paperclip company. It boots the smallest org that can take a board prompt, plan it, implement it, and verify it.
+The Core Exec Team is the bundled default install for a new Hermes Fabric company. It boots the smallest org that can take a board prompt, plan it, implement it, and verify it.
 
 ## Contents
 

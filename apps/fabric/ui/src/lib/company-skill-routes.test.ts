@@ -11,9 +11,9 @@ function skill(id: string, slug: string, key = slug): CompanySkillRouteSubject {
   return { id, slug, key };
 }
 
-const deepResearch = skill("11111111-1111-4111-8111-111111111111", "deep-research", "paperclip/deep-research");
+const deepResearch = skill("11111111-1111-4111-8111-111111111111", "deep-research", "fabric/deep-research");
 const scopedDeepResearch = skill("22222222-2222-4222-8222-222222222222", "deep-research", "community/deep-research");
-const browser = skill("33333333-3333-4333-8333-333333333333", "browser", "paperclip/browser");
+const browser = skill("33333333-3333-4333-8333-333333333333", "browser", "fabric/browser");
 
 describe("company skill routes", () => {
   it("builds unique slug detail and file routes", () => {
@@ -27,13 +27,13 @@ describe("company skill routes", () => {
   it("uses a unique key to disambiguate colliding slugs", () => {
     const skills = [deepResearch, scopedDeepResearch, browser];
 
-    expect(canonicalSkillRouteToken(deepResearch, skills)).toBe("paperclip/deep-research");
+    expect(canonicalSkillRouteToken(deepResearch, skills)).toBe("fabric/deep-research");
     expect(canonicalSkillRouteToken(scopedDeepResearch, skills)).toBe("community/deep-research");
-    expect(skillRoute(deepResearch, skills)).toBe("/skills/paperclip/deep-research");
+    expect(skillRoute(deepResearch, skills)).toBe("/skills/fabric/deep-research");
   });
 
   it("falls back to a slug plus short id when the key is not route-safe", () => {
-    const unsafe = skill("44444444-4444-4444-8444-444444444444", "deep-research", "paperclip/files/deep-research");
+    const unsafe = skill("44444444-4444-4444-8444-444444444444", "deep-research", "fabric/files/deep-research");
     const skills = [deepResearch, unsafe];
 
     expect(canonicalSkillRouteToken(unsafe, skills)).toBe("deep-research-44444444");
@@ -65,8 +65,8 @@ describe("company skill routes", () => {
   });
 
   it("parses token paths and encoded file paths", () => {
-    expect(parseSkillRoute("paperclip/deep-research/files/references/setup%20guide.md")).toEqual({
-      skillToken: "paperclip/deep-research",
+    expect(parseSkillRoute("fabric/deep-research/files/references/setup%20guide.md")).toEqual({
+      skillToken: "fabric/deep-research",
       filePath: "references/setup guide.md",
       hasExplicitFilePath: true,
     });

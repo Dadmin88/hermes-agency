@@ -6,7 +6,7 @@ Status: PRD
 
 ## Summary
 
-Paperclip already exposes a broad REST API, but the CLI only covers a narrow operator slice: setup/configuration, context profiles, board auth, companies import/export/delete, issues basic CRUD/comments/checkout/release, approvals, agents list/get/local CLI key export, activity, dashboard, secrets basics, plugin lifecycle basics, feedback export, and cloud sync.
+Hermes Fabric already exposes a broad REST API, but the CLI only covers a narrow operator slice: setup/configuration, context profiles, board auth, companies import/export/delete, issues basic CRUD/comments/checkout/release, approvals, agents list/get/local CLI key export, activity, dashboard, secrets basics, plugin lifecycle basics, feedback export, and cloud sync.
 
 The next CLI product slice should make the CLI a real external API entry point:
 
@@ -15,7 +15,7 @@ The next CLI product slice should make the CLI a real external API entry point:
 3. Provide single-command agent execution and prompt handoff for scripts.
 4. Add CLI coverage for API surfaces that are currently UI-only or curl-only.
 
-The most important requirement is credential ergonomics. External integrations need a reliable "way in" to Paperclip:
+The most important requirement is credential ergonomics. External integrations need a reliable "way in" to Hermes Fabric:
 
 - full board access via a board token approved by a user
 - individual agent access via an agent API key scoped to a specific company and agent
@@ -39,7 +39,7 @@ Current top-level command families:
 Current auth behavior:
 
 - `auth login` creates a CLI auth challenge, opens the board approval URL, and stores the approved board token locally.
-- `agent local-cli` creates an agent API key through board access, installs local skills, and prints `PAPERCLIP_API_URL`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_AGENT_ID`, and `PAPERCLIP_API_KEY`.
+- `agent local-cli` creates an agent API key through board access, installs local skills, and prints `HERMES_FABRIC_API_URL`, `HERMES_FABRIC_COMPANY_ID`, `HERMES_FABRIC_AGENT_ID`, and `HERMES_FABRIC_API_KEY`.
 - Every client command can accept `--api-base`, `--api-key`, `--context`, `--profile`, `--company-id`, and `--json`.
 
 Main limitation:
@@ -64,19 +64,19 @@ Main limitation:
 
 ## API Location Requirements
 
-The CLI must always know which Paperclip API it is operating against. This is especially important for fork/local development, where Paperclip may run on `3101+` rather than the upstream default `3100`.
+The CLI must always know which Hermes Fabric API it is operating against. This is especially important for fork/local development, where Hermes Fabric may run on `3101+` rather than the upstream default `3100`.
 
 Resolution order:
 
 1. Explicit `--api-base <url>`.
-2. `PAPERCLIP_API_URL`.
+2. `HERMES_FABRIC_API_URL`.
 3. Selected context profile `apiBase`.
 4. Repo-local or instance config port, when available.
 5. Default `http://localhost:3100`.
 
 Behavior requirements:
 
-- `paperclipai connect` must show the resolved API base before any auth or mutation and allow the user to override it.
+- `hermes-fabric connect` must show the resolved API base before any auth or mutation and allow the user to override it.
 - Non-interactive commands must accept `--api-base` and produce a clear connection error that includes the attempted URL and a health-check hint.
 - Profiles must persist `apiBase` so a board/agent persona is always tied to the API instance it was created for.
 - Commands that mint or use tokens must not silently fall back to a different API base if a stored credential is missing. They should ask interactively or fail with instructions in non-interactive mode.
@@ -89,7 +89,7 @@ Behavior requirements:
 Command:
 
 ```sh
-paperclipai connect
+hermes-fabric connect
 ```
 
 Flow:
@@ -121,7 +121,7 @@ Expected profile shape should evolve from today's context:
       "companyId": "company-id",
       "persona": "agent",
       "agentId": "agent-id",
-      "apiKeyEnvVarName": "PAPERCLIP_API_KEY"
+      "apiKeyEnvVarName": "HERMES_FABRIC_API_KEY"
     }
   }
 }
@@ -132,9 +132,9 @@ Expected profile shape should evolve from today's context:
 Commands:
 
 ```sh
-paperclipai token board create --company-id <company-id> --name "external-admin"
-paperclipai token board list
-paperclipai token board revoke <key-id>
+hermes-fabric token board create --company-id <company-id> --name "external-admin"
+hermes-fabric token board list
+hermes-fabric token board revoke <key-id>
 ```
 
 Requirements:
@@ -162,9 +162,9 @@ API gap:
 Commands:
 
 ```sh
-paperclipai token agent create --company-id <company-id> --agent <agent-id-or-name> --name "external-worker"
-paperclipai token agent list --company-id <company-id> --agent <agent-id-or-name>
-paperclipai token agent revoke --agent <agent-id-or-name> <key-id>
+hermes-fabric token agent create --company-id <company-id> --agent <agent-id-or-name> --name "external-worker"
+hermes-fabric token agent list --company-id <company-id> --agent <agent-id-or-name>
+hermes-fabric token agent revoke --agent <agent-id-or-name> <key-id>
 ```
 
 Requirements:
@@ -190,15 +190,15 @@ CLI gap:
 Required user-facing shape:
 
 ```sh
-paperclipai agent-prompt <agent-name-or-id> <agent-api-key> "Prompt here"
+hermes-fabric agent-prompt <agent-name-or-id> <agent-api-key> "Prompt here"
 ```
 
 Recommended safer variants:
 
 ```sh
-paperclipai agent prompt --agent <agent-name-or-id> --api-key-env PAPERCLIP_API_KEY "Prompt here"
-paperclipai agent prompt --profile my-agent "Prompt here"
-paperclipai board prompt --agent <agent-name-or-id> "Prompt here"
+hermes-fabric agent prompt --agent <agent-name-or-id> --api-key-env HERMES_FABRIC_API_KEY "Prompt here"
+hermes-fabric agent prompt --profile my-agent "Prompt here"
+hermes-fabric board prompt --agent <agent-name-or-id> "Prompt here"
 ```
 
 Behavior:
@@ -215,7 +215,7 @@ Behavior:
 
 Open decision:
 
-- Default prompt target should be `issue create + assign + wake`, because Paperclip's communication model is tasks/comments, not chat.
+- Default prompt target should be `issue create + assign + wake`, because Hermes Fabric's communication model is tasks/comments, not chat.
 - A direct "send message" mode can be `--issue <id>` and should add an issue comment plus optional wake.
 
 ## Missing CLI Coverage By API Domain
@@ -287,12 +287,12 @@ Missing CLI surfaces:
 CLI commands to add:
 
 ```sh
-paperclipai agent wake <agent>
-paperclipai run list --company-id <company-id>
-paperclipai run get <run-id>
-paperclipai run log <run-id>
-paperclipai run cancel <run-id>
-paperclipai issue runs <issue-id>
+hermes-fabric agent wake <agent>
+hermes-fabric run list --company-id <company-id>
+hermes-fabric run get <run-id>
+hermes-fabric run log <run-id>
+hermes-fabric run cancel <run-id>
+hermes-fabric issue runs <issue-id>
 ```
 
 ### P1: Projects and Goals
@@ -313,8 +313,8 @@ Missing CLI surfaces:
 Commands:
 
 ```sh
-paperclipai project list|get|create|update|delete
-paperclipai goal list|get|create|update|delete
+hermes-fabric project list|get|create|update|delete
+hermes-fabric goal list|get|create|update|delete
 ```
 
 ### P1: Issue Parity Beyond Basic CRUD
@@ -361,14 +361,14 @@ Missing CLI surfaces:
 Commands:
 
 ```sh
-paperclipai issue child create <issue-id>
-paperclipai issue document list|get|put|delete|lock|unlock|revisions|restore
-paperclipai issue work-product list|create|update|delete
-paperclipai issue interaction list|create|accept|reject|respond|cancel
-paperclipai issue attachment list|upload|download|delete
-paperclipai issue force-release <issue-id>
-paperclipai issue label list|create|delete
-paperclipai issue read|unread|archive|unarchive
+hermes-fabric issue child create <issue-id>
+hermes-fabric issue document list|get|put|delete|lock|unlock|revisions|restore
+hermes-fabric issue work-product list|create|update|delete
+hermes-fabric issue interaction list|create|accept|reject|respond|cancel
+hermes-fabric issue attachment list|upload|download|delete
+hermes-fabric issue force-release <issue-id>
+hermes-fabric issue label list|create|delete
+hermes-fabric issue read|unread|archive|unarchive
 ```
 
 ### P1: Agent Lifecycle and Configuration
@@ -405,11 +405,11 @@ Missing CLI surfaces:
 Commands:
 
 ```sh
-paperclipai agent create|update|pause|resume|approve|terminate|delete
-paperclipai agent org
-paperclipai agent config get|revisions|rollback
-paperclipai agent instructions get|set|file
-paperclipai adapter list|models|profiles|detect|test|install|enable|disable|reload
+hermes-fabric agent create|update|pause|resume|approve|terminate|delete
+hermes-fabric agent org
+hermes-fabric agent config get|revisions|rollback
+hermes-fabric agent instructions get|set|file
+hermes-fabric adapter list|models|profiles|detect|test|install|enable|disable|reload
 ```
 
 ### P1: Costs, Budgets, and Finance
@@ -430,10 +430,10 @@ Missing CLI surfaces:
 Commands:
 
 ```sh
-paperclipai cost summary|by-agent|by-project|by-provider|issue
-paperclipai cost event create
-paperclipai finance event create|list|summary
-paperclipai budget overview|set-company|set-agent|policy-create|incident-resolve
+hermes-fabric cost summary|by-agent|by-project|by-provider|issue
+hermes-fabric cost event create
+hermes-fabric finance event create|list|summary
+hermes-fabric budget overview|set-company|set-agent|policy-create|incident-resolve
 ```
 
 ### P1: Access, Invites, and Memberships
@@ -456,10 +456,10 @@ Missing CLI surfaces:
 Commands:
 
 ```sh
-paperclipai invite create|list|revoke|show|onboarding
-paperclipai join list|approve|reject|claim-key
-paperclipai member list|update|archive|permissions
-paperclipai admin user list|promote|demote|company-access
+hermes-fabric invite create|list|revoke|show|onboarding
+hermes-fabric join list|approve|reject|claim-key
+hermes-fabric member list|update|archive|permissions
+hermes-fabric admin user list|promote|demote|company-access
 ```
 
 ### P2: Routines, Workspaces, Environments
@@ -477,10 +477,10 @@ Missing CLI surfaces:
 Commands:
 
 ```sh
-paperclipai routine list|create|get|update|run|runs|trigger|revision
-paperclipai environment list|create|get|update|delete|probe|leases
-paperclipai workspace list|get|update|operations|runtime
-paperclipai project workspace list|create|update|delete|runtime
+hermes-fabric routine list|create|get|update|run|runs|trigger|revision
+hermes-fabric environment list|create|get|update|delete|probe|leases
+hermes-fabric workspace list|get|update|operations|runtime
+hermes-fabric project workspace list|create|update|delete|runtime
 ```
 
 ### P2: Instance, Sidebar, Assets, Profile, and Miscellaneous
@@ -514,31 +514,31 @@ Missing CLI surfaces:
 Recommended command hierarchy:
 
 ```text
-paperclipai connect
-paperclipai token board|agent create|list|revoke
-paperclipai whoami
-paperclipai prompt ...
-paperclipai board ...
-paperclipai agent ...
-paperclipai issue ...
-paperclipai project ...
-paperclipai goal ...
-paperclipai run ...
-paperclipai cost ...
-paperclipai budget ...
-paperclipai routine ...
-paperclipai environment ...
-paperclipai workspace ...
-paperclipai invite ...
-paperclipai member ...
-paperclipai plugin ...
-paperclipai instance ...
+hermes-fabric connect
+hermes-fabric token board|agent create|list|revoke
+hermes-fabric whoami
+hermes-fabric prompt ...
+hermes-fabric board ...
+hermes-fabric agent ...
+hermes-fabric issue ...
+hermes-fabric project ...
+hermes-fabric goal ...
+hermes-fabric run ...
+hermes-fabric cost ...
+hermes-fabric budget ...
+hermes-fabric routine ...
+hermes-fabric environment ...
+hermes-fabric workspace ...
+hermes-fabric invite ...
+hermes-fabric member ...
+hermes-fabric plugin ...
+hermes-fabric instance ...
 ```
 
 Alias policy:
 
 - Keep existing commands working.
-- Add aliases only for high-frequency flows, for example `paperclipai ask` as an alias for `paperclipai prompt`.
+- Add aliases only for high-frequency flows, for example `hermes-fabric ask` as an alias for `hermes-fabric prompt`.
 
 ## Authorization Rules
 
@@ -560,7 +560,7 @@ Automated tests should prefer mocked HTTP/server fixtures where possible. Live/A
 - Board token tests must use a test-specific key name and revoke the key during cleanup when the API supports it.
 - Cleanup should archive or delete the disposable company when the server permits it. If deletion is disabled, the test must leave the company clearly named as disposable and report its ID.
 - Commands must provide a `--yes` or non-interactive path for test setup so CI and local verification do not depend on manual prompts.
-- Destructive tests must require an explicit test opt-in such as an env var or a dedicated test command; normal unit tests must not mutate a real running Paperclip instance.
+- Destructive tests must require an explicit test opt-in such as an env var or a dedicated test command; normal unit tests must not mutate a real running Hermes Fabric instance.
 
 ## Implementation Plan
 
@@ -598,15 +598,15 @@ Automated tests should prefer mocked HTTP/server fixtures where possible. Live/A
 
 ## Acceptance Criteria
 
-- A new user can run `paperclipai connect`, confirm or override the API base, select board or agent, and get a saved working profile tied to that API base.
+- A new user can run `hermes-fabric connect`, confirm or override the API base, select board or agent, and get a saved working profile tied to that API base.
 - A board operator can mint an agent key for a selected agent in a selected company without using `agent local-cli`.
 - A script can run a one-liner equivalent to:
 
 ```sh
-paperclipai agent-prompt AgentName "$AGENT_API_KEY" "Prompt here"
+hermes-fabric agent-prompt AgentName "$AGENT_API_KEY" "Prompt here"
 ```
 
-- The one-liner creates or updates Paperclip work, does not require a browser, and fails with a clear company/agent mismatch error when the token does not belong to the requested agent.
+- The one-liner creates or updates Hermes Fabric work, does not require a browser, and fails with a clear company/agent mismatch error when the token does not belong to the requested agent.
 - Live/API verification creates and uses a disposable company only; no existing company is used for testing.
 - CLI docs list which API route families are covered and which remain UI-only.
 - Token creation, revocation, and prompt handoff have tests for board and agent auth paths.

@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { companies, companyMemberships, instanceUserRoles } from "@paperclipai/db";
-import type { DeploymentMode } from "@paperclipai/shared";
+import type { Db } from "@hermes-fabric/db";
+import { companies, companyMemberships, instanceUserRoles } from "@hermes-fabric/db";
+import type { DeploymentMode } from "@hermes-fabric/shared";
 import { ensureHumanRoleDefaultGrants } from "./services/principal-access-compatibility.js";
 
 const LOCAL_BOARD_USER_ID = "local-board";

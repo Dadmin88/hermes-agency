@@ -10,24 +10,24 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-PAPERCLIP_API_URL="${PAPERCLIP_API_URL:-http://localhost:3100}"
-API_BASE="${PAPERCLIP_API_URL%/}/api"
-COMPANY_ID="${COMPANY_ID:-${PAPERCLIP_COMPANY_ID:-}}"
+HERMES_FABRIC_API_URL="${HERMES_FABRIC_API_URL:-http://localhost:3100}"
+API_BASE="${HERMES_FABRIC_API_URL%/}/api"
+COMPANY_ID="${COMPANY_ID:-${HERMES_FABRIC_COMPANY_ID:-}}"
 OPENCLAW_AGENT_NAME="${OPENCLAW_AGENT_NAME:-OpenClaw Smoke Agent}"
 OPENCLAW_WEBHOOK_URL="${OPENCLAW_WEBHOOK_URL:-}"
 OPENCLAW_WEBHOOK_AUTH="${OPENCLAW_WEBHOOK_AUTH:-Bearer openclaw-smoke-secret}"
 USE_DOCKER_RECEIVER="${USE_DOCKER_RECEIVER:-1}"
-SMOKE_IMAGE="${SMOKE_IMAGE:-paperclip-openclaw-smoke:local}"
-SMOKE_CONTAINER_NAME="${SMOKE_CONTAINER_NAME:-paperclip-openclaw-smoke}"
+SMOKE_IMAGE="${SMOKE_IMAGE:-fabric-openclaw-smoke:local}"
+SMOKE_CONTAINER_NAME="${SMOKE_CONTAINER_NAME:-fabric-openclaw-smoke}"
 SMOKE_PORT="${SMOKE_PORT:-19091}"
 SMOKE_TIMEOUT_SEC="${SMOKE_TIMEOUT_SEC:-45}"
 
 AUTH_HEADERS=()
-if [[ -n "${PAPERCLIP_AUTH_HEADER:-}" ]]; then
-  AUTH_HEADERS+=(-H "Authorization: ${PAPERCLIP_AUTH_HEADER}")
+if [[ -n "${HERMES_FABRIC_AUTH_HEADER:-}" ]]; then
+  AUTH_HEADERS+=(-H "Authorization: ${HERMES_FABRIC_AUTH_HEADER}")
 fi
-if [[ -n "${PAPERCLIP_COOKIE:-}" ]]; then
-  AUTH_HEADERS+=(-H "Cookie: ${PAPERCLIP_COOKIE}")
+if [[ -n "${HERMES_FABRIC_COOKIE:-}" ]]; then
+  AUTH_HEADERS+=(-H "Cookie: ${HERMES_FABRIC_COOKIE}")
 fi
 
 STARTED_CONTAINER=0
@@ -50,8 +50,8 @@ fail_board_auth_required() {
 [openclaw-smoke] ERROR: ${operation} requires board/operator auth.
 
 Provide one of:
-  PAPERCLIP_AUTH_HEADER=\"Bearer <board-token>\"
-  PAPERCLIP_COOKIE=\"<board-session-cookie>\"
+  HERMES_FABRIC_AUTH_HEADER=\"Bearer <board-token>\"
+  HERMES_FABRIC_COOKIE=\"<board-session-cookie>\"
 
 Current auth context appears insufficient (HTTP ${RESPONSE_CODE}).
 EOF
@@ -75,7 +75,7 @@ api_request() {
   if [[ "$path" == http://* || "$path" == https://* ]]; then
     url="$path"
   elif [[ "$path" == /api/* ]]; then
-    url="${PAPERCLIP_API_URL%/}${path}"
+    url="${HERMES_FABRIC_API_URL%/}${path}"
   else
     url="${API_BASE}${path}"
   fi
@@ -142,7 +142,7 @@ if [[ -z "$OPENCLAW_WEBHOOK_URL" ]]; then
   fail "OPENCLAW_WEBHOOK_URL must be set when USE_DOCKER_RECEIVER=0"
 fi
 
-log "checking Paperclip health"
+log "checking HermesFabric health"
 api_request "GET" "/health"
 assert_status "200"
 DEPLOYMENT_MODE="$(jq -r '.deploymentMode // "unknown"' <<<"$RESPONSE_BODY")"
@@ -179,7 +179,7 @@ if [[ -z "$ONBOARDING_TEXT_PATH" ]]; then
 fi
 api_request "GET" "/invites/${INVITE_TOKEN}/onboarding.txt"
 assert_status "200"
-if ! grep -q "Paperclip OpenClaw Gateway Onboarding" <<<"$RESPONSE_BODY"; then
+if ! grep -q "HermesFabric OpenClaw Gateway Onboarding" <<<"$RESPONSE_BODY"; then
   fail "onboarding.txt response missing expected header"
 fi
 
@@ -268,7 +268,7 @@ for _ in $(seq 1 "$SMOKE_TIMEOUT_SEC"); do
   else
     break
   fi
-  MATCH_COUNT="$(jq -r --arg agentId "$CREATED_AGENT_ID" '[.events[] | select(((.body.paperclip.agentId // "") == $agentId))] | length' <<<"$LAST_EVENTS")"
+  MATCH_COUNT="$(jq -r --arg agentId "$CREATED_AGENT_ID" '[.events[] | select(((.body.fabric.agentId // "") == $agentId))] | length' <<<"$LAST_EVENTS")"
   if [[ "$MATCH_COUNT" -gt 0 ]]; then
     FOUND_EVENT="1"
     break

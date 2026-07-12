@@ -11,7 +11,7 @@ const {
   restoreWorkspaceFromSshExecution,
   runSshCommand,
   syncDirectoryToSsh,
-  startAdapterExecutionTargetPaperclipBridge,
+  startAdapterExecutionTargetHermesFabricBridge,
 } = vi.hoisted(() => ({
   runChildProcess: vi.fn(async () => ({
     exitCode: 0,
@@ -41,19 +41,19 @@ const {
     exitCode: 0,
   })),
   syncDirectoryToSsh: vi.fn(async () => undefined),
-  startAdapterExecutionTargetPaperclipBridge: vi.fn(async () => ({
+  startAdapterExecutionTargetHermesFabricBridge: vi.fn(async () => ({
     env: {
-      PAPERCLIP_API_URL: "http://127.0.0.1:4310",
-      PAPERCLIP_API_KEY: "bridge-token",
-      PAPERCLIP_API_BRIDGE_MODE: "queue_v1",
+      HERMES_FABRIC_API_URL: "http://127.0.0.1:4310",
+      HERMES_FABRIC_API_KEY: "bridge-token",
+      HERMES_FABRIC_API_BRIDGE_MODE: "queue_v1",
     },
     stop: async () => {},
   })),
 }));
 
-vi.mock("@paperclipai/adapter-utils/server-utils", async () => {
-  const actual = await vi.importActual<typeof import("@paperclipai/adapter-utils/server-utils")>(
-    "@paperclipai/adapter-utils/server-utils",
+vi.mock("@hermes-fabric/adapter-utils/server-utils", async () => {
+  const actual = await vi.importActual<typeof import("@hermes-fabric/adapter-utils/server-utils")>(
+    "@hermes-fabric/adapter-utils/server-utils",
   );
   return {
     ...actual,
@@ -63,9 +63,9 @@ vi.mock("@paperclipai/adapter-utils/server-utils", async () => {
   };
 });
 
-vi.mock("@paperclipai/adapter-utils/ssh", async () => {
-  const actual = await vi.importActual<typeof import("@paperclipai/adapter-utils/ssh")>(
-    "@paperclipai/adapter-utils/ssh",
+vi.mock("@hermes-fabric/adapter-utils/ssh", async () => {
+  const actual = await vi.importActual<typeof import("@hermes-fabric/adapter-utils/ssh")>(
+    "@hermes-fabric/adapter-utils/ssh",
   );
   return {
     ...actual,
@@ -76,13 +76,13 @@ vi.mock("@paperclipai/adapter-utils/ssh", async () => {
   };
 });
 
-vi.mock("@paperclipai/adapter-utils/execution-target", async () => {
-  const actual = await vi.importActual<typeof import("@paperclipai/adapter-utils/execution-target")>(
-    "@paperclipai/adapter-utils/execution-target",
+vi.mock("@hermes-fabric/adapter-utils/execution-target", async () => {
+  const actual = await vi.importActual<typeof import("@hermes-fabric/adapter-utils/execution-target")>(
+    "@hermes-fabric/adapter-utils/execution-target",
   );
   return {
     ...actual,
-    startAdapterExecutionTargetPaperclipBridge,
+    startAdapterExecutionTargetHermesFabricBridge,
   };
 });
 
@@ -101,11 +101,11 @@ describe("gemini remote execution", () => {
   });
 
   it("prepares the workspace, syncs Gemini skills, and restores workspace changes for remote SSH execution", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-gemini-remote-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-gemini-remote-"));
     cleanupDirs.push(rootDir);
     const workspaceDir = path.join(rootDir, "workspace");
     const alternateWorkspaceDir = path.join(rootDir, "workspace-other");
-    const managedRemoteWorkspace = "/remote/workspace/.paperclip-runtime/runs/run-1/workspace";
+    const managedRemoteWorkspace = "/remote/workspace/.fabric-runtime/runs/run-1/workspace";
     await mkdir(workspaceDir, { recursive: true });
     await mkdir(alternateWorkspaceDir, { recursive: true });
 
@@ -132,21 +132,21 @@ describe("gemini remote execution", () => {
         },
       },
       context: {
-        paperclipWorkspace: {
+        fabricWorkspace: {
           cwd: workspaceDir,
           source: "project_primary",
         },
-        paperclipWorkspaces: [
+        fabricWorkspaces: [
           {
             workspaceId: "workspace-1",
             cwd: workspaceDir,
-            repoUrl: "https://github.com/paperclipai/paperclip.git",
+            repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
             repoRef: "main",
           },
           {
             workspaceId: "workspace-2",
             cwd: alternateWorkspaceDir,
-            repoUrl: "https://github.com/paperclipai/paperclip.git",
+            repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
             repoRef: "feature/other",
           },
         ],
@@ -180,7 +180,7 @@ describe("gemini remote execution", () => {
     expect(prepareWorkspaceForSshExecution).toHaveBeenCalledTimes(1);
     expect(syncDirectoryToSsh).toHaveBeenCalledTimes(1);
     expect(syncDirectoryToSsh).toHaveBeenCalledWith(expect.objectContaining({
-      remoteDir: `${managedRemoteWorkspace}/.paperclip-runtime/gemini/skills`,
+      remoteDir: `${managedRemoteWorkspace}/.fabric-runtime/gemini/skills`,
       followSymlinks: true,
     }));
     expect(runSshCommand).toHaveBeenCalledWith(
@@ -204,34 +204,34 @@ describe("gemini remote execution", () => {
     const call = runChildProcess.mock.calls[0] as unknown as
       | [string, string, string[], { env: Record<string, string>; remoteExecution?: { remoteCwd: string } | null }]
       | undefined;
-    expect(call?.[3].env.PAPERCLIP_WORKSPACE_CWD).toBe(managedRemoteWorkspace);
-    expect(JSON.parse(call?.[3].env.PAPERCLIP_WORKSPACES_JSON ?? "[]")).toEqual([
+    expect(call?.[3].env.HERMES_FABRIC_WORKSPACE_CWD).toBe(managedRemoteWorkspace);
+    expect(JSON.parse(call?.[3].env.HERMES_FABRIC_WORKSPACES_JSON ?? "[]")).toEqual([
       {
         workspaceId: "workspace-1",
         cwd: managedRemoteWorkspace,
-        repoUrl: "https://github.com/paperclipai/paperclip.git",
+        repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         repoRef: "main",
       },
       {
         workspaceId: "workspace-2",
-        repoUrl: "https://github.com/paperclipai/paperclip.git",
+        repoUrl: "https://github.com/DeployFaith/Hermes_Agency.git",
         repoRef: "feature/other",
       },
     ]);
-    expect(call?.[3].env.PAPERCLIP_API_URL).toBe("http://127.0.0.1:4310");
-    expect(call?.[3].env.PAPERCLIP_API_BRIDGE_MODE).toBe("queue_v1");
+    expect(call?.[3].env.HERMES_FABRIC_API_URL).toBe("http://127.0.0.1:4310");
+    expect(call?.[3].env.HERMES_FABRIC_API_BRIDGE_MODE).toBe("queue_v1");
     expect(call?.[3].env.GEMINI_CLI_TRUST_WORKSPACE).toBe("true");
     expect(call?.[3].env.TERM).toBe("xterm-256color");
     expect(call?.[3].env.COLORTERM).toBe("truecolor");
     expect(call?.[3].env.NO_BROWSER).toBe("1");
     expect(call?.[3].env).not.toHaveProperty("NO_COLOR");
     expect(call?.[3].remoteExecution?.remoteCwd).toBe(managedRemoteWorkspace);
-    expect(startAdapterExecutionTargetPaperclipBridge).toHaveBeenCalledTimes(1);
+    expect(startAdapterExecutionTargetHermesFabricBridge).toHaveBeenCalledTimes(1);
     expect(restoreWorkspaceFromSshExecution).toHaveBeenCalledTimes(1);
   });
 
   it("pre-selects gemini-api-key auth in the managed HOME for sandbox execution", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-gemini-sandbox-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-gemini-sandbox-"));
     cleanupDirs.push(rootDir);
     const workspaceDir = path.join(rootDir, "workspace");
     await mkdir(workspaceDir, { recursive: true });
@@ -276,7 +276,7 @@ describe("gemini remote execution", () => {
         env: { GEMINI_API_KEY: "test-key" },
       },
       context: {
-        paperclipWorkspace: {
+        fabricWorkspace: {
           cwd: workspaceDir,
           source: "project_primary",
         },
@@ -298,14 +298,14 @@ describe("gemini remote execution", () => {
     expect(settingsWrite).toBeDefined();
     expect(settingsWrite).toContain("gemini-api-key");
     // The managed HOME lives under the per-run runtime root, never a real home.
-    expect(settingsWrite).toContain(".paperclip-runtime");
+    expect(settingsWrite).toContain(".fabric-runtime");
   });
 
   it("resumes saved Gemini sessions for remote SSH execution only when the identity matches", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-gemini-remote-resume-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-gemini-remote-resume-"));
     cleanupDirs.push(rootDir);
     const workspaceDir = path.join(rootDir, "workspace");
-    const managedRemoteWorkspace = "/remote/workspace/.paperclip-runtime/runs/run-ssh-resume/workspace";
+    const managedRemoteWorkspace = "/remote/workspace/.fabric-runtime/runs/run-ssh-resume/workspace";
     await mkdir(workspaceDir, { recursive: true });
 
     await execute({
@@ -337,7 +337,7 @@ describe("gemini remote execution", () => {
         command: "gemini",
       },
       context: {
-        paperclipWorkspace: {
+        fabricWorkspace: {
           cwd: workspaceDir,
           source: "project_primary",
         },
@@ -363,7 +363,7 @@ describe("gemini remote execution", () => {
   });
 
   it("restores the remote workspace if skills sync fails after workspace prep", async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-gemini-remote-sync-fail-"));
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "fabric-gemini-remote-sync-fail-"));
     cleanupDirs.push(rootDir);
     const workspaceDir = path.join(rootDir, "workspace");
     await mkdir(workspaceDir, { recursive: true });
@@ -388,7 +388,7 @@ describe("gemini remote execution", () => {
         command: "gemini",
       },
       context: {
-        paperclipWorkspace: {
+        fabricWorkspace: {
           cwd: workspaceDir,
           source: "project_primary",
         },

@@ -8,7 +8,7 @@ import {
 } from "./index.js";
 import { createServerAdapter as createGatewayServerAdapterFromSubpath } from "./gateway/index.js";
 
-test("root package export exposes Paperclip external adapter entrypoint", () => {
+test("root package export exposes HermesFabric external adapter entrypoint", () => {
   const adapter = createServerAdapter();
 
   expect(adapter.type).toBe("hermes_local");
@@ -50,7 +50,7 @@ test("gateway subpath export exposes the Hermes Gateway adapter entrypoint", () 
   expect(typeof adapter.getConfigSchema).toBe("function");
 });
 
-test("Hermes adapter exposes bundled Paperclip task bridge skill", async () => {
+test("Hermes adapter exposes bundled HermesFabric task bridge skill", async () => {
   const adapter = createServerAdapter();
   const snapshot = await adapter.listSkills?.({
     adapterType: "hermes_local",
@@ -59,5 +59,5 @@ test("Hermes adapter exposes bundled Paperclip task bridge skill", async () => {
     config: {},
   });
 
-  expect(snapshot?.entries.some((entry) => entry.runtimeName === "paperclip-task-bridge")).toBe(true);
+  expect(snapshot?.entries.some((entry) => entry.runtimeName === "fabric-task-bridge")).toBe(true);
 });

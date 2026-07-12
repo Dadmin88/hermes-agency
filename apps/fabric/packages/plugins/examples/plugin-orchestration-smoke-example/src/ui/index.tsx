@@ -4,7 +4,7 @@ import {
   type PluginDetailTabProps,
   type PluginSettingsPageProps,
   type PluginWidgetProps,
-} from "@paperclipai/plugin-sdk/ui";
+} from "@hermes-fabric/plugin-sdk/ui";
 import type React from "react";
 
 type SurfaceStatus = {

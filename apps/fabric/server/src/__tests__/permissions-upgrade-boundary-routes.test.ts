@@ -17,17 +17,17 @@ import {
   issues,
   issueWorkProducts,
   principalPermissionGrants,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
 } from "./helpers/embedded-postgres.js";
 
 vi.hoisted(() => {
-  process.env.PAPERCLIP_HOME = "/tmp/paperclip-test-home";
-  process.env.PAPERCLIP_INSTANCE_ID = "vitest";
-  process.env.PAPERCLIP_LOG_DIR = "/tmp/paperclip-test-home/logs";
-  process.env.PAPERCLIP_IN_WORKTREE = "false";
+  process.env.HERMES_FABRIC_HOME = "/tmp/fabric-test-home";
+  process.env.HERMES_FABRIC_INSTANCE_ID = "vitest";
+  process.env.HERMES_FABRIC_LOG_DIR = "/tmp/fabric-test-home/logs";
+  process.env.HERMES_FABRIC_IN_WORKTREE = "false";
 });
 
 vi.mock("../services/issue-assignment-wakeup.js", () => ({
@@ -50,8 +50,8 @@ function agentActor(companyId: string, agentId: string): Express.Request["actor"
 }
 
 async function createApp(db: Db, actor: Express.Request["actor"]) {
-  process.env.PAPERCLIP_LOG_DIR = "/tmp/paperclip-test-home/logs";
-  process.env.PAPERCLIP_IN_WORKTREE = "false";
+  process.env.HERMES_FABRIC_LOG_DIR = "/tmp/fabric-test-home/logs";
+  process.env.HERMES_FABRIC_IN_WORKTREE = "false";
   const [{ activityRoutes }, { issueRoutes }] = await Promise.all([
     import("../routes/activity.js"),
     import("../routes/issues.js"),
@@ -107,7 +107,7 @@ describeEmbeddedPostgres("permissions upgrade visibility and route boundaries", 
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-permissions-boundary-routes-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-permissions-boundary-routes-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

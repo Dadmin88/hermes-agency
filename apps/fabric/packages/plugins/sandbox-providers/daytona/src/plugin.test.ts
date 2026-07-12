@@ -30,7 +30,7 @@ function createMockSandbox(overrides: {
 } = {}) {
   return {
     id: overrides.id ?? "sandbox-123",
-    name: overrides.name ?? "paperclip-sandbox",
+    name: overrides.name ?? "fabric-sandbox",
     state: overrides.state ?? "started",
     recoverable: overrides.recoverable ?? false,
     target: "us",
@@ -224,7 +224,7 @@ describe("Daytona sandbox provider plugin", () => {
     });
 
     expect(mockCreate).toHaveBeenCalled();
-    expect(sandbox.fs.createFolder).toHaveBeenCalledWith("/home/daytona/paperclip-workspace", "755");
+    expect(sandbox.fs.createFolder).toHaveBeenCalledWith("/home/daytona/fabric-workspace", "755");
     expect(sandbox.delete).toHaveBeenCalledWith(300);
     expect(result).toMatchObject({
       ok: true,
@@ -232,7 +232,7 @@ describe("Daytona sandbox provider plugin", () => {
         provider: "daytona",
         shellCommand: "bash",
         sandboxId: "sandbox-123",
-        remoteCwd: "/home/daytona/paperclip-workspace",
+        remoteCwd: "/home/daytona/fabric-workspace",
       },
     });
   });
@@ -263,21 +263,21 @@ describe("Daytona sandbox provider plugin", () => {
         provider: "daytona",
         shellCommand: "bash",
         sandboxId: "sandbox-123",
-        remoteCwd: "/home/daytona/paperclip-workspace",
+        remoteCwd: "/home/daytona/fabric-workspace",
         reuseLease: true,
         workspaceSentinel: {
-          path: "/home/daytona/paperclip-workspace/.paperclip-runtime/reusable-sandbox-lease.json",
+          path: "/home/daytona/fabric-workspace/.fabric-runtime/reusable-sandbox-lease.json",
           result: "written",
         },
       },
     });
     expect(sandbox.fs.createFolder).toHaveBeenCalledWith(
-      "/home/daytona/paperclip-workspace/.paperclip-runtime",
+      "/home/daytona/fabric-workspace/.fabric-runtime",
       "755",
     );
     expect(sandbox.fs.uploadFile).toHaveBeenCalledWith(
       expect.any(Buffer),
-      "/home/daytona/paperclip-workspace/.paperclip-runtime/reusable-sandbox-lease.json",
+      "/home/daytona/fabric-workspace/.fabric-runtime/reusable-sandbox-lease.json",
       300,
     );
   });
@@ -546,7 +546,7 @@ describe("Daytona sandbox provider plugin", () => {
       },
       leaseMetadata: {
         workspaceSentinel: {
-          path: "/home/daytona/paperclip-workspace/.paperclip-runtime/reusable-sandbox-lease.json",
+          path: "/home/daytona/fabric-workspace/.fabric-runtime/reusable-sandbox-lease.json",
           token: "sentinel-token",
           result: "written",
         },
@@ -587,7 +587,7 @@ describe("Daytona sandbox provider plugin", () => {
       },
       leaseMetadata: {
         workspaceSentinel: {
-          path: "/home/daytona/paperclip-workspace/.paperclip-runtime/reusable-sandbox-lease.json",
+          path: "/home/daytona/fabric-workspace/.fabric-runtime/reusable-sandbox-lease.json",
           token: "sentinel-token",
           result: "written",
         },
@@ -597,7 +597,7 @@ describe("Daytona sandbox provider plugin", () => {
       metadata: {
         expired: true,
         workspaceSentinel: {
-          path: "/home/daytona/paperclip-workspace/.paperclip-runtime/reusable-sandbox-lease.json",
+          path: "/home/daytona/fabric-workspace/.fabric-runtime/reusable-sandbox-lease.json",
           token: "sentinel-token",
           result: "mismatch",
         },
@@ -752,15 +752,15 @@ describe("Daytona sandbox provider plugin", () => {
 
     expect(sandbox.fs.uploadFile).toHaveBeenCalledWith(
       Buffer.from("input payload", "utf8"),
-      expect.stringMatching(/^\/tmp\/paperclip-stdin-/),
+      expect.stringMatching(/^\/tmp\/fabric-stdin-/),
       1,
     );
     const [command] = sandbox.process.executeCommand.mock.calls[0] as [string];
     expect(command).toMatch(/\/etc\/profile/);
     expect(command).toMatch(/cd '\/workspace'/);
-    expect(command).toMatch(/&& 'cat' < '\/tmp\/paperclip-stdin-/);
+    expect(command).toMatch(/&& 'cat' < '\/tmp\/fabric-stdin-/);
     expect(command).not.toMatch(/(?:^|&& )exec /);
-    expect(sandbox.fs.deleteFile).toHaveBeenCalledWith(expect.stringMatching(/^\/tmp\/paperclip-stdin-/));
+    expect(sandbox.fs.deleteFile).toHaveBeenCalledWith(expect.stringMatching(/^\/tmp\/fabric-stdin-/));
     expect(result).toMatchObject({
       exitCode: 0,
       timedOut: false,

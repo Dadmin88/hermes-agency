@@ -53,7 +53,7 @@ export function isLinkedGitWorktreeCheckout(rootDir: string): boolean {
 }
 
 export function resolveWorktreeEnvFilePath(rootDir: string): string {
-  return path.resolve(rootDir, ".paperclip", ".env");
+  return path.resolve(rootDir, ".fabric", ".env");
 }
 
 function expandHomePrefix(value: string): string {
@@ -67,7 +67,7 @@ function resolveHomeAwarePath(value: string): string {
 }
 
 function resolveDefaultWorktreeHome(env: NodeJS.ProcessEnv): string {
-  return path.resolve(expandHomePrefix((env[`FABRIC_WORKTREES_DIR`] ?? env[`PAPERCLIP_WORKTREES_DIR`])?.trim() || "~/.paperclip-worktrees"));
+  return path.resolve(expandHomePrefix((env[`FABRIC_WORKTREES_DIR`] ?? env[`HERMES_FABRIC_WORKTREES_DIR`])?.trim() || "~/.hermes-fabric-worktrees"));
 }
 
 function repairStaleMigratedWorktreeEnvEntries(
@@ -75,8 +75,8 @@ function repairStaleMigratedWorktreeEnvEntries(
   entries: Record<string, string>,
   env: NodeJS.ProcessEnv,
 ): Record<string, string> {
-  const localConfigPath = path.resolve(rootDir, ".paperclip", "config.json");
-  const configuredPath = (entries[`FABRIC_CONFIG`] ?? entries[`PAPERCLIP_CONFIG`])?.trim();
+  const localConfigPath = path.resolve(rootDir, ".fabric", "config.json");
+  const configuredPath = (entries[`FABRIC_CONFIG`] ?? entries[`HERMES_FABRIC_CONFIG`])?.trim();
   if (!configuredPath) return entries;
 
   const resolvedConfiguredPath = resolveHomeAwarePath(configuredPath);
@@ -90,11 +90,11 @@ function repairStaleMigratedWorktreeEnvEntries(
   return {
     ...entries,
     FABRIC_HOME: homeDir,
-    PAPERCLIP_HOME: homeDir,
+    HERMES_FABRIC_HOME: homeDir,
     FABRIC_CONFIG: localConfigPath,
-    PAPERCLIP_CONFIG: localConfigPath,
+    HERMES_FABRIC_CONFIG: localConfigPath,
     FABRIC_CONTEXT: path.resolve(homeDir, "context.json"),
-    PAPERCLIP_CONTEXT: path.resolve(homeDir, "context.json"),
+    HERMES_FABRIC_CONTEXT: path.resolve(homeDir, "context.json"),
   };
 }
 

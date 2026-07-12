@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Agent } from "@paperclipai/shared";
+import type { Agent } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentActionButtons } from "./AgentActionButtons";
 

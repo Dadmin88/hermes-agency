@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { agents, companies, issues, projects } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { agents, companies, issues, projects } from "@hermes-fabric/db";
 import {
   COMPANY_SEARCH_MAX_LIMIT,
   COMPANY_SEARCH_MAX_OFFSET,
@@ -17,7 +17,7 @@ import {
   type CompanySearchResultType,
   type CompanySearchScope,
   type CompanySearchSnippet,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { companyArtifactsService } from "./company-artifacts.js";
 
 const MIN_TOKEN_LENGTH = 2;

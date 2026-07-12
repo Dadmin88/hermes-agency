@@ -1,5 +1,5 @@
 import { KeyRound, Save } from "lucide-react";
-import type { CompanySecret, RoutineEnvConfig } from "@paperclipai/shared";
+import type { CompanySecret, RoutineEnvConfig } from "@hermes-fabric/shared";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "./EmptyState";
 import { EnvVarEditor } from "./EnvVarEditor";
@@ -72,7 +72,7 @@ export function StageSecretsPanel({
         <p>
           These env vars are injected when{" "}
           <span className="font-medium text-foreground">{displayName}</span> runs this step. They override
-          matching project and agent env on collisions. <span className="font-mono">PAPERCLIP_*</span> names
+          matching project and agent env on collisions. <span className="font-mono">HERMES_FABRIC_*</span> names
           are reserved.
         </p>
       </div>

@@ -1,6 +1,6 @@
-import type { Db } from "@paperclipai/db";
-import { agents } from "@paperclipai/db";
-import { reconcileManagedCodexHome } from "@paperclipai/adapter-codex-local/server";
+import type { Db } from "@hermes-fabric/db";
+import { agents } from "@hermes-fabric/db";
+import { reconcileManagedCodexHome } from "@hermes-fabric/adapter-codex-local/server";
 import { eq } from "drizzle-orm";
 import { logger } from "../middleware/logger.js";
 

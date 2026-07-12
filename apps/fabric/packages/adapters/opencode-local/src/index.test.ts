@@ -8,20 +8,20 @@ describe("buildOpenCodeModelProfiles cheap lane", () => {
     expect(cheap.adapterConfig).toEqual({ model: DEFAULT_OPENCODE_CHEAP_MODEL, variant: "low" });
   });
 
-  it("uses PAPERCLIP_OPENCODE_CHEAP_MODEL when set (no variant, gateway models may not support it)", () => {
-    const [cheap] = buildOpenCodeModelProfiles({ PAPERCLIP_OPENCODE_CHEAP_MODEL: "anthropic/gw/m" });
+  it("uses HERMES_FABRIC_OPENCODE_CHEAP_MODEL when set (no variant, gateway models may not support it)", () => {
+    const [cheap] = buildOpenCodeModelProfiles({ HERMES_FABRIC_OPENCODE_CHEAP_MODEL: "anthropic/gw/m" });
     expect(cheap.adapterConfig).toEqual({ model: "anthropic/gw/m" });
   });
 
-  it("falls back to PAPERCLIP_OPENCODE_SMALL_MODEL so one setting covers both budget lanes", () => {
-    const [cheap] = buildOpenCodeModelProfiles({ PAPERCLIP_OPENCODE_SMALL_MODEL: "anthropic/gw/small" });
+  it("falls back to HERMES_FABRIC_OPENCODE_SMALL_MODEL so one setting covers both budget lanes", () => {
+    const [cheap] = buildOpenCodeModelProfiles({ HERMES_FABRIC_OPENCODE_SMALL_MODEL: "anthropic/gw/small" });
     expect(cheap.adapterConfig).toEqual({ model: "anthropic/gw/small" });
   });
 
   it("prefers CHEAP_MODEL over SMALL_MODEL when both are set", () => {
     const [cheap] = buildOpenCodeModelProfiles({
-      PAPERCLIP_OPENCODE_CHEAP_MODEL: "anthropic/gw/cheap",
-      PAPERCLIP_OPENCODE_SMALL_MODEL: "anthropic/gw/small",
+      HERMES_FABRIC_OPENCODE_CHEAP_MODEL: "anthropic/gw/cheap",
+      HERMES_FABRIC_OPENCODE_SMALL_MODEL: "anthropic/gw/small",
     });
     expect(cheap.adapterConfig).toEqual({ model: "anthropic/gw/cheap" });
   });

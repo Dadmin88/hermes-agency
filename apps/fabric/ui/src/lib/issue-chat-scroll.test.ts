@@ -43,7 +43,7 @@ describe("issue-chat-scroll", () => {
   it("does not scroll the window when the document body is overflow:hidden (desktop shell)", () => {
     // The desktop app shell pins the body to overflow:hidden inside a fixed
     // h-dvh flex column, so a window scroll would translate the whole shell
-    // (sidebar included) off-screen — paperclipai/paperclip#7972.
+    // (sidebar included) off-screen — hermes-fabric/fabric#7972.
     const composer = document.createElement("div");
     document.body.appendChild(composer);
     document.body.style.overflow = "hidden";

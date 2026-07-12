@@ -1,0 +1,79 @@
+name: Hermes Fabric CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/fabric/**"
+      - "docs/fabric-upstream-sync.md"
+      - ".github/workflows/fabric-ci.yml"
+      - ".github/workflows/fabric-upstream-sync.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/fabric/**"
+      - "docs/fabric-upstream-sync.md"
+      - ".github/workflows/fabric-ci.yml"
+      - ".github/workflows/fabric-upstream-sync.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+      - name: Test upstream sync tooling
+        working-directory: apps/fabric
+        run: python scripts/test-upstream-sync.py
+
+      - name: Install dependencies
+        working-directory: apps/fabric
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify canonical branding
+        id: branding
+        shell: bash
+        working-directory: apps/fabric
+        run: |
+          set -o pipefail
+          pnpm run check:branding 2>&1 | tee branding-check.log
+
+      - name: Upload branding failure report
+        if: failure() && steps.branding.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-fabric-branding-report
+          path: apps/fabric/branding-check.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify workspace links
+        working-directory: apps/fabric
+        run: pnpm run preflight:workspace-links
+
+      - name: Typecheck
+        working-directory: apps/fabric
+        run: pnpm run typecheck
+
+      - name: Test
+        working-directory: apps/fabric
+        run: pnpm run test:run
+
+      - name: Build
+        working-directory: apps/fabric
+        run: pnpm run build

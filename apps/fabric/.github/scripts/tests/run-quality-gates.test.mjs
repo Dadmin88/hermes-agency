@@ -21,12 +21,12 @@ test('findExistingComment: paginates until it finds the commitperclip comment', 
       }];
     }
     return [];
-  }, 'token', 'paperclipai/paperclip', 6469);
+  }, 'token', 'hermes-fabric/fabric', 6469);
 
   assert.equal(comment.id, 200);
   assert.deepEqual(seenPaths, [
-    '/repos/paperclipai/paperclip/issues/6469/comments?per_page=100&page=1',
-    '/repos/paperclipai/paperclip/issues/6469/comments?per_page=100&page=2',
+    '/repos/hermes-fabric/fabric/issues/6469/comments?per_page=100&page=1',
+    '/repos/hermes-fabric/fabric/issues/6469/comments?per_page=100&page=2',
   ]);
 });
 
@@ -37,7 +37,7 @@ test('findExistingComment: returns null when no signed comment exists', async ()
       user: { login: 'commitperclip[bot]' },
       body: 'Unsigned status update',
     },
-  ]), 'token', 'paperclipai/paperclip', 6469);
+  ]), 'token', 'hermes-fabric/fabric', 6469);
 
   assert.equal(comment, null);
 });

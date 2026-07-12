@@ -1,6 +1,6 @@
 /**
  * Browser-safe shim for the slice of `node:crypto` that
- * `@paperclipai/shared/external-objects.ts` imports.
+ * `@hermes-fabric/shared/external-objects.ts` imports.
  *
  * The shared canonicalizer runs server-side and never executes in the browser,
  * but the static `import { createHash } from "node:crypto"` is still pulled

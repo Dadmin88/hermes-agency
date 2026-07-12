@@ -49,7 +49,7 @@ describe("MarkdownBody external object decoration", () => {
 
   it("decorates a known URL with the external status icon and metadata attributes", () => {
     const html = render("Take a look: https://github.com/acme/web/pull/241", successReference);
-    expect(html).toContain('class="paperclip-markdown-external-ref"');
+    expect(html).toContain('class="fabric-markdown-external-ref"');
     expect(html).toContain('data-external-link="resolved"');
     expect(html).toContain('data-external-status="succeeded"');
     expect(html).toContain('data-external-liveness="fresh"');
@@ -64,7 +64,7 @@ describe("MarkdownBody external object decoration", () => {
 
   it("renders an unresolved URL as a plain external link with no status affordance", () => {
     const html = render("https://random.example.com/path");
-    expect(html).not.toContain("paperclip-markdown-external-ref");
+    expect(html).not.toContain("fabric-markdown-external-ref");
     expect(html).toContain('href="https://random.example.com/path"');
   });
 
@@ -75,7 +75,7 @@ describe("MarkdownBody external object decoration", () => {
     );
     // The fenced/inline literal should still be present as text but the
     // decorated anchor should not appear since no `<a>` is created in code.
-    expect(html).not.toContain('class="paperclip-markdown-external-ref"');
+    expect(html).not.toContain('class="fabric-markdown-external-ref"');
   });
 
   it("shows liveness suffix in the aria-label when the object is stale or auth_required", () => {

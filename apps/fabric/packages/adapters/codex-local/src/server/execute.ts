@@ -1,14 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@hermes-fabric/adapter-utils";
 import {
   adapterExecutionTargetIsRemote,
   adapterExecutionTargetRemoteCwd,
   overrideAdapterExecutionTargetRemoteCwd,
   adapterExecutionTargetSessionIdentity,
   adapterExecutionTargetSessionMatches,
-  adapterExecutionTargetUsesPaperclipBridge,
+  adapterExecutionTargetUsesHermesFabricBridge,
   describeAdapterExecutionTarget,
   ensureAdapterExecutionTargetCommandResolvable,
   ensureAdapterExecutionTargetRuntimeCommandInstalled,
@@ -17,27 +17,27 @@ import {
   resolveAdapterExecutionTargetTimeoutSec,
   resolveAdapterExecutionTargetCommandForLogs,
   runAdapterExecutionTargetProcess,
-  startAdapterExecutionTargetPaperclipBridge,
-} from "@paperclipai/adapter-utils/execution-target";
+  startAdapterExecutionTargetHermesFabricBridge,
+} from "@hermes-fabric/adapter-utils/execution-target";
 import {
   asString,
   asNumber,
   parseObject,
-  buildPaperclipEnv,
+  buildHermesFabricEnv,
   buildInvocationEnvForLogs,
   ensureAbsoluteDirectory,
-  ensurePaperclipSkillSymlink,
+  ensureHermesFabricSkillSymlink,
   ensurePathInEnv,
-  refreshPaperclipWorkspaceEnvForExecution,
-  readPaperclipRuntimeSkillEntries,
-  readPaperclipIssueWorkModeFromContext,
-  resolvePaperclipDesiredSkillNames,
+  refreshHermesFabricWorkspaceEnvForExecution,
+  readHermesFabricRuntimeSkillEntries,
+  readHermesFabricIssueWorkModeFromContext,
+  resolveHermesFabricDesiredSkillNames,
   renderTemplate,
-  renderPaperclipWakePrompt,
-  stringifyPaperclipWakePayload,
-  DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE,
+  renderHermesFabricWakePrompt,
+  stringifyHermesFabricWakePayload,
+  DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE,
   joinPromptSections,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@hermes-fabric/adapter-utils/server-utils";
 import {
   parseCodexJsonl,
   extractCodexRetryNotBefore,
@@ -131,7 +131,7 @@ function resolveCodexBiller(env: Record<string, string>, billingType: "api" | "s
   return billingType === "subscription" ? "chatgpt" : openAiCompatibleBiller ?? "openai";
 }
 
-async function isLikelyPaperclipRepoRoot(candidate: string): Promise<boolean> {
+async function isLikelyHermesFabricRepoRoot(candidate: string): Promise<boolean> {
   const [hasWorkspace, hasPackageJson, hasServerDir, hasAdapterUtilsDir] = await Promise.all([
     pathExists(path.join(candidate, "pnpm-workspace.yaml")),
     pathExists(path.join(candidate, "package.json")),
@@ -142,7 +142,7 @@ async function isLikelyPaperclipRepoRoot(candidate: string): Promise<boolean> {
   return hasWorkspace && hasPackageJson && hasServerDir && hasAdapterUtilsDir;
 }
 
-async function isLikelyPaperclipRuntimeSkillPath(
+async function isLikelyHermesFabricRuntimeSkillPath(
   candidate: string,
   skillName: string,
   options: { requireSkillMarkdown?: boolean } = {},
@@ -156,7 +156,7 @@ async function isLikelyPaperclipRuntimeSkillPath(
 
   let cursor = path.dirname(skillsRoot);
   for (let depth = 0; depth < 6; depth += 1) {
-    if (await isLikelyPaperclipRepoRoot(cursor)) return true;
+    if (await isLikelyHermesFabricRepoRoot(cursor)) return true;
     const parent = path.dirname(cursor);
     if (parent === cursor) break;
     cursor = parent;
@@ -165,7 +165,7 @@ async function isLikelyPaperclipRuntimeSkillPath(
   return false;
 }
 
-async function pruneBrokenUnavailablePaperclipSkillSymlinks(
+async function pruneBrokenUnavailableHermesFabricSkillSymlinks(
   skillsHome: string,
   allowedSkillNames: Iterable<string>,
   onLog: AdapterExecutionContext["onLog"],
@@ -183,7 +183,7 @@ async function pruneBrokenUnavailablePaperclipSkillSymlinks(
     const resolvedLinkedPath = path.resolve(path.dirname(target), linkedPath);
     if (await pathExists(resolvedLinkedPath)) continue;
     if (
-      !(await isLikelyPaperclipRuntimeSkillPath(resolvedLinkedPath, entry.name, {
+      !(await isLikelyHermesFabricRuntimeSkillPath(resolvedLinkedPath, entry.name, {
         requireSkillMarkdown: false,
       }))
     ) {
@@ -193,7 +193,7 @@ async function pruneBrokenUnavailablePaperclipSkillSymlinks(
     await fs.unlink(target).catch(() => {});
     await onLog(
       "stdout",
-      `[paperclip] Removed stale Codex skill "${entry.name}" from ${skillsHome}\n`,
+      `[fabric] Removed stale Codex skill "${entry.name}" from ${skillsHome}\n`,
     );
   }
 }
@@ -242,7 +242,7 @@ function buildCodexTransientHandoffNote(input: {
   continuationSummaryBody: string | null;
 }): string {
   return [
-    "Paperclip session handoff:",
+    "HermesFabric session handoff:",
     input.previousSessionId ? `- Previous session: ${input.previousSessionId}` : "",
     "- Rotation reason: repeated Codex transient remote-compaction failures",
     `- Fallback mode: ${input.fallbackMode}`,
@@ -259,7 +259,7 @@ export async function ensureCodexSkillsInjected(
   onLog: AdapterExecutionContext["onLog"],
   options: EnsureCodexSkillsInjectedOptions = {},
 ) {
-  const allSkillsEntries = options.skillsEntries ?? await readPaperclipRuntimeSkillEntries({}, __moduleDir);
+  const allSkillsEntries = options.skillsEntries ?? await readHermesFabricRuntimeSkillEntries({}, __moduleDir);
   const desiredSkillNames =
     options.desiredSkillNames ?? allSkillsEntries.map((entry) => entry.key);
   const desiredSet = new Set(desiredSkillNames);
@@ -282,7 +282,7 @@ export async function ensureCodexSkillsInjected(
         if (
           resolvedLinkedPath &&
           resolvedLinkedPath !== entry.source &&
-          (await isLikelyPaperclipRuntimeSkillPath(resolvedLinkedPath, entry.runtimeName))
+          (await isLikelyHermesFabricRuntimeSkillPath(resolvedLinkedPath, entry.runtimeName))
         ) {
           await fs.unlink(target);
           if (linkSkill) {
@@ -292,28 +292,28 @@ export async function ensureCodexSkillsInjected(
           }
           await onLog(
             "stdout",
-            `[paperclip] Repaired Codex skill "${entry.runtimeName}" into ${skillsHome}\n`,
+            `[fabric] Repaired Codex skill "${entry.runtimeName}" into ${skillsHome}\n`,
           );
           continue;
         }
       }
 
-      const result = await ensurePaperclipSkillSymlink(entry.source, target, linkSkill);
+      const result = await ensureHermesFabricSkillSymlink(entry.source, target, linkSkill);
       if (result === "skipped") continue;
 
       await onLog(
         "stdout",
-        `[paperclip] ${result === "repaired" ? "Repaired" : "Injected"} Codex skill "${entry.runtimeName}" into ${skillsHome}\n`,
+        `[fabric] ${result === "repaired" ? "Repaired" : "Injected"} Codex skill "${entry.runtimeName}" into ${skillsHome}\n`,
       );
     } catch (err) {
       await onLog(
         "stderr",
-        `[paperclip] Failed to inject Codex skill "${entry.key}" into ${skillsHome}: ${err instanceof Error ? err.message : String(err)}\n`,
+        `[fabric] Failed to inject Codex skill "${entry.key}" into ${skillsHome}: ${err instanceof Error ? err.message : String(err)}\n`,
       );
     }
   }
 
-  await pruneBrokenUnavailablePaperclipSkillSymlinks(
+  await pruneBrokenUnavailableHermesFabricSkillSymlinks(
     skillsHome,
     skillsEntries.map((entry) => entry.runtimeName),
     onLog,
@@ -325,12 +325,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE,
+    DEFAULT_HERMES_FABRIC_AGENT_PROMPT_TEMPLATE,
   );
   const command = asString(config.command, "codex");
   const model = asString(config.model, "");
 
-  const workspaceContext = parseObject(context.paperclipWorkspace);
+  const workspaceContext = parseObject(context.fabricWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
   const workspaceSource = asString(workspaceContext.source, "");
   const workspaceStrategy = asString(workspaceContext.strategy, "");
@@ -340,22 +340,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const workspaceBranch = asString(workspaceContext.branchName, "");
   const workspaceWorktreePath = asString(workspaceContext.worktreePath, "");
   const agentHome = asString(workspaceContext.agentHome, "");
-  const workspaceHints = Array.isArray(context.paperclipWorkspaces)
-    ? context.paperclipWorkspaces.filter(
+  const workspaceHints = Array.isArray(context.fabricWorkspaces)
+    ? context.fabricWorkspaces.filter(
         (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
       )
     : [];
-  const runtimeServiceIntents = Array.isArray(context.paperclipRuntimeServiceIntents)
-    ? context.paperclipRuntimeServiceIntents.filter(
+  const runtimeServiceIntents = Array.isArray(context.fabricRuntimeServiceIntents)
+    ? context.fabricRuntimeServiceIntents.filter(
         (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
       )
     : [];
-  const runtimeServices = Array.isArray(context.paperclipRuntimeServices)
-    ? context.paperclipRuntimeServices.filter(
+  const runtimeServices = Array.isArray(context.fabricRuntimeServices)
+    ? context.fabricRuntimeServices.filter(
         (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
       )
     : [];
-  const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
+  const runtimePrimaryUrl = asString(context.fabricRuntimePrimaryUrl, "");
   const configuredCwd = asString(config.cwd, "");
   const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
@@ -370,14 +370,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     typeof envConfig.CODEX_HOME === "string" && envConfig.CODEX_HOME.trim().length > 0
       ? path.resolve(envConfig.CODEX_HOME.trim())
       : null;
-  const codexSkillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
+  const codexSkillEntries = await readHermesFabricRuntimeSkillEntries(config, __moduleDir);
   const desiredSkillNames = resolveCodexDesiredSkillNames(config, codexSkillEntries);
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   const configuredOpenAiApiKey =
     typeof envConfig.OPENAI_API_KEY === "string" && envConfig.OPENAI_API_KEY.trim().length > 0
       ? envConfig.OPENAI_API_KEY.trim()
       : null;
-  // A configured CODEX_HOME that lives under the Paperclip-managed company tree
+  // A configured CODEX_HOME that lives under the HermesFabric-managed company tree
   // (the per-agent home set by the server isolation guard) still needs auth
   // seeded — it ships with no credentials and OPENAI_API_KEY="" by default.
   // Only a genuine external/user-supplied override is treated as self-managed
@@ -415,7 +415,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `OPENAI_API_KEY.`,
     );
   }
-  // Merge custom model providers (PAPERCLIP_CODEX_PROVIDERS) into the managed
+  // Merge custom model providers (HERMES_FABRIC_CODEX_PROVIDERS) into the managed
   // CODEX_HOME's config.toml BEFORE the home is shipped to a remote execution
   // target, so both local and sandboxed Codex processes pick up the routing.
   // An explicit env.CODEX_HOME override is treated as user-managed and skipped.
@@ -430,7 +430,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   });
   try {
     for (const note of preparedRuntimeConfig.notes) {
-      await onLog("stdout", `[paperclip] ${note}\n`);
+      await onLog("stdout", `[fabric] ${note}\n`);
     }
     // Inject skills into the same CODEX_HOME that Codex will actually run with
     // (managed home in the default case, or an explicit override from adapter config).
@@ -453,7 +453,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? await (async () => {
           await onLog(
             "stdout",
-            `[paperclip] Syncing workspace and CODEX_HOME to ${describeAdapterExecutionTarget(executionTarget)}.\n`,
+            `[fabric] Syncing workspace and CODEX_HOME to ${describeAdapterExecutionTarget(executionTarget)}.\n`,
           );
           return await prepareAdapterExecutionTargetRuntime({
             runId,
@@ -490,15 +490,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const restoreRemoteWorkspace = preparedExecutionTargetRuntime
       ? () => preparedExecutionTargetRuntime.restoreWorkspace((line) => onLog("stdout", line))
       : null;
-    let paperclipBridge: Awaited<ReturnType<typeof startAdapterExecutionTargetPaperclipBridge>> = null;
+    let fabricBridge: Awaited<ReturnType<typeof startAdapterExecutionTargetHermesFabricBridge>> = null;
     const remoteCodexHome = executionTargetIsRemote
       ? preparedExecutionTargetRuntime?.assetDirs.home ??
-        path.posix.join(effectiveExecutionCwd, ".paperclip-runtime", "codex", "home")
+        path.posix.join(effectiveExecutionCwd, ".fabric-runtime", "codex", "home")
       : null;
     const hasExplicitApiKey =
-      typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
-    const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
-    env.PAPERCLIP_RUN_ID = runId;
+      typeof envConfig.HERMES_FABRIC_API_KEY === "string" && envConfig.HERMES_FABRIC_API_KEY.trim().length > 0;
+    const env: Record<string, string> = { ...buildHermesFabricEnv(agent) };
+    env.HERMES_FABRIC_RUN_ID = runId;
     const wakeTaskId =
       (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||
       (typeof context.issueId === "string" && context.issueId.trim().length > 0 && context.issueId.trim()) ||
@@ -522,33 +522,33 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const linkedIssueIds = Array.isArray(context.issueIds)
       ? context.issueIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
       : [];
-    const wakePayloadJson = stringifyPaperclipWakePayload(context.paperclipWake);
-    const issueWorkMode = readPaperclipIssueWorkModeFromContext(context);
+    const wakePayloadJson = stringifyHermesFabricWakePayload(context.fabricWake);
+    const issueWorkMode = readHermesFabricIssueWorkModeFromContext(context);
     if (wakeTaskId) {
-      env.PAPERCLIP_TASK_ID = wakeTaskId;
+      env.HERMES_FABRIC_TASK_ID = wakeTaskId;
     }
     if (issueWorkMode) {
-      env.PAPERCLIP_ISSUE_WORK_MODE = issueWorkMode;
+      env.HERMES_FABRIC_ISSUE_WORK_MODE = issueWorkMode;
     }
     if (wakeReason) {
-      env.PAPERCLIP_WAKE_REASON = wakeReason;
+      env.HERMES_FABRIC_WAKE_REASON = wakeReason;
     }
     if (wakeCommentId) {
-      env.PAPERCLIP_WAKE_COMMENT_ID = wakeCommentId;
+      env.HERMES_FABRIC_WAKE_COMMENT_ID = wakeCommentId;
     }
     if (approvalId) {
-      env.PAPERCLIP_APPROVAL_ID = approvalId;
+      env.HERMES_FABRIC_APPROVAL_ID = approvalId;
     }
     if (approvalStatus) {
-      env.PAPERCLIP_APPROVAL_STATUS = approvalStatus;
+      env.HERMES_FABRIC_APPROVAL_STATUS = approvalStatus;
     }
     if (linkedIssueIds.length > 0) {
-      env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
+      env.HERMES_FABRIC_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
     }
     if (wakePayloadJson) {
-      env.PAPERCLIP_WAKE_PAYLOAD_JSON = wakePayloadJson;
+      env.HERMES_FABRIC_WAKE_PAYLOAD_JSON = wakePayloadJson;
     }
-    refreshPaperclipWorkspaceEnvForExecution({
+    refreshHermesFabricWorkspaceEnvForExecution({
       env,
       envConfig,
       workspaceCwd: effectiveWorkspaceCwd,
@@ -565,30 +565,30 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       executionCwd: effectiveExecutionCwd,
     });
     if (runtimeServiceIntents.length > 0) {
-      env.PAPERCLIP_RUNTIME_SERVICE_INTENTS_JSON = JSON.stringify(runtimeServiceIntents);
+      env.HERMES_FABRIC_RUNTIME_SERVICE_INTENTS_JSON = JSON.stringify(runtimeServiceIntents);
     }
     if (runtimeServices.length > 0) {
-      env.PAPERCLIP_RUNTIME_SERVICES_JSON = JSON.stringify(runtimeServices);
+      env.HERMES_FABRIC_RUNTIME_SERVICES_JSON = JSON.stringify(runtimeServices);
     }
     if (runtimePrimaryUrl) {
-      env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
+      env.HERMES_FABRIC_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
     }
     env.CODEX_HOME = remoteCodexHome ?? effectiveCodexHome;
     if (!hasExplicitApiKey && authToken) {
-      env.PAPERCLIP_API_KEY = authToken;
+      env.HERMES_FABRIC_API_KEY = authToken;
     }
-    if (executionTargetIsRemote && adapterExecutionTargetUsesPaperclipBridge(runtimeExecutionTarget)) {
-      paperclipBridge = await startAdapterExecutionTargetPaperclipBridge({
+    if (executionTargetIsRemote && adapterExecutionTargetUsesHermesFabricBridge(runtimeExecutionTarget)) {
+      fabricBridge = await startAdapterExecutionTargetHermesFabricBridge({
         runId,
         target: runtimeExecutionTarget,
         runtimeRootDir: preparedExecutionTargetRuntime?.runtimeRootDir,
         adapterKey: "codex",
         timeoutSec,
-        hostApiToken: env.PAPERCLIP_API_KEY,
+        hostApiToken: env.HERMES_FABRIC_API_KEY,
         onLog,
       });
-      if (paperclipBridge) {
-        Object.assign(env, paperclipBridge.env);
+      if (fabricBridge) {
+        Object.assign(env, fabricBridge.env);
       }
     }
     const effectiveEnv = Object.fromEntries(
@@ -625,12 +625,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (monitorResolution.mode === "disabled") {
       await onLog(
         "stdout",
-        `[paperclip] Codex output inactivity monitor is DISABLED via adapterConfig.outputInactivityTimeoutMs=null. Hung codex runs will only be detected by the platform-level silent-run safety net.\n`,
+        `[fabric] Codex output inactivity monitor is DISABLED via adapterConfig.outputInactivityTimeoutMs=null. Hung codex runs will only be detected by the platform-level silent-run safety net.\n`,
       );
     } else if (monitorResolution.mode === "default" && "reason" in monitorResolution) {
       await onLog(
         "stdout",
-        `[paperclip] Ignoring non-positive adapterConfig.outputInactivityTimeoutMs; falling back to default ${monitorResolution.timeoutMs}ms.\n`,
+        `[fabric] Ignoring non-positive adapterConfig.outputInactivityTimeoutMs; falling back to default ${monitorResolution.timeoutMs}ms.\n`,
       );
     }
     const runtimeSessionParams = parseObject(runtime.sessionParams);
@@ -648,12 +648,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (executionTargetIsRemote && runtimeSessionId && !canResumeSession) {
       await onLog(
         "stdout",
-        `[paperclip] Codex session "${runtimeSessionId}" does not match the current remote execution identity and will not be resumed in "${effectiveExecutionCwd}". Starting a fresh remote session.\n`,
+        `[fabric] Codex session "${runtimeSessionId}" does not match the current remote execution identity and will not be resumed in "${effectiveExecutionCwd}". Starting a fresh remote session.\n`,
       );
     } else if (runtimeSessionId && !canResumeSession) {
       await onLog(
         "stdout",
-        `[paperclip] Codex session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${effectiveExecutionCwd}".\n`,
+        `[fabric] Codex session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${effectiveExecutionCwd}".\n`,
       );
     }
     const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
@@ -672,12 +672,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         const reason = err instanceof Error ? err.message : String(err);
         await onLog(
           "stdout",
-          `[paperclip] Warning: could not read agent instructions file "${instructionsFilePath}": ${reason}\n`,
+          `[fabric] Warning: could not read agent instructions file "${instructionsFilePath}": ${reason}\n`,
         );
       }
     }
     const repoAgentsNote =
-      "Codex exec automatically applies repo-scoped AGENTS.md instructions from the current workspace; Paperclip does not currently suppress that discovery.";
+      "Codex exec automatically applies repo-scoped AGENTS.md instructions from the current workspace; HermesFabric does not currently suppress that discovery.";
     const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");
     const templateData = {
       agentId: agent.id,
@@ -692,11 +692,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       !sessionId && bootstrapPromptTemplate.trim().length > 0
         ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
         : "";
-    const wakePrompt = renderPaperclipWakePrompt(context.paperclipWake, { resumedSession: Boolean(sessionId) });
+    const wakePrompt = renderHermesFabricWakePrompt(context.fabricWake, { resumedSession: Boolean(sessionId) });
     const shouldUseResumeDeltaPrompt = Boolean(sessionId) && wakePrompt.length > 0;
     const promptInstructionsPrefix = shouldUseResumeDeltaPrompt ? "" : instructionsPrefix;
     instructionsChars = promptInstructionsPrefix.length;
-    const continuationSummary = parseObject(context.paperclipContinuationSummary);
+    const continuationSummary = parseObject(context.fabricContinuationSummary);
     const continuationSummaryBody = asString(continuationSummary.body, "").trim() || null;
     const codexFallbackHandoffNote =
       forceFreshSession
@@ -766,7 +766,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       commandNotes.unshift(...preparedRuntimeConfig.notes);
     }
     const renderedPrompt = shouldUseResumeDeltaPrompt ? "" : renderTemplate(promptTemplate, templateData);
-    const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+    const sessionHandoffNote = asString(context.fabricSessionHandoffMarkdown, "").trim();
     const prompt = joinPromptSections([
       promptInstructionsPrefix,
       renderedBootstrapPrompt,
@@ -835,7 +835,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
                 const elapsedSec = Math.round(monitorElapsedMs / 1000);
                 const timeoutSecLabel = Math.round(monitorResolution.timeoutMs / 1000);
                 const logLine =
-                  `[paperclip] adapter.invoke ${message}; ` +
+                  `[fabric] adapter.invoke ${message}; ` +
                   `timeoutMs=${monitorResolution.timeoutMs} elapsedSinceLastEventMs=${monitorElapsedMs} ` +
                   `parsedEvents=${state.parsedEventCount} (timeout=${timeoutSecLabel}s elapsed=${elapsedSec}s); ` +
                   `terminating codex child via SIGTERM (5s grace, then SIGKILL).\n`;
@@ -1057,7 +1057,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ) {
         await onLog(
           "stdout",
-          `[paperclip] Codex resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
+          `[fabric] Codex resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
         );
         const retry = await runAttempt(null);
         return toResult(retry, true, true);
@@ -1065,19 +1065,19 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
       return toResult(initial, false, false);
     } finally {
-      if (paperclipBridge) {
-        await paperclipBridge.stop();
+      if (fabricBridge) {
+        await fabricBridge.stop();
       }
       if (restoreRemoteWorkspace) {
         await onLog(
           "stdout",
-          `[paperclip] Restoring workspace changes from ${describeAdapterExecutionTarget(executionTarget)}.\n`,
+          `[fabric] Restoring workspace changes from ${describeAdapterExecutionTarget(executionTarget)}.\n`,
         );
         await restoreRemoteWorkspace();
       }
     }
   } finally {
-    // Restore the managed config.toml so PAPERCLIP_CODEX_PROVIDERS changes
+    // Restore the managed config.toml so HERMES_FABRIC_CODEX_PROVIDERS changes
     // (or removal) between runs never leave stale provider routing behind. This
     // finally starts the moment prepareCodexRuntimeConfig returns, so a throw
     // anywhere in the remaining setup (skill injection, remote runtime

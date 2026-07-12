@@ -37,7 +37,7 @@ function jsonResponse(body: unknown = { ok: true }, init: ResponseInit = { statu
 }
 
 function createTempContextPath() {
-  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-connect-test-")), "context.json");
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "fabric-connect-test-")), "context.json");
 }
 
 function readContext(filePath: string) {
@@ -112,7 +112,7 @@ describe("connect command", () => {
     expect(loginBoardCli).toHaveBeenCalledWith(expect.objectContaining({
       apiBase: API_BASE,
       requestedAccess: "board",
-      command: "paperclipai connect",
+      command: "hermes-fabric connect",
     }));
     expect(fetchMock.mock.calls.map((call) => [call[1]?.method ?? "GET", new URL(String(call[0])).pathname])).toEqual([
       ["GET", "/api/health"],
