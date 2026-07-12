@@ -294,7 +294,7 @@ class NodeLifecycleMixin:
         self._start_future.add_done_callback(self._background_start_done)
 
     def stop_background(self) -> None:
-        if not self.state.started and self._node is None:
+        if not self.state.started and self._node is None and self._startup_task is None:
             return
         try:
             self.stop_sync(timeout=60)

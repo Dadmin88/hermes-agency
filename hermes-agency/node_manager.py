@@ -539,6 +539,10 @@ class NodeManager(
         """Stop whichever transport node is active and tear down runtime tasks."""
 
         try:
+            startup_task = self._startup_task
+            if startup_task is not None:
+                await asyncio.shield(startup_task)
+
             if self._serve_task is not None and not self._serve_task.done():
                 self._serve_task.cancel()
                 await asyncio.gather(self._serve_task, return_exceptions=True)
