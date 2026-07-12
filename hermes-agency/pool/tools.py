@@ -285,6 +285,49 @@ def _profile_runner_pids(
     return sorted(set(pids))
 
 
+def _pid_matches_profile_daemon(
+    pid: int,
+    name: str,
+    profile_dir: Path,
+    *,
+    proc_root: Path = Path("/proc"),
+) -> bool:
+    if pid == os.getpid():
+        return False
+    try:
+        status = (proc_root / str(pid) / "status").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        status = ""
+    if any(
+        fields[:1] == ["State:"] and len(fields) > 1 and fields[1] == "Z"
+        for fields in (line.split() for line in status.splitlines())
+    ):
+        return False
+    argv = _proc_cmdline(pid, proc_root=proc_root)
+    expected_socket = f"--grpc-listen=unix://{profile_dir / '.agency' / 'daemon.sock'}"
+    if not argv or Path(argv[0]).name != "agentanycastd" or expected_socket not in argv:
+        return False
+    env = _proc_environ(pid, proc_root=proc_root)
+    return env.get("HERMES_PROFILE") == name and _same_path(env.get("HERMES_HOME"), profile_dir)
+
+
+def _profile_daemon_pids(
+    name: str, profile_dir: Path, *, proc_root: Path = Path("/proc")
+) -> list[int]:
+    pids: list[int] = []
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return pids
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        if _pid_matches_profile_daemon(pid, name, profile_dir, proc_root=proc_root):
+            pids.append(pid)
+    return sorted(set(pids))
+
+
 class _RunnerPids(list[int]):
     """Process candidates plus the identity required to safely terminate them."""
 
@@ -295,11 +338,21 @@ class _RunnerPids(list[int]):
         self.proc_root = proc_root
 
 
+class _DaemonPids(_RunnerPids):
+    """Verified legacy daemon candidates for a single pool profile."""
+
+
 def _pid_is_owned_runner(pid: int, pids: list[int]) -> bool:
     """Require profile ownership metadata before signaling a process."""
-    if not isinstance(pids, _RunnerPids):
-        return False
-    return _pid_matches_profile_runner(pid, pids.name, pids.profile_dir, proc_root=pids.proc_root)
+    if isinstance(pids, _RunnerPids) and not isinstance(pids, _DaemonPids):
+        return _pid_matches_profile_runner(
+            pid, pids.name, pids.profile_dir, proc_root=pids.proc_root
+        )
+    if isinstance(pids, _DaemonPids):
+        return _pid_matches_profile_daemon(
+            pid, pids.name, pids.profile_dir, proc_root=pids.proc_root
+        )
+    return False
 
 
 def _verified_runner_pidfds(pids: list[int]) -> dict[int, int]:
@@ -491,13 +544,26 @@ def _provider_failure_blocker(
     )
 
 
-def _stop_profile_daemon_processes(name: str) -> None:
-    subprocess.run(
-        ["pkill", "-9", "-f", f"profiles/{name}/.agency/.*agentanycastd"],
-        capture_output=True,
-        timeout=3,
-        check=False,
-    )
+def _stop_profile_daemon_processes(
+    name: str,
+    profile_dir: Path | None = None,
+    *,
+    proc_root: Path = Path("/proc"),
+    grace_seconds: float = 1.5,
+) -> list[int]:
+    """Stop only pidfd-verified legacy daemons for a canonical pool profile."""
+    normalized_name, canonical_profile_dir = _resolve_existing_pool_profile(name)
+    if not isinstance(normalized_name, str) or not isinstance(canonical_profile_dir, Path):
+        return []
+    if profile_dir is not None and not _same_path(profile_dir, canonical_profile_dir):
+        return []
+    candidates = _profile_daemon_pids(normalized_name, canonical_profile_dir, proc_root=proc_root)
+    if not candidates:
+        return []
+    owned_candidates = _DaemonPids(candidates, normalized_name, canonical_profile_dir, proc_root)
+    if grace_seconds == 1.5:
+        return _terminate_pids(owned_candidates)
+    return _terminate_pids(owned_candidates, grace_seconds=grace_seconds)
 
 
 def _proc_rss_kb(pid: int, proc_root: Path = Path("/proc")) -> int:
@@ -815,12 +881,6 @@ def pool_sleep(name: str) -> str:
     # runner.pid, then kill any profile-owned daemon.
     stop_profile_runner_processes(name, profile_dir)
     _stop_profile_daemon_processes(name)
-    subprocess.run(
-        ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
-        capture_output=True,
-        timeout=3,
-        check=False,
-    )
     time.sleep(0.5)
 
     # Clean locks

@@ -143,6 +143,76 @@ def test_stop_removes_mismatched_pidfile_without_signaling(
     assert not pidfile.exists()
 
 
+def _daemon_argv(profile_dir: Path) -> list[str]:
+    return [
+        str(profile_dir / ".agency" / "bin" / "agentanycastd"),
+        f"--grpc-listen=unix://{profile_dir / '.agency' / 'daemon.sock'}",
+    ]
+
+
+def _daemon_env(name: str, profile_dir: Path) -> dict[str, str]:
+    return {"HERMES_PROFILE": name, "HERMES_HOME": str(profile_dir)}
+
+
+def test_stop_terminates_verified_profile_daemon(pool_tools, monkeypatch, tmp_path):
+    profile_dir = tmp_path / "profiles" / "agency-safe"
+    profile_dir.mkdir(parents=True)
+    proc_root = tmp_path / "proc"
+    _write_proc_process(
+        proc_root, 4321, _daemon_argv(profile_dir), _daemon_env("agency-safe", profile_dir)
+    )
+    kill = MagicMock()
+
+    monkeypatch.setattr(pool_tools, "PROFILES", tmp_path / "profiles")
+    monkeypatch.setattr(pool_tools.os, "kill", kill)
+
+    assert pool_tools._stop_profile_daemon_processes(
+        "safe", proc_root=proc_root, grace_seconds=0
+    ) == [4321]
+    assert kill.call_args_list[0] == ((4321, pool_tools.signal.SIGTERM),)
+
+
+@pytest.mark.parametrize("basename", ["notagentanycastd", "AGENTANYCASTD"])
+def test_stop_rejects_lookalike_daemon_executable(pool_tools, monkeypatch, tmp_path, basename):
+    profile_dir = tmp_path / "profiles" / "agency-safe"
+    profile_dir.mkdir(parents=True)
+    proc_root = tmp_path / "proc"
+    argv = _daemon_argv(profile_dir)
+    argv[0] = str(profile_dir / ".agency" / "bin" / basename)
+    _write_proc_process(proc_root, 4321, argv, _daemon_env("agency-safe", profile_dir))
+    kill = MagicMock()
+
+    monkeypatch.setattr(pool_tools, "PROFILES", tmp_path / "profiles")
+    monkeypatch.setattr(pool_tools.os, "kill", kill)
+
+    assert pool_tools._stop_profile_daemon_processes("safe", proc_root=proc_root) == []
+    kill.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        {"HERMES_PROFILE": "agency-other", "HERMES_HOME": "/tmp/profile"},
+        {"HERMES_PROFILE": "agency-safe", "HERMES_HOME": "/tmp/other-profile"},
+        {},
+    ],
+)
+def test_stop_rejects_unverified_profile_daemon(pool_tools, monkeypatch, tmp_path, env):
+    profile_dir = tmp_path / "profiles" / "agency-safe"
+    profile_dir.mkdir(parents=True)
+    proc_root = tmp_path / "proc"
+    if env.get("HERMES_PROFILE") == "agency-safe":
+        env["HERMES_HOME"] = "/tmp/other-profile"
+    _write_proc_process(proc_root, 4321, _daemon_argv(profile_dir), env)
+    kill = MagicMock()
+
+    monkeypatch.setattr(pool_tools, "PROFILES", tmp_path / "profiles")
+    monkeypatch.setattr(pool_tools.os, "kill", kill)
+
+    assert pool_tools._stop_profile_daemon_processes("safe", proc_root=proc_root) == []
+    kill.assert_not_called()
+
+
 def test_terminate_ignores_unverified_bare_pid_list(pool_tools, monkeypatch):
     kill = MagicMock()
     monkeypatch.setattr(pool_tools.os, "kill", kill)
