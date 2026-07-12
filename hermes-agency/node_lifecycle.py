@@ -125,6 +125,10 @@ class NodeLifecycleMixin:
     async def _start_impl(self) -> Any:
         """Join concurrent callers to one startup transition."""
 
+        teardown_task = getattr(self, "_stop_task", None)
+        if teardown_task is not None and not teardown_task.done():
+            await asyncio.shield(teardown_task)
+
         startup_task = self._startup_task
         if startup_task is None:
             startup_task = asyncio.create_task(self._start_impl_once())

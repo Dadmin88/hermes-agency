@@ -123,6 +123,62 @@ async def test_stop_waits_for_blocked_startup_before_node_publication(
         await manager._stop_impl()
 
 
+async def test_start_waits_for_stop_teardown_before_replacing_node(
+    node_manager_module, fake_keryx_sdk
+):
+    """A start arriving during teardown must not reuse the still-stopping node."""
+
+    manager = node_manager_module.NodeManager()
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+
+    async def refresh_team_context(*, force: bool = False) -> None:
+        return None
+
+    manager._refresh_team_context_impl = refresh_team_context
+    node_cls = fake_keryx_sdk["KeryxNode"]
+    original_stop = node_cls.stop
+    teardown_entered = threading.Event()
+    release_teardown = threading.Event()
+
+    async def blocked_stop(self) -> None:
+        teardown_entered.set()
+        await asyncio.to_thread(release_teardown.wait)
+        await original_stop(self)
+
+    node_cls.stop = blocked_stop
+    stop_task = None
+    start_task = None
+    try:
+        old_state = await manager._start_impl()
+        old_node = node_cls.instances[0]
+        assert old_state.started is True
+
+        stop_task = asyncio.create_task(manager._stop_impl())
+        assert await asyncio.to_thread(teardown_entered.wait, 1)
+
+        start_task = asyncio.create_task(manager._start_impl())
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.shield(start_task), timeout=0.01)
+        assert manager._node is old_node
+
+        release_teardown.set()
+        fresh_state = await start_task
+        await stop_task
+
+        assert len(node_cls.instances) == 2
+        assert old_node.stopped is True
+        assert fresh_state.started is True
+        assert manager._node is node_cls.instances[1]
+    finally:
+        release_teardown.set()
+        if start_task is not None:
+            await asyncio.gather(start_task, return_exceptions=True)
+        if stop_task is not None:
+            await asyncio.gather(stop_task, return_exceptions=True)
+        await manager._stop_impl()
+
+
 async def test_timed_out_start_stops_constructed_unpublished_candidate(
     node_manager_module, fake_keryx_sdk
 ):

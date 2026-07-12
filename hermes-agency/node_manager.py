@@ -369,6 +369,7 @@ class NodeManager(
         self._thread_lock = threading.RLock()
         self._start_future: Any | None = None
         self._startup_task: asyncio.Task[Any] | None = None
+        self._stop_task: asyncio.Task[Any] | None = None
         self.state = NodeState()
         atexit.register(self._atexit_stop)
 
@@ -546,6 +547,9 @@ class NodeManager(
     async def _stop_impl(self) -> Any:
         """Stop whichever transport node is active and tear down runtime tasks."""
 
+        current_stop_task = asyncio.current_task()
+        if self._stop_task is None or self._stop_task.done():
+            self._stop_task = current_stop_task
         try:
             startup_task = self._startup_task
             if startup_task is not None:
@@ -605,6 +609,8 @@ class NodeManager(
             self._refresh_registration_health()
             self.state.stopped_at = time.time()
             self._refresh_incoming_state()
+            if self._stop_task is current_stop_task:
+                self._stop_task = None
         return self.state
 
     @staticmethod
