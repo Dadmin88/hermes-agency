@@ -148,12 +148,23 @@ def stabilize_adapter_skill_snapshot_test() -> None:
     test_path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+def stabilize_cli_auth_skill_heading_test() -> None:
+    test_path = FABRIC / "server/src/__tests__/cli-auth-routes.test.ts"
+    text = test_path.read_text(encoding="utf-8")
+    old = 'expect(res.text).toContain("# HermesFabric Skill");'
+    new = 'expect(res.text).toContain("# Hermes Fabric Skill");'
+    if old not in text and new not in text:
+        raise RuntimeError("CLI auth skill heading assertion anchor missing")
+    test_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
 def main() -> None:
     stabilize_plugin_constraints()
     normalize_worktree_test_contract()
     stabilize_skills_catalog_package_test()
     normalize_skills_catalog_keys()
     stabilize_adapter_skill_snapshot_test()
+    stabilize_cli_auth_skill_heading_test()
     print("Stabilized final Hermes Fabric migration contracts")
 
 
