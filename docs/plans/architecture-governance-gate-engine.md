@@ -68,7 +68,7 @@ The new `hermes-agency/workflow/` package supplies:
 - the `architecture-governance` template;
 - `transition(current_state, event) -> new_state`, a pure copy-on-write reducer;
 - graph validation, deterministic ready-gate calculation, and single-controlling-gate validation;
-- reviewer-independence and artifact-identity validation;
+- reviewer-independence and artifact-identity validation, binding every persisted reviewer and gate author to the revision artifact's immutable creator identity;
 - idempotent event ledger semantics using canonical event digests;
 - canonical JSON serialize/restore with validation before use, including revalidation of persisted reviewer independence and full report fields; and
 - focused regression tests, including the real-world repeated-review scenario.

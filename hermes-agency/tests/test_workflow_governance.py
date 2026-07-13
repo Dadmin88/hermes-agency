@@ -38,7 +38,9 @@ from workflow import (  # noqa: E402
 NOW = "2026-07-13T20:00:00Z"
 
 
-def artifact(*, frozen: bool = False, digest: str = "a" * 64) -> ArtifactIdentity:
+def artifact(
+    *, frozen: bool = False, digest: str = "a" * 64, created_by: str = "author"
+) -> ArtifactIdentity:
     return ArtifactIdentity(
         artifact_id="architecture",
         references=("docs/architecture.md",),
@@ -46,7 +48,7 @@ def artifact(*, frozen: bool = False, digest: str = "a" * 64) -> ArtifactIdentit
         byte_sizes={"docs/architecture.md": 42},
         frozen=frozen,
         frozen_at=NOW if frozen else None,
-        created_by="author",
+        created_by=created_by,
     )
 
 
@@ -134,7 +136,9 @@ def verdict(current, kind: GateKind, reviewer: str, decision: VerdictDecision, e
 def freeze(current):
     revision = current.run.active_revision
     assert revision
-    frozen = artifact(frozen=True)
+    authored = current.revision(revision).artifact_identity
+    assert authored
+    frozen = replace(authored, frozen=True, frozen_at=NOW)
     return transition(
         current,
         event(
@@ -378,7 +382,7 @@ def test_rejected_revision_immutable_successor_and_operator_escalation_stop_auto
             payload={
                 "revision_id": "rev-2",
                 "author": "author-2",
-                "artifact_identity": artifact(),
+                "artifact_identity": artifact(created_by="author-2"),
                 "max_attempts": 2,
             },
         ),
@@ -426,7 +430,11 @@ def test_restore_rejects_forked_successor_history():
             actor="author-2",
             occurred_at=NOW,
             revision_id="rev-1",
-            payload={"revision_id": "rev-2", "author": "author-2", "artifact_identity": artifact()},
+            payload={
+                "revision_id": "rev-2",
+                "author": "author-2",
+                "artifact_identity": artifact(created_by="author-2"),
+            },
         ),
     )
     current = author_complete(
@@ -445,7 +453,11 @@ def test_restore_rejects_forked_successor_history():
             actor="author-3",
             occurred_at=NOW,
             revision_id="rev-2",
-            payload={"revision_id": "rev-3", "author": "author-3", "artifact_identity": artifact()},
+            payload={
+                "revision_id": "rev-3",
+                "author": "author-3",
+                "artifact_identity": artifact(created_by="author-3"),
+            },
         ),
     )
     payload = json.loads(serialize_state(current))
@@ -493,11 +505,30 @@ def test_restored_approval_revalidates_report_and_reviewer_independence():
         if gate["kind"] == GateKind.IMPLEMENTATION_APPROVAL.value
     )
     approval["verdict"]["reviewer"] = "author"
-    with pytest.raises(GraphValidationError, match="reviewer independence"):
+    with pytest.raises(GraphValidationError, match="artifact-bound reviewer independence"):
         restore_state(payload)
+    approval["author_agent"] = "tampered-author-agent"
+    with pytest.raises(GraphValidationError, match="artifact-bound reviewer independence"):
+        restore_state(payload)
+    approval["author_agent"] = "author"
     approval["verdict"]["reviewer"] = "approver"
     approval["verdict"]["report_hash"] = "not-a-sha256"
     with pytest.raises(GraphValidationError, match="required authoritative fields"):
+        restore_state(payload)
+
+
+def test_restored_terminal_rejection_requires_controlling_review_evidence():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
+    payload = json.loads(serialize_state(current))
+    rejected_gate = next(
+        gate
+        for gate in payload["revisions"][0]["gates"]
+        if gate["kind"] == GateKind.COMPLETENESS_QA.value
+    )
+    rejected_gate["kind"] = GateKind.AUTHOR.value
+    with pytest.raises(GraphValidationError, match="non-review gate"):
         restore_state(payload)
 
 
@@ -514,7 +545,11 @@ def test_successor_is_single_active_chain_and_cannot_fork_predecessor():
             actor="author-2",
             occurred_at=NOW,
             revision_id="rev-1",
-            payload={"revision_id": "rev-2", "author": "author-2", "artifact_identity": artifact()},
+            payload={
+                "revision_id": "rev-2",
+                "author": "author-2",
+                "artifact_identity": artifact(created_by="author-2"),
+            },
         ),
     )
     with pytest.raises(IllegalTransitionError, match="active terminal predecessor"):
@@ -530,7 +565,7 @@ def test_successor_is_single_active_chain_and_cannot_fork_predecessor():
                 payload={
                     "revision_id": "rev-3",
                     "author": "author-3",
-                    "artifact_identity": artifact(),
+                    "artifact_identity": artifact(created_by="author-3"),
                 },
             ),
         )
@@ -657,7 +692,11 @@ def test_real_world_regression_sequence():
             actor="author-2",
             occurred_at=NOW,
             revision_id="rev-1",
-            payload={"revision_id": "rev-2", "author": "author-2", "artifact_identity": artifact()},
+            payload={
+                "revision_id": "rev-2",
+                "author": "author-2",
+                "artifact_identity": artifact(created_by="author-2"),
+            },
         ),
     )
     current = start(current, GateKind.AUTHOR, "author-2", "r2-author-start")
@@ -702,7 +741,11 @@ def test_real_world_regression_sequence():
             actor="author-3",
             occurred_at=NOW,
             revision_id="rev-2",
-            payload={"revision_id": "rev-3", "author": "author-3", "artifact_identity": artifact()},
+            payload={
+                "revision_id": "rev-3",
+                "author": "author-3",
+                "artifact_identity": artifact(created_by="author-3"),
+            },
         ),
     )
     current = transition(

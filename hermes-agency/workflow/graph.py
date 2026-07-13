@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import replace
 
 from .errors import ArtifactIdentityError, GraphValidationError
 from .events import event_digest
@@ -25,6 +26,14 @@ _RUN_STATUS_FOR_REVISION = {
     RevisionStatus.FAILED: WorkflowStatus.FAILED,
     RevisionStatus.NEEDS_OPERATOR: WorkflowStatus.NEEDS_OPERATOR,
 }
+_CONTROLLING_REVIEW_KINDS = frozenset(
+    {
+        GateKind.COMPLETENESS_QA,
+        GateKind.FEASIBILITY_REVIEW,
+        GateKind.SECURITY_REVIEW,
+        GateKind.IMPLEMENTATION_APPROVAL,
+    }
+)
 
 
 def validate_frozen_artifact_identity(identity) -> None:
@@ -109,8 +118,17 @@ def active_controlling_gate(revision: WorkflowRevision) -> WorkflowGate | None:
     return running[0] if running else None
 
 
-def validate_review_verdict(gate: WorkflowGate) -> None:
-    """Validate persisted authoritative review material during JSON restoration."""
+def artifact_content_matches(expected, observed) -> bool:
+    """Compare author/content identity while allowing a later FREEZE marker."""
+    if expected is None or observed is None:
+        return False
+    return replace(expected, frozen=False, frozen_at=None) == replace(
+        observed, frozen=False, frozen_at=None
+    )
+
+
+def validate_review_verdict(gate: WorkflowGate, revision_artifact) -> None:
+    """Validate persisted authoritative review material against immutable revision facts."""
     verdict = gate.verdict
     if verdict is None:
         return
@@ -126,31 +144,46 @@ def validate_review_verdict(gate: WorkflowGate) -> None:
             revision_id=gate.revision_id,
             gate_id=gate.gate_id,
         )
-    if gate.kind in {
-        GateKind.COMPLETENESS_QA,
-        GateKind.FEASIBILITY_REVIEW,
-        GateKind.SECURITY_REVIEW,
-        GateKind.IMPLEMENTATION_APPROVAL,
-    }:
-        if not gate.author_agent or verdict.reviewer == gate.author_agent:
-            raise GraphValidationError(
-                "persisted controlling review violates reviewer independence",
-                revision_id=gate.revision_id,
-                gate_id=gate.gate_id,
-            )
+    if gate.kind not in _CONTROLLING_REVIEW_KINDS:
+        raise GraphValidationError(
+            "non-review gate cannot contain an authoritative review verdict",
+            revision_id=gate.revision_id,
+            gate_id=gate.gate_id,
+        )
+    if (
+        revision_artifact is None
+        or not revision_artifact.created_by
+        or gate.author_agent != revision_artifact.created_by
+        or not artifact_content_matches(revision_artifact, verdict.reviewed_artifact_identity)
+        or verdict.reviewer == revision_artifact.created_by
+    ):
+        raise GraphValidationError(
+            "persisted controlling review violates artifact-bound reviewer independence",
+            revision_id=gate.revision_id,
+            gate_id=gate.gate_id,
+        )
 
 
 def validate_terminal_revision_evidence(revision: WorkflowRevision) -> None:
     """Terminal status must be supported by terminal gate evidence, not JSON fields."""
     by_kind = {gate.kind: gate for gate in revision.gates}
-    verdicts = [gate.verdict for gate in revision.gates if gate.verdict is not None]
     if revision.status is RevisionStatus.REJECTED:
         archive = by_kind[GateKind.ARCHIVE_REJECTION]
-        if archive.status is not GateStatus.SUCCEEDED or not any(
-            verdict.decision is VerdictDecision.REJECT for verdict in verdicts
-        ):
+        rejected_reviews = [
+            gate
+            for gate in revision.gates
+            if gate.kind in _CONTROLLING_REVIEW_KINDS
+            and gate.controlling
+            and gate.status is GateStatus.REJECTED
+            and gate.verdict is not None
+            and gate.verdict.decision is VerdictDecision.REJECT
+            and artifact_content_matches(
+                revision.artifact_identity, gate.verdict.reviewed_artifact_identity
+            )
+        ]
+        if archive.status is not GateStatus.SUCCEEDED or len(rejected_reviews) != 1:
             raise GraphValidationError(
-                "rejected revision lacks authoritative rejected-verdict archive evidence",
+                "rejected revision lacks authoritative controlling rejected-verdict archive evidence",
                 revision_id=revision.revision_id,
             )
     elif revision.status is RevisionStatus.FAILED and not any(
@@ -244,14 +277,14 @@ def validate_state(state: WorkflowState) -> None:
             )
         validate_workflow_graph(revision.gates)
         active_controlling_gate(revision)
-        if revision.status is not RevisionStatus.ACTIVE:
-            validate_terminal_revision_evidence(revision)
         for gate in revision.gates:
             if gate.revision_id != revision.revision_id:
                 raise GraphValidationError("gate belongs to another revision", gate_id=gate.gate_id)
-            validate_review_verdict(gate)
+            validate_review_verdict(gate, revision.artifact_identity)
             if gate.artifact_identity and gate.artifact_identity.frozen:
                 validate_frozen_artifact_identity(gate.artifact_identity)
+        if revision.status is not RevisionStatus.ACTIVE:
+            validate_terminal_revision_evidence(revision)
         if revision.artifact_identity and revision.artifact_identity.frozen:
             validate_frozen_artifact_identity(revision.artifact_identity)
         if revision.status is not RevisionStatus.ACTIVE and active_controlling_gate(revision):
