@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -41,7 +42,7 @@ def artifact(*, frozen: bool = False, digest: str = "a" * 64) -> ArtifactIdentit
     return ArtifactIdentity(
         artifact_id="architecture",
         references=("docs/architecture.md",),
-        hashes={"sha256": digest},
+        hashes={"docs/architecture.md": digest},
         byte_sizes={"docs/architecture.md": 42},
         frozen=frozen,
         frozen_at=NOW if frozen else None,
@@ -363,7 +364,7 @@ def test_rejected_revision_immutable_successor_and_operator_escalation_stop_auto
     current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
     current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
     current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
-    with pytest.raises(IllegalTransitionError, match="terminal revision"):
+    with pytest.raises(IllegalTransitionError, match="terminal workflow run"):
         start(current, GateKind.FREEZE, "freezer", "late-freeze")
     current = transition(
         current,
@@ -402,6 +403,106 @@ def test_rejected_revision_immutable_successor_and_operator_escalation_stop_auto
     assert current.run.status.value == "needs_operator"
     assert ready_gates(current.revision("rev-2")) == ()
     assert all(gate.status is not GateStatus.RUNNING for gate in current.revision("rev-2").gates)
+
+
+def test_tampered_terminal_status_cannot_restore_or_resume():
+    payload = json.loads(serialize_state(state()))
+    payload["run"]["status"] = "rejected"
+    with pytest.raises(GraphValidationError, match="terminal workflow run"):
+        restore_state(payload)
+
+
+def test_successor_is_single_active_chain_and_cannot_fork_predecessor():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
+    current = transition(
+        current,
+        event(
+            "r2",
+            "wf-1",
+            EventType.SUCCESSOR_REVISION_STARTED,
+            actor="author-2",
+            occurred_at=NOW,
+            revision_id="rev-1",
+            payload={"revision_id": "rev-2", "author": "author-2", "artifact_identity": artifact()},
+        ),
+    )
+    with pytest.raises(IllegalTransitionError, match="active terminal predecessor"):
+        transition(
+            current,
+            event(
+                "r3",
+                "wf-1",
+                EventType.SUCCESSOR_REVISION_STARTED,
+                actor="author-3",
+                occurred_at=NOW,
+                revision_id="rev-1",
+                payload={
+                    "revision_id": "rev-3",
+                    "author": "author-3",
+                    "artifact_identity": artifact(),
+                },
+            ),
+        )
+    assert [
+        revision.revision_id
+        for revision in current.revisions
+        if revision.status is RevisionStatus.ACTIVE
+    ] == ["rev-2"]
+
+
+def test_controlling_review_requires_identified_reviewer_and_sha256_report():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    malformed = ReviewVerdict(
+        VerdictDecision.APPROVE,
+        "",
+        "",
+        artifact(),
+        (),
+        "report",
+        "not-a-sha256",
+        "",
+    )
+    with pytest.raises(IllegalTransitionError, match="reviewer identity"):
+        transition(
+            current,
+            event(
+                "malformed-report",
+                "wf-1",
+                EventType.REVIEW_VERDICT_ISSUED,
+                actor="",
+                occurred_at=NOW,
+                revision_id="rev-1",
+                gate_id=gate_id("rev-1", GateKind.COMPLETENESS_QA),
+                payload={"verdict": malformed},
+            ),
+        )
+
+
+def test_freeze_rejects_incomplete_artifact_identity():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(
+        current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.APPROVE, "qa-approve"
+    )
+    current = start(current, GateKind.FREEZE, "freezer", "freeze-start")
+    incomplete = ArtifactIdentity("architecture", (), {"path": "a" * 64}, {}, True, NOW, "author")
+    with pytest.raises(IllegalTransitionError, match="complete frozen artifact"):
+        transition(
+            current,
+            event(
+                "bad-freeze",
+                "wf-1",
+                EventType.ARTIFACT_FROZEN,
+                actor="freezer",
+                occurred_at=NOW,
+                revision_id="rev-1",
+                gate_id=gate_id("rev-1", GateKind.FREEZE),
+                payload={"artifact_identity": incomplete},
+            ),
+        )
 
 
 def test_duplicate_events_are_noops_and_changed_duplicate_id_is_error():

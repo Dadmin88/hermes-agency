@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any
 
 from .errors import (
+    ArtifactIdentityError,
     EventConflictError,
     IllegalTransitionError,
     VerdictConflictError,
@@ -15,6 +17,7 @@ from .graph import (
     active_controlling_gate,
     ready_gates,
     validate_artifact_identity,
+    validate_frozen_artifact_identity,
     validate_reviewer_independence,
     validate_state,
 )
@@ -241,8 +244,19 @@ def _verdict_from_event(state: WorkflowState, event: WorkflowEvent) -> ReviewVer
 
         raw_dict = thaw(raw)
         verdict = verdict_from_dict(raw_dict if isinstance(raw_dict, dict) else None)
-    if verdict is None or not verdict.report_reference or not verdict.report_hash:
-        raise _error(state, event, "review verdict requires a structured hashed report")
+    if (
+        verdict is None
+        or not verdict.reviewer
+        or not verdict.reviewer_role
+        or not verdict.report_reference
+        or not verdict.issued_at
+        or not re.fullmatch(r"[0-9a-fA-F]{64}", verdict.report_hash)
+    ):
+        raise _error(
+            state,
+            event,
+            "review verdict requires reviewer identity, role, issued time, and SHA-256 report",
+        )
     if verdict.reviewer != event.actor:
         raise _error(state, event, "event actor must equal verdict reviewer")
     return verdict
@@ -309,8 +323,12 @@ def _freeze(
         if isinstance(raw, ArtifactIdentity)
         else artifact_from_dict(raw_dict if isinstance(raw_dict, dict) else None)
     )
-    if identity is None or not identity.frozen or not identity.frozen_at or not identity.hashes:
-        raise _error(state, event, "freeze requires complete frozen artifact identity with hashes")
+    if identity is None:
+        raise _error(state, event, "freeze requires a frozen artifact identity")
+    try:
+        validate_frozen_artifact_identity(identity)
+    except ArtifactIdentityError as exc:
+        raise _error(state, event, "freeze requires complete frozen artifact identity") from exc
     previous = revision.artifact_identity
     if previous is None:
         raise _error(state, event, "revision has no authored artifact")
@@ -335,6 +353,10 @@ def _successor(
 ) -> WorkflowState:
     if predecessor.status not in {RevisionStatus.REJECTED, RevisionStatus.FAILED}:
         raise _error(state, event, "successor requires rejected or failed predecessor")
+    if state.run.active_revision != predecessor.revision_id:
+        raise _error(state, event, "successor requires the active terminal predecessor")
+    if any(item.predecessor_revision_id == predecessor.revision_id for item in state.revisions):
+        raise _error(state, event, "predecessor already has a successor revision")
     revision_id = str(event.payload.get("revision_id") or "")
     author = str(event.payload.get("author") or "")
     raw = event.payload.get("artifact_identity")
@@ -397,9 +419,15 @@ def transition(current_state: WorkflowState, event: WorkflowEvent) -> WorkflowSt
         )
     else:
         revision, gate = _gate(current_state, event)
+        if current_state.run.status is not WorkflowStatus.ACTIVE:
+            raise _error(current_state, event, "cannot change a terminal workflow run")
+        if current_state.run.active_revision != revision.revision_id:
+            raise _error(current_state, event, "event does not target the active revision")
         if revision.status is not RevisionStatus.ACTIVE:
             raise _error(current_state, event, "cannot change terminal revision")
         if event.event_type is EventType.GATE_STARTED:
+            if not event.actor:
+                raise _error(current_state, event, "gate start requires an identified actor")
             if gate.status is not GateStatus.READY:
                 raise _error(
                     current_state,

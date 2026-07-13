@@ -13,9 +13,41 @@ from .models import (
     WorkflowGate,
     WorkflowRevision,
     WorkflowState,
+    WorkflowStatus,
 )
 
 _EXCEPTIONAL = {GateKind.ARCHIVE_REJECTION, GateKind.OPERATOR_ESCALATION}
+_RUN_STATUS_FOR_REVISION = {
+    RevisionStatus.APPROVED: WorkflowStatus.COMPLETED,
+    RevisionStatus.REJECTED: WorkflowStatus.REJECTED,
+    RevisionStatus.FAILED: WorkflowStatus.FAILED,
+    RevisionStatus.NEEDS_OPERATOR: WorkflowStatus.NEEDS_OPERATOR,
+}
+
+
+def validate_frozen_artifact_identity(identity) -> None:
+    """Require a reviewable frozen identity rather than a hash-shaped stub."""
+    if not identity.frozen or not identity.frozen_at:
+        raise ArtifactIdentityError("artifact identity is not frozen")
+    if not identity.references or not identity.hashes or not identity.byte_sizes:
+        raise ArtifactIdentityError(
+            "frozen artifact requires references, hashes, and byte sizes",
+            details={"artifact_id": identity.artifact_id},
+        )
+    if set(identity.references) != set(identity.hashes) or set(identity.references) != set(
+        identity.byte_sizes
+    ):
+        raise ArtifactIdentityError(
+            "frozen artifact references, hashes, and byte sizes must bind the same paths",
+            details={"artifact_id": identity.artifact_id},
+        )
+    if any(not value for value in identity.hashes.values()) or any(
+        not isinstance(value, int) or value < 0 for value in identity.byte_sizes.values()
+    ):
+        raise ArtifactIdentityError(
+            "frozen artifact hashes and byte sizes must be complete",
+            details={"artifact_id": identity.artifact_id},
+        )
 
 
 def validate_workflow_graph(gates: Iterable[WorkflowGate]) -> None:
@@ -84,6 +116,42 @@ def validate_state(state: WorkflowState) -> None:
         raise GraphValidationError(
             "active revision does not exist", workflow_id=state.run.workflow_id
         )
+    active_revisions = [
+        revision for revision in revisions if revision.status is RevisionStatus.ACTIVE
+    ]
+    if len(active_revisions) > 1:
+        raise GraphValidationError(
+            "workflow may have only one active revision",
+            workflow_id=state.run.workflow_id,
+            details={
+                "active_revision_ids": [revision.revision_id for revision in active_revisions]
+            },
+        )
+    if state.run.status is WorkflowStatus.ACTIVE:
+        if (
+            len(active_revisions) != 1
+            or state.run.active_revision != active_revisions[0].revision_id
+        ):
+            raise GraphValidationError(
+                "active workflow run must point to its sole active revision",
+                workflow_id=state.run.workflow_id,
+            )
+    elif active_revisions:
+        raise GraphValidationError(
+            "terminal workflow run cannot contain an active revision",
+            workflow_id=state.run.workflow_id,
+        )
+    elif state.run.active_revision:
+        terminal = next(
+            revision for revision in revisions if revision.revision_id == state.run.active_revision
+        )
+        expected_status = _RUN_STATUS_FOR_REVISION.get(terminal.status)
+        if expected_status is None or state.run.status is not expected_status:
+            raise GraphValidationError(
+                "workflow run status must match active terminal revision",
+                workflow_id=state.run.workflow_id,
+                revision_id=terminal.revision_id,
+            )
     for revision in revisions:
         if revision.workflow_id != state.run.workflow_id:
             raise GraphValidationError(
@@ -95,10 +163,9 @@ def validate_state(state: WorkflowState) -> None:
             if gate.revision_id != revision.revision_id:
                 raise GraphValidationError("gate belongs to another revision", gate_id=gate.gate_id)
             if gate.artifact_identity and gate.artifact_identity.frozen:
-                if not gate.artifact_identity.hashes:
-                    raise ArtifactIdentityError(
-                        "frozen artifact requires hashes", gate_id=gate.gate_id
-                    )
+                validate_frozen_artifact_identity(gate.artifact_identity)
+        if revision.artifact_identity and revision.artifact_identity.frozen:
+            validate_frozen_artifact_identity(revision.artifact_identity)
         if revision.status is not RevisionStatus.ACTIVE and active_controlling_gate(revision):
             raise GraphValidationError(
                 "terminal revision has running controlling gate", revision_id=revision.revision_id
@@ -127,7 +194,23 @@ def validate_reviewer_independence(gate: WorkflowGate, reviewer: str) -> None:
         GateKind.FEASIBILITY_REVIEW,
         GateKind.SECURITY_REVIEW,
     }:
-        if reviewer and gate.author_agent and reviewer == gate.author_agent:
+        if not reviewer:
+            from .errors import ReviewerIndependenceError
+
+            raise ReviewerIndependenceError(
+                "controlling review requires an identified reviewer",
+                revision_id=gate.revision_id,
+                gate_id=gate.gate_id,
+            )
+        if not gate.author_agent:
+            from .errors import ReviewerIndependenceError
+
+            raise ReviewerIndependenceError(
+                "controlling review requires an identified artifact author",
+                revision_id=gate.revision_id,
+                gate_id=gate.gate_id,
+            )
+        if reviewer == gate.author_agent:
             from .errors import ReviewerIndependenceError
 
             raise ReviewerIndependenceError(
