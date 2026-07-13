@@ -408,8 +408,64 @@ def test_rejected_revision_immutable_successor_and_operator_escalation_stop_auto
 def test_tampered_terminal_status_cannot_restore_or_resume():
     payload = json.loads(serialize_state(state()))
     payload["run"]["status"] = "rejected"
-    with pytest.raises(GraphValidationError, match="terminal workflow run"):
+    payload["revisions"][0]["status"] = "rejected"
+    with pytest.raises(GraphValidationError, match="rejected revision lacks"):
         restore_state(payload)
+
+
+def test_restore_rejects_forked_successor_history():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
+    current = transition(
+        current,
+        event(
+            "r2",
+            "wf-1",
+            EventType.SUCCESSOR_REVISION_STARTED,
+            actor="author-2",
+            occurred_at=NOW,
+            revision_id="rev-1",
+            payload={"revision_id": "rev-2", "author": "author-2", "artifact_identity": artifact()},
+        ),
+    )
+    current = author_complete(
+        start(current, GateKind.AUTHOR, "author-2", "r2-author-start"), "r2-author-complete"
+    )
+    current = start(current, GateKind.COMPLETENESS_QA, "qa-2", "r2-qa-start")
+    current = verdict(
+        current, GateKind.COMPLETENESS_QA, "qa-2", VerdictDecision.REJECT, "r2-qa-reject"
+    )
+    current = transition(
+        current,
+        event(
+            "r3",
+            "wf-1",
+            EventType.SUCCESSOR_REVISION_STARTED,
+            actor="author-3",
+            occurred_at=NOW,
+            revision_id="rev-2",
+            payload={"revision_id": "rev-3", "author": "author-3", "artifact_identity": artifact()},
+        ),
+    )
+    payload = json.loads(serialize_state(current))
+    payload["revisions"][2]["predecessor_revision_id"] = "rev-1"
+    with pytest.raises(GraphValidationError, match="only one successor"):
+        restore_state(payload)
+
+
+def test_implementation_approval_cannot_be_self_reviewed_by_artifact_author():
+    current = approved_through_freeze()
+    current = start(current, GateKind.FEASIBILITY_REVIEW, "feasibility", "feas-start")
+    current = verdict(
+        current, GateKind.FEASIBILITY_REVIEW, "feasibility", VerdictDecision.APPROVE, "feas-approve"
+    )
+    current = start(current, GateKind.SECURITY_REVIEW, "security", "security-start")
+    current = verdict(
+        current, GateKind.SECURITY_REVIEW, "security", VerdictDecision.APPROVE, "security-approve"
+    )
+    with pytest.raises(ReviewerIndependenceError):
+        start(current, GateKind.IMPLEMENTATION_APPROVAL, "author", "implementation-self-review")
 
 
 def test_successor_is_single_active_chain_and_cannot_fork_predecessor():

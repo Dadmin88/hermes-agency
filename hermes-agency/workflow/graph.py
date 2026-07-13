@@ -10,6 +10,7 @@ from .models import (
     GateKind,
     GateStatus,
     RevisionStatus,
+    VerdictDecision,
     WorkflowGate,
     WorkflowRevision,
     WorkflowState,
@@ -107,11 +108,63 @@ def active_controlling_gate(revision: WorkflowRevision) -> WorkflowGate | None:
     return running[0] if running else None
 
 
+def validate_terminal_revision_evidence(revision: WorkflowRevision) -> None:
+    """Terminal status must be supported by terminal gate evidence, not JSON fields."""
+    by_kind = {gate.kind: gate for gate in revision.gates}
+    verdicts = [gate.verdict for gate in revision.gates if gate.verdict is not None]
+    if revision.status is RevisionStatus.REJECTED:
+        archive = by_kind[GateKind.ARCHIVE_REJECTION]
+        if archive.status is not GateStatus.SUCCEEDED or not any(
+            verdict.decision is VerdictDecision.REJECT for verdict in verdicts
+        ):
+            raise GraphValidationError(
+                "rejected revision lacks authoritative rejected-verdict archive evidence",
+                revision_id=revision.revision_id,
+            )
+    elif revision.status is RevisionStatus.FAILED and not any(
+        gate.status is GateStatus.FAILED for gate in revision.gates
+    ):
+        raise GraphValidationError(
+            "failed revision lacks failed-gate evidence", revision_id=revision.revision_id
+        )
+    elif revision.status is RevisionStatus.APPROVED:
+        approval = by_kind[GateKind.IMPLEMENTATION_APPROVAL]
+        if approval.status is not GateStatus.SUCCEEDED or (
+            approval.verdict is None or approval.verdict.decision is not VerdictDecision.APPROVE
+        ):
+            raise GraphValidationError(
+                "approved revision lacks implementation approval evidence",
+                revision_id=revision.revision_id,
+            )
+    elif revision.status is RevisionStatus.NEEDS_OPERATOR:
+        escalation = by_kind[GateKind.OPERATOR_ESCALATION]
+        if escalation.status is not GateStatus.SUCCEEDED:
+            raise GraphValidationError(
+                "operator-blocked revision lacks escalation evidence",
+                revision_id=revision.revision_id,
+            )
+
+
 def validate_state(state: WorkflowState) -> None:
     revisions = state.revisions
     revision_ids = [revision.revision_id for revision in revisions]
     if len(revision_ids) != len(set(revision_ids)):
         raise GraphValidationError("revision IDs must be unique", workflow_id=state.run.workflow_id)
+    predecessor_ids = [
+        revision.predecessor_revision_id
+        for revision in revisions
+        if revision.predecessor_revision_id is not None
+    ]
+    if len(predecessor_ids) != len(set(predecessor_ids)):
+        raise GraphValidationError(
+            "a predecessor revision may have only one successor",
+            workflow_id=state.run.workflow_id,
+            details={"predecessor_revision_ids": predecessor_ids},
+        )
+    if any(predecessor_id not in set(revision_ids) for predecessor_id in predecessor_ids):
+        raise GraphValidationError(
+            "successor references an unknown predecessor", workflow_id=state.run.workflow_id
+        )
     if state.run.active_revision and state.run.active_revision not in set(revision_ids):
         raise GraphValidationError(
             "active revision does not exist", workflow_id=state.run.workflow_id
@@ -159,6 +212,8 @@ def validate_state(state: WorkflowState) -> None:
             )
         validate_workflow_graph(revision.gates)
         active_controlling_gate(revision)
+        if revision.status is not RevisionStatus.ACTIVE:
+            validate_terminal_revision_evidence(revision)
         for gate in revision.gates:
             if gate.revision_id != revision.revision_id:
                 raise GraphValidationError("gate belongs to another revision", gate_id=gate.gate_id)
@@ -193,6 +248,7 @@ def validate_reviewer_independence(gate: WorkflowGate, reviewer: str) -> None:
         GateKind.COMPLETENESS_QA,
         GateKind.FEASIBILITY_REVIEW,
         GateKind.SECURITY_REVIEW,
+        GateKind.IMPLEMENTATION_APPROVAL,
     }:
         if not reviewer:
             from .errors import ReviewerIndependenceError
