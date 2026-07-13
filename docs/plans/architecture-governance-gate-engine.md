@@ -70,7 +70,7 @@ The new `hermes-agency/workflow/` package supplies:
 - graph validation, deterministic ready-gate calculation, and single-controlling-gate validation;
 - reviewer-independence and artifact-identity validation;
 - idempotent event ledger semantics using canonical event digests;
-- canonical JSON serialize/restore with validation before use; and
+- canonical JSON serialize/restore with validation before use, including revalidation of persisted reviewer independence and full report fields; and
 - focused regression tests, including the real-world repeated-review scenario.
 
 Core enforced invariants include:

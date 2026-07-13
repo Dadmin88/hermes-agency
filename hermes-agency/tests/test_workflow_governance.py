@@ -468,6 +468,39 @@ def test_implementation_approval_cannot_be_self_reviewed_by_artifact_author():
         start(current, GateKind.IMPLEMENTATION_APPROVAL, "author", "implementation-self-review")
 
 
+def test_restored_approval_revalidates_report_and_reviewer_independence():
+    current = approved_through_freeze()
+    current = start(current, GateKind.FEASIBILITY_REVIEW, "feasibility", "feas-start")
+    current = verdict(
+        current, GateKind.FEASIBILITY_REVIEW, "feasibility", VerdictDecision.APPROVE, "feas-approve"
+    )
+    current = start(current, GateKind.SECURITY_REVIEW, "security", "security-start")
+    current = verdict(
+        current, GateKind.SECURITY_REVIEW, "security", VerdictDecision.APPROVE, "security-approve"
+    )
+    current = start(current, GateKind.IMPLEMENTATION_APPROVAL, "approver", "implementation-start")
+    current = verdict(
+        current,
+        GateKind.IMPLEMENTATION_APPROVAL,
+        "approver",
+        VerdictDecision.APPROVE,
+        "implementation-approve",
+    )
+    payload = json.loads(serialize_state(current))
+    approval = next(
+        gate
+        for gate in payload["revisions"][0]["gates"]
+        if gate["kind"] == GateKind.IMPLEMENTATION_APPROVAL.value
+    )
+    approval["verdict"]["reviewer"] = "author"
+    with pytest.raises(GraphValidationError, match="reviewer independence"):
+        restore_state(payload)
+    approval["verdict"]["reviewer"] = "approver"
+    approval["verdict"]["report_hash"] = "not-a-sha256"
+    with pytest.raises(GraphValidationError, match="required authoritative fields"):
+        restore_state(payload)
+
+
 def test_successor_is_single_active_chain_and_cannot_fork_predecessor():
     current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
     current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")

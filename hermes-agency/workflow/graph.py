@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from .errors import ArtifactIdentityError, GraphValidationError
@@ -106,6 +107,37 @@ def active_controlling_gate(revision: WorkflowRevision) -> WorkflowGate | None:
             details={"running_gate_ids": [gate.gate_id for gate in running]},
         )
     return running[0] if running else None
+
+
+def validate_review_verdict(gate: WorkflowGate) -> None:
+    """Validate persisted authoritative review material during JSON restoration."""
+    verdict = gate.verdict
+    if verdict is None:
+        return
+    if (
+        not verdict.reviewer
+        or not verdict.reviewer_role
+        or not verdict.report_reference
+        or not verdict.issued_at
+        or not re.fullmatch(r"[0-9a-fA-F]{64}", verdict.report_hash)
+    ):
+        raise GraphValidationError(
+            "persisted review verdict lacks required authoritative fields",
+            revision_id=gate.revision_id,
+            gate_id=gate.gate_id,
+        )
+    if gate.kind in {
+        GateKind.COMPLETENESS_QA,
+        GateKind.FEASIBILITY_REVIEW,
+        GateKind.SECURITY_REVIEW,
+        GateKind.IMPLEMENTATION_APPROVAL,
+    }:
+        if not gate.author_agent or verdict.reviewer == gate.author_agent:
+            raise GraphValidationError(
+                "persisted controlling review violates reviewer independence",
+                revision_id=gate.revision_id,
+                gate_id=gate.gate_id,
+            )
 
 
 def validate_terminal_revision_evidence(revision: WorkflowRevision) -> None:
@@ -217,6 +249,7 @@ def validate_state(state: WorkflowState) -> None:
         for gate in revision.gates:
             if gate.revision_id != revision.revision_id:
                 raise GraphValidationError("gate belongs to another revision", gate_id=gate.gate_id)
+            validate_review_verdict(gate)
             if gate.artifact_identity and gate.artifact_identity.frozen:
                 validate_frozen_artifact_identity(gate.artifact_identity)
         if revision.artifact_identity and revision.artifact_identity.frozen:
