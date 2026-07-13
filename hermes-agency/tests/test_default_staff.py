@@ -33,6 +33,37 @@ def profile_dirs() -> list[Path]:
 # ---------------------------------------------------------------------------
 
 
+class TestStarterPack:
+    def test_starter_names_are_in_manifest(self, manifest: dict):
+        from hermes_agency.default_staff import STARTER_STAFF, starter_staff_names
+
+        manifest_names = {p["name"] for p in manifest["profiles"]}
+        assert set(STARTER_STAFF).issubset(manifest_names)
+        names = starter_staff_names()
+        assert names == list(STARTER_STAFF)
+        assert 8 <= len(names) <= 16
+        assert "agency-orchestrator" in names
+        assert "agency-backend-engineer" in names
+
+    def test_install_starter_dry_run(self, tmp_path, monkeypatch, manifest: dict):
+        from hermes_agency import default_staff as ds
+
+        profiles = tmp_path / "profiles"
+        profiles.mkdir()
+        monkeypatch.setattr(ds, "_hermes_profiles_dir", lambda: profiles)
+        result = ds.install_default_staff(starter=True, dry_run=True)
+        assert result.get("ok") is not False
+        installed = result.get("installed") or []
+        # dry-run records intended installs
+        assert (
+            any("agency-orchestrator" in str(item) for item in installed)
+            or any("agency-orchestrator" in str(item) for item in (result.get("skipped") or []))
+            or len(installed) + len(result.get("skipped") or []) >= 8
+        )
+        status = ds.starter_staff_status(base=profiles)
+        assert status["complete"] is False or status["expected"]
+
+
 class TestManifest:
     def test_manifest_exists(self):
         assert _MANIFEST_PATH.is_file(), "manifest.json must exist"

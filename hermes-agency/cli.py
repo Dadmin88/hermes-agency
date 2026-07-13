@@ -234,11 +234,24 @@ def _staff_list_text(category: str = "") -> str:
     return "\n".join(lines)
 
 
-def _staff_install_text(names: list[str], *, dry_run: bool = False, force: bool = False) -> str:
+def _staff_install_text(
+    names: list[str],
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    starter: bool = False,
+) -> str:
     """Install default staff profiles into local Hermes profiles directory."""
-    from .default_staff import install_default_staff
+    from .default_staff import install_default_staff, starter_staff_names
 
-    result = install_default_staff(names=names or None, force=force, dry_run=dry_run)
+    if starter and not names:
+        names = starter_staff_names()
+    result = install_default_staff(
+        names=names or None,
+        force=force,
+        dry_run=dry_run,
+        starter=starter and not names,
+    )
     if not result.get("ok") and result.get("error"):
         return f"Error: {result['error']}"
 
@@ -693,11 +706,28 @@ def handle_agency_slash(raw_args: str = "") -> str:
             names = [p for p in parts[2:] if not p.startswith("--")]
             dry_run = "--dry-run" in parts
             force = "--force" in parts
-            return _staff_install_text(names, dry_run=dry_run, force=force)
+            starter = "--starter" in parts
+            return _staff_install_text(names, dry_run=dry_run, force=force, starter=starter)
+        if sub == "starter":
+            from .default_staff import starter_staff_names, starter_staff_status
+
+            status = starter_staff_status()
+            lines = [
+                f"Starter staff pack ({len(status['expected'])} profiles):",
+                *[f"  - {name}" for name in starter_staff_names()],
+                "",
+                f"Installed: {len(status['present'])}/{len(status['expected'])}",
+            ]
+            if status["missing"]:
+                lines.append("Missing: " + ", ".join(status["missing"]))
+                lines.append("Install: hermes-agency staff install --starter")
+            else:
+                lines.append("Starter pack complete.")
+            return "\n".join(lines)
         if sub == "info":
             name = parts[2] if len(parts) > 2 else ""
             return _staff_info_text(name)
-        return "Usage: /agency staff [list [category]|install [--dry-run] [--force] [names...]|info <name>]"
+        return "Usage: /agency staff [list [category]|install [--starter] [--dry-run] [--force] [names...]|starter|info <name>]"
     return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|setup-plugins|promote <agent>|demote <agent>|registry|sign-off-board <board>|cleanup-boards [--days N]|staff]"
 
 
@@ -794,11 +824,24 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
 
     staff_install = staff_sub.add_parser("install", help="Install default staff profiles")
     staff_install.add_argument(
-        "names", nargs="*", default=[], help="Profile names to install (default: all)"
+        "names",
+        nargs="*",
+        default=[],
+        help="Profile names to install (default: all, or starter pack with --starter)",
+    )
+    staff_install.add_argument(
+        "--starter",
+        action="store_true",
+        help="Install the first-run starter pack (~12 profiles) instead of all 83",
     )
     staff_install.add_argument("--dry-run", action="store_true", help="Preview without installing")
     staff_install.add_argument("--force", action="store_true", help="Overwrite existing profiles")
     staff_install.set_defaults(func=cmd_agency, agency_command="staff")
+
+    staff_starter = staff_sub.add_parser(
+        "starter", help="Show the first-run starter staff pack and install status"
+    )
+    staff_starter.set_defaults(func=cmd_agency, agency_command="staff")
 
     staff_info = staff_sub.add_parser("info", help="Show info about a default staff profile")
     staff_info.add_argument("name", help="Profile name (e.g. agency-orchestrator)")
@@ -1035,8 +1078,25 @@ def cmd_agency(args: Namespace) -> None:
                     getattr(args, "names", []),
                     dry_run=getattr(args, "dry_run", False),
                     force=getattr(args, "force", False),
+                    starter=getattr(args, "starter", False),
                 )
             )
+        elif staff_cmd == "starter":
+            from .default_staff import starter_staff_names, starter_staff_status
+
+            status = starter_staff_status()
+            lines = [
+                f"Starter staff pack ({len(status['expected'])} profiles):",
+                *[f"  - {name}" for name in starter_staff_names()],
+                "",
+                f"Installed: {len(status['present'])}/{len(status['expected'])}",
+            ]
+            if status["missing"]:
+                lines.append("Missing: " + ", ".join(status["missing"]))
+                lines.append("Install: hermes-agency staff install --starter")
+            else:
+                lines.append("Starter pack complete.")
+            print("\n".join(lines))
         elif staff_cmd == "info":
             print(_staff_info_text(getattr(args, "name", "")))
         else:
