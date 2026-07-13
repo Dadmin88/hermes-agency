@@ -45,7 +45,7 @@ A controlling verdict is different: it must be a structured `ReviewVerdict` cont
 
 Rejected, failed, superseded, and operator-blocked revisions cannot be resumed or amended. A replacement is created only by `SUCCESSOR_REVISION_STARTED`, which supplies a new ID and creates a higher revision number. Each predecessor may have exactly one successor. The successor has a backwards `predecessor_revision_id`; the old terminal revision is deliberately not modified with a forward link.
 
-JSON restoration validates that terminal revision and run statuses are backed by their required gate evidence (rejected verdict plus archive, failed gate, implementation approval, or operator escalation). Status strings alone cannot manufacture a terminal history that resumes into a successor.
+JSON restoration validates terminal evidence and then replays the canonical event ledger through the reducer from the genesis template. The stored materialized state must exactly equal the replay-derived state; status strings or correlated gate-field edits cannot manufacture a terminal history that resumes into a successor. Event digests provide deterministic identity and idempotency checks, not external storage authenticity: a deployment that needs adversarial storage protection must add a trusted signed root or authenticated persistence layer.
 
 This preserves rejection evidence even when a later architecture replaces it.
 

@@ -21,6 +21,7 @@ from workflow import (  # noqa: E402
     ReviewerIndependenceError,
     ReviewVerdict,
     RevisionStatus,
+    SerializationError,
     VerdictConflictError,
     VerdictDecision,
     WorkflowGate,
@@ -290,6 +291,7 @@ def test_retry_exhaustion_is_failed_not_rejected():
         current.gate("rev-1", gate_id("rev-1", GateKind.COMPLETENESS_QA)).status
         is GateStatus.FAILED
     )
+    assert restore_state(serialize_state(current)) == current
 
 
 def test_artifact_freeze_binds_reports_and_detects_mutation():
@@ -407,6 +409,7 @@ def test_rejected_revision_immutable_successor_and_operator_escalation_stop_auto
     assert current.run.status.value == "needs_operator"
     assert ready_gates(current.revision("rev-2")) == ()
     assert all(gate.status is not GateStatus.RUNNING for gate in current.revision("rev-2").gates)
+    assert restore_state(serialize_state(current)) == current
 
 
 def test_tampered_terminal_status_cannot_restore_or_resume():
@@ -514,6 +517,80 @@ def test_restored_approval_revalidates_report_and_reviewer_independence():
     approval["verdict"]["reviewer"] = "approver"
     approval["verdict"]["report_hash"] = "not-a-sha256"
     with pytest.raises(GraphValidationError, match="required authoritative fields"):
+        restore_state(payload)
+
+
+def test_restore_rejects_fabricated_unfrozen_terminal_approval_without_events():
+    payload = json.loads(serialize_state(state()))
+    payload["run"]["status"] = "completed"
+    payload["revisions"][0]["status"] = "approved"
+    approval = next(
+        gate
+        for gate in payload["revisions"][0]["gates"]
+        if gate["kind"] == GateKind.IMPLEMENTATION_APPROVAL.value
+    )
+    approval["status"] = GateStatus.SUCCEEDED.value
+    approval["verdict"] = {
+        "decision": VerdictDecision.APPROVE.value,
+        "reviewer": "approver",
+        "reviewer_role": "independent reviewer",
+        "reviewed_artifact_identity": payload["revisions"][0]["artifact_identity"],
+        "findings": [],
+        "report_reference": "reports/fake.json",
+        "report_hash": "c" * 64,
+        "issued_at": NOW,
+    }
+    with pytest.raises(GraphValidationError, match="persisted downstream review"):
+        restore_state(payload)
+
+
+def test_restore_replay_rejects_materialized_approval_flag_mutation():
+    current = approved_through_freeze()
+    current = start(current, GateKind.FEASIBILITY_REVIEW, "feasibility", "feas-start")
+    current = verdict(
+        current, GateKind.FEASIBILITY_REVIEW, "feasibility", VerdictDecision.APPROVE, "feas-approve"
+    )
+    current = start(current, GateKind.SECURITY_REVIEW, "security", "security-start")
+    current = verdict(
+        current, GateKind.SECURITY_REVIEW, "security", VerdictDecision.APPROVE, "security-approve"
+    )
+    current = start(current, GateKind.IMPLEMENTATION_APPROVAL, "approver", "implementation-start")
+    current = verdict(
+        current,
+        GateKind.IMPLEMENTATION_APPROVAL,
+        "approver",
+        VerdictDecision.APPROVE,
+        "implementation-approve",
+    )
+    assert restore_state(serialize_state(current)) == current
+    payload = json.loads(serialize_state(current))
+    approval = next(
+        gate
+        for gate in payload["revisions"][0]["gates"]
+        if gate["kind"] == GateKind.IMPLEMENTATION_APPROVAL.value
+    )
+    approval["controlling"] = False
+    with pytest.raises(GraphValidationError, match="non-controlling"):
+        restore_state(payload)
+    approval["controlling"] = True
+    approval["verdict"]["report_reference"] = "reports/tampered.json"
+    with pytest.raises(SerializationError, match="does not match deterministic event replay"):
+        restore_state(payload)
+
+
+def test_restore_replay_rejects_materialized_rejection_verdict_mutation():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
+    assert restore_state(serialize_state(current)) == current
+    payload = json.loads(serialize_state(current))
+    rejection = next(
+        gate
+        for gate in payload["revisions"][0]["gates"]
+        if gate["kind"] == GateKind.COMPLETENESS_QA.value
+    )
+    rejection["verdict"]["reviewer"] = "other-reviewer"
+    with pytest.raises(SerializationError, match="does not match deterministic event replay"):
         restore_state(payload)
 
 
@@ -775,3 +852,4 @@ def test_real_world_regression_sequence():
         for gate in current.revision("rev-3").gates
     )
     assert transition(current, current.events[-1]) is current
+    assert restore_state(serialize_state(current)) == current

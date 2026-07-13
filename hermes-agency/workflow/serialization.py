@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 from .errors import SerializationError
@@ -196,6 +197,49 @@ def serialize_state(state: WorkflowState) -> str:
     )
 
 
+def _rehydrate_event(event: WorkflowEvent) -> WorkflowEvent:
+    """Restore typed event payloads before deterministic replay."""
+    payload = dict(event.payload)
+    if event.event_type is EventType.REVIEW_VERDICT_ISSUED:
+        payload["verdict"] = verdict_from_dict(payload.get("verdict"))
+    elif event.event_type in {
+        EventType.ARTIFACT_FROZEN,
+        EventType.SUCCESSOR_REVISION_STARTED,
+    }:
+        payload["artifact_identity"] = artifact_from_dict(payload.get("artifact_identity"))
+    return replace(event, payload=payload)
+
+
+def _replay_from_genesis(state: WorkflowState) -> WorkflowState:
+    """Rebuild materialized state from the canonical template and its event ledger."""
+    if state.run.workflow_type != "architecture-governance" or not state.revisions:
+        raise SerializationError("unsupported workflow type or missing genesis revision")
+    genesis = min(state.revisions, key=lambda revision: revision.revision_number)
+    if genesis.revision_number != 1 or genesis.predecessor_revision_id is not None:
+        raise SerializationError("workflow state lacks a valid genesis revision")
+    if genesis.artifact_identity is None:
+        raise SerializationError("genesis revision is missing artifact identity")
+    from .templates import architecture_governance_state
+    from .transitions import transition
+
+    initial_artifact = replace(genesis.artifact_identity, frozen=False, frozen_at=None)
+    author_gate = next((gate for gate in genesis.gates if gate.kind is GateKind.AUTHOR), None)
+    if author_gate is None:
+        raise SerializationError("genesis revision is missing author gate")
+    replayed = architecture_governance_state(
+        workflow_id=state.run.workflow_id,
+        revision_id=genesis.revision_id,
+        objective=state.run.objective,
+        created_by=state.run.created_by,
+        created_at=state.run.created_at,
+        artifact_identity=initial_artifact,
+        max_attempts=author_gate.max_attempts,
+    )
+    for event in state.events:
+        replayed = transition(replayed, _rehydrate_event(event))
+    return replayed
+
+
 def restore_state(payload: str | bytes | dict[str, Any]) -> WorkflowState:
     try:
         data = json.loads(payload) if isinstance(payload, (str, bytes)) else payload
@@ -259,7 +303,12 @@ def restore_state(payload: str | bytes | dict[str, Any]) -> WorkflowState:
             operator_decisions=decisions,
         )
         validate_state(state)
-        return state
+        replayed = _replay_from_genesis(state)
+        if state_to_dict(replayed) != state_to_dict(state):
+            raise SerializationError(
+                "materialized workflow state does not match deterministic event replay"
+            )
+        return replayed
     except SerializationError:
         raise
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:

@@ -9,6 +9,7 @@ from dataclasses import replace
 from .errors import ArtifactIdentityError, GraphValidationError
 from .events import event_digest
 from .models import (
+    EventType,
     GateKind,
     GateStatus,
     RevisionStatus,
@@ -144,9 +145,9 @@ def validate_review_verdict(gate: WorkflowGate, revision_artifact) -> None:
             revision_id=gate.revision_id,
             gate_id=gate.gate_id,
         )
-    if gate.kind not in _CONTROLLING_REVIEW_KINDS:
+    if gate.kind not in _CONTROLLING_REVIEW_KINDS or not gate.controlling:
         raise GraphValidationError(
-            "non-review gate cannot contain an authoritative review verdict",
+            "non-controlling or non-review gate cannot contain an authoritative review verdict",
             revision_id=gate.revision_id,
             gate_id=gate.gate_id,
         )
@@ -162,9 +163,34 @@ def validate_review_verdict(gate: WorkflowGate, revision_artifact) -> None:
             revision_id=gate.revision_id,
             gate_id=gate.gate_id,
         )
+    if gate.kind in {
+        GateKind.FEASIBILITY_REVIEW,
+        GateKind.SECURITY_REVIEW,
+        GateKind.IMPLEMENTATION_APPROVAL,
+    } and (
+        not revision_artifact.frozen
+        or not verdict.reviewed_artifact_identity.frozen
+        or verdict.reviewed_artifact_identity != revision_artifact
+    ):
+        raise GraphValidationError(
+            "persisted downstream review must bind the exact frozen revision artifact",
+            revision_id=gate.revision_id,
+            gate_id=gate.gate_id,
+        )
 
 
-def validate_terminal_revision_evidence(revision: WorkflowRevision) -> None:
+def _has_gate_event(
+    state: WorkflowState, revision: WorkflowRevision, gate: WorkflowGate, event_type: EventType
+) -> bool:
+    return any(
+        event.event_type is event_type
+        and event.revision_id == revision.revision_id
+        and event.gate_id == gate.gate_id
+        for event in state.events
+    )
+
+
+def validate_terminal_revision_evidence(state: WorkflowState, revision: WorkflowRevision) -> None:
     """Terminal status must be supported by terminal gate evidence, not JSON fields."""
     by_kind = {gate.kind: gate for gate in revision.gates}
     if revision.status is RevisionStatus.REJECTED:
@@ -181,7 +207,13 @@ def validate_terminal_revision_evidence(revision: WorkflowRevision) -> None:
                 revision.artifact_identity, gate.verdict.reviewed_artifact_identity
             )
         ]
-        if archive.status is not GateStatus.SUCCEEDED or len(rejected_reviews) != 1:
+        if (
+            archive.status is not GateStatus.SUCCEEDED
+            or len(rejected_reviews) != 1
+            or not _has_gate_event(
+                state, revision, rejected_reviews[0], EventType.REVIEW_VERDICT_ISSUED
+            )
+        ):
             raise GraphValidationError(
                 "rejected revision lacks authoritative controlling rejected-verdict archive evidence",
                 revision_id=revision.revision_id,
@@ -194,11 +226,30 @@ def validate_terminal_revision_evidence(revision: WorkflowRevision) -> None:
         )
     elif revision.status is RevisionStatus.APPROVED:
         approval = by_kind[GateKind.IMPLEMENTATION_APPROVAL]
-        if approval.status is not GateStatus.SUCCEEDED or (
-            approval.verdict is None or approval.verdict.decision is not VerdictDecision.APPROVE
+        required_gate_events = (
+            (GateKind.AUTHOR, EventType.GATE_COMPLETED),
+            (GateKind.COMPLETENESS_QA, EventType.REVIEW_VERDICT_ISSUED),
+            (GateKind.FREEZE, EventType.ARTIFACT_FROZEN),
+            (GateKind.FEASIBILITY_REVIEW, EventType.REVIEW_VERDICT_ISSUED),
+            (GateKind.SECURITY_REVIEW, EventType.REVIEW_VERDICT_ISSUED),
+            (GateKind.IMPLEMENTATION_APPROVAL, EventType.REVIEW_VERDICT_ISSUED),
+        )
+        required_gates = [by_kind[kind] for kind, _ in required_gate_events]
+        if (
+            not revision.artifact_identity
+            or not revision.artifact_identity.frozen
+            or approval.status is not GateStatus.SUCCEEDED
+            or not approval.controlling
+            or approval.verdict is None
+            or approval.verdict.decision is not VerdictDecision.APPROVE
+            or any(gate.status is not GateStatus.SUCCEEDED for gate in required_gates)
+            or any(
+                not _has_gate_event(state, revision, by_kind[kind], event_type)
+                for kind, event_type in required_gate_events
+            )
         ):
             raise GraphValidationError(
-                "approved revision lacks implementation approval evidence",
+                "approved revision lacks complete frozen controlling-gate event evidence",
                 revision_id=revision.revision_id,
             )
     elif revision.status is RevisionStatus.NEEDS_OPERATOR:
@@ -270,6 +321,24 @@ def validate_state(state: WorkflowState) -> None:
                 workflow_id=state.run.workflow_id,
                 revision_id=terminal.revision_id,
             )
+    genesis = min(revisions, key=lambda revision: revision.revision_number)
+    if (
+        genesis.revision_number != 1
+        or genesis.predecessor_revision_id is not None
+        or genesis.artifact_identity is None
+        or genesis.artifact_identity.created_by != state.run.created_by
+    ):
+        raise GraphValidationError(
+            "genesis revision must bind the run creator to its artifact identity",
+            workflow_id=state.run.workflow_id,
+        )
+    genesis_author = next((gate for gate in genesis.gates if gate.kind is GateKind.AUTHOR), None)
+    if genesis_author is None or genesis_author.author_agent != state.run.created_by:
+        raise GraphValidationError(
+            "genesis author gate must bind the run creator",
+            workflow_id=state.run.workflow_id,
+            revision_id=genesis.revision_id,
+        )
     for revision in revisions:
         if revision.workflow_id != state.run.workflow_id:
             raise GraphValidationError(
@@ -284,7 +353,7 @@ def validate_state(state: WorkflowState) -> None:
             if gate.artifact_identity and gate.artifact_identity.frozen:
                 validate_frozen_artifact_identity(gate.artifact_identity)
         if revision.status is not RevisionStatus.ACTIVE:
-            validate_terminal_revision_evidence(revision)
+            validate_terminal_revision_evidence(state, revision)
         if revision.artifact_identity and revision.artifact_identity.frozen:
             validate_frozen_artifact_identity(revision.artifact_identity)
         if revision.status is not RevisionStatus.ACTIVE and active_controlling_gate(revision):
