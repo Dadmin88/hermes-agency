@@ -29,29 +29,39 @@ Please include:
 
 Hermes Agency has several distinct trust boundaries. Understanding them helps you assess impact and report issues accurately.
 
-### Pool Manager
+### Hermes Agency plugin and pool
 
-The pool manager routes tasks to staff agents. It can attempt to wake offline agents and queue tasks persistently. A compromised pool manager could misroute tasks or exhaust agent wake budgets.
+The Agency plugin and pool manager route tasks to staff agents, attempt wake for offline specialists, and queue work persistently. A compromised pool manager could misroute tasks or exhaust agent wake budgets. Lifecycle tools must validate profile names and process ownership before signaling host processes.
 
-### Remote Task Execution
+### Remote task execution
 
-Staff agents execute delegated tasks with access to their configured tools and model providers. Task payloads travel over the P2P transport layer (Noise_XX encrypted). A malicious task payload could attempt to exploit an agent's tool set or model integration.
+Staff agents execute delegated tasks with access to their configured tools and model providers. Defaults are conservative:
 
-### Relay and Registry
+- `allow_remote_tasks: false`
+- `incoming.tool_access: safe`
+- empty peer allowlist means deny (unless explicitly configured otherwise)
 
-The relay server forwards encrypted P2P messages between peers. It cannot read message content. The registry maps skills to peer IDs. Compromising the relay or registry could allow traffic analysis or service disruption but not plaintext message disclosure.
+Incoming work must pass allowlist and trust verification. Prefer transport-authenticated sender identity over arbitrary task metadata.
 
-### Daemon Downloads
+### Keryx transport (primary)
 
-The AgentAnycast Go daemon binary is auto-downloaded on first run. The SDK verifies the binary before execution. A compromised download source could serve a malicious daemon. See the AgentAnycast documentation for verification details.
+Keryx provides daemon, relay, registry, mailbox, routing, claim-next worker dispatch, and terminal result/artifact return. Peer communication uses encrypted transport primitives owned by the Keryx runtime. Compromising the relay or registry could allow traffic analysis or service disruption; see the [hermes-keryx](https://github.com/DeployFaith/hermes-keryx) security guidance for runtime-specific details.
 
-### Model and Tool Access
+### AgentAnycast (legacy fallback)
+
+AgentAnycast under `src/agentanycast/` is retained for explicit legacy/fallback deployments only (`agency.transport_backend: agentanycast`). Do not treat it as the recommended production path. Legacy daemon download/verification behavior, when used, must follow AgentAnycast verification guidance.
+
+### Management endpoints
+
+Pool management HTTP and local APIs should bind to loopback by default. Non-loopback binds require authentication (for example `HERMES_POOL_TOKEN`). State-changing endpoints must require authentication.
+
+### Model and tool access
 
 Each agent has a configured model set and tool set. The agency restricts which tools and models an agent can access based on its role and configuration. An agent should not be able to escalate beyond its assigned tool or model scope.
 
-## Transport Layer Security
+### Outbound remote content
 
-The AgentAnycast P2P layer uses end-to-end encryption (Noise_XX protocol + NaCl box) for all peer communication. The relay server cannot read message content. See the [AgentAnycast architecture documentation](https://github.com/AgentAnycast/agentanycast/blob/main/docs/architecture.md) for details.
+Remote-visible progress, artifacts, and error summaries should not include secrets, credential-bearing URLs, private keys, or local absolute paths. Detailed raw diagnostics stay local.
 
 ## Disclosure Policy
 

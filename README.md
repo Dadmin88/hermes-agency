@@ -11,13 +11,14 @@ Hermes Agency is the product in this repository. Keryx is the primary transport;
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
-## Proof and current Keryx boundary
+## Proof and Keryx boundary
 
-Hermes Agency includes a permanent golden-path integration proof at `hermes-agency/tests/test_golden_path.py`. It exercises the real Agency roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, orchestrator-state, and Kanban reconciliation seams.
+Hermes Agency includes two permanent proofs:
 
-The proof verifies that an offline specialist can be selected and woken, process a trusted task, return an artifact, and move its Kanban work through running to done. It also verifies persistent queue behavior when wake fails. This proof uses an in-process loopback transport adapter, so it proves the Agency workflow without pretending to be a live multi-process Keryx network.
+1. **In-process golden path** (`hermes-agency/tests/test_golden_path.py`) — real Agency roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, orchestrator-state, and Kanban reconciliation seams with an in-memory transport adapter.
+2. **Live multi-process Keryx round trip** (`scripts/e2e_agency_keryx.py`, CI: `agency-phase17-e2e.yml`) — real relay/registry, two daemons, two edge nodes, production Agency incoming queue, authenticated trust, terminal artifact return, and Kanban reconciliation.
 
-The complete remote Keryx round trip, where a relay-delivered task is consumed by a remote Hermes Agency profile and its terminal result/artifacts return to the sender, is Phase 17 work. See [the current boundary](docs/keryx-cross-node-boundary.md), [Hermes Keryx issue #10](https://github.com/DeployFaith/hermes-keryx/issues/10), and [Agency integration issue #81](https://github.com/DeployFaith/Hermes_Agency/issues/81).
+See [the current boundary](docs/keryx-cross-node-boundary.md) and the active remediation plan in [`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](docs/plans/2026-07-13-hermes-agency-full-remediation.md). Hermes Fabric live dispatch remains a separate follow-up; the default Fabric client is unconfigured/dry-run.
 
 ## What this repository contains
 
@@ -168,7 +169,7 @@ Hermes Agency
 └── coordinates optional private escalation paths when configured
 ```
 
-Keryx supplies the recommended lower-level transport foundation: daemon lifecycle, relay publication/mailbox delivery, registry discovery, identity, routing policy, and encrypted peer networking. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly. The final daemon-to-remote-Agent handler and terminal result/artifact return loop is tracked as Phase 17. Set `agency.transport_backend: agentanycast` only for legacy rollback.
+Keryx supplies the recommended lower-level transport foundation: daemon lifecycle, relay publication/mailbox delivery, registry discovery, identity, routing policy, encrypted peer networking, claim-next worker dispatch, and terminal result/artifact return. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly. The live multi-process Agency round trip is proven by `scripts/e2e_agency_keryx.py`. Set `agency.transport_backend: agentanycast` only for legacy rollback.
 
 ## Core capabilities
 
@@ -179,7 +180,7 @@ Keryx supplies the recommended lower-level transport foundation: daemon lifecycl
 - **Team context injection**: bounded summaries of known teammates and orchestrator state can be injected into Hermes calls.
 - **Model sets**: choose a provider/model strategy once and apply it across installed staff profiles.
 - **Orchestrator promotion**: expose `orch_*` tools only for the configured orchestrator profile.
-- **Keryx transport foundation**: Keryx-first daemon, relay, registry, mailbox, routing, and security primitives. Complete remote Agent execution/result propagation remains Phase 17 work.
+- **Keryx transport foundation**: Keryx-first daemon, relay, registry, mailbox, routing, claim-next dispatch, terminal result return, and security primitives. Live multi-process Agency proof is shipped; Fabric live dispatch is a separate follow-up.
 
 ## Model sets
 
@@ -237,7 +238,7 @@ make integration-agency
 make integration-agency-full
 ```
 
-The default pytest configuration skips tests marked `integration`. The permanent Agency golden path is part of `make test-agency`. A complete cross-process Keryx round trip remains gated by Phase 17 and issue #81.
+The default pytest configuration skips tests marked `integration`. The permanent Agency golden path is part of `make test-agency`. The live multi-process Keryx Agency round trip runs via `scripts/e2e_agency_keryx.py` and `.github/workflows/agency-phase17-e2e.yml`.
 
 ## Requirements
 

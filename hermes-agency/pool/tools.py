@@ -34,10 +34,43 @@ from .roster import (
     update_agent_status,
 )
 
+# Backward-compatible module attribute; prefer profiles_dir() for runtime resolution.
 PROFILES = Path.home() / ".hermes" / "profiles"
 NODE_RUNNER = Path(__file__).with_name("agency_node_runner.py")
 PLUGIN_PATH = Path(__file__).resolve().parents[1]
 STARTUP_WAIT = 90
+
+
+def profiles_dir() -> Path:
+    """Resolve the active profiles directory at call time.
+
+    Precedence:
+    1. ``HERMES_PROFILES_DIR``
+    2. ``HERMES_HOME/profiles``
+    3. default Hermes home profiles (``~/.hermes/profiles``)
+
+    Tests may still monkeypatch the module-level ``PROFILES`` attribute; when
+    ``PROFILES`` differs from the process default it is treated as an explicit
+    override.
+    """
+
+    explicit_profiles = os.environ.get("HERMES_PROFILES_DIR", "").strip()
+    if explicit_profiles:
+        return Path(explicit_profiles).expanduser()
+
+    hermes_home = os.environ.get("HERMES_HOME", "").strip()
+    if hermes_home:
+        home = Path(hermes_home).expanduser()
+        # Active profile homes look like .../profiles/<name>; resolve the shared tree.
+        if home.parent.name == "profiles":
+            return home.parent
+        return home / "profiles"
+
+    default = Path.home() / ".hermes" / "profiles"
+    # Preserve test/monkeypatch overrides of the module constant when env is unset.
+    if PROFILES != default:
+        return Path(PROFILES).expanduser()
+    return default
 
 
 def _current_orchestrator_identity() -> dict[str, str] | None:
@@ -122,7 +155,7 @@ def _validate_agent_name(name: str) -> str | None:
 
 def _profile_dir_for_agent_name(name: str) -> Path:
     """Build a safe profile directory path for a validated agent name."""
-    profile_root = PROFILES.expanduser().resolve()
+    profile_root = profiles_dir().expanduser().resolve()
     profile_dir = (profile_root / name).resolve()
     if profile_dir.parent != profile_root or profile_dir.name != name:
         raise ValueError("profile dir must be directly under profiles")

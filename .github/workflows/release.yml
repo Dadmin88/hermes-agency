@@ -21,9 +21,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v
-      - run: pytest hermes-agency/tests/test_unit.py hermes-agency/tests/test_model_sets.py hermes-agency/tests/test_gpt_bridge.py hermes-agency/tests/test_extended_status_discord.py -v -m "not integration"
+      - run: pip install -e ".[dev,pool]"
+      - name: SDK non-integration suite
+        run: make test-sdk
+      - name: Agency non-integration suite
+        run: make test-agency
 
   publish:
     name: Publish to PyPI

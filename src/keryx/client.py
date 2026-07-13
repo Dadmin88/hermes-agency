@@ -121,8 +121,12 @@ class DaemonClient:
         )
         self._channel = channel
         self._registry_channel = registry_channel
+        # Only close channels this client created. Injected channels belong to the caller.
+        self._owns_channel = channel is None
+        self._owns_registry_channel = registry_channel is None
         self._daemon: daemon_pb2_grpc.KeryxDaemonStub | None = None
         self._registry: registry_pb2_grpc.RegistryServiceStub | None = None
+        self._closed = False
 
     async def connect(self) -> None:
         if self._channel is None:
@@ -131,23 +135,33 @@ class DaemonClient:
             self._channel = grpc.aio.insecure_channel(
                 _grpc_target(self._daemon_endpoint)
             )
+            self._owns_channel = True
         self._daemon = daemon_pb2_grpc.KeryxDaemonStub(self._channel)
         if self._registry_endpoint:
             if self._registry_channel is None:
                 self._registry_channel = grpc.aio.insecure_channel(
                     _grpc_target(self._registry_endpoint)
                 )
+                self._owns_registry_channel = True
             self._registry = registry_pb2_grpc.RegistryServiceStub(
                 self._registry_channel
             )
 
     async def close(self) -> None:
-        if self._channel is not None:
+        """Close SDK-owned channels only. Idempotent for repeated calls."""
+
+        if self._closed:
+            self._daemon = None
+            self._registry = None
+            return
+        self._closed = True
+        if self._channel is not None and self._owns_channel:
             await self._channel.close()
             self._channel = None
-        if self._registry_channel is not None:
+        if self._registry_channel is not None and self._owns_registry_channel:
             await self._registry_channel.close()
             self._registry_channel = None
+        # Detach stubs even when caller owns the underlying channels.
         self._daemon = None
         self._registry = None
 

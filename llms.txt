@@ -24,29 +24,19 @@ Hermes Agency is the product in this repository.
 
 ## Evidence and current transport boundary
 
-`hermes-agency/tests/test_golden_path.py` is the permanent Agency integration proof. It exercises the real roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, local orchestrator-state, and Kanban reconciliation seams.
+Two permanent proofs:
 
-It proves:
+1. **In-process golden path** — `hermes-agency/tests/test_golden_path.py` exercises roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, local orchestrator-state, and Kanban reconciliation with an in-memory transport adapter.
+2. **Live multi-process Keryx round trip (Phase 17)** — `scripts/e2e_agency_keryx.py` and `.github/workflows/agency-phase17-e2e.yml` prove remote discovery, authenticated sender trust, production incoming-queue completion, terminal artifact return, and Kanban reconciliation across real relay/daemon/edge processes.
 
-- offline specialist selection and wake
-- allowlist/trust verification
-- incoming Hermes delegation
-- artifact return
-- completed local orchestrator state
-- Kanban running/done/pending-review reconciliation
-- persistent queue fallback when wake fails
+Keryx implements sender daemon routing, relay publication/mailbox, destination edge-node delivery, claim-next worker dispatch (`serve_forever()`), authenticated terminal result/artifact return, and `TaskHandle.wait()` completion. The vendored SDK revision is in `src/keryx/_sync_manifest.json`.
 
-This is an in-process loopback integration proof using an in-memory transport adapter and board adapter. It is not a live multi-process Keryx network proof.
-
-Keryx currently implements the transport foundation from sender daemon routing through relay publication/mailbox and destination edge-node delivery into a destination daemon lifecycle row. The complete remote Agency round trip is not implemented yet. Missing Phase 17 work includes durable full-envelope retention, claim-next worker delivery, Python handler dispatch, terminal result/artifact return, and remote `TaskHandle.wait()` completion.
-
-Tracking:
+See:
 
 - `docs/keryx-cross-node-boundary.md`
-- `DeployFaith/hermes-keryx#10`
-- `DeployFaith/Hermes_Agency#81`
+- `docs/plans/2026-07-13-hermes-agency-full-remediation.md`
 
-Do not claim that a remote Hermes Agency profile automatically consumes a relay-delivered Keryx task and sends its final artifact back until the Phase 17 cross-process E2E passes.
+Do not claim that Hermes Fabric live dispatch is the default operator path until a real server-to-Agency client is wired (default Fabric client remains unconfigured/dry-run).
 
 ## Transport configuration
 
@@ -66,7 +56,7 @@ Typical Keryx dual-run ports (loopback):
 - registry gRPC: `51053`
 - libp2p: `4101`
 
-Dual-run starts one daemon and one relay. It validates infrastructure health, not a two-profile remote execution/result round trip.
+Dual-run starts one daemon and one relay for infrastructure health. Use `scripts/e2e_agency_keryx.py` for the two-profile remote execution/result round trip.
 
 ## Important command surfaces
 

@@ -369,6 +369,7 @@ class NodeManager(
         self._thread_lock = threading.RLock()
         self._start_future: Any | None = None
         self._startup_task: asyncio.Task[Any] | None = None
+        self._start_sync_callers = 0
         self._stop_task: asyncio.Task[Any] | None = None
         self.state = NodeState()
         atexit.register(self._atexit_stop)

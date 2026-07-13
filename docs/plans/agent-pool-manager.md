@@ -1,13 +1,17 @@
 # Agent Pool Manager — Sleep/Wake Architecture
 
-## Vision
-All 50+ agency profiles are discoverable and available, but only a few run as active A2A nodes at any time. Agents wake on demand, work, and go back to sleep. Resource-efficient, scalable, autonomous.
+> **Status (2026-07-13):** Core sleep/wake architecture is **implemented** in `hermes-agency/pool/`
+> (roster, lifecycle gate, manager, process safety, wake/queue tools). Treat unchecked items below as
+> historical design notes, not a current backlog. Active remediation continues in
+> [`2026-07-13-hermes-agency-full-remediation.md`](./2026-07-13-hermes-agency-full-remediation.md).
 
-## Current State
-- Each A2A node is a persistent daemon process
-- Running 50+ daemons = 50+ processes = too many resources
-- Only Hermes (VPS) + local workstation are active right now
-- 50+ agency profiles are configured but not running
+## Vision
+All packaged agency profiles are discoverable and available, but only a few run as active transport nodes at any time. Agents wake on demand, work, and go back to sleep. Resource-efficient, scalable, autonomous.
+
+## Current State (historical notes — see Status banner)
+- Pool manager, roster, lifecycle gate, and process-safety controls exist under `hermes-agency/pool/`
+- Default staff ships 83 profiles; only a subset should be awake at once
+- Remaining work is hardening/CI/docs (see full remediation plan), not greenfield registry design
 
 ## Architecture
 

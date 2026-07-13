@@ -9,19 +9,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 
 - Keryx primary transport integration (`agency.transport_backend: keryx`)
-- Vendored Keryx Python SDK at `src/keryx/`
+- Vendored Keryx Python SDK at `src/keryx/` with deterministic sync manifest
+- Phase 17 live multi-process Agency round trip (`scripts/e2e_agency_keryx.py`, CI workflow)
 - Transport selection helpers and Keryx-aware node/pool paths
+- Agency golden-path integration proof (`hermes-agency/tests/test_golden_path.py`)
+- Pool process-safety, profile validation, and node lifecycle concurrency protections
 - `hermes-agency/tests/test_keryx_transport.py` smoke suite
+- Full remediation plan: `docs/plans/2026-07-13-hermes-agency-full-remediation.md`
 
 ### Changed
 
-- Public docs, AGENTS guides, llms.txt, and CONTRIBUTING now describe Keryx as primary transport
+- Public docs, AGENTS guides, llms.txt, SECURITY, and CONTRIBUTING describe Keryx as primary transport
+- Product claim ledger updated: Phase 17 live round trip is shipped; Fabric live dispatch remains follow-up
 - AgentAnycast retained under `src/agentanycast/` as legacy/fallback only
 - Development install no longer requires a separate git URL for the Keryx Python package
+- Examples: `examples/hello_world.py` is Keryx-first
 
 ### Notes
 
 - External Keryx binaries (`keryxd`, `keryx-relay`) and migration/dual-run scripts live in the separate `hermes-keryx` repository
+- Residual hardening (reauth, outbound redaction, CI taxonomy) tracked in the 2026-07-13 remediation plan
 
 ## [0.7.0] - 2026-03-21
 
