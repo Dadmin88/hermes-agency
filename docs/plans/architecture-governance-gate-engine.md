@@ -39,11 +39,13 @@ An operational failure—transport failure, timeout, dispatch error, unavailable
 
 Each start increments the gate attempt exactly once. A failure returns the gate to `READY` only while its configured attempt budget remains. At exhaustion, the gate and revision are `FAILED`, not rejected. Duplicate events do not increment attempts.
 
-A controlling verdict is different: it must be a structured `ReviewVerdict` containing an explicit decision, reviewer identity and role, exact reviewed artifact identity, report reference, and report hash. A controlling `REJECT` atomically rejects and archives that exact revision.
+A controlling verdict is different: it must be a structured `ReviewVerdict` containing an explicit decision, reviewer identity and role, exact reviewed artifact identity, report reference, issued timestamp, and a 64-hex SHA-256 report hash. A controlling `REJECT` atomically rejects and archives that exact revision.
 
 ## Revision immutability and successor revisions
 
-Rejected, failed, superseded, and operator-blocked revisions cannot be resumed or amended. A replacement is created only by `SUCCESSOR_REVISION_STARTED`, which supplies a new ID and creates a higher revision number. The successor has a backwards `predecessor_revision_id`; the old terminal revision is deliberately not modified with a forward link.
+Rejected, failed, superseded, and operator-blocked revisions cannot be resumed or amended. A replacement is created only by `SUCCESSOR_REVISION_STARTED`, which supplies a new ID and creates a higher revision number. Each predecessor may have exactly one successor. The successor has a backwards `predecessor_revision_id`; the old terminal revision is deliberately not modified with a forward link.
+
+JSON restoration validates that terminal revision and run statuses are backed by their required gate evidence (rejected verdict plus archive, failed gate, implementation approval, or operator escalation). Status strings alone cannot manufacture a terminal history that resumes into a successor.
 
 This preserves rejection evidence even when a later architecture replaces it.
 
@@ -75,7 +77,7 @@ Core enforced invariants include:
 
 - at most one controlling gate may be running per revision;
 - dependencies must succeed before a gate starts;
-- artifact authors cannot provide QA, feasibility, or security review;
+- artifact authors cannot provide QA, feasibility, security, or implementation-approval review;
 - only exact frozen artifacts can receive downstream controlling verdicts;
 - explicit controlling rejections terminate and archive the exact revision;
 - no downstream technical gate runs after rejection;
