@@ -2932,6 +2932,13 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
         lambda: doctor._check("agency_model_sets", "Agency model sets", "pass", "model sets ok"),
     )
     monkeypatch.setattr(
+        doctor,
+        "_starter_staff_check",
+        lambda: doctor._check(
+            "starter_staff", "Starter staff pack", "pass", "starter pack complete"
+        ),
+    )
+    monkeypatch.setattr(
         doctor, "_editable_install_state", lambda: ("pass", "editable install detected")
     )
     monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
@@ -2947,6 +2954,7 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
         "profile_path",
         "config_file",
     ]
+    assert any(check["id"] == "starter_staff" for check in payload["checks"])
 
 
 def test_doctor_model_sets_counts_missing_drift_and_unchanged(plugin_modules, monkeypatch):

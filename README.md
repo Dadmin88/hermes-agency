@@ -11,6 +11,19 @@ Hermes Agency is the product in this repository. Keryx is the primary transport;
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
+## Operator golden path
+
+For a cold install, prefer the starter staff pack and doctor-first path:
+
+```bash
+hermes-agency staff install --starter
+hermes-agency setup-plugins
+hermes-agency doctor
+```
+
+Full walkthrough: [`docs/operator-golden-path.md`](docs/operator-golden-path.md).  
+Guided helper: `python scripts/operator_golden_path.py --dry-run`.
+
 ## Proof and Keryx boundary
 
 Hermes Agency includes two permanent proofs:

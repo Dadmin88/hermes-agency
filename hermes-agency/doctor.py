@@ -554,6 +554,60 @@ def _model_sets_check() -> DoctorCheck:
     )
 
 
+def _starter_staff_check() -> DoctorCheck:
+    """Check whether the first-run starter staff pack is installed."""
+
+    try:
+        from .default_staff import starter_staff_status
+    except Exception as exc:
+        return _check(
+            "starter_staff",
+            "Starter staff pack",
+            WARN,
+            f"Could not inspect starter staff: {type(exc).__name__}: {exc}",
+        )
+    status = starter_staff_status()
+    expected = status.get("expected") or []
+    present = status.get("present") or []
+    missing = status.get("missing") or []
+    if not expected:
+        return _check(
+            "starter_staff",
+            "Starter staff pack",
+            WARN,
+            "Starter staff pack is empty or unavailable in this package",
+        )
+    if not missing:
+        return _check(
+            "starter_staff",
+            "Starter staff pack",
+            PASS,
+            f"Starter pack complete ({len(present)}/{len(expected)} profiles)",
+            present=present,
+            expected=expected,
+        )
+    if present:
+        return _check(
+            "starter_staff",
+            "Starter staff pack",
+            WARN,
+            f"Starter pack partial ({len(present)}/{len(expected)}); missing {len(missing)}",
+            "Run hermes-agency staff install --starter",
+            present=present,
+            missing=missing,
+            expected=expected,
+        )
+    return _check(
+        "starter_staff",
+        "Starter staff pack",
+        WARN,
+        "Starter staff pack is not installed",
+        "Run hermes-agency staff install --starter for a first-run workforce",
+        missing=missing,
+        expected=expected,
+    )
+
+
 def run_doctor() -> DoctorReport:
     """Run Hermes Agency self-diagnostics without starting new daemon processes."""
 
@@ -622,6 +676,7 @@ def run_doctor() -> DoctorReport:
     checks.append(_agent_card_check())
     checks.append(_kanban_check(cfg))
     checks.append(_model_sets_check())
+    checks.append(_starter_staff_check())
 
     editable_status, editable_message = _editable_install_state()
     checks.append(
