@@ -59,6 +59,19 @@ The current Fabric codebase includes:
 
 The default Fabric dispatch client is intentionally unconfigured. A real server-to-Agency client still needs to be wired before Fabric can claim end-to-end live dispatch without an injected adapter. Dry-run records prove the operator flow, not live transport execution.
 
+### Claim ledger (Fabric)
+
+| Claim | Status |
+|---|---|
+| Fabric can show the Agency roster | Shipped (read path) |
+| Fabric dry-run / dispatch-record operator flow | Shipped |
+| Fabric live dispatch to Hermes Agency by default | **Not shipped** — follow-up |
+| Hermes Agency live multi-process Keryx round trip | Shipped in Agency (`scripts/e2e_agency_keryx.py`); independent of Fabric |
+
+Live Agency dispatch client work is tracked as a follow-up outside
+[`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](../../docs/plans/2026-07-13-hermes-agency-full-remediation.md)
+workstream F (honesty/CI only in that program).
+
 ## Current Hermes Agency context
 
 - Tenant default: `default`

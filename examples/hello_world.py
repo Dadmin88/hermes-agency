@@ -1,177 +1,150 @@
-"""AgentAnycast Hello World — Two agents on the same machine, zero configuration.
+"""Hermes Agency / Keryx hello world — two nodes on loopback.
 
-This example demonstrates how two AI agents discover each other via mDNS
-and exchange A2A tasks — no public IP, no relay, no configuration.
+This example shows the Keryx Python SDK used as Hermes Agency's primary
+transport: register a skill, serve with ``on_task`` / ``serve_forever``, and
+send a task that returns a terminal artifact.
 
-┌─────────────────────────────────────────────────┐
-│  Prerequisites:                                 │
-│                                                 │
-│  1. Build the Go daemon:                        │
-│     cd agentanycast-node                        │
-│     go build -o agentanycastd ./cmd/agentanycastd/
-│                                                 │
-│  2. Install the Python SDK:                     │
-│     cd agentanycast-python                      │
-│     pip install -e .                            │
-└─────────────────────────────────────────────────┘
+Prerequisites:
 
-Run in two terminals:
+1. Install this repo (vendors the Keryx Python SDK)::
 
-  # Terminal 1 — Start the Echo Agent (server)
-  python examples/hello_world.py server
+     python -m pip install -e ".[dev]"
 
-  # Terminal 2 — Send a task to it (client)
-  python examples/hello_world.py client <PEER_ID from Terminal 1>
+2. Build Keryx runtime binaries from the separate hermes-keryx repository
+   (``keryxd``, ``keryx-relay`` / edge node as required by your dual-run setup).
+
+3. Start local Keryx daemon (and relay/registry if required) on loopback.
+   Typical dual-run daemon gRPC endpoint: ``127.0.0.1:50051``.
+
+Run in two terminals (use placeholder peer IDs only in docs/logs)::
+
+  # Terminal 1 — echo server
+  python examples/hello_world.py server --daemon 127.0.0.1:50051
+
+  # Terminal 2 — client (paste peer id from server output)
+  python examples/hello_world.py client --daemon 127.0.0.1:50051 --peer <peer-id>
+
+Legacy AgentAnycast demos remain under other ``examples/*`` files and are not
+the recommended production path. Prefer Agency operator surfaces
+(``hermes-agency doctor``, ``hermes-agency start``) for real staff profiles.
 """
+
+from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from pathlib import Path
 
-from agentanycast import AgentCard, Node, Skill
+# Allow running from a source checkout without install.
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
-# ── Resolve the daemon binary path ──────────────────────────
-# Look for the binary in the sibling agentanycast-node directory,
-# or fall back to finding it on PATH.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_DAEMON_BIN = _REPO_ROOT / "agentanycast-node" / "agentanycastd"
-DAEMON_PATH = str(_DAEMON_BIN) if _DAEMON_BIN.exists() else None
+from keryx.card import AgentCard, Skill  # noqa: E402
+from keryx.node import KeryxNode  # noqa: E402
+from keryx.task import Message, Part  # noqa: E402
 
 
-async def run_server():
-    """Run the Echo Agent — listens for tasks and echoes them back."""
+async def run_server(*, daemon_endpoint: str) -> None:
     card = AgentCard(
         name="EchoAgent",
-        description="A simple agent that echoes back any message it receives",
+        description="Echo agent for local Keryx / Hermes Agency transport checks",
         skills=[Skill(id="echo", description="Echo the input message back")],
     )
-
-    # Use a dedicated home directory so server and client don't collide.
-    async with Node(card=card, daemon_path=DAEMON_PATH, home="/tmp/agentanycast-server") as node:
-        print()
-        print("╔══════════════════════════════════════════════════════════╗")
-        print("║  Echo Agent started!                                    ║")
-        print("╠══════════════════════════════════════════════════════════╣")
-        print(f"║  Peer ID: {node.peer_id}  ║")
-        print("║                                                          ║")
-        print("║  Waiting for tasks... (Ctrl+C to stop)                   ║")
-        print("║                                                          ║")
-        print("║  In another terminal, run:                               ║")
-        print(f"║  python examples/hello_world.py client {node.peer_id}  ║")
-        print("╚══════════════════════════════════════════════════════════╝")
-        print()
-
-        @node.on_task
-        async def handle(task):
-            # Extract the text from the incoming message
-            text = "no message"
-            if task.messages:
-                for part in task.messages[-1].parts:
-                    if part.text:
-                        text = part.text
-                        break
-
-            print(f"  ← Received task from {task.peer_id[:16]}...")
-            print(f'    Message: "{text}"')
-
-            # Process and respond
-            await task.update_status("working")
-            response = f"Echo: {text}"
-            await task.complete(artifacts=[{"name": "echo_result", "parts": [{"text": response}]}])
-            print(f'    Response: "{response}"')
-            print("  Task completed.\n")
-
-        await node.serve_forever()
-
-
-async def run_client(peer_id: str):
-    """Run the Client Agent — sends a task and waits for the result."""
-    card = AgentCard(
-        name="ClientAgent",
-        description="Sends tasks to other agents",
-        skills=[],
-    )
-
-    # Use a separate home directory from the server.
-    async with Node(card=card, daemon_path=DAEMON_PATH, home="/tmp/agentanycast-client") as node:
-        print()
-        print(f"  Client started. My Peer ID: {node.peer_id}")
-        print(f"  Connecting to {peer_id[:16]}...")
-        print()
-
-        # Discover the remote agent's capabilities
-        try:
-            remote_card = await node.get_card(peer_id)
-            print(f"  Remote agent: {remote_card.name}")
-            print(f"  Description:  {remote_card.description}")
-            print(f"  Skills:       {[s.id for s in remote_card.skills]}")
-            print()
-        except Exception:
-            print("  (Could not fetch remote card -- sending task anyway)")
-            print()
-
-        # Send a task
-        message_text = "Hello from AgentAnycast!"
-        print(f'  → Sending: "{message_text}"')
-
-        task = await node.send_task(
-            peer_id=peer_id,
-            message={
-                "role": "user",
-                "parts": [{"text": message_text}],
-            },
+    node = KeryxNode(card=card, daemon_endpoint=daemon_endpoint)
+    await node.start()
+    try:
+        peer = getattr(node, "peer_id", None) or "(peer id unavailable until connected)"
+        print("Echo agent started")
+        print(f"  daemon: {daemon_endpoint}")
+        print(f"  peer:   {peer}")
+        print("  waiting for tasks (Ctrl+C to stop)")
+        print(
+            "  client: python examples/hello_world.py client "
+            f"--daemon {daemon_endpoint} --peer <peer-id>"
         )
 
-        print(f"    Task ID: {task.task_id}")
-        print("    Waiting for response...")
+        @node.on_task
+        async def handle(task) -> None:  # type: ignore[no-untyped-def]
+            text = "no message"
+            messages = getattr(task, "messages", None) or []
+            if messages:
+                for part in getattr(messages[-1], "parts", []) or []:
+                    if getattr(part, "text", None):
+                        text = part.text
+                        break
+            print(f"  received: {text!r}")
+            if hasattr(task, "update_status"):
+                await task.update_status("working")
+            response = f"Echo: {text}"
+            if hasattr(task, "complete"):
+                await task.complete(
+                    artifacts=[{"name": "echo_result", "parts": [{"text": response}]}]
+                )
+            elif hasattr(task, "send_artifact"):
+                await task.send_artifact(
+                    [{"name": "echo_result", "parts": [{"text": response}]}]
+                )
 
-        # Wait for the result
-        result = await task.wait(timeout=30)
-
-        # Display the result
-        for artifact in result.artifacts:
-            for part in artifact.parts:
-                if part.text:
-                    print(f'  ← Response: "{part.text}"')
-
-        print()
-        print("  ✓ Round-trip complete!")
-        print()
+        await node.serve_forever()
+    finally:
+        close = getattr(node, "close", None) or getattr(node, "stop", None)
+        if close is not None:
+            result = close()
+            if asyncio.iscoroutine(result):
+                await result
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="AgentAnycast Hello World — two agents communicating via P2P",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python examples/hello_world.py server
-  python examples/hello_world.py client 12D3KooW...
-        """,
+async def run_client(*, daemon_endpoint: str, peer_id: str, message: str) -> None:
+    card = AgentCard(
+        name="ClientAgent",
+        description="Client for local Keryx hello world",
+        skills=[],
     )
+    node = KeryxNode(card=card, daemon_endpoint=daemon_endpoint)
+    await node.start()
+    try:
+        handle = await node.send_task(
+            peer_id,
+            Message(parts=[Part(text=message)]),
+            skill_id="echo",
+        )
+        if hasattr(handle, "wait"):
+            result = await handle.wait(timeout=60)
+            print(f"result: {result!r}")
+        else:
+            print(f"submitted: {handle!r}")
+    finally:
+        close = getattr(node, "close", None) or getattr(node, "stop", None)
+        if close is not None:
+            result = close()
+            if asyncio.iscoroutine(result):
+                await result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Hermes Agency / Keryx hello world")
+    parser.add_argument("role", choices=("server", "client"))
     parser.add_argument(
-        "role",
-        choices=["server", "client"],
-        help="'server' to start the Echo Agent, 'client' to send a task",
+        "--daemon",
+        default="127.0.0.1:50051",
+        help="Keryx daemon gRPC endpoint (loopback recommended)",
     )
-    parser.add_argument(
-        "peer",
-        nargs="?",
-        help="Peer ID of the server (required for client role)",
-    )
+    parser.add_argument("--peer", default="", help="Target peer id (client mode)")
+    parser.add_argument("--message", default="hello from Hermes Agency", help="Client message")
     args = parser.parse_args()
 
-    if args.role == "client" and not args.peer:
-        parser.error("client role requires a Peer ID argument")
-
-    try:
-        if args.role == "server":
-            asyncio.run(run_server())
-        else:
-            asyncio.run(run_client(args.peer))
-    except KeyboardInterrupt:
-        print("\n  Stopped.")
+    if args.role == "server":
+        asyncio.run(run_server(daemon_endpoint=args.daemon))
+        return 0
+    if not args.peer:
+        parser.error("client mode requires --peer <peer-id>")
+    asyncio.run(
+        run_client(daemon_endpoint=args.daemon, peer_id=args.peer, message=args.message)
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

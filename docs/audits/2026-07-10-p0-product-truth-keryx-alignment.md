@@ -4,6 +4,11 @@ Date: 2026-07-10
 Branch: `fix/p0-product-truth-keryx-alignment`
 Baseline: `main` after the July 10 security merges
 
+> **Follow-up (2026-07-13):** Residual product-truth, remote-hardening, CI, and packaging work is tracked in
+> [`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](../plans/2026-07-13-hermes-agency-full-remediation.md).
+> Slice B (Keryx default) and Phase 17 live round trip have landed; remaining slices C–E and docs claim-ledger
+> refresh are executed under that plan.
+
 ## Objective
 
 Make Hermes Agency's runtime behavior, package metadata, contributor guidance, tests, and public product language describe the same system.

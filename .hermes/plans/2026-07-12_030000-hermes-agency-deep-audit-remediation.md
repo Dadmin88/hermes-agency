@@ -1,5 +1,10 @@
 # Hermes Agency Deep-Audit Remediation Implementation Plan
 
+> **Execution status (2026-07-13):** Superseded for active execution by
+> [`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](../../docs/plans/2026-07-13-hermes-agency-full-remediation.md).
+> This file is retained as historical technical detail (Phases 1–2 largely landed; remaining phases folded into
+> the 2026-07-13 plan workstreams C–G).
+
 > **For Hermes:** Use `subagent-driven-development` task-by-task. Keep each patch narrow; perform a specification review and a code-quality/security review before advancing.
 
 **Goal:** Repair the verified Hermes Agency safety, lifecycle, remote-execution, packaging/CI, Keryx, and Fabric delivery defects in small independently verifiable phases, then reduce the architectural debt that enabled them.

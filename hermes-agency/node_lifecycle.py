@@ -57,7 +57,7 @@ class NodeLifecycleMixin:
         with self._thread_lock:
             loop = self._loop
             thread = self._thread
-            active_transition = any(
+            active_transition = getattr(self, "_start_sync_callers", 0) > 0 or any(
                 task is not None and not task.done()
                 for task in (
                     getattr(self, "_startup_task", None),
@@ -131,23 +131,31 @@ class NodeLifecycleMixin:
             raise RuntimeError(self.state.error or "Hermes Agency node did not start")
 
     async def _start_impl(self) -> Any:
-        """Join concurrent callers to one startup transition."""
+        """Join a healthy startup transition or retry after cancelled cleanup."""
 
-        teardown_task = getattr(self, "_stop_task", None)
-        if teardown_task is not None and not teardown_task.done():
-            await asyncio.shield(teardown_task)
+        while True:
+            teardown_task = getattr(self, "_stop_task", None)
+            if teardown_task is not None and not teardown_task.done():
+                await asyncio.shield(teardown_task)
 
-        startup_task = self._startup_task
-        if startup_task is None:
-            startup_task = asyncio.create_task(self._start_impl_once())
-            self._startup_task = startup_task
-        self._startup_waiters = getattr(self, "_startup_waiters", 0) + 1
-        try:
-            return await asyncio.shield(startup_task)
-        finally:
-            self._startup_waiters -= 1
-            if startup_task.done() and self._startup_task is startup_task:
-                self._startup_task = None
+            startup_task = self._startup_task
+            if startup_task is not None and (startup_task.cancelling() or startup_task.cancelled()):
+                if not startup_task.done():
+                    await asyncio.shield(asyncio.gather(startup_task, return_exceptions=True))
+                if self._startup_task is startup_task:
+                    self._startup_task = None
+                continue
+
+            if startup_task is None:
+                startup_task = asyncio.create_task(self._start_impl_once())
+                self._startup_task = startup_task
+            self._startup_waiters = getattr(self, "_startup_waiters", 0) + 1
+            try:
+                return await asyncio.shield(startup_task)
+            finally:
+                self._startup_waiters -= 1
+                if startup_task.done() and self._startup_task is startup_task:
+                    self._startup_task = None
 
     async def _start_impl_once(self) -> Any:
         if self._node is not None and self.state.started:
@@ -298,18 +306,26 @@ class NodeLifecycleMixin:
             return None
 
     def start_sync(self, timeout: float = 120) -> Any:
-        loop = self._ensure_loop()
-        if threading.current_thread() is self._thread:
-            raise RuntimeError("Cannot synchronously wait on the Hermes Agency loop thread")
-        future = asyncio.run_coroutine_threadsafe(self._start_impl(), loop)
+        with self._thread_lock:
+            self._start_sync_callers = getattr(self, "_start_sync_callers", 0) + 1
         try:
-            return future.result(timeout=timeout)
-        except TimeoutError:
-            cleanup = asyncio.run_coroutine_threadsafe(self._cancel_startup_if_sole_waiter(), loop)
-            if cleanup.result():
-                future.cancel()
-                self._stop_loop_if_idle()
-            raise
+            loop = self._ensure_loop()
+            if threading.current_thread() is self._thread:
+                raise RuntimeError("Cannot synchronously wait on the Hermes Agency loop thread")
+            future = asyncio.run_coroutine_threadsafe(self._start_impl(), loop)
+            try:
+                return future.result(timeout=timeout)
+            except TimeoutError:
+                cleanup = asyncio.run_coroutine_threadsafe(
+                    self._cancel_startup_if_sole_waiter(), loop
+                )
+                if cleanup.result():
+                    future.cancel()
+                raise
+        finally:
+            with self._thread_lock:
+                self._start_sync_callers -= 1
+            self._stop_loop_if_idle()
 
     def stop_sync(self, timeout: float = 60) -> Any:
         try:

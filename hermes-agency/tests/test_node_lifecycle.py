@@ -233,6 +233,71 @@ async def test_start_waits_for_stop_teardown_before_replacing_node(
         await manager._stop_impl()
 
 
+async def test_fresh_start_retries_after_cancelled_startup_cleanup(
+    node_manager_module, fake_keryx_sdk
+):
+    """A replacement start must drain a cancelled candidate before retrying."""
+
+    manager = node_manager_module.NodeManager()
+    manager._ensure_incoming_runtime = lambda cfg: None
+    manager._requeue_persisted_incoming_tasks = lambda: 0
+    startup_entered = threading.Event()
+    cleanup_entered = threading.Event()
+    release_cleanup = threading.Event()
+    node_cls = fake_keryx_sdk["KeryxNode"]
+    original_start = node_cls.start
+    original_stop = node_cls.stop
+    first_candidate = None
+
+    async def blocked_first_start(self) -> None:
+        nonlocal first_candidate
+        if first_candidate is None:
+            first_candidate = self
+            startup_entered.set()
+            await asyncio.Future()
+        await original_start(self)
+
+    async def blocked_first_stop(self) -> None:
+        if self is first_candidate:
+            cleanup_entered.set()
+            await asyncio.to_thread(release_cleanup.wait)
+        await original_stop(self)
+
+    node_cls.start = blocked_first_start
+    node_cls.stop = blocked_first_stop
+    first_start = asyncio.create_task(asyncio.to_thread(manager.start_sync, 0.01))
+    replacement = None
+    try:
+        assert await asyncio.to_thread(startup_entered.wait, 1)
+        assert await asyncio.to_thread(cleanup_entered.wait, 1)
+
+        replacement = asyncio.create_task(asyncio.to_thread(manager.start_sync, 1))
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.shield(replacement), timeout=0.02)
+        assert len(node_cls.instances) == 1
+
+        release_cleanup.set()
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(first_start, 1)
+        state = await asyncio.wait_for(replacement, 1)
+
+        assert state.started is True
+        assert len(node_cls.instances) == 2
+        assert first_candidate is not None and first_candidate.stopped is True
+        assert manager._node is node_cls.instances[1]
+        assert manager._startup_task is None
+    finally:
+        release_cleanup.set()
+        pending = [first_start]
+        if replacement is not None:
+            pending.append(replacement)
+        try:
+            await asyncio.wait_for(asyncio.gather(*pending, return_exceptions=True), timeout=2)
+        finally:
+            if manager._loop is not None:
+                await asyncio.wait_for(asyncio.to_thread(manager.stop_sync, timeout=1), timeout=2)
+
+
 async def test_timed_out_start_stops_constructed_unpublished_candidate(
     node_manager_module, fake_keryx_sdk
 ):

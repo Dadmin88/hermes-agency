@@ -57,9 +57,33 @@ def verify_incoming_sender(
             sender identity hints without reparsing the message.
     """
 
-    normalized_purpose = str(purpose or "task").strip().lower()
     sender_peer_id = extract_sender_peer_id(task, control_payload)
-    if not sender_peer_id:
+    name = _sender_name(task, control_payload)
+    return authorize_sender_for_purpose(
+        cfg,
+        sender_peer_id,
+        purpose=purpose,
+        name=name,
+    )
+
+
+def authorize_sender_for_purpose(
+    cfg: AgencyConfig,
+    sender_peer_id: str,
+    *,
+    purpose: str = "task",
+    name: str = "",
+) -> IncomingSecurityDecision:
+    """Shared authorization boundary for live intake and recovered execution.
+
+    Re-evaluates allowlist, blocklist, and trust store against the *current*
+    configuration. Used both when a task is first accepted and immediately
+    before recovered work executes so revoked peers cannot resume after restart.
+    """
+
+    normalized_purpose = str(purpose or "task").strip().lower()
+    clean_peer = str(sender_peer_id or "").strip()
+    if not clean_peer:
         return IncomingSecurityDecision(
             False,
             "incoming sender peer_id is required",
@@ -68,29 +92,28 @@ def verify_incoming_sender(
             "missing_peer_id",
         )
 
-    if _peer_blocked(cfg, sender_peer_id):
+    if _peer_blocked(cfg, clean_peer):
         return IncomingSecurityDecision(
             False,
             "peer is blocked",
-            sender_peer_id,
+            clean_peer,
             "blocked",
             "blocked",
         )
 
-    if not _peer_allowed_by_effective_config(cfg, sender_peer_id):
+    if not _peer_allowed_by_effective_config(cfg, clean_peer):
         return IncomingSecurityDecision(
             False,
-            f"sender peer {sender_peer_id} is not in effective agency.relay.allowlist",
-            sender_peer_id,
+            f"sender peer {clean_peer} is not in effective agency.relay.allowlist",
+            clean_peer,
             "",
             "not_in_allowlist",
         )
 
-    name = _sender_name(task, control_payload)
     try:
         decision = store_for_config(cfg).verify_peer(
-            sender_peer_id,
-            name=name,
+            clean_peer,
+            name=str(name or "").strip(),
             trust_level="limited",
             source=f"incoming_{normalized_purpose}",
         )
@@ -101,7 +124,7 @@ def verify_incoming_sender(
         return IncomingSecurityDecision(
             False,
             decision.reason or decision.action,
-            sender_peer_id,
+            clean_peer,
             decision.trust_level,
             decision.action,
         )
@@ -111,7 +134,7 @@ def verify_incoming_sender(
         return IncomingSecurityDecision(
             False,
             f"incoming {normalized_purpose} requires {min_trust} trust; sender is {decision.trust_level}",
-            sender_peer_id,
+            clean_peer,
             decision.trust_level,
             "insufficient_trust",
         )
@@ -119,9 +142,48 @@ def verify_incoming_sender(
     return IncomingSecurityDecision(
         True,
         "allowed",
-        sender_peer_id,
+        clean_peer,
         decision.trust_level,
         decision.action,
+    )
+
+
+def authorize_recovered_record(
+    cfg: AgencyConfig,
+    *,
+    sender_peer_id: str,
+    sender_name: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> IncomingSecurityDecision:
+    """Authorize a persisted/recovered queue record immediately before execution."""
+
+    clean_peer = str(sender_peer_id or "").strip()
+    meta = metadata if isinstance(metadata, dict) else {}
+    if not clean_peer:
+        # Fail closed when recovery metadata is missing or tampered.
+        return IncomingSecurityDecision(
+            False,
+            "recovered task missing sender peer_id",
+            "",
+            "",
+            "missing_peer_id",
+        )
+    # Reject obvious metadata spoof attempts that disagree with the record peer.
+    for key in ("sender_peer_id", "originator_peer_id", "peer_id"):
+        claimed = str(meta.get(key) or "").strip()
+        if claimed and claimed != clean_peer:
+            return IncomingSecurityDecision(
+                False,
+                "recovered task sender metadata mismatch",
+                clean_peer,
+                "",
+                "tampered_metadata",
+            )
+    return authorize_sender_for_purpose(
+        cfg,
+        clean_peer,
+        purpose="task",
+        name=sender_name,
     )
 
 
