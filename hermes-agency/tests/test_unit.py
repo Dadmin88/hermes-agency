@@ -3392,7 +3392,7 @@ def test_pool_sleep_stops_stale_runner_not_in_pidfile(plugin_modules, monkeypatc
     agency_dir = profile_dir / ".agency"
     agency_dir.mkdir(parents=True)
     (agency_dir / "runner.pid").write_text("1111", encoding="utf-8")
-    monkeypatch.setattr(pool_tools, "PROFILES", tmp_path / "profiles")
+    monkeypatch.setenv("HERMES_PROFILES_DIR", str(tmp_path / "profiles"))
     monkeypatch.setattr(pool_tools, "_profile_runner_pids", lambda name, path: [2222])
     monkeypatch.setattr(pool_tools, "_terminate_pids", lambda pids: stopped.extend(pids))
     monkeypatch.setattr(pool_tools, "_stop_profile_daemon_processes", lambda name: None)

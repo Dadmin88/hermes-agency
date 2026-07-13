@@ -241,6 +241,7 @@ async def test_fresh_start_retries_after_cancelled_startup_cleanup(
     manager = node_manager_module.NodeManager()
     manager._ensure_incoming_runtime = lambda cfg: None
     manager._requeue_persisted_incoming_tasks = lambda: 0
+    manager._update_pool_roster_status = lambda *, online, error=None: None
     startup_entered = threading.Event()
     cleanup_entered = threading.Event()
     release_cleanup = threading.Event()
