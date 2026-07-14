@@ -1000,3 +1000,168 @@ def test_restore_rejects_successor_snapshot_topology_or_policy_injection():
     payload["revisions"][1]["gates"][1]["dependencies"] = []
     with pytest.raises(SerializationError, match="does not match deterministic event replay"):
         restore_state(payload)
+
+
+def artifact_nodes(value):
+    """Return all serialized artifact identities in a hostile state payload."""
+    nodes = []
+    if isinstance(value, dict):
+        if set(value) == {
+            "artifact_id",
+            "references",
+            "hashes",
+            "byte_sizes",
+            "frozen",
+            "frozen_at",
+            "created_by",
+        }:
+            nodes.append(value)
+        for item in value.values():
+            nodes.extend(artifact_nodes(item))
+    elif isinstance(value, list):
+        for item in value:
+            nodes.extend(artifact_nodes(item))
+    return nodes
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda identity: identity.update({"hashes": ["not-a-mapping"]}),
+        lambda identity: identity["hashes"].update({"docs/architecture.md": 7}),
+        lambda identity: identity.update({"byte_sizes": [42]}),
+        lambda identity: identity["byte_sizes"].update({"docs/architecture.md": -1}),
+        lambda identity: identity["byte_sizes"].update({"docs/architecture.md": True}),
+        lambda identity: identity.update({"references": "docs/architecture.md"}),
+        lambda identity: identity.update({"frozen": "false"}),
+        lambda identity: identity.update({"frozen": 0}),
+        lambda identity: identity.update({"frozen": 1}),
+        lambda identity: identity.pop("hashes"),
+        lambda identity: identity.update({"injected": "field"}),
+    ],
+)
+def test_restore_strictly_rejects_coherent_hostile_artifact_identity(mutate):
+    payload = json.loads(serialize_state(state()))
+    # Mutate event, snapshot, and digest coherently: raw parsing must reject it.
+    for identity in artifact_nodes(payload):
+        mutate(identity)
+    reindex_events(payload)
+    with pytest.raises(SerializationError, match="artifact"):
+        restore_state(payload)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("frozen", True), ("frozen_at", NOW), ("created_by", "other")],
+)
+def test_restore_rejects_coherent_invalid_genesis_identity_semantics(field, value):
+    payload = json.loads(serialize_state(state()))
+    for identity in artifact_nodes(payload):
+        identity[field] = value
+    reindex_events(payload)
+    with pytest.raises(SerializationError):
+        restore_state(payload)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("event_id", 1),
+        ("event_id", True),
+        ("workflow_id", 1),
+        ("revision_id", True),
+        ("actor", 1),
+        ("occurred_at", True),
+    ],
+)
+def test_restore_rejects_non_string_event_envelope_fields(field, value):
+    payload = json.loads(serialize_state(state()))
+    payload["events"][0][field] = value
+    reindex_events(payload)
+    with pytest.raises(SerializationError, match="event"):
+        restore_state(payload)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("revision_number", True),
+        ("revision_number", 1.0),
+        ("max_attempts", True),
+        ("max_attempts", 1),
+    ],
+)
+def test_restore_rejects_noncanonical_genesis_policy_fields(field, value):
+    payload = json.loads(serialize_state(state()))
+    payload["events"][0]["payload"][field] = value
+    reindex_events(payload)
+    with pytest.raises(SerializationError):
+        restore_state(payload)
+
+
+def test_restore_rejects_malformed_artifacts_in_freeze_and_verdict_events():
+    frozen_payload = json.loads(serialize_state(approved_through_freeze()))
+    freeze_event = next(
+        item
+        for item in frozen_payload["events"]
+        if item["event_type"] == EventType.ARTIFACT_FROZEN.value
+    )
+    freeze_event["payload"]["artifact_identity"] = []
+    reindex_events(frozen_payload)
+    with pytest.raises(SerializationError, match="artifact"):
+        restore_state(frozen_payload)
+
+    review_state = start(
+        approved_through_freeze(), GateKind.FEASIBILITY_REVIEW, "feasibility", "feas-start"
+    )
+    review_state = verdict(
+        review_state,
+        GateKind.FEASIBILITY_REVIEW,
+        "feasibility",
+        VerdictDecision.APPROVE,
+        "feas-approve",
+    )
+    review_payload = json.loads(serialize_state(review_state))
+    review_event = next(
+        item
+        for item in review_payload["events"]
+        if item["event_type"] == EventType.REVIEW_VERDICT_ISSUED.value
+    )
+    review_event["payload"]["verdict"]["reviewed_artifact_identity"]["byte_sizes"] = {
+        "docs/architecture.md": False
+    }
+    reindex_events(review_payload)
+    with pytest.raises(SerializationError, match="artifact"):
+        restore_state(review_payload)
+
+
+def test_restore_rejects_malformed_artifact_in_successor_event():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
+    current = transition(
+        current,
+        event(
+            "r2",
+            "wf-1",
+            EventType.SUCCESSOR_REVISION_STARTED,
+            actor="author-2",
+            occurred_at=NOW,
+            revision_id="rev-1",
+            payload={
+                "revision_id": "rev-2",
+                "author": "author-2",
+                "artifact_identity": artifact(created_by="author-2"),
+            },
+        ),
+    )
+    payload = json.loads(serialize_state(current))
+    successor = next(
+        item
+        for item in payload["events"]
+        if item["event_type"] == EventType.SUCCESSOR_REVISION_STARTED.value
+    )
+    successor["payload"]["artifact_identity"]["references"] = "not-a-list"
+    reindex_events(payload)
+    with pytest.raises(SerializationError, match="artifact"):
+        restore_state(payload)
