@@ -18,25 +18,25 @@ The current writer uses PyYAML and preserves unrelated config keys, but it does 
 
 ```bash
 hermes agency models list
-hermes agency models show economic
-hermes agency models validate economic --strict
-hermes agency models resolve agency-backend-engineer --set economic
-hermes agency models plan economic
-hermes agency models apply economic --dry-run
-hermes agency models apply economic --yes --backup
+hermes agency models show openai-codex-only
+hermes agency models validate openai-codex-only --strict
+hermes agency models resolve agency-backend-engineer --set openai-codex-only
+hermes agency models plan openai-codex-only
+hermes agency models apply openai-codex-only --dry-run
+hermes agency models apply openai-codex-only --yes --backup
 hermes agency models restore --backup-id <id>
 ```
 
 The target MVP command is:
 
 ```bash
-hermes agency models apply economic --yes --backup
+hermes agency models apply openai-codex-only --yes --backup
 ```
 
 The nicer one-switch flow is:
 
 ```bash
-hermes agency models use economic --apply --yes
+hermes agency models use openai-codex-only --apply --yes
 ```
 
 ## Preset locations
@@ -63,17 +63,17 @@ Required top-level keys:
 
 ```yaml
 version: 1
-name: economic
-description: "Cheap default routing for day-to-day Hermes Agency work."
+name: openai-codex-only
+description: "Canonical OpenAI Codex GPT-5.6 Sol/Terra/Luna routing for Hermes Agency."
 
 defaults:
   family: general_worker
 
 families:
   general_worker:
-    provider: opencode-go
-    model: deepseek-v4-flash
-    reason: "Cheap routine worker."
+    provider: openai-codex
+    model: gpt-5.6-terra
+    reason: "Canonical general worker."
 
 profiles:
   agency-backend-engineer: coding_worker
@@ -101,14 +101,9 @@ For a given profile, Hermes Agency resolves the target model in this order:
 
 Risk escalation is exposed through the resolver API but does not automatically spend premium model calls until a runtime caller opts into using it.
 
-## Packaged presets
+## Packaged preset
 
-- `balanced`: good daily default; economical workers, GPT-5.5 for orchestration/review/escalation.
-- `economic`: lowest practical spend; cheap workers, GPT-5.5 only for senior/high-risk roles.
-- `premium`: quality-first without pretending cost does not matter.
-- `go-plan`: only OpenCode Go provider models.
-- `openai-codex-only`: only OpenAI Codex provider models. Routine roles use cheaper OpenAI models, coding roles use Codex-focused models, and orchestration/senior review use GPT-5.5.
-- `local-only`: intentionally fails validation until a real local provider/model exists.
+`openai-codex-only` is the single canonical Agency model set. It uses only OpenAI Codex GPT-5.6 models: Sol for heavy engineering and senior review, Terra for orchestration/general/review/ops, and Luna for text-only writing/research synthesis.
 
 ## Examples
 
@@ -129,7 +124,7 @@ The starter bake-off harness lives in `evals/model_bakeoff/`. Use it to compare 
 If a model set applies but an agent still uses the old model, run:
 
 ```bash
-hermes agency models plan economic
+hermes agency models plan openai-codex-only
 hermes agency doctor
 ```
 
@@ -137,4 +132,4 @@ If the plan shows drift, apply again with `--yes --backup` after confirming the 
 
 If validation says a provider or model is unknown, update `hermes-agency/model_catalog.yaml` or fix the preset typo.
 
-If `local-only` fails, that is expected until a real local provider is configured. OpenCode Go is not treated as free; it is plan/subscription based.
+The canonical preset requires the OpenAI Codex provider and the GPT-5.6 Sol, Terra, and Luna models to be available.

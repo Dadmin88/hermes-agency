@@ -19,7 +19,7 @@ from typing import Any
 REGISTRY_DEFINITION_PATH = Path(__file__).with_name("registry_definition.json")
 ROSTER_STATE_FILENAME = "roster_state.json"
 OFFLINE_QUEUE_FILENAME = "offline_task_queue.json"
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_PROVIDER = "openai-codex"
 # Test/diagnostic override hooks. Normal runtime uses HERMES_HOME-aware helpers
 # below so profile-scoped gateway sessions still see the shared root roster.
