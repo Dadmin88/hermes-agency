@@ -28,6 +28,8 @@
     "docs"
   ],
   "baselineFingerprints": [
+    ".agents/skills/create-issue-interaction-ui/SKILL.md::Hermes Fabric::3f11d5cf40baadba",
+    ".agents/skills/create-issue-interaction-ui/SKILL.md::Paperclip::c5c3d4737fd46df0",
     ".claude/skills/design-guide/SKILL.md::Paperclip::1cae8d5558adc0c2",
     ".claude/skills/design-guide/SKILL.md::Paperclip::7954664e421a21b5",
     ".claude/skills/design-guide/SKILL.md::Paperclip::a9c8d3576d3ad31e",
@@ -54,12 +56,16 @@
     "CONTRIBUTING.md::Paperclip::f85b5529094c62a1",
     "CONTRIBUTING.md::paperclip::e40b6f8903cee1e2",
     "HERMES_FABRIC.md::Hermes Fabric::300fb4b51605d684",
+    "HERMES_FABRIC.md::Hermes Fabric::4444d2afbbc9ade7",
+    "HERMES_FABRIC.md::Hermes Fabric::4df4db711fb9aa92",
     "HERMES_FABRIC.md::Hermes Fabric::80ede9b2dce37ee1",
+    "HERMES_FABRIC.md::Hermes Fabric::8e3240533c382233",
     "HERMES_FABRIC.md::Hermes Fabric::961af96ff1b802e1",
     "HERMES_FABRIC.md::Hermes Fabric::9d45fbc247b2907f",
     "HERMES_FABRIC.md::Hermes Fabric::b40d0ce837ada06c",
     "HERMES_FABRIC.md::Hermes Fabric::d5970e6a8648a5e2",
     "HERMES_FABRIC.md::Hermes Fabric::f90fac2b3c62bba2",
+    "HERMES_FABRIC.md::Paperclip::4df4db711fb9aa92",
     "HERMES_FABRIC.md::Paperclip::80ede9b2dce37ee1",
     "HERMES_FABRIC.md::Paperclip::d5970e6a8648a5e2",
     "README.md::Hermes Fabric::09534daf1e97b40f",
@@ -1507,6 +1513,7 @@
     "server/src/adapters/registry.ts::paperclip::c9b89eca7ee6bf50",
     "server/src/adapters/registry.ts::paperclip::cf3e6fe489dc12b7",
     "server/src/adapters/utils.ts::Paperclip::5c5d1b0f514dbcca",
+    "server/src/agent-auth-jwt.ts::paperclip::2ca69bfb47112e1a",
     "server/src/app.ts::paperclip::15fe839895c46712",
     "server/src/app.ts::paperclip::52db753373001c67",
     "server/src/auth/better-auth.ts::Paperclip::45f3be743a4a0539",
@@ -1516,6 +1523,8 @@
     "server/src/config-file.ts::Paperclip::fc50d179784c4363",
     "server/src/config-file.ts::paperclip::734ad962d2d5cdfe",
     "server/src/config.ts::Paperclip::b9862d4a5d702194",
+    "server/src/config.ts::paperclip::0dfb24ae4885f791",
+    "server/src/fabric-env.ts::PAPERCLIP::fad78b444a18494e",
     "server/src/home-paths.ts::Paperclip::1bde645c03e051bb",
     "server/src/home-paths.ts::Paperclip::37ee7ab352a97c69",
     "server/src/home-paths.ts::Paperclip::3feac034a29d3b83",
@@ -2200,6 +2209,7 @@
     "ui/src/pages/CompanyImport.tsx::Paperclip::a256c027604fb3be",
     "ui/src/pages/CompanyInvites.tsx::Paperclip::3bad0330adbc296f",
     "ui/src/pages/CompanySettings.tsx::Paperclip::2b1c3b968e6da32f",
+    "ui/src/pages/CompanySkills.tsx::paperclip::aca9bc58d07a61e5",
     "ui/src/pages/CompanySkills.tsx::paperclip::d18ceb9e8d15379d",
     "ui/src/pages/CompanySkills.tsx::paperclip::ec49932d18b45085",
     "ui/src/pages/Dashboard.tsx::Hermes Fabric::207e959b22b204db",
@@ -2433,5 +2443,5 @@
     "ui/storybook/stories/team-catalog.stories.tsx::Paperclip::6d0d533d371275a6",
     "ui/storybook/stories/team-catalog.stories.tsx::Paperclip::b47aa16f0311ac4b"
   ],
-  "updatedAt": "2026-06-29T23:23:58.138Z"
+  "updatedAt": "2026-07-14T17:53:39Z"
 }

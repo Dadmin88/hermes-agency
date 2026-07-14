@@ -49,6 +49,18 @@ test("allows internal package compatibility references", async () => {
   assert.equal(result.violationCount, 0);
 });
 
+test("ignores generated Storybook output", async () => {
+  const { root, allowlistPath } = await makeFixture();
+  const generated = path.join(root, "ui", "storybook-static", "assets");
+  await mkdir(generated, { recursive: true });
+  await writeFile(path.join(generated, "bundle.js"), "const title = 'Paperclip';\n");
+
+  const result = await evaluateBranding({ root, allowlistPath });
+
+  assert.equal(result.violationCount, 0);
+  assert.equal(result.matches.length, 0);
+});
+
 test("honors baseline fingerprints for staged cleanup", async () => {
   const { root, allowlistPath } = await makeFixture();
   const filePath = path.join(root, "ui", "src", "Skills.tsx");
