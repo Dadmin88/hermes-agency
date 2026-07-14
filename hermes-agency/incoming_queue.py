@@ -86,6 +86,10 @@ class RecoveredIncomingTask:
         del artifacts
 
 
+class IncomingTaskSecurityError(RuntimeError):
+    """Raised when a recovered task no longer passes the remote trust policy."""
+
+
 def _bounded_persistence_value(value: Any, *, depth: int = 0) -> Any:
     """Return a JSON-safe, size-bounded copy of attacker-influenced task data."""
 
@@ -839,6 +843,13 @@ class IncomingQueueMixin:
                 if record is None:
                     continue
                 if record.metadata.get("recovered"):
+                    cfg = self._nm().get_config()
+                    security = self._nm().verify_incoming_sender(task, cfg, purpose="task")
+                    if not security.allowed:
+                        raise IncomingTaskSecurityError(
+                            security.reason
+                            or "incoming task rejected by Hermes Agency security policy"
+                        )
                     try:
                         await task.update_status("working")
                     except Exception as exc:
@@ -936,7 +947,11 @@ class IncomingQueueMixin:
             except Exception as exc:
                 if record is not None:
                     record.status = "failed"
-                    record.error = f"{type(exc).__name__}: {exc}"
+                    record.error = (
+                        str(exc)
+                        if isinstance(exc, IncomingTaskSecurityError)
+                        else f"{type(exc).__name__}: {exc}"
+                    )
                     record.updated_at = time.time()
                     record.completed_at = time.time()
                     if record.kanban_task_id:

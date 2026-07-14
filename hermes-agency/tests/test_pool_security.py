@@ -6,9 +6,11 @@ Covers:
 - Agent name validation on wake/sleep/task endpoints
 """
 
+import importlib.util
 import json
 import os
 import sys
+import types
 from pathlib import Path
 from unittest.mock import patch
 
@@ -87,6 +89,31 @@ def app_client(tmp_home, registry_file):
         yield client, svc_mod
 
 
+@pytest.fixture()
+def app_client_without_token(tmp_home, registry_file):
+    """Create a Flask test client with mutation authentication unconfigured."""
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "HERMES_HOME": str(tmp_home),
+                "HERMES_POOL_TOKEN": "",
+                "HERMES_POOL_BIND": "127.0.0.1",
+            },
+        ),
+        patch("manager.REGISTRY_DEF", registry_file),
+    ):
+        import importlib
+
+        import service as svc_mod
+
+        importlib.reload(svc_mod)
+        svc_mod.pm.registry = json.loads(registry_file.read_text())
+        svc_mod.pm.active = {}
+        client = svc_mod.app.test_client()
+        yield client, svc_mod
+
+
 # ---------------------------------------------------------------------------
 # Bearer token auth
 # ---------------------------------------------------------------------------
@@ -130,6 +157,32 @@ class TestBearerAuth:
             headers={"Authorization": "Basic dXNlcjpwYXNz"},
         )
         assert resp.status_code == 401
+
+    def test_post_is_disabled_when_server_token_is_unconfigured(self, app_client_without_token):
+        client, svc = app_client_without_token
+        with patch.object(svc.pm, "wake") as wake:
+            resp = client.post("/pool/agents/agency-orchestrator/wake")
+
+        assert resp.status_code == 503
+        assert resp.get_json()["error"] == "mutation authentication is not configured"
+        wake.assert_not_called()
+
+
+def test_pool_cli_mutation_headers_follow_configured_token(monkeypatch):
+    class FakePoolManager:
+        config = {"pool": {"port": 8090}}
+
+    monkeypatch.setitem(sys.modules, "manager", types.SimpleNamespace(PoolManager=FakePoolManager))
+    monkeypatch.setenv("HERMES_POOL_TOKEN", "cli-secret-token")
+
+    spec = importlib.util.spec_from_file_location("pool_cli_under_test", Path(POOL_DIR) / "cli.py")
+    assert spec is not None and spec.loader is not None
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+
+    assert cli._mutation_headers() == {"Authorization": "Bearer cli-secret-token"}
+    monkeypatch.setenv("HERMES_POOL_TOKEN", "")
+    assert cli._mutation_headers() == {}
 
 
 # ---------------------------------------------------------------------------

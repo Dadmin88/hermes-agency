@@ -9,9 +9,12 @@ import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import grpc
+
+if TYPE_CHECKING:
+    from keryx.card import AgentCard
 
 _PROTO_ROOT = Path(__file__).resolve().parent / "proto"
 if str(_PROTO_ROOT) not in sys.path:
@@ -28,9 +31,7 @@ from hermes.keryx.v1 import (  # noqa: E402
 
 
 def default_daemon_endpoint() -> str:
-    socket_path = (
-        Path.home().expanduser() / ".hermes" / "keryx" / "run" / "keryx-daemon.sock"
-    )
+    socket_path = Path.home().expanduser() / ".hermes" / "keryx" / "run" / "keryx-daemon.sock"
     return f"unix://{socket_path}"
 
 
@@ -58,17 +59,14 @@ def _validate_unix_socket_endpoint(endpoint: str) -> None:
         )
     if parent_stat.st_mode & (stat.S_IRWXG | stat.S_IRWXO):
         raise RuntimeError(
-            "daemon socket directory must not be accessible by group or other users: "
-            f"{path.parent}"
+            f"daemon socket directory must not be accessible by group or other users: {path.parent}"
         )
     if socket_stat.st_uid != current_uid:
         raise RuntimeError(f"daemon socket is not owned by the current user: {path}")
     if not stat.S_ISSOCK(socket_stat.st_mode):
         raise RuntimeError(f"daemon endpoint is not a Unix socket: {path}")
     if socket_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-        raise RuntimeError(
-            f"daemon socket must not be writable by group or other users: {path}"
-        )
+        raise RuntimeError(f"daemon socket must not be writable by group or other users: {path}")
 
 
 def _assert_unix_peer_owned_by_current_user(endpoint: str) -> None:
@@ -84,9 +82,7 @@ def _assert_unix_peer_owned_by_current_user(endpoint: str) -> None:
         raise RuntimeError(f"daemon socket peer could not be verified: {path}") from exc
     _, peer_uid, _ = struct.unpack("3i", credentials)
     if peer_uid != os.getuid():
-        raise RuntimeError(
-            f"daemon socket peer is not owned by the current user: {path}"
-        )
+        raise RuntimeError(f"daemon socket peer is not owned by the current user: {path}")
 
 
 def _grpc_target(endpoint: str) -> str:
@@ -121,6 +117,8 @@ class DaemonClient:
         )
         self._channel = channel
         self._registry_channel = registry_channel
+        self._owns_channel = channel is None
+        self._owns_registry_channel = registry_channel is None
         self._daemon: daemon_pb2_grpc.KeryxDaemonStub | None = None
         self._registry: registry_pb2_grpc.RegistryServiceStub | None = None
 
@@ -128,26 +126,24 @@ class DaemonClient:
         if self._channel is None:
             _validate_unix_socket_endpoint(self._daemon_endpoint)
             _assert_unix_peer_owned_by_current_user(self._daemon_endpoint)
-            self._channel = grpc.aio.insecure_channel(
-                _grpc_target(self._daemon_endpoint)
-            )
+            self._channel = grpc.aio.insecure_channel(_grpc_target(self._daemon_endpoint))
+            self._owns_channel = True
         self._daemon = daemon_pb2_grpc.KeryxDaemonStub(self._channel)
         if self._registry_endpoint:
             if self._registry_channel is None:
                 self._registry_channel = grpc.aio.insecure_channel(
                     _grpc_target(self._registry_endpoint)
                 )
-            self._registry = registry_pb2_grpc.RegistryServiceStub(
-                self._registry_channel
-            )
+                self._owns_registry_channel = True
+            self._registry = registry_pb2_grpc.RegistryServiceStub(self._registry_channel)
 
     async def close(self) -> None:
-        if self._channel is not None:
+        if self._channel is not None and self._owns_channel:
             await self._channel.close()
-            self._channel = None
-        if self._registry_channel is not None:
+        self._channel = None
+        if self._registry_channel is not None and self._owns_registry_channel:
             await self._registry_channel.close()
-            self._registry_channel = None
+        self._registry_channel = None
         self._daemon = None
         self._registry = None
 
@@ -200,19 +196,13 @@ class DaemonClient:
         )
         return await self._daemon.SendTask(request)
 
-    async def get_task_result(
-        self, task_id: str
-    ) -> daemon_pb2.GetTaskResultResponse:
+    async def get_task_result(self, task_id: str) -> daemon_pb2.GetTaskResultResponse:
         assert self._daemon is not None
         return await self._daemon.GetTaskResult(
-            daemon_pb2.GetTaskResultRequest(
-                task_id=common_pb2.TaskId(value=task_id)
-            )
+            daemon_pb2.GetTaskResultRequest(task_id=common_pb2.TaskId(value=task_id))
         )
 
-    async def cancel_task(
-        self, task_id: str, *, reason: str = ""
-    ) -> daemon_pb2.CancelTaskResponse:
+    async def cancel_task(self, task_id: str, *, reason: str = "") -> daemon_pb2.CancelTaskResponse:
         assert self._daemon is not None
         return await self._daemon.CancelTask(
             daemon_pb2.CancelTaskRequest(
@@ -255,11 +245,7 @@ class DaemonClient:
             registrations = []
             for registration in fallback.registrations:
                 matching_skill = next(
-                    (
-                        skill
-                        for skill in registration.skills
-                        if skill.skill_id == skill_id
-                    ),
+                    (skill for skill in registration.skills if skill.skill_id == skill_id),
                     None,
                 )
                 if matching_skill is None:
@@ -309,9 +295,7 @@ class DaemonClient:
         response = await self._registry.RegisterSkills(request)
         return bool(response.accepted)
 
-    async def unregister_skills(
-        self, *, peer_id: str, skill_ids: list[str]
-    ) -> bool:
+    async def unregister_skills(self, *, peer_id: str, skill_ids: list[str]) -> bool:
         if self._registry is None:
             return False
         assert self._registry is not None
@@ -323,7 +307,7 @@ class DaemonClient:
         )
         return bool(response.accepted)
 
-    async def get_card(self, peer_id: str) -> "AgentCard":
+    async def get_card(self, peer_id: str) -> AgentCard:
         from keryx.card import AgentCard, Skill
 
         if self._registry is None:

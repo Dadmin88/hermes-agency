@@ -6,8 +6,8 @@ FastAPI/Flask HTTP server on configured port.
 Security notes:
 - Binds to 127.0.0.1 by default (loopback only).  Set HERMES_POOL_BIND=0.0.0.0
   to expose on all interfaces; this also requires a valid bearer token.
-- Bearer token auth is enforced on all mutating endpoints when
-  HERMES_POOL_TOKEN is set.
+- Bearer token auth is enforced on every mutating endpoint. When
+  HERMES_POOL_TOKEN is unset, mutations fail closed with HTTP 503.
 """
 
 import hmac
@@ -29,10 +29,9 @@ pm = PoolManager()
 
 
 def _check_token() -> bool:
-    """Return True when the request carries a valid bearer token, or when no
-    token is configured (local-only / development mode)."""
+    """Return True only when mutation authentication is configured and valid."""
     if not POOL_TOKEN:
-        return True
+        return False
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return False
@@ -41,7 +40,9 @@ def _check_token() -> bool:
 
 
 def _require_token():
-    """Abort with 401 if the bearer token is missing or wrong."""
+    """Return a Flask error response unless mutation authentication is ready and valid."""
+    if not POOL_TOKEN:
+        return jsonify({"error": "mutation authentication is not configured"}), 503
     if not _check_token():
         return jsonify({"error": "unauthorized"}), 401
     return None

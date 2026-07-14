@@ -4,12 +4,19 @@ Hermes Agency Pool CLI
 hermes agency pool <command>
 """
 
+import os
+
 import click
 import requests
 from manager import PoolManager
 
 pm = PoolManager()
 BASE = f"http://localhost:{pm.config['pool']['port']}"
+
+
+def _mutation_headers():
+    token = os.environ.get("HERMES_POOL_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 
 @click.group()
@@ -36,7 +43,7 @@ def list():
 @click.argument("agent")
 def wake(agent):
     """Wake an agent"""
-    r = requests.post(f"{BASE}/pool/agents/{agent}/wake")
+    r = requests.post(f"{BASE}/pool/agents/{agent}/wake", headers=_mutation_headers())
     click.echo(r.json())
 
 
@@ -44,7 +51,7 @@ def wake(agent):
 @click.argument("agent")
 def sleep(agent):
     """Sleep an agent"""
-    r = requests.post(f"{BASE}/pool/agents/{agent}/sleep")
+    r = requests.post(f"{BASE}/pool/agents/{agent}/sleep", headers=_mutation_headers())
     click.echo(r.json())
 
 
