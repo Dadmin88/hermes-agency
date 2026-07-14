@@ -110,7 +110,7 @@ def author_complete(current, event_id: str = "author-complete", actor: str | Non
             occurred_at=NOW,
             revision_id=revision,
             gate_id=gate_id(revision, GateKind.AUTHOR),
-            payload={"reference": "docs/architecture.md"},
+            payload={"result": {"reference": "docs/architecture.md"}},
         ),
     )
 
@@ -294,7 +294,7 @@ def test_retry_exhaustion_is_failed_not_rejected():
                 occurred_at=NOW,
                 revision_id="rev-1",
                 gate_id=gate_id("rev-1", GateKind.COMPLETENESS_QA),
-                payload={"kind": "transport"},
+                payload={"kind": "transport", "message": "relay timeout"},
             ),
         )
     assert current.revision("rev-1").status is RevisionStatus.FAILED
@@ -342,7 +342,7 @@ def test_authoritative_hashed_security_reject_beats_stale_cached_approve_and_con
             EventType.METADATA_OBSERVED,
             actor="kanban",
             occurred_at=NOW,
-            payload={"security": "approve"},
+            payload={"metadata": {"security": "approve"}},
         ),
     )
     current = start(current, GateKind.SECURITY_REVIEW, "security", "security-start")
@@ -427,7 +427,7 @@ def test_tampered_terminal_status_cannot_restore_or_resume():
     payload = json.loads(serialize_state(state()))
     payload["run"]["status"] = "rejected"
     payload["revisions"][0]["status"] = "rejected"
-    with pytest.raises(GraphValidationError, match="rejected revision lacks"):
+    with pytest.raises(SerializationError, match="rejected revision lacks"):
         restore_state(payload)
 
 
@@ -476,7 +476,7 @@ def test_restore_rejects_forked_successor_history():
     )
     payload = json.loads(serialize_state(current))
     payload["revisions"][2]["predecessor_revision_id"] = "rev-1"
-    with pytest.raises(GraphValidationError, match="only one successor"):
+    with pytest.raises(SerializationError, match="only one successor"):
         restore_state(payload)
 
 
@@ -519,15 +519,15 @@ def test_restored_approval_revalidates_report_and_reviewer_independence():
         if gate["kind"] == GateKind.IMPLEMENTATION_APPROVAL.value
     )
     approval["verdict"]["reviewer"] = "author"
-    with pytest.raises(GraphValidationError, match="artifact-bound reviewer independence"):
+    with pytest.raises(SerializationError, match="artifact-bound reviewer independence"):
         restore_state(payload)
     approval["author_agent"] = "tampered-author-agent"
-    with pytest.raises(GraphValidationError, match="artifact-bound reviewer independence"):
+    with pytest.raises(SerializationError, match="artifact-bound reviewer independence"):
         restore_state(payload)
     approval["author_agent"] = "author"
     approval["verdict"]["reviewer"] = "approver"
     approval["verdict"]["report_hash"] = "not-a-sha256"
-    with pytest.raises(GraphValidationError, match="required authoritative fields"):
+    with pytest.raises(SerializationError, match="required authoritative fields"):
         restore_state(payload)
 
 
@@ -551,7 +551,7 @@ def test_restore_rejects_fabricated_unfrozen_terminal_approval_without_events():
         "report_hash": "c" * 64,
         "issued_at": NOW,
     }
-    with pytest.raises(GraphValidationError, match="persisted downstream review"):
+    with pytest.raises(SerializationError, match="persisted downstream review"):
         restore_state(payload)
 
 
@@ -581,7 +581,7 @@ def test_restore_replay_rejects_materialized_approval_flag_mutation():
         if gate["kind"] == GateKind.IMPLEMENTATION_APPROVAL.value
     )
     approval["controlling"] = False
-    with pytest.raises(GraphValidationError, match="non-controlling"):
+    with pytest.raises(SerializationError, match="non-controlling"):
         restore_state(payload)
     approval["controlling"] = True
     approval["verdict"]["report_reference"] = "reports/tampered.json"
@@ -616,7 +616,7 @@ def test_restored_terminal_rejection_requires_controlling_review_evidence():
         if gate["kind"] == GateKind.COMPLETENESS_QA.value
     )
     rejected_gate["kind"] = GateKind.AUTHOR.value
-    with pytest.raises(GraphValidationError, match="non-review gate"):
+    with pytest.raises(SerializationError, match="non-review gate"):
         restore_state(payload)
 
 
@@ -762,7 +762,7 @@ def test_real_world_regression_sequence():
             occurred_at=NOW,
             revision_id="rev-1",
             gate_id=gate_id("rev-1", GateKind.COMPLETENESS_QA),
-            payload={"kind": "transport"},
+            payload={"kind": "transport", "message": "relay timeout"},
         ),
     )
     assert current.gate("rev-1", gate_id("rev-1", GateKind.COMPLETENESS_QA)).verdict is None
@@ -811,7 +811,7 @@ def test_real_world_regression_sequence():
             EventType.METADATA_OBSERVED,
             actor="kanban",
             occurred_at=NOW,
-            payload={"security": "approve"},
+            payload={"metadata": {"security": "approve"}},
         ),
     )
     current = start(current, GateKind.SECURITY_REVIEW, "security", "r2-security-start")
@@ -1164,4 +1164,132 @@ def test_restore_rejects_malformed_artifact_in_successor_event():
     successor["payload"]["artifact_identity"]["references"] = "not-a-list"
     reindex_events(payload)
     with pytest.raises(SerializationError, match="artifact"):
+        restore_state(payload)
+
+
+def hostile_event_state(event_type):
+    """Materialize one valid ledger containing each event kind for parser abuse tests."""
+    initial = state()
+    if event_type is EventType.WORKFLOW_CREATED:
+        return initial
+    if event_type is EventType.GATE_STARTED:
+        return start(initial, GateKind.AUTHOR, "author", "hostile-start")
+    completed = author_complete(start(initial, GateKind.AUTHOR, "author", "hostile-author-start"))
+    if event_type is EventType.GATE_COMPLETED:
+        return completed
+    if event_type is EventType.OPERATIONAL_FAILURE_RECORDED:
+        running = start(completed, GateKind.COMPLETENESS_QA, "qa", "hostile-qa-start")
+        return transition(
+            running,
+            event(
+                "hostile-failure",
+                "wf-1",
+                event_type,
+                actor="system",
+                occurred_at=NOW,
+                revision_id="rev-1",
+                gate_id=gate_id("rev-1", GateKind.COMPLETENESS_QA),
+                payload={"kind": "transport", "message": "timeout"},
+            ),
+        )
+    if event_type is EventType.OPERATOR_INPUT_REQUIRED:
+        return transition(
+            initial,
+            event(
+                "hostile-operator",
+                "wf-1",
+                event_type,
+                actor="system",
+                occurred_at=NOW,
+                revision_id="rev-1",
+                payload={"decision_id": "decision-1", "requested_fields": ["budget"]},
+            ),
+        )
+    if event_type is EventType.METADATA_OBSERVED:
+        return transition(
+            initial,
+            event(
+                "hostile-metadata",
+                "wf-1",
+                event_type,
+                actor="system",
+                occurred_at=NOW,
+                payload={"metadata": {"cached": "value"}},
+            ),
+        )
+    frozen = approved_through_freeze()
+    if event_type is EventType.ARTIFACT_FROZEN:
+        return frozen
+    if event_type is EventType.REVIEW_VERDICT_ISSUED:
+        review = start(frozen, GateKind.FEASIBILITY_REVIEW, "reviewer", "hostile-review-start")
+        return verdict(
+            review,
+            GateKind.FEASIBILITY_REVIEW,
+            "reviewer",
+            VerdictDecision.APPROVE,
+            "hostile-review",
+        )
+    rejected = start(completed, GateKind.COMPLETENESS_QA, "qa", "hostile-reject-start")
+    rejected = verdict(
+        rejected, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "hostile-reject"
+    )
+    return transition(
+        rejected,
+        event(
+            "hostile-successor",
+            "wf-1",
+            event_type,
+            actor="author-2",
+            occurred_at=NOW,
+            revision_id="rev-1",
+            payload={
+                "revision_id": "rev-2",
+                "author": "author-2",
+                "artifact_identity": artifact(created_by="author-2"),
+            },
+        ),
+    )
+
+
+@pytest.mark.parametrize("event_type", list(EventType))
+@pytest.mark.parametrize("mutation", ["container", "extra", "missing"])
+def test_restore_rejects_hostile_payload_schema_for_every_event_type(event_type, mutation):
+    payload = json.loads(serialize_state(hostile_event_state(event_type)))
+    record = next(item for item in payload["events"] if item["event_type"] == event_type.value)
+    if mutation == "container":
+        record["payload"] = []
+    elif mutation == "extra":
+        record["payload"]["injected"] = True
+    elif record["payload"]:
+        record["payload"].pop(next(iter(record["payload"])))
+    else:
+        record["payload"]["not-empty"] = None
+    reindex_events(payload)
+    with pytest.raises(SerializationError):
+        restore_state(payload)
+
+
+@pytest.mark.parametrize(
+    "event_type,key,value",
+    [
+        (EventType.OPERATOR_INPUT_REQUIRED, "decision_id", 123),
+        (EventType.OPERATOR_INPUT_REQUIRED, "decision_id", True),
+        (EventType.OPERATOR_INPUT_REQUIRED, "requested_fields", True),
+        (EventType.OPERATOR_INPUT_REQUIRED, "requested_fields", [True]),
+        (EventType.OPERATOR_INPUT_REQUIRED, "requested_fields", [123]),
+        (EventType.OPERATOR_INPUT_REQUIRED, "requested_fields", "budget"),
+        (EventType.OPERATIONAL_FAILURE_RECORDED, "kind", 123),
+        (EventType.OPERATIONAL_FAILURE_RECORDED, "kind", True),
+        (EventType.OPERATIONAL_FAILURE_RECORDED, "message", 123),
+        (EventType.OPERATIONAL_FAILURE_RECORDED, "message", True),
+        (EventType.SUCCESSOR_REVISION_STARTED, "max_attempts", True),
+        (EventType.SUCCESSOR_REVISION_STARTED, "max_attempts", 3),
+    ],
+)
+def test_restore_rejects_coherent_hostile_payload_values(event_type, key, value):
+    payload = json.loads(serialize_state(hostile_event_state(event_type)))
+    record = next(item for item in payload["events"] if item["event_type"] == event_type.value)
+    record["payload"][key] = value
+    reindex_events(payload)
+    with pytest.raises(SerializationError):
         restore_state(payload)

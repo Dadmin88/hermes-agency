@@ -11,7 +11,7 @@ import json
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
-from .errors import SerializationError
+from .errors import SerializationError, WorkflowError
 from .events import event_digest, jsonable
 from .graph import validate_state
 from .models import (
@@ -133,6 +133,11 @@ def _sequence(value: Any, context: str) -> tuple[Any, ...]:
     return tuple(value)
 
 
+def _json_mapping(value: Any, context: str) -> dict[str, Any]:
+    """Parse a JSON object without letting model constructors coerce it."""
+    return dict(_json_value(_mapping(value, context), context))
+
+
 def _string(
     value: Any, context: str, *, allow_none: bool = False, nonempty: bool = False
 ) -> str | None:
@@ -197,11 +202,12 @@ def artifact_from_dict(
     artifact_id = _string(raw["artifact_id"], f"{context}.artifact_id", nonempty=True)
     created_by = _string(raw["created_by"], f"{context}.created_by", nonempty=True)
     references = _sequence(raw["references"], f"{context}.references")
-    if any(not isinstance(item, str) for item in references):
+    if any(not isinstance(item, str) or not item for item in references):
         raise _invalid(f"{context}.references")
     hashes_raw = _mapping(raw["hashes"], f"{context}.hashes")
     if any(
-        not isinstance(key, str) or not isinstance(value, str) for key, value in hashes_raw.items()
+        not isinstance(key, str) or not key or not isinstance(value, str) or not value
+        for key, value in hashes_raw.items()
     ):
         raise _invalid(f"{context}.hashes")
     sizes_raw = _mapping(raw["byte_sizes"], f"{context}.byte_sizes")
@@ -289,7 +295,7 @@ def gate_to_dict(value: WorkflowGate) -> dict[str, Any]:
 def gate_from_dict(data: Any) -> WorkflowGate:
     raw = _mapping(data, "gate", keys=_GATE_KEYS)
     dependencies = _sequence(raw["dependencies"], "gate.dependencies")
-    if any(not isinstance(item, str) for item in dependencies):
+    if any(not isinstance(item, str) or not item for item in dependencies):
         raise _invalid("gate.dependencies")
     assigned = _string(raw["assigned_agent"], "gate.assigned_agent", allow_none=True)
     author = _string(raw["author_agent"], "gate.author_agent", allow_none=True)
@@ -297,7 +303,9 @@ def gate_from_dict(data: Any) -> WorkflowGate:
         raise _invalid("gate.controlling")
     error = raw["error"]
     if error is not None:
-        _mapping(error, "gate.error")
+        error = _mapping(error, "gate.error", keys=frozenset({"kind", "message"}))
+        _string(error["kind"], "gate.error.kind", nonempty=True)
+        _string(error["message"], "gate.error.message", nonempty=True)
     return WorkflowGate(
         gate_id=_string(raw["gate_id"], "gate.gate_id", nonempty=True) or "",
         revision_id=_string(raw["revision_id"], "gate.revision_id", nonempty=True) or "",
@@ -313,10 +321,8 @@ def gate_from_dict(data: Any) -> WorkflowGate:
         artifact_identity=artifact_from_dict(
             raw["artifact_identity"], context="gate.artifact_identity"
         ),
-        result=_json_value(_mapping(raw["result"], "gate.result"), "gate.result"),
-        error=_json_value(_mapping(error, "gate.error"), "gate.error")
-        if error is not None
-        else None,
+        result=_json_mapping(raw["result"], "gate.result"),
+        error=_json_mapping(error, "gate.error") if error is not None else None,
         started_at=_string(raw["started_at"], "gate.started_at", allow_none=True),
         completed_at=_string(raw["completed_at"], "gate.completed_at", allow_none=True),
     )
@@ -456,7 +462,38 @@ def _event_payload(event_type: EventType, payload: Mapping[str, Any]) -> dict[st
                 payload["verdict"], allow_none=False, context="review verdict"
             )
         }
-    return dict(_json_value(payload, "event payload"))
+    if event_type is EventType.GATE_STARTED:
+        if payload:
+            raise _invalid("gate started payload schema")
+        return {}
+    if event_type is EventType.GATE_COMPLETED:
+        if set(payload) != {"result"}:
+            raise _invalid("gate completed payload schema")
+        return {"result": _json_mapping(payload["result"], "gate completed result")}
+    if event_type is EventType.OPERATIONAL_FAILURE_RECORDED:
+        if set(payload) != {"kind", "message"}:
+            raise _invalid("operational failure payload schema")
+        return {
+            "kind": _string(payload["kind"], "operational failure kind", nonempty=True),
+            "message": _string(payload["message"], "operational failure message", nonempty=True),
+        }
+    if event_type is EventType.OPERATOR_INPUT_REQUIRED:
+        if set(payload) != {"decision_id", "requested_fields"}:
+            raise _invalid("operator input payload schema")
+        fields = _sequence(payload["requested_fields"], "operator input requested_fields")
+        if not fields or any(not isinstance(field, str) or not field for field in fields):
+            raise _invalid("operator input requested_fields")
+        return {
+            "decision_id": _string(
+                payload["decision_id"], "operator input decision_id", nonempty=True
+            ),
+            "requested_fields": list(fields),
+        }
+    if event_type is EventType.METADATA_OBSERVED:
+        if set(payload) != {"metadata"}:
+            raise _invalid("metadata observed payload schema")
+        return {"metadata": _json_mapping(payload["metadata"], "observed metadata")}
+    raise _invalid("event type")
 
 
 def _event_from_dict(data: Any) -> WorkflowEvent:
@@ -630,7 +667,7 @@ def restore_state(payload: str | bytes | dict[str, Any]) -> WorkflowState:
         for item in _sequence(raw["operator_decisions"], "operator decisions"):
             decision = _mapping(item, "operator decision", keys=_OPERATOR_DECISION_KEYS)
             fields = _sequence(decision["requested_fields"], "operator decision requested_fields")
-            if any(not isinstance(field, str) for field in fields):
+            if not fields or any(not isinstance(field, str) or not field for field in fields):
                 raise _invalid("operator decision requested_fields")
             decisions.append(
                 OperatorDecision(
@@ -675,5 +712,12 @@ def restore_state(payload: str | bytes | dict[str, Any]) -> WorkflowState:
         return replayed
     except SerializationError:
         raise
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError, AttributeError) as exc:
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+        AttributeError,
+        WorkflowError,
+    ) as exc:
         raise SerializationError(f"cannot restore workflow state: {exc}") from exc

@@ -173,8 +173,8 @@ def _operational_failure(
     if gate.status is not GateStatus.RUNNING:
         raise _error(state, event, "operational failure requires a running gate")
     error = {
-        "kind": str(event.payload.get("kind") or "operational_failure"),
-        "message": str(event.payload.get("message") or ""),
+        "kind": event.payload["kind"],
+        "message": event.payload["message"],
     }
     if gate.attempt < gate.max_attempts:
         revision = _replace_gate(
@@ -203,8 +203,8 @@ def _operator_escalation(
 ) -> WorkflowState:
     if revision.status is not RevisionStatus.ACTIVE:
         raise _error(state, event, "operator escalation requires an active revision")
-    fields = tuple(str(item) for item in event.payload.get("requested_fields") or ())
-    decision_id = str(event.payload.get("decision_id") or "")
+    fields = tuple(event.payload["requested_fields"])
+    decision_id = event.payload["decision_id"]
     if not decision_id or not fields:
         raise _error(state, event, "operator escalation requires decision_id and requested_fields")
     gates = []
@@ -357,9 +357,9 @@ def _successor(
         raise _error(state, event, "successor requires the active terminal predecessor")
     if any(item.predecessor_revision_id == predecessor.revision_id for item in state.revisions):
         raise _error(state, event, "predecessor already has a successor revision")
-    revision_id = str(event.payload.get("revision_id") or "")
-    author = str(event.payload.get("author") or "")
-    raw = event.payload.get("artifact_identity")
+    revision_id = event.payload["revision_id"]
+    author = event.payload["author"]
+    raw = event.payload["artifact_identity"]
     from .serialization import artifact_from_dict
 
     raw_dict = thaw(raw)
@@ -379,7 +379,7 @@ def _successor(
         created_at=event.occurred_at,
         author=author,
         artifact_identity=identity,
-        max_attempts=int(event.payload.get("max_attempts", 2)),
+        max_attempts=event.payload["max_attempts"] if "max_attempts" in event.payload else 2,
         predecessor_revision_id=predecessor.revision_id,
     )
     run = replace(
@@ -414,7 +414,7 @@ def transition(current_state: WorkflowState, event: WorkflowEvent) -> WorkflowSt
         next_state = _operator_escalation(current_state, _revision(current_state, event), event)
     elif event.event_type is EventType.METADATA_OBSERVED:
         metadata = dict(current_state.run.metadata)
-        metadata.setdefault("cached", {}).update(dict(event.payload))
+        metadata.setdefault("cached", {}).update(dict(event.payload["metadata"]))
         next_state = replace(
             current_state,
             run=replace(current_state.run, metadata=metadata, updated_at=event.occurred_at),
@@ -472,7 +472,7 @@ def transition(current_state: WorkflowState, event: WorkflowEvent) -> WorkflowSt
                 replace(
                     gate,
                     status=GateStatus.SUCCEEDED,
-                    result=dict(event.payload),
+                    result=dict(event.payload["result"]),
                     completed_at=event.occurred_at,
                 ),
             )
