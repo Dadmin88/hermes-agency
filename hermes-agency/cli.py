@@ -604,6 +604,22 @@ def handle_agency_slash(raw_args: str = "") -> str:
         return _json(manager.info().get("registration") or {})
     if verb == "doctor":
         return render_doctor_report(run_doctor(), json_output="--json" in parts[1:])
+    if verb == "skill-governance":
+        from argparse import Namespace
+
+        from .skill_governance.cli import dispatch
+
+        sub = parts[1].lower() if len(parts) > 1 else "status"
+        if sub not in {"status", "proposals", "show"}:
+            return "Usage: /agency skill-governance [status|proposals|show <proposal-id>]"
+        namespace = Namespace(
+            skill_governance_command=sub,
+            proposal_id=parts[2] if sub == "show" and len(parts) > 2 else "",
+            state="",
+            limit=100,
+            json="--json" in parts,
+        )
+        return dispatch(namespace)
     if verb == "models":
         sub = parts[1].lower() if len(parts) > 1 else "list"
         json_output = "--json" in parts
@@ -698,7 +714,7 @@ def handle_agency_slash(raw_args: str = "") -> str:
             name = parts[2] if len(parts) > 2 else ""
             return _staff_info_text(name)
         return "Usage: /agency staff [list [category]|install [--dry-run] [--force] [names...]|info <name>]"
-    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|setup-plugins|promote <agent>|demote <agent>|registry|sign-off-board <board>|cleanup-boards [--days N]|staff]"
+    return "Usage: /agency [status|start|stop|discover <skill>|doctor [--json]|skill-governance|setup-plugins|promote <agent>|demote <agent>|registry|sign-off-board <board>|cleanup-boards [--days N]|staff]"
 
 
 def setup_agency_parser(parser: ArgumentParser) -> None:
@@ -870,6 +886,15 @@ def setup_agency_parser(parser: ArgumentParser) -> None:
     models_restore.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     models_restore.set_defaults(func=cmd_agency, agency_command="models")
 
+    governance_parser = subparsers.add_parser(
+        "skill-governance",
+        help="Inspect and operate the disabled-by-default skill governance control plane",
+    )
+    from .skill_governance.cli import setup_parser as setup_skill_governance_parser
+
+    setup_skill_governance_parser(governance_parser)
+    governance_parser.set_defaults(func=cmd_agency, agency_command="skill-governance")
+
     roster_parser = subparsers.add_parser("roster", help="Show agency pool roster")
     roster_parser.add_argument("query", nargs="?", default="", help="Filter by name/skill")
     roster_parser.set_defaults(func=cmd_agency, agency_command="roster")
@@ -926,6 +951,10 @@ def cmd_agency(args: Namespace) -> None:
                 )
             )
         )
+    elif verb == "skill-governance":
+        from .skill_governance.cli import dispatch as dispatch_skill_governance
+
+        print(dispatch_skill_governance(args))
     elif verb == "status":
         print(
             _status_extended_text(json_output=getattr(args, "json", False))
