@@ -8,7 +8,7 @@ import {
   UserRound,
   UserRoundPen,
 } from "lucide-react";
-import type { DeploymentMode } from "@paperclipai/shared";
+import type { DeploymentMode } from "@hermes-fabric/shared";
 import { Link } from "@/lib/router";
 import { authApi } from "@/api/auth";
 import { queryKeys } from "@/lib/queryKeys";
@@ -20,8 +20,8 @@ import { ThemeToggle } from "./ThemeToggle";
 import { SidebarServerInfo } from "./SidebarServerInfo";
 
 const PROFILE_SETTINGS_PATH = "/company/settings/instance/profile";
-const DOCS_URL = "https://github.com/paperclipai/paperclip";
-const FEEDBACK_URL = "https://github.com/paperclipai/paperclip/issues";
+const DOCS_URL = "https://github.com/DeployFaith/Hermes_Agency";
+const FEEDBACK_URL = "https://github.com/DeployFaith/Hermes_Agency/issues";
 
 interface SidebarAccountMenuProps {
   deploymentMode?: DeploymentMode;
@@ -178,7 +178,7 @@ export function SidebarAccountMenu({
                 </div>
                 <p className="truncate text-sm text-muted-foreground">{secondaryLabel}</p>
                 {version ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Hermes Agency v{version}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Hermes Fabric v{version}</p>
                 ) : null}
               </div>
             </div>
@@ -200,7 +200,7 @@ export function SidebarAccountMenu({
               />
               <MenuAction
                 label="Documentation"
-                description="Open the upstream source until Hermes Agency docs are published."
+                description="Open the upstream source until Hermes Fabric docs are published."
                 icon={BookOpen}
                 href={DOCS_URL}
                 external

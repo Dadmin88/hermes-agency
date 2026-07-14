@@ -28,7 +28,7 @@ function trustedOriginsForRequest(req: Request) {
   // Behind some reverse proxies the Host / X-Forwarded-Host header may
   // not match the public URL (for example when TLS terminates at the
   // edge and the inbound Host is an internal service name). Trust the
-  // explicitly-configured PAPERCLIP_PUBLIC_URL when it's set.
+  // explicitly-configured HERMES_FABRIC_PUBLIC_URL when it's set.
   const publicUrl = parseOrigin(fabricEnv("PUBLIC_URL")?.trim());
   if (publicUrl) origins.add(publicUrl);
   return origins;

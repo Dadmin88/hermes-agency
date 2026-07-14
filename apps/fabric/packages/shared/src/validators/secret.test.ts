@@ -14,7 +14,7 @@ describe("secret validators", () => {
     expect(() =>
       createSecretSchema.parse({
         name: "OpenAI API Key",
-        managedMode: "paperclip_managed",
+        managedMode: "fabric_managed",
         value: "secret-value",
         externalRef: "arn:aws:secretsmanager:us-east-1:123456789012:secret:shared/other",
       }),
@@ -47,7 +47,7 @@ describe("secret validators", () => {
         config: {
           region: "us-east-1",
           namespace: "production",
-          secretNamePrefix: "paperclip",
+          secretNamePrefix: "fabric",
         },
       }),
     ).not.toThrow();
@@ -125,7 +125,7 @@ describe("secret validators", () => {
             externalRef: "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/openai",
             name: "OpenAI API key",
             key: "OPENAI_API_KEY",
-            description: "  Operator-entered Paperclip description  ",
+            description: "  Operator-entered HermesFabric description  ",
             providerMetadata: { name: "prod/openai" },
           },
         ],
@@ -135,7 +135,7 @@ describe("secret validators", () => {
       secrets: [
         expect.objectContaining({
           key: "OPENAI_API_KEY",
-          description: "Operator-entered Paperclip description",
+          description: "Operator-entered HermesFabric description",
         }),
       ],
     });
@@ -148,9 +148,9 @@ describe("secret validators", () => {
         config: {
           region: "us-east-1",
           namespace: "production",
-          secretNamePrefix: "paperclip",
+          secretNamePrefix: "fabric",
         },
-        query: "paperclip",
+        query: "fabric",
         pageSize: 50,
       }),
     ).toEqual({
@@ -158,9 +158,9 @@ describe("secret validators", () => {
       config: {
         region: "us-east-1",
         namespace: "production",
-        secretNamePrefix: "paperclip",
+        secretNamePrefix: "fabric",
       },
-      query: "paperclip",
+      query: "fabric",
       pageSize: 50,
     });
 

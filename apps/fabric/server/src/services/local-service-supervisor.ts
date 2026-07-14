@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
-import { resolvePaperclipInstanceRoot } from "../home-paths.js";
+import { resolveHermesFabricInstanceRoot } from "../home-paths.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -60,7 +60,7 @@ function sanitizeServiceKeySegment(value: string, fallback: string): string {
 }
 
 function getRuntimeServicesDir() {
-  return path.resolve(resolvePaperclipInstanceRoot(), "runtime-services");
+  return path.resolve(resolveHermesFabricInstanceRoot(), "runtime-services");
 }
 
 function getRuntimeServiceRegistryPath(serviceKey: string) {
@@ -389,42 +389,127 @@ export async function terminateLocalService(
   }
 }
 
-type PortOwnerCommandRunner = (
-  command: string,
-  args: string[],
-) => Promise<{ stdout: string | Buffer; stderr?: string | Buffer }>;
+async function readLinuxProcPortOwner(port: number) {
+  if (process.platform !== "linux") return null;
 
-function firstPositivePid(output: string | Buffer) {
-  return String(output)
-    .split(/\s+/)
-    .map((value) => Number.parseInt(value.trim(), 10))
-    .find((value) => Number.isInteger(value) && value > 0) ?? null;
-}
+  const portHex = port.toString(16).toUpperCase().padStart(4, "0");
+  const socketInodes = new Set<string>();
 
-export async function readLocalServicePortOwner(
-  port: number,
-  options: { platform?: NodeJS.Platform; runCommand?: PortOwnerCommandRunner } = {},
-) {
-  const platform = options.platform ?? process.platform;
-  if (!Number.isInteger(port) || port <= 0 || platform === "win32") return null;
-  const runCommand: PortOwnerCommandRunner = options.runCommand ?? (async (command, args) => {
-    const { stdout, stderr } = await execFileAsync(command, args);
-    return { stdout, stderr };
-  });
-  try {
-    const { stdout } = await runCommand("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"]);
-    const ownerPid = firstPositivePid(stdout);
-    if (ownerPid) return ownerPid;
-  } catch {
-    // Try a widely available Linux fallback below.
-  }
-  if (platform === "linux") {
+  for (const tablePath of ["/proc/net/tcp", "/proc/net/tcp6"]) {
     try {
-      const { stdout } = await runCommand("fuser", ["-n", "tcp", String(port)]);
-      return firstPositivePid(stdout);
+      const lines = (await fs.readFile(tablePath, "utf8"))
+        .split(/\r?\n/)
+        .slice(1);
+
+      for (const line of lines) {
+        const fields = line.trim().split(/\s+/);
+        const localAddress = fields[1] ?? "";
+        const state = fields[3] ?? "";
+        const inode = fields[9] ?? "";
+        const localPort = localAddress
+          .slice(localAddress.lastIndexOf(":") + 1)
+          .toUpperCase();
+
+        if (state === "0A" && localPort === portHex && inode) {
+          socketInodes.add(inode);
+        }
+      }
     } catch {
-      // No supported port-owner command is available, or no process owns the port.
+      // Continue with any available proc socket table.
     }
   }
+
+  if (socketInodes.size === 0) return null;
+
+  let processEntries;
+  try {
+    processEntries = await fs.readdir("/proc", {
+      withFileTypes: true,
+    });
+  } catch {
+    return null;
+  }
+
+  for (const entry of processEntries) {
+    if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) {
+      continue;
+    }
+
+    const fdDir = path.join("/proc", entry.name, "fd");
+    let fdNames: string[];
+
+    try {
+      fdNames = await fs.readdir(fdDir);
+    } catch {
+      continue;
+    }
+
+    for (const fdName of fdNames) {
+      try {
+        const target = await fs.readlink(
+          path.join(fdDir, fdName),
+        );
+        const match = /^socket:\[(\d+)\]$/.exec(target);
+
+        if (match?.[1] && socketInodes.has(match[1])) {
+          const pid = Number.parseInt(entry.name, 10);
+          if (Number.isInteger(pid) && pid > 0) {
+            return pid;
+          }
+        }
+      } catch {
+        // File descriptors can disappear while /proc is scanned.
+      }
+    }
+  }
+
+  return null;
+}
+
+export async function readLocalServicePortOwner(port: number) {
+  if (
+    !Number.isInteger(port) ||
+    port <= 0 ||
+    process.platform === "win32"
+  ) {
+    return null;
+  }
+
+  try {
+    const { stdout } = await execFileAsync(
+      "lsof",
+      ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"],
+    );
+    const firstPid = stdout
+      .split("\n")
+      .map((line) => Number.parseInt(line.trim(), 10))
+      .find((value) => Number.isInteger(value) && value > 0);
+
+    if (firstPid) return firstPid;
+  } catch {
+    // Fall through to native Linux ownership probes.
+  }
+
+  if (process.platform === "linux") {
+    try {
+      const { stdout } = await execFileAsync(
+        "ss",
+        ["-H", "-ltnp", `sport = :${port}`],
+      );
+      const pidMatch = /\bpid=(\d+)\b/.exec(stdout);
+      const pid = pidMatch?.[1]
+        ? Number.parseInt(pidMatch[1], 10)
+        : null;
+
+      if (pid && Number.isInteger(pid) && pid > 0) {
+        return pid;
+      }
+    } catch {
+      // Minimal hosts may not include iproute2.
+    }
+
+    return await readLinuxProcPortOwner(port);
+  }
+
   return null;
 }

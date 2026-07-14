@@ -137,6 +137,56 @@ def read_profile_metadata(name: str) -> dict[str, Any] | None:
 # Installation helpers
 # ---------------------------------------------------------------------------
 
+# First-run workforce: enough roles for a real operator loop without installing all 83.
+STARTER_STAFF: tuple[str, ...] = (
+    "agency-orchestrator",
+    "agency-chief-of-staff",
+    "agency-product-manager",
+    "agency-backend-engineer",
+    "agency-frontend-engineer",
+    "agency-code-reviewer",
+    "agency-qa-tester",
+    "agency-docs-writer",
+    "agency-git-steward",
+    "agency-devops-engineer",
+    "agency-security-engineer",
+    "agency-design-reviewer",
+)
+
+
+def starter_staff_names() -> list[str]:
+    """Return the starter pack names that exist in the packaged manifest."""
+
+    available = {entry.get("name") for entry in list_default_staff()}
+    return [name for name in STARTER_STAFF if name in available]
+
+
+def installed_agency_profile_names(base: Path | None = None) -> list[str]:
+    """Return installed ``agency-*`` profile directory names under Hermes profiles."""
+
+    root = base if base is not None else _hermes_profiles_dir()
+    if not root.is_dir():
+        return []
+    return sorted(
+        path.name for path in root.iterdir() if path.is_dir() and path.name.startswith("agency-")
+    )
+
+
+def starter_staff_status(base: Path | None = None) -> dict[str, Any]:
+    """Report which starter-pack profiles are installed."""
+
+    expected = starter_staff_names()
+    installed = set(installed_agency_profile_names(base))
+    present = [name for name in expected if name in installed]
+    missing = [name for name in expected if name not in installed]
+    return {
+        "expected": expected,
+        "present": present,
+        "missing": missing,
+        "complete": not missing and bool(expected),
+        "installed_agency_count": len(installed),
+    }
+
 
 def _hermes_profiles_dir() -> Path:
     """Resolve the Hermes profiles directory."""
@@ -153,13 +203,15 @@ def install_default_staff(
     *,
     force: bool = False,
     dry_run: bool = False,
+    starter: bool = False,
 ) -> dict[str, Any]:
     """Install default staff profiles into the local Hermes profiles directory.
 
     Args:
-        names: Specific profile names to install. None = install all.
+        names: Specific profile names to install. None = install all (unless starter).
         force: If True, overwrite existing same-named profiles.
         dry_run: If True, report what would happen without doing it.
+        starter: If True and names is empty, install the first-run starter pack only.
 
     Returns:
         Dict with installed, skipped, errors lists.
@@ -176,7 +228,14 @@ def install_default_staff(
     manifest = load_manifest()
     available = {e["name"] for e in (manifest.get("profiles", []) if manifest else [])}
 
-    to_install = names if names else sorted(available)
+    if names:
+        to_install = list(names)
+    elif starter:
+        to_install = starter_staff_names()
+        if not to_install:
+            return {"ok": False, "error": "starter staff pack is empty or missing from manifest"}
+    else:
+        to_install = sorted(available)
     installed: list[str] = []
     skipped: list[str] = []
     errors: list[str] = []

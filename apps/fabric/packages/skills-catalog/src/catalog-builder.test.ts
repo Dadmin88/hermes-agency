@@ -22,7 +22,7 @@ describe("skills catalog manifest", () => {
       frontmatter: [
         "name: GitHub PR Workflow",
         "description: Prepare pull requests and verification notes.",
-        "key: paperclipai/bundled/software-development/github-pr-workflow",
+        "key: hermes-fabric/bundled/software-development/github-pr-workflow",
         "recommendedForRoles:",
         "  - engineer",
         "tags:",
@@ -42,8 +42,8 @@ describe("skills catalog manifest", () => {
     expect(result.errors).toEqual([]);
     expect(result.manifest.skills).toHaveLength(1);
     expect(result.manifest.skills[0]).toMatchObject({
-      id: "paperclipai:bundled:software-development:github-pr-workflow",
-      key: "paperclipai/bundled/software-development/github-pr-workflow",
+      id: "hermes-fabric:bundled:software-development:github-pr-workflow",
+      key: "hermes-fabric/bundled/software-development/github-pr-workflow",
       kind: "bundled",
       category: "software-development",
       slug: "github-pr-workflow",
@@ -113,8 +113,8 @@ describe("skills catalog manifest", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.manifest.skills[0]).toMatchObject({
-      id: "paperclipai:optional:research:remote-research",
-      key: "paperclipai/optional/research/remote-research",
+      id: "hermes-fabric:optional:research:remote-research",
+      key: "hermes-fabric/optional/research/remote-research",
       path: "catalog/optional/research/remote-research",
       trustLevel: "scripts_executables",
       recommendedForRoles: ["researcher"],
@@ -156,12 +156,12 @@ describe("skills catalog manifest", () => {
       path.join(packageDir, "generated", "catalog.json"),
       formatCatalogManifest({
         schemaVersion: 1,
-        packageName: "@paperclipai/skills-catalog",
+        packageName: "@hermes-fabric/skills-catalog",
         packageVersion: "0.3.1",
         generatedAt: "2026-05-26T00:00:00.000Z",
         skills: [{
-          id: "paperclipai:optional:research:remote-research",
-          key: "paperclipai/optional/research/remote-research",
+          id: "hermes-fabric:optional:research:remote-research",
+          key: "hermes-fabric/optional/research/remote-research",
           kind: "optional",
           category: "research",
           slug: "remote-research",
@@ -243,12 +243,12 @@ describe("skills catalog manifest", () => {
       path.join(packageDir, "generated", "catalog.json"),
       formatCatalogManifest({
         schemaVersion: 1,
-        packageName: "@paperclipai/skills-catalog",
+        packageName: "@hermes-fabric/skills-catalog",
         packageVersion: "0.3.1",
         generatedAt: "2026-05-26T00:00:00.000Z",
         skills: [{
-          id: "paperclipai:optional:research:remote-research",
-          key: "paperclipai/optional/research/remote-research",
+          id: "hermes-fabric:optional:research:remote-research",
+          key: "hermes-fabric/optional/research/remote-research",
           kind: "optional",
           category: "research",
           slug: "remote-research",
@@ -307,7 +307,7 @@ describe("skills catalog manifest", () => {
     await writeSkill(packageDir, "bundled", "Bad_Category", "duplicate", {
       frontmatter: [
         "name: Duplicate",
-        "key: paperclipai/bundled/software-development/other",
+        "key: hermes-fabric/bundled/software-development/other",
         "recommendedForRoles: engineer",
       ],
     });
@@ -334,7 +334,7 @@ describe("skills catalog manifest", () => {
         expect.stringContaining("catalog/bundled/software-development/missing-skill is missing SKILL.md or catalog-ref.json"),
         expect.stringContaining("has invalid category"),
         expect.stringContaining("frontmatter must include description"),
-        expect.stringContaining("key must be paperclipai/bundled/Bad_Category/duplicate"),
+        expect.stringContaining("key must be hermes-fabric/bundled/Bad_Category/duplicate"),
         expect.stringContaining("field recommendedForRoles must be an array of strings"),
         expect.stringContaining("Duplicate catalog slug \"duplicate\""),
       ]),
@@ -354,7 +354,7 @@ describe("skills catalog manifest", () => {
       path.join(packageDir, "generated", "catalog.json"),
       formatCatalogManifest({
         schemaVersion: 1,
-        packageName: "@paperclipai/skills-catalog",
+        packageName: "@hermes-fabric/skills-catalog",
         packageVersion: "0.3.1",
         generatedAt: "2026-05-26T00:00:00.000Z",
         skills: [],
@@ -365,7 +365,7 @@ describe("skills catalog manifest", () => {
     const result = await validateCatalog(packageDir);
 
     expect(result.errors).toContain(
-      "generated/catalog.json is stale. Run pnpm --filter @paperclipai/skills-catalog build:manifest.",
+      "generated/catalog.json is stale. Run pnpm --filter @hermes-fabric/skills-catalog build:manifest.",
     );
   });
 });

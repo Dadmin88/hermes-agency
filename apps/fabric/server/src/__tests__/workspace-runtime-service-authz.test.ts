@@ -10,8 +10,8 @@ import {
   issues,
   projectWorkspaces,
   projects,
-} from "@paperclipai/db";
-import { LOW_TRUST_REVIEW_PRESET } from "@paperclipai/shared";
+} from "@hermes-fabric/db";
+import { LOW_TRUST_REVIEW_PRESET } from "@hermes-fabric/shared";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -35,7 +35,7 @@ describeEmbeddedPostgres("workspace runtime service authz helper", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-workspace-runtime-authz-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-workspace-runtime-authz-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -57,7 +57,7 @@ describeEmbeddedPostgres("workspace runtime service authz helper", () => {
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix: `PAP-${companyId.slice(0, 8)}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -79,7 +79,7 @@ describeEmbeddedPostgres("workspace runtime service authz helper", () => {
       projectId,
       name: "Primary",
       sourceType: "local_path",
-      cwd: "/tmp/paperclip-authz-project",
+      cwd: "/tmp/fabric-authz-project",
       isPrimary: true,
     });
     return { projectId, projectWorkspaceId };
@@ -97,7 +97,7 @@ describeEmbeddedPostgres("workspace runtime service authz helper", () => {
       name: "Execution workspace",
       status: "active",
       providerType: "local_fs",
-      cwd: "/tmp/paperclip-authz-execution",
+      cwd: "/tmp/fabric-authz-execution",
     });
     return executionWorkspaceId;
   }

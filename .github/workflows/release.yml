@@ -21,10 +21,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: make test-sdk
-      - run: make test-agency
-      - run: python -m pytest -m "not integration"
+      - run: pip install -e ".[dev,pool]"
+      - name: SDK non-integration suite
+        run: make test-sdk
+      - name: Agency non-integration suite
+        run: make test-agency
 
   publish:
     name: Publish to PyPI

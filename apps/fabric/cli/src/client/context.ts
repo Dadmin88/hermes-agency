@@ -28,7 +28,7 @@ function findContextFileFromAncestors(startDir: string): string | null {
   let currentDir = absoluteStartDir;
 
   while (true) {
-    const candidate = path.resolve(currentDir, ".paperclip", DEFAULT_CONTEXT_BASENAME);
+    const candidate = path.resolve(currentDir, ".fabric", DEFAULT_CONTEXT_BASENAME);
     if (fs.existsSync(candidate)) {
       return candidate;
     }
@@ -43,7 +43,7 @@ function findContextFileFromAncestors(startDir: string): string | null {
 
 export function resolveContextPath(overridePath?: string): string {
   if (overridePath) return path.resolve(overridePath);
-  if (process.env.PAPERCLIP_CONTEXT) return path.resolve(process.env.PAPERCLIP_CONTEXT);
+  if (process.env.HERMES_FABRIC_CONTEXT) return path.resolve(process.env.HERMES_FABRIC_CONTEXT);
   return findContextFileFromAncestors(process.cwd()) ?? resolveDefaultContextPath();
 }
 

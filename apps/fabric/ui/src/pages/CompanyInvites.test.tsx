@@ -27,7 +27,7 @@ vi.mock("@/api/access", () => ({
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({
     selectedCompanyId: "company-1",
-    selectedCompany: { id: "company-1", name: "Paperclip", issuePrefix: "PAP" },
+    selectedCompany: { id: "company-1", name: "Hermes Fabric", issuePrefix: "PAP" },
   }),
 }));
 
@@ -67,14 +67,14 @@ describe("CompanyInvites", () => {
       acceptedAt: isActive ? null : "2026-04-11T00:00:00.000Z",
       createdAt: `2026-04-${String(inviteNumber).padStart(2, "0")}T00:00:00.000Z`,
       updatedAt: `2026-04-${String(inviteNumber).padStart(2, "0")}T00:00:00.000Z`,
-      companyName: "Paperclip",
+      companyName: "Hermes Fabric",
       humanRole: isActive ? "operator" : "viewer",
       inviteMessage: null,
       state: isActive ? "active" : "accepted",
       invitedByUser: {
         id: "user-1",
         name: `Board User ${inviteNumber}`,
-        email: `board${inviteNumber}@paperclip.local`,
+        email: `board${inviteNumber}@fabric.local`,
         image: null,
       },
       relatedJoinRequestId: isActive ? "join-1" : null,
@@ -96,7 +96,7 @@ describe("CompanyInvites", () => {
     createCompanyInviteMock.mockImplementation(() => {
       return Promise.resolve({
         token: "new-token",
-        inviteUrl: "https://paperclip.local/invite/new-token",
+        inviteUrl: "https://fabric.local/invite/new-token",
         onboardingTextUrl: null,
         onboardingTextPath: null,
         humanRole: "viewer",
@@ -200,12 +200,12 @@ describe("CompanyInvites", () => {
       humanRole: "viewer",
       agentMessage: null,
     });
-    expect(clipboardWriteTextMock).toHaveBeenCalledWith("https://paperclip.local/invite/new-token");
+    expect(clipboardWriteTextMock).toHaveBeenCalledWith("https://fabric.local/invite/new-token");
     expect(container.textContent).toContain("Latest invite link");
-    expect(container.textContent).toContain("This URL includes the current Paperclip domain returned by the server.");
+    expect(container.textContent).toContain("This URL includes the current HermesFabric domain returned by the server.");
     expect(container.querySelector('input[aria-label="Latest invite URL"]')).toHaveProperty(
       "value",
-      "https://paperclip.local/invite/new-token",
+      "https://fabric.local/invite/new-token",
     );
     expect(container.textContent).toContain("Copy link");
     expect(container.textContent).toContain("Open invite");
@@ -281,7 +281,7 @@ describe("CompanyInvites", () => {
     await flushReact();
 
     const inviteInput = container.querySelector('input[aria-label="Latest invite URL"]') as HTMLInputElement | null;
-    expect(inviteInput?.value).toBe("https://paperclip.local/invite/new-token");
+    expect(inviteInput?.value).toBe("https://fabric.local/invite/new-token");
     expect(document.execCommand).toHaveBeenCalledWith("copy");
     expect(pushToastMock).toHaveBeenCalledWith({
       title: "Invite created",

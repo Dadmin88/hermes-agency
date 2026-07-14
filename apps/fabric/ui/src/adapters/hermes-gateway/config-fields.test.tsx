@@ -55,7 +55,7 @@ describe("HermesGatewayConfigFields", () => {
       config: {
         apiBaseUrl: "http://127.0.0.1:8642",
         apiKey: { type: "secret_ref", secretId: "11111111-1111-4111-8111-111111111111", version: "latest" },
-        paperclipApiUrl: "http://127.0.0.1:3100",
+        fabricApiUrl: "http://127.0.0.1:3100",
         sessionKeyStrategy: "issue",
       },
     });

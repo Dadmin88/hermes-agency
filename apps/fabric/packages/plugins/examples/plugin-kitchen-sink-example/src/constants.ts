@@ -1,6 +1,6 @@
-import type { PluginLauncherRegistration } from "@paperclipai/plugin-sdk";
+import type { PluginLauncherRegistration } from "@hermes-fabric/plugin-sdk";
 
-export const PLUGIN_ID = "paperclip-kitchen-sink-example";
+export const PLUGIN_ID = "fabric-kitchen-sink-example";
 export const PLUGIN_VERSION = "0.1.0";
 export const PAGE_ROUTE = "kitchensink";
 
@@ -95,7 +95,7 @@ export const DEFAULT_CONFIG = {
   secretRefExample: "",
   httpDemoUrl: "https://httpbin.org/anything",
   allowedCommands: SAFE_COMMANDS.map((command) => command.key),
-  workspaceScratchFile: ".paperclip-kitchen-sink-demo.txt",
+  workspaceScratchFile: ".fabric-kitchen-sink-demo.txt",
 } as const;
 
 export const RUNTIME_LAUNCHER: PluginLauncherRegistration = {

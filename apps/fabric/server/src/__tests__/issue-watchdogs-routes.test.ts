@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   activityLog,
+  agentRuntimeState,
   agentWakeupRequests,
   agents,
   companies,
@@ -17,7 +18,7 @@ import {
   issueWatchdogs,
   issues,
   principalPermissionGrants,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -41,7 +42,7 @@ describeEmbeddedPostgres("issue watchdog routes", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-issue-watchdogs-routes-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-issue-watchdogs-routes-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 
@@ -51,6 +52,7 @@ describeEmbeddedPostgres("issue watchdog routes", () => {
     await db.delete(heartbeatRunEvents);
     await db.delete(heartbeatRuns);
     await db.delete(agentWakeupRequests);
+    await db.delete(agentRuntimeState);
     await db.delete(issueRelations);
     await db.delete(issueWatchdogs);
     await db.delete(issues);
@@ -104,7 +106,7 @@ describeEmbeddedPostgres("issue watchdog routes", () => {
     });
   }
 
-  async function seedCompany(name = "Paperclip") {
+  async function seedCompany(name = "Hermes Fabric") {
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
@@ -526,7 +528,7 @@ describeEmbeddedPostgres("issue watchdog routes", () => {
       .post(`/api/companies/${companyId}/issues`)
       .send({
         title: "Fix watchdog source-tree pollution",
-        description: "Watchdog found a Paperclip follow-up routing bug.",
+        description: "Watchdog found a HermesFabric follow-up routing bug.",
         parentId: watchedChildId,
         watchdogDiscovery: {
           kind: "product_bug",

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { issues } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { issues } from "@hermes-fabric/db";
 import { unprocessable } from "../errors.js";
 import type { TrustPresetResolution } from "./trust-preset-resolver.js";
 import {

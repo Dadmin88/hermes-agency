@@ -20,10 +20,10 @@
  */
 
 import type {
-  PaperclipPluginManifestV1,
+  HermesFabricPluginManifestV1,
   PluginToolDeclaration,
-} from "@paperclipai/shared";
-import type { ToolRunContext, ToolResult, ExecuteToolParams } from "@paperclipai/plugin-sdk";
+} from "@hermes-fabric/shared";
+import type { ToolRunContext, ToolResult, ExecuteToolParams } from "@hermes-fabric/plugin-sdk";
 import type { PluginWorkerManager } from "./plugin-worker-manager.js";
 import { logger } from "../middleware/logger.js";
 
@@ -115,7 +115,7 @@ export interface PluginToolRegistry {
    *   `workerManager.isRunning(pluginDbId)` call returns false and every tool
    *   dispatch fails with `worker for plugin X is not running`.
    */
-  registerPlugin(pluginId: string, manifest: PaperclipPluginManifestV1, pluginDbId: string): void;
+  registerPlugin(pluginId: string, manifest: HermesFabricPluginManifestV1, pluginDbId: string): void;
 
   /**
    * Remove all tool registrations for a plugin.
@@ -298,7 +298,7 @@ export function createPluginToolRegistry(
   // -----------------------------------------------------------------------
 
   return {
-    registerPlugin(pluginId: string, manifest: PaperclipPluginManifestV1, pluginDbId: string): void {
+    registerPlugin(pluginId: string, manifest: HermesFabricPluginManifestV1, pluginDbId: string): void {
       // Guard at the registry boundary so a missing UUID surfaces as an
       // explicit contract error instead of a downstream
       // `worker for plugin X is not running`.

@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   describeLocalInstancePaths,
   expandHomePrefix,
-  resolvePaperclipHomeDir,
-  resolvePaperclipInstanceId,
+  resolveHermesFabricHomeDir,
+  resolveHermesFabricInstanceId,
 } from "../config/home.js";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -16,10 +16,10 @@ describe("home path resolution", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("defaults to ~/.paperclip and default instance", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-home-paths-"));
-    process.env.PAPERCLIP_HOME = home;
-    delete process.env.PAPERCLIP_INSTANCE_ID;
+  it("defaults to ~/.hermes-fabric and default instance", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "fabric-home-paths-"));
+    process.env.HERMES_FABRIC_HOME = home;
+    delete process.env.HERMES_FABRIC_INSTANCE_ID;
 
     const paths = describeLocalInstancePaths();
     expect(paths.homeDir).toBe(home);
@@ -27,16 +27,16 @@ describe("home path resolution", () => {
     expect(paths.configPath).toBe(path.resolve(home, "instances", "default", "config.json"));
   });
 
-  it("supports PAPERCLIP_HOME and explicit instance ids", () => {
-    process.env.PAPERCLIP_HOME = "~/paperclip-home";
+  it("supports HERMES_FABRIC_HOME and explicit instance ids", () => {
+    process.env.HERMES_FABRIC_HOME = "~/fabric-home";
 
-    const home = resolvePaperclipHomeDir();
-    expect(home).toBe(path.resolve(os.homedir(), "paperclip-home"));
-    expect(resolvePaperclipInstanceId("dev_1")).toBe("dev_1");
+    const home = resolveHermesFabricHomeDir();
+    expect(home).toBe(path.resolve(os.homedir(), "fabric-home"));
+    expect(resolveHermesFabricInstanceId("dev_1")).toBe("dev_1");
   });
 
   it("rejects invalid instance ids", () => {
-    expect(() => resolvePaperclipInstanceId("bad/id")).toThrow(/Invalid PAPERCLIP_INSTANCE_ID/);
+    expect(() => resolveHermesFabricInstanceId("bad/id")).toThrow(/Invalid HERMES_FABRIC_INSTANCE_ID/);
   });
 
   it("expands ~ prefixes", () => {

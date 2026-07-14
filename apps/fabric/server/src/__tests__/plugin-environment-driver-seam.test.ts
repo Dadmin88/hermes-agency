@@ -10,16 +10,16 @@ import {
 } from "../../../packages/plugins/sdk/src/protocol.js";
 import { definePlugin } from "../../../packages/plugins/sdk/src/define-plugin.js";
 import { startWorkerRpcHost } from "../../../packages/plugins/sdk/src/worker-rpc-host.js";
-import { pluginManifestV1Schema, type PaperclipPluginManifestV1 } from "@paperclipai/shared";
+import { pluginManifestV1Schema, type HermesFabricPluginManifestV1 } from "@hermes-fabric/shared";
 import { pluginCapabilityValidator } from "../services/plugin-capability-validator.js";
 
-const baseManifest: PaperclipPluginManifestV1 = {
+const baseManifest: HermesFabricPluginManifestV1 = {
   id: "test.environment-driver",
   apiVersion: 1,
   version: "1.0.0",
   displayName: "Environment Driver",
   description: "Test environment driver plugin",
-  author: "Paperclip",
+  author: "Hermes Fabric",
   categories: ["automation"],
   capabilities: ["environment.drivers.register"],
   entrypoints: { worker: "dist/worker.js" },
@@ -74,7 +74,7 @@ describe("plugin environment driver seam", () => {
     const withoutCapability = {
       ...baseManifest,
       capabilities: ["http.outbound"],
-    } satisfies PaperclipPluginManifestV1;
+    } satisfies HermesFabricPluginManifestV1;
 
     expect(validator.checkOperation(withoutCapability, "environment.execute")).toMatchObject({
       allowed: false,
@@ -159,13 +159,13 @@ describe("plugin environment driver seam", () => {
   });
 });
 
-const objectReferenceManifest: PaperclipPluginManifestV1 = {
+const objectReferenceManifest: HermesFabricPluginManifestV1 = {
   id: "test.external-object-provider",
   apiVersion: 1,
   version: "1.0.0",
   displayName: "External Object Provider",
   description: "Test external object provider plugin",
-  author: "Paperclip",
+  author: "Hermes Fabric",
   categories: ["connector"],
   capabilities: ["external.objects.detect", "external.objects.read"],
   entrypoints: { worker: "dist/worker.js" },
@@ -217,7 +217,7 @@ describe("plugin external object provider seam", () => {
     const withoutCapability = {
       ...objectReferenceManifest,
       capabilities: ["external.objects.detect"],
-    } satisfies PaperclipPluginManifestV1;
+    } satisfies HermesFabricPluginManifestV1;
 
     expect(validator.checkOperation(withoutCapability, "external.objects.read")).toMatchObject({
       allowed: false,

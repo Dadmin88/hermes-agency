@@ -23,8 +23,8 @@ async function run(args: string[]): Promise<void> {
 describe("access parity commands", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -106,7 +106,7 @@ describe("access parity commands", () => {
     await run(["openclaw", "invite-prompt", "--company-id", COMPANY_ID, "--payload-json", "{}"]);
     await run(["available-skill", "list"]);
     await run(["available-skill", "index"]);
-    await run(["available-skill", "get", "paperclip"]);
+    await run(["available-skill", "get", "fabric"]);
     await run(["llm", "agent-configuration"]);
     await run(["llm", "agent-configuration:adapter", "codex_local"]);
 
@@ -128,7 +128,7 @@ describe("access parity commands", () => {
       ["POST", `http://localhost:3100/api/companies/${COMPANY_ID}/openclaw/invite-prompt`],
       ["GET", "http://localhost:3100/api/skills/available"],
       ["GET", "http://localhost:3100/api/skills/index"],
-      ["GET", "http://localhost:3100/api/skills/paperclip"],
+      ["GET", "http://localhost:3100/api/skills/fabric"],
       ["GET", "http://localhost:3100/api/llms/agent-configuration.txt"],
       ["GET", "http://localhost:3100/api/llms/agent-configuration/codex_local.txt"],
     ]);

@@ -22,7 +22,7 @@ import type {
   WorkspaceFileListFileItem,
   WorkspaceFileListMode,
   WorkspaceFileSelector,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 type BrowserSource = "current" | "other";
 

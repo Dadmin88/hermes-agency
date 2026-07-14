@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Clock3, RefreshCw, Save, Trash2, Webhook, Zap } from "lucide-react";
-import type { RoutineTrigger } from "@paperclipai/shared";
+import type { RoutineTrigger } from "@hermes-fabric/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

@@ -1,6 +1,6 @@
 # Hermes Fabric
 
-Hermes Fabric is the Paperclip-derived frontend for Hermes Agency.
+Hermes Fabric is the Hermes Fabric-derived frontend for Hermes Agency.
 
 ## Product relationship
 
@@ -12,17 +12,17 @@ Hermes Agency is the workforce. Hermes Fabric is the interface.
 
 ## Foundation
 
-Hermes Fabric starts from `paperclipai/paperclip` under the MIT License. Preserve upstream license attribution while transforming the product identity, data flows, and execution model around Hermes Agency.
+Hermes Fabric starts from `hermes-fabric/fabric` under the MIT License. Preserve upstream license attribution while transforming the product identity, data flows, and execution model around Hermes Agency.
 
 Upstream source at fork time:
 
-- Repository: https://github.com/paperclipai/paperclip
+- Repository: https://github.com/DeployFaith/Hermes_Agency
 - Local upstream remote: `upstream`
 - Fork branch: `feat/hermes-fabric-foundation`
 
 ## Core direction
 
-Hermes Fabric retains Paperclip's useful application chassis:
+Hermes Fabric retains Hermes Fabric's useful application chassis:
 
 - React dashboard
 - server/API structure
@@ -58,6 +58,19 @@ The current Fabric codebase includes:
 - dry-run dispatch for local interface testing
 
 The default Fabric dispatch client is intentionally unconfigured. A real server-to-Agency client still needs to be wired before Fabric can claim end-to-end live dispatch without an injected adapter. Dry-run records prove the operator flow, not live transport execution.
+
+### Claim ledger (Fabric)
+
+| Claim | Status |
+|---|---|
+| Fabric can show the Agency roster | Shipped (read path) |
+| Fabric dry-run / dispatch-record operator flow | Shipped |
+| Fabric live dispatch to Hermes Agency by default | **Not shipped** — follow-up |
+| Hermes Agency live multi-process Keryx round trip | Shipped in Agency (`scripts/e2e_agency_keryx.py`); independent of Fabric |
+
+Live Agency dispatch client work is tracked as a follow-up outside
+[`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](../../docs/plans/2026-07-13-hermes-agency-full-remediation.md)
+workstream F (honesty/CI only in that program).
 
 ## Current Hermes Agency context
 
@@ -103,7 +116,7 @@ The default Fabric dispatch client is intentionally unconfigured. A real server-
 
 ## Rename decisions
 
-- **Package namespace:** keep `@paperclipai/*` workspace package names temporarily. Rename only after imports, lockfiles, bins, publish metadata, and release tooling can move together.
-- **CLI name:** expose `hermes-fabric` and retain `paperclipai` as a compatibility alias during migration.
-- **Config path:** keep `~/.paperclip` and `PAPERCLIP_*` temporarily to preserve existing data. A future migration must copy, verify, and only then deprecate old paths.
-- **Docs/assets:** public identity should say Hermes Fabric. Historical docs, release notes, upstream skills, package internals, and legal attribution may retain Paperclip references until their dedicated migration.
+- **Package namespace:** keep `@hermes-fabric/*` workspace package names temporarily. Rename only after imports, lockfiles, bins, publish metadata, and release tooling can move together.
+- **CLI name:** expose `hermes-fabric` and retain `hermes-fabric` as a compatibility alias during migration.
+- **Config path:** keep `~/.hermes-fabric` and `HERMES_FABRIC_*` temporarily to preserve existing data. A future migration must copy, verify, and only then deprecate old paths.
+- **Docs/assets:** public identity should say Hermes Fabric. Historical docs, release notes, upstream skills, package internals, and legal attribution may retain Hermes Fabric references until their dedicated migration.

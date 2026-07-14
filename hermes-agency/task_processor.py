@@ -49,6 +49,84 @@ class SubprocessTaskError(TaskProcessingError):
     """Raised when subprocess fallback fails."""
 
 
+# Environment keys safe to inherit into remote-triggered hermes subprocesses.
+# Secrets and provider credentials must come from profile config files, not ambient env.
+_REMOTE_SUBPROCESS_ENV_ALLOWLIST = frozenset(
+    {
+        "PATH",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "LC_MESSAGES",
+        "LC_TIME",
+        "TZ",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "TERM",
+        "SHELL",
+        "XDG_RUNTIME_DIR",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_DATA_HOME",
+        "HERMES_HOME",
+        "HERMES_PROFILES_DIR",
+        "HERMES_AGENCY_PLUGIN_PATH",
+        "VIRTUAL_ENV",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONNOUSERSITE",
+        "SSL_CERT_FILE",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+    }
+)
+
+
+def build_remote_subprocess_env(
+    *,
+    profile_name: str = "",
+    allow_hooks: bool = False,
+    extra_allowlist: frozenset[str] | set[str] | None = None,
+) -> dict[str, str]:
+    """Build a minimal environment for remote-triggered hermes subprocesses.
+
+    Does not copy ambient credentials (API keys, cloud tokens, SSH agent vars).
+    """
+
+    allow = set(_REMOTE_SUBPROCESS_ENV_ALLOWLIST)
+    if extra_allowlist:
+        allow.update(str(item) for item in extra_allowlist)
+
+    env: dict[str, str] = {}
+    for key in allow:
+        value = os.environ.get(key)
+        if value is None:
+            continue
+        # Never pass session branching context into remote workers.
+        if key.startswith("HERMES_SESSION_"):
+            continue
+        env[key] = value
+
+    env.pop("HERMES_YOLO_MODE", None)
+    env["PYTHONUNBUFFERED"] = "1"
+    profile = str(profile_name or "").strip()
+    if profile:
+        env["HERMES_PROFILE"] = profile
+    if allow_hooks:
+        env["HERMES_ACCEPT_HOOKS"] = "1"
+    else:
+        env.pop("HERMES_ACCEPT_HOOKS", None)
+    return env
+
+
 def toolsets_for_access(tool_access: str | None) -> list[str] | None:
     """Map configured incoming tool access to Hermes delegation toolsets.
 
@@ -442,21 +520,9 @@ async def _process_via_subprocess_async(
     if not hermes_cmd:
         raise SubprocessTaskError("could not locate hermes executable")
     timeout_seconds = max(1.0, float(timeout or 120))
-    env = os.environ.copy()
-    env.pop("HERMES_YOLO_MODE", None)
-    # Pool runners are long-lived processes that may be launched from an active
-    # Hermes chat/session. Do not leak the runner's own session context into the
-    # worker CLI subprocess: if HERMES_SESSION_ID points at a session from a
-    # different profile DB, the child can try to create its new session as a
-    # branch of a non-existent parent and spam FOREIGN KEY failures while still
-    # doing real work.
-    for key in list(env):
-        if key.startswith("HERMES_SESSION_"):
-            env.pop(key, None)
-    if allow_hooks:
-        env["HERMES_ACCEPT_HOOKS"] = "1"
-    else:
-        env.pop("HERMES_ACCEPT_HOOKS", None)
+    # Remote-triggered subprocesses must not inherit ambient machine credentials.
+    # Hermes loads provider secrets from profile/home config files, not ambient env.
+    env = build_remote_subprocess_env(profile_name=profile, allow_hooks=allow_hooks)
     proc = await asyncio.create_subprocess_exec(
         hermes_cmd,
         "-p",

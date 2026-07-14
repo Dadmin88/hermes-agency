@@ -2932,6 +2932,13 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
         lambda: doctor._check("agency_model_sets", "Agency model sets", "pass", "model sets ok"),
     )
     monkeypatch.setattr(
+        doctor,
+        "_starter_staff_check",
+        lambda: doctor._check(
+            "starter_staff", "Starter staff pack", "pass", "starter pack complete"
+        ),
+    )
+    monkeypatch.setattr(
         doctor, "_editable_install_state", lambda: ("pass", "editable install detected")
     )
     monkeypatch.setattr(doctor, "_config_file_state", lambda: ("pass", "config ok", None))
@@ -2947,6 +2954,7 @@ def test_doctor_healthy_json_report(plugin_modules, monkeypatch, tmp_path):
         "profile_path",
         "config_file",
     ]
+    assert any(check["id"] == "starter_staff" for check in payload["checks"])
 
 
 def test_doctor_model_sets_counts_missing_drift_and_unchanged(plugin_modules, monkeypatch):
@@ -3155,6 +3163,27 @@ def test_register_disabled_plugin_has_no_model_tools_and_no_start(plugin_modules
         "on_session_reset",
     ]
     assert start_calls == []
+
+
+def test_team_context_hook_skips_cached_roster_when_injection_disabled(plugin_modules, monkeypatch):
+    init_mod = _load_plugin_package_module(monkeypatch)
+    cfg_mod = plugin_modules.config
+    cfg = cfg_mod.AgencyConfig(team=cfg_mod.TeamConfig(inject_context=False))
+    monkeypatch.setattr(init_mod, "get_config", lambda: cfg)
+
+    def should_not_read_cached_team_context():
+        raise AssertionError("disabled team injection must not read cached roster context")
+
+    monkeypatch.setattr(
+        init_mod.manager, "cached_team_context", should_not_read_cached_team_context
+    )
+    monkeypatch.setattr(init_mod.manager, "cached_orchestrator_context", lambda: "")
+
+    ctx = _FakePluginContext()
+    init_mod.register(ctx)
+    pre_llm_hook = next(handler for name, handler in ctx.hooks if name == "pre_llm_call")
+
+    assert pre_llm_hook() is None
 
 
 def test_register_sdk_absent_gates_tools_and_does_not_start(plugin_modules, monkeypatch):

@@ -83,7 +83,7 @@ describe("pipeline board group preference", () => {
     writeStoredPipelineBoardGroupBy("pipeline-1", "builtFor", storage);
     writeStoredPipelineBoardGroupBy("pipeline-2", "none", storage);
 
-    expect(pipelineBoardGroupByStorageKey("pipeline-1")).toBe("paperclip.pipelineBoard.groupBy.pipeline-1");
+    expect(pipelineBoardGroupByStorageKey("pipeline-1")).toBe("fabric.pipelineBoard.groupBy.pipeline-1");
     expect(readStoredPipelineBoardGroupBy("pipeline-1", storage)).toBe("builtFor");
     expect(readStoredPipelineBoardGroupBy("pipeline-2", storage)).toBe("none");
     expect(readStoredPipelineBoardGroupBy("missing", storage)).toBe("none");

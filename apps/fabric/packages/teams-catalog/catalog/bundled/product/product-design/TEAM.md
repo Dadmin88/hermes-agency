@@ -4,7 +4,7 @@ description: Bundled product design team with a Principal Product Designer who o
 schema: agentcompanies/v1
 slug: product-design
 category: product
-key: paperclipai/bundled/product/product-design
+key: hermes-fabric/bundled/product/product-design
 manager: agents/ux-designer/AGENTS.md
 includes:
   - projects/product-design/PROJECT.md
@@ -18,9 +18,9 @@ tags:
   - ux
   - product
 requiredSkills:
-  - paperclipai/bundled/product/wireframe
-  - paperclipai/optional/product/design-critique
-  - paperclipai/bundled/paperclip-operations/task-planning
+  - hermes-fabric/bundled/product/wireframe
+  - hermes-fabric/optional/product/design-critique
+  - hermes-fabric/bundled/fabric-operations/task-planning
 ---
 
 # Product Design
@@ -41,4 +41,4 @@ A minimal design team built around a single Principal Product Designer. Install 
 
 ## Migration notes
 
-Derived from the `UXDesigner` template in `skills/paperclip-create-agent/references/agents/uxdesigner.md`. The full visual-quality and design-lens documentation lives in the template's `AGENTS.md` body rather than as `references/` files so the catalog manifest stays at trust level `markdown_only`. Adapter type is intentionally omitted from frontmatter; the import preview lets operators pick `claude_local`, `codex_local`, or another adapter at install time.
+Derived from the `UXDesigner` template in `skills/fabric-create-agent/references/agents/uxdesigner.md`. The full visual-quality and design-lens documentation lives in the template's `AGENTS.md` body rather than as `references/` files so the catalog manifest stays at trust level `markdown_only`. Adapter type is intentionally omitted from frontmatter; the import preview lets operators pick `claude_local`, `codex_local`, or another adapter at install time.

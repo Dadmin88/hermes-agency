@@ -7,17 +7,17 @@ test('resolveInstallationId: uses the repo installation endpoint when repo conte
   const installationId = await resolveInstallationId(async (path) => {
     seenPaths.push(path);
     return { id: 42 };
-  }, 'jwt', 'paperclipai/paperclip', 'paperclipai');
+  }, 'jwt', 'hermes-fabric/fabric', 'hermes-fabric');
 
   assert.equal(installationId, 42);
-  assert.deepEqual(seenPaths, ['/repos/paperclipai/paperclip/installation']);
+  assert.deepEqual(seenPaths, ['/repos/hermes-fabric/fabric/installation']);
 });
 
 test('resolveInstallationId: falls back to the matching owner installation', async () => {
   const installationId = await resolveInstallationId(async () => ([
     { id: 1, account: { login: 'someone-else' } },
-    { id: 7, account: { login: 'PaperclipAI' } },
-  ]), 'jwt', undefined, 'paperclipai');
+    { id: 7, account: { login: 'Hermes Fabric' } },
+  ]), 'jwt', undefined, 'hermes-fabric');
 
   assert.equal(installationId, 7);
 });

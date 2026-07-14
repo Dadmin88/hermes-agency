@@ -36,7 +36,7 @@ export const acceptInviteSchema = z.object({
   responsesWebhookUrl: z.string().max(4000).optional().nullable(),
   responsesWebhookMethod: z.string().max(32).optional().nullable(),
   responsesWebhookHeaders: z.record(z.string(), z.unknown()).optional().nullable(),
-  paperclipApiUrl: z.string().max(4000).optional().nullable(),
+  fabricApiUrl: z.string().max(4000).optional().nullable(),
   webhookAuthHeader: z.string().max(4000).optional().nullable(),
 });
 
@@ -86,7 +86,7 @@ export const resolveCliAuthChallengeSchema = z.object({
 export type ResolveCliAuthChallenge = z.infer<typeof resolveCliAuthChallengeSchema>;
 
 export const createBoardApiKeySchema = z.object({
-  name: z.string().trim().min(1).max(120).default("paperclipai cli"),
+  name: z.string().trim().min(1).max(120).default("hermes-fabric cli"),
   expiresAt: z.coerce.date().optional().nullable(),
   requestedCompanyId: z.string().uuid().optional().nullable(),
 });

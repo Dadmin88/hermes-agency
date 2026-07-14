@@ -66,18 +66,25 @@ manifest = load_manifest()
 Packaged profiles are shipped as a library and are not automatically copied into `~/.hermes/profiles/`.
 
 ```bash
-# Preview all changes
-hermes agency staff install --dry-run
+# First-run starter pack (~12 profiles) — recommended
+hermes-agency staff starter
+hermes-agency staff install --starter --dry-run
+hermes-agency staff install --starter
+
+# Preview all 83 packaged profiles
+hermes-agency staff install --dry-run
 
 # Install all packaged profiles
-hermes agency staff install
+hermes-agency staff install
 
 # Install selected profiles
-hermes agency staff install agency-orchestrator agency-frontend-engineer
+hermes-agency staff install agency-orchestrator agency-frontend-engineer
 
 # Replace existing profiles with packaged versions
-hermes agency staff install --force
+hermes-agency staff install --force
 ```
+
+See `docs/operator-golden-path.md` for the full operator path.
 
 Equivalent standalone commands are available through `hermes-agency staff ...`.
 

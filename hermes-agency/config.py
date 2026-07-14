@@ -41,7 +41,7 @@ Config schema and defaults::
       keryx:
         daemon_endpoint: null     # e.g. unix:///tmp/keryx-daemon.sock or 127.0.0.1:50051
         registry_endpoint: null   # optional Keryx registry endpoint
-        relay_endpoint: null      # optional Keryx relay endpoint
+        relay_endpoint: null      # diagnostics/compat only; live relay topology is owned by keryxd/keryx-relay
         relay_config: {}          # Keryx relay-specific config payload
         worker_id: null           # optional worker identity for daemon task leasing
         default_lease_duration_ms: 0

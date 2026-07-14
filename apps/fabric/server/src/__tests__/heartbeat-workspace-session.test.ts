@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import type { agents } from "@paperclipai/db";
-import { sessionCodec as codexSessionCodec } from "@paperclipai/adapter-codex-local/server";
+import type { agents } from "@hermes-fabric/db";
+import { sessionCodec as codexSessionCodec } from "@hermes-fabric/adapter-codex-local/server";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import {
   applyPersistedExecutionWorkspaceConfig,
@@ -119,7 +119,7 @@ async function runGit(cwd: string, args: string[]) {
 }
 
 async function createGitCheckout(options: { withRemote: boolean }) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-push-preflight-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-push-preflight-"));
   await runGit(root, ["init"]);
   if (options.withRemote) {
     await runGit(root, ["remote", "add", "origin", "https://github.com/example/repo.git"]);
@@ -362,7 +362,7 @@ describe("assertGitSensitiveAdapterWorkspaceValid", () => {
 
   it("rejects a workspace-linked issue when adapter cwd has no git metadata", async () => {
     const input = buildWorkspaceValidationInput();
-    const cwd = "/tmp/paperclip-workspace-without-git-metadata";
+    const cwd = "/tmp/fabric-workspace-without-git-metadata";
 
     await expectWorkspaceValidationFailure(
       buildWorkspaceValidationInput({
@@ -448,7 +448,7 @@ describe("requiresPushCapabilityPreflight", () => {
     expect(requiresPushCapabilityPreflight({
       adapterType: "codex_local",
       issueId: "issue-1",
-      explicitRunScopedSkillKeys: ["paperclipai/bundled/software-development/github-pr-workflow"],
+      explicitRunScopedSkillKeys: ["hermes-fabric/bundled/software-development/github-pr-workflow"],
     })).toBe(true);
 
     expect(requiresPushCapabilityPreflight({
@@ -460,7 +460,7 @@ describe("requiresPushCapabilityPreflight", () => {
     expect(requiresPushCapabilityPreflight({
       adapterType: "cursor-cloud",
       issueId: "issue-1",
-      explicitRunScopedSkillKeys: ["paperclipai/bundled/software-development/github-pr-workflow"],
+      explicitRunScopedSkillKeys: ["hermes-fabric/bundled/software-development/github-pr-workflow"],
     })).toBe(false);
   });
 });
@@ -830,7 +830,7 @@ describe("buildRealizedExecutionWorkspaceFromPersisted", () => {
         name: "PAP-880-thumbs-capture-for-evals-feature",
         status: "active",
         cwd: "/tmp/reused-worktree",
-        repoUrl: "https://example.com/paperclip.git",
+        repoUrl: "https://example.com/fabric.git",
         baseRef: "main",
         branchName: "PAP-880-thumbs-capture-for-evals-feature",
         providerType: "git_worktree",
@@ -1024,7 +1024,7 @@ describe("shouldResetTaskSessionForModelChange", () => {
         configuredModel: "gpt-5.4-mini",
         taskSessionParams: {
           sessionId: "thread-1",
-          __paperclipConfiguredModel: "opencode/mimo-v2-pro-free",
+          __fabricConfiguredModel: "opencode/mimo-v2-pro-free",
         },
       }),
     ).toBe(true);
@@ -1036,7 +1036,7 @@ describe("shouldResetTaskSessionForModelChange", () => {
         configuredModel: "gpt-5.4-mini",
         taskSessionParams: {
           sessionId: "thread-1",
-          __paperclipConfiguredModel: "gpt-5.4-mini",
+          __fabricConfiguredModel: "gpt-5.4-mini",
         },
       }),
     ).toBe(false);
@@ -1059,7 +1059,7 @@ describe("shouldResetTaskSessionForModelChange", () => {
         configuredModel: null,
         taskSessionParams: {
           sessionId: "thread-1",
-          __paperclipConfiguredModel: "gpt-5.4-mini",
+          __fabricConfiguredModel: "gpt-5.4-mini",
         },
       }),
     ).toBe(false);
@@ -1080,7 +1080,7 @@ describe("stripConfiguredModelFromSessionParams", () => {
     expect(
       stripConfiguredModelFromSessionParams({
         sessionId: "thread-1",
-        __paperclipConfiguredModel: "gpt-5.4-mini",
+        __fabricConfiguredModel: "gpt-5.4-mini",
       }),
     ).toEqual({ sessionId: "thread-1" });
   });
@@ -1091,15 +1091,15 @@ describe("stripConfiguredModelFromSessionParams", () => {
   });
 
   it("returns a copy without mutating the input", () => {
-    const input = { sessionId: "thread-1", __paperclipConfiguredModel: "gpt-5.4-mini" };
+    const input = { sessionId: "thread-1", __fabricConfiguredModel: "gpt-5.4-mini" };
     const result = stripConfiguredModelFromSessionParams(input);
     expect(result).not.toBe(input);
-    expect(input.__paperclipConfiguredModel).toBe("gpt-5.4-mini");
+    expect(input.__fabricConfiguredModel).toBe("gpt-5.4-mini");
   });
 
   it("returns an empty object when only the internal model key is present (caller must normalize)", () => {
     const stripped = stripConfiguredModelFromSessionParams({
-      __paperclipConfiguredModel: "gpt-5.4-mini",
+      __fabricConfiguredModel: "gpt-5.4-mini",
     });
     expect(stripped).toEqual({});
     // Callers that forward params to adapters must normalize {} back to null so
@@ -1160,7 +1160,7 @@ describe("comment wake batching", () => {
         wakeReason: "issue_commented",
         wakeCommentId: "comment-1",
         wakeCommentIds: ["comment-1"],
-        paperclipWake: {
+        fabricWake: {
           latestCommentId: "comment-1",
         },
       },
@@ -1174,7 +1174,7 @@ describe("comment wake batching", () => {
     expect(extractWakeCommentIds(merged)).toEqual(["comment-1", "comment-2"]);
     expect(merged.commentId).toBe("comment-2");
     expect(merged.wakeCommentId).toBe("comment-2");
-    expect(merged.paperclipWake).toBeUndefined();
+    expect(merged.fabricWake).toBeUndefined();
   });
 
   it("keeps forceFreshSession sticky once any coalesced wake requests it", () => {
@@ -1506,7 +1506,7 @@ describe("formatRuntimeWorkspaceWarningLog", () => {
   it("emits informational workspace warnings on stdout", () => {
     expect(formatRuntimeWorkspaceWarningLog("Using fallback workspace")).toEqual({
       stream: "stdout",
-      chunk: "[paperclip] Using fallback workspace\n",
+      chunk: "[fabric] Using fallback workspace\n",
     });
   });
 });
@@ -1548,7 +1548,7 @@ describe("prioritizeProjectWorkspaceCandidatesForRun", () => {
 });
 
 describe("parseSessionCompactionPolicy", () => {
-  it("disables Paperclip-managed rotation by default for codex and claude local", () => {
+  it("disables HermesFabric-managed rotation by default for codex and claude local", () => {
     expect(parseSessionCompactionPolicy(buildAgent("codex_local"))).toEqual({
       enabled: true,
       maxSessionRuns: 0,

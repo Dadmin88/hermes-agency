@@ -1,4 +1,4 @@
-import type { Issue } from "@paperclipai/shared";
+import type { Issue } from "@hermes-fabric/shared";
 import type {
   PipelineCase,
   PipelineCaseActiveWork,
@@ -291,7 +291,7 @@ function readDecision(payload: Record<string, unknown>) {
 function actorName(event: PipelineCaseEvent) {
   if (event.actorAgent?.name) return event.actorAgent.name;
   if (event.actorType === "user") return "Board";
-  if (event.actorType === "system") return "Paperclip";
+  if (event.actorType === "system") return "Hermes Fabric";
   return null;
 }
 

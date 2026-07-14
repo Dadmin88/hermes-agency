@@ -1,4 +1,4 @@
-import type { IssueWorkMode } from "@paperclipai/shared";
+import type { IssueWorkMode } from "@hermes-fabric/shared";
 import { ClipboardList, Hammer, MessageCircleQuestion, type LucideIcon } from "lucide-react";
 
 export type WorkModeTone = "neutral" | "ask" | "planning";

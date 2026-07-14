@@ -28,7 +28,7 @@ import {
   storybookSecretProviders,
   storybookSecrets,
   storybookSidebarBadges,
-} from "../fixtures/paperclipData";
+} from "../fixtures/fabricData";
 import "@mdxeditor/editor/style.css";
 import "./tailwind-entry.css";
 import "./styles.css";
@@ -42,12 +42,12 @@ installStorybookApiFixtures();
 function installStorybookApiFixtures() {
   if (typeof window === "undefined") return;
   const currentWindow = window as typeof window & {
-    __paperclipStorybookFetchInstalled?: boolean;
+    __fabricStorybookFetchInstalled?: boolean;
   };
-  if (currentWindow.__paperclipStorybookFetchInstalled) return;
+  if (currentWindow.__fabricStorybookFetchInstalled) return;
 
   const originalFetch = window.fetch.bind(window);
-  currentWindow.__paperclipStorybookFetchInstalled = true;
+  currentWindow.__fabricStorybookFetchInstalled = true;
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const rawUrl =
@@ -74,7 +74,7 @@ function installStorybookApiFixtures() {
             status: "active",
             user: {
               id: "user-board",
-              email: "board@paperclip.local",
+              email: "board@fabric.local",
               name: "Board Operator",
               image: null,
             },
@@ -84,7 +84,7 @@ function installStorybookApiFixtures() {
             status: "active",
             user: {
               id: "user-product",
-              email: "product@paperclip.local",
+              email: "product@fabric.local",
               name: "Product Lead",
               image: null,
             },
@@ -165,8 +165,8 @@ function installStorybookApiFixtures() {
     if (adapterSchemaMatch) {
       const [, adapterType] = adapterSchemaMatch;
       const schemas = (window as typeof window & {
-        __paperclipStorybookAdapterSchemas?: Record<string, unknown>;
-      }).__paperclipStorybookAdapterSchemas;
+        __fabricStorybookAdapterSchemas?: Record<string, unknown>;
+      }).__fabricStorybookAdapterSchemas;
       const schema = schemas?.[adapterType];
       if (schema) return Response.json(schema);
     }
@@ -352,7 +352,7 @@ const preview: Preview = {
   ],
   globalTypes: {
     theme: {
-      description: "Paperclip color mode",
+      description: "HermesFabric color mode",
       defaultValue: "dark",
       toolbar: {
         title: "Theme",

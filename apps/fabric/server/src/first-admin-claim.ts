@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { instanceUserRoles } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
+import { instanceUserRoles } from "@hermes-fabric/db";
 
 type FirstAdminTransaction = Pick<Db, "execute" | "select" | "insert" | "update">;
 

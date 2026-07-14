@@ -6,7 +6,7 @@
 
 - [ ] Do not call Hermes Fabric the main product.
 - [ ] Do not use "control plane" as product language.
-- [ ] Preserve MIT license attribution from upstream Paperclip.
+- [ ] Preserve MIT license attribution from upstream Hermes Fabric.
 - [ ] Keep upstream remote fetchable and push-disabled unless the operator explicitly approves otherwise.
 - [ ] Do not hardcode the operator's private profiles, providers, models, tokens, paths, or credentials into shipped defaults.
 - [ ] Treat offline Hermes Agency agents as valid targets.
@@ -20,7 +20,7 @@
 
 ### 0.1 Repo safety
 
-- [x] Clone upstream Paperclip locally as `Hermes_Fabric`.
+- [x] Clone upstream Hermes Fabric locally as `Hermes_Fabric`.
 - [x] Rename `origin` remote to `upstream`.
 - [x] Disable upstream push URL.
 - [x] Create working branch `feat/hermes-fabric-foundation`.
@@ -88,7 +88,7 @@ Goal: make the repo clearly read as Hermes Fabric without unsafe import/package 
 
 - [x] Check touched foundation docs for off-scope project mention.
 - [x] Check touched foundation docs for disallowed product phrase.
-- [x] Search full repo for user-facing Paperclip strings.
+- [x] Search full repo for user-facing Hermes Fabric strings.
 - [x] Categorize each hit as:
   - [x] attribution/legal
   - [x] package namespace/import
@@ -130,9 +130,9 @@ Goal: make the running app visibly identify as Hermes Fabric while avoiding broa
 
 ### 2.3 Add attribution surface
 
-- [x] Add "Based on Paperclip, MIT licensed" in docs or about page.
+- [x] Add "Based on Hermes Fabric, MIT licensed" in docs or about page.
 - [x] Preserve `LICENSE`.
-- [x] Do not impersonate upstream Paperclip social/docs links as Hermes Fabric links.
+- [x] Do not impersonate upstream Hermes Fabric social/docs links as Hermes Fabric links.
 
 ### 2.4 Verification
 
@@ -356,7 +356,7 @@ Goal: finish the rename without breaking runtime/package links.
 
 ### 7.1 Package and namespace audit
 
-- [x] List all `@paperclipai/*` package names.
+- [x] List all `@hermes-fabric/*` package names.
 - [x] Decide which stay temporarily for internal compatibility.
 - [x] Decide target package namespace.
 - [x] Rename only when import paths, workspace links, bins, tests, and publishing are handled.
@@ -364,13 +364,13 @@ Goal: finish the rename without breaking runtime/package links.
 ### 7.2 CLI rename
 
 - [x] Decide CLI name, likely `hermes-fabric`.
-- [x] Add alias first instead of removing `paperclipai` immediately.
+- [x] Add alias first instead of removing `hermes-fabric` immediately.
 - [x] Update README quickstart after alias works.
 - [x] Update tests for CLI invocation.
 
 ### 7.3 Config path rename
 
-- [x] Decide whether to migrate `~/.paperclip` to a Hermes Fabric config path.
+- [x] Decide whether to migrate `~/.hermes-fabric` to a Hermes Fabric config path.
 - [x] If yes, write migration strategy.
 - [x] Preserve existing local dev data until migration is verified.
 - [x] Do not delete user data.
@@ -398,7 +398,7 @@ Goal: finish the rename without breaking runtime/package links.
 
 ### Grok / broad audit
 
-- [ ] Audit full repo for user-facing Paperclip identity surfaces.
+- [ ] Audit full repo for user-facing Hermes Fabric identity surfaces.
 - [ ] Return categorized hit list only; no edits.
 - [ ] Identify risky package/namespace rename surfaces.
 

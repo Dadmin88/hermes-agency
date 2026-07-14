@@ -19,19 +19,18 @@ Hermes Agency is the product layer. Keryx is the primary transport. AgentAnycast
 
 ## Proof and Keryx boundary
 
-The permanent integration test at `tests/test_golden_path.py` exercises the real Agency roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, orchestrator-state, and Kanban reconciliation code.
+Two permanent proofs cover Agency + Keryx:
 
-It proves that an offline specialist can be selected and woken, pass Agency trust checks, process a task through Hermes delegation, return an artifact, and move Kanban work through running to done. It also proves persistent queue behavior when wake fails.
+1. **In-process golden path** (`tests/test_golden_path.py`) — real Agency roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, orchestrator-state, and Kanban reconciliation with an in-memory transport adapter.
+2. **Live multi-process Keryx round trip** (`scripts/e2e_agency_keryx.py`, CI workflow `agency-phase17-e2e.yml`) — real relay/registry, two daemons, two edge nodes, production Agency incoming queue, authenticated sender trust, terminal artifact return, and Kanban reconciliation.
 
-This is an in-process loopback integration proof using an in-memory transport adapter and board adapter. It proves the Agency workflow, not a live multi-process Keryx network round trip.
-
-The current Keryx stack implements sender-daemon routing, relay publication/mailbox, destination edge-node consumption, and destination-daemon submission. A complete remote Agency round trip still requires durable full-envelope retention, a claim-next worker API, Python handler dispatch, authenticated terminal result/artifact return, and a remotely updated `TaskHandle`.
+Keryx implements sender-daemon routing, relay publication/mailbox, destination edge-node consumption, claim-next worker dispatch via `serve_forever()`, authenticated terminal result/artifact return, and remotely updated `TaskHandle.wait()`. The vendored SDK revision is recorded in `src/keryx/_sync_manifest.json`.
 
 See:
 
 - `docs/keryx-cross-node-boundary.md`
-- `DeployFaith/hermes-keryx#10`
-- `DeployFaith/Hermes_Agency#81`
+- `docs/plans/2026-07-13-hermes-agency-full-remediation.md`
+- Historical tracking: `DeployFaith/hermes-keryx#10`, `DeployFaith/Hermes_Agency#81` (closed), PR #85
 
 ## Requirements
 
@@ -182,7 +181,7 @@ Relay/bootstrap and skill registry are separate in the legacy path: `agency.rela
 4. Confirm `agency.transport_backend: keryx` and endpoints such as daemon `127.0.0.1:50051` and registry `127.0.0.1:51053`.
 5. Leave legacy `agency.relay` / `AGENTANYCAST_*` settings only for rollback testing.
 6. Verify infrastructure with `hermes-agency status --extended`, `hermes-agency start`, and a small `hermes-agency discover <skill>` check.
-7. Do not treat discovery plus daemon health as proof of a completed remote handler/result round trip.
+7. Do not treat discovery plus daemon health alone as proof of a completed remote handler/result round trip; use `scripts/e2e_agency_keryx.py` for the full loop.
 8. Rollback: hermes-keryx `./scripts/migrate-to-keryx.sh --revert` and/or set `agency.transport_backend: agentanycast`.
 
 ## Staff profiles
@@ -236,7 +235,7 @@ hermes-agency status --extended
 | `agency_stop_node` | Stop the node cleanly. |
 | `agency_list_peers` | List connected/routable transport peers. |
 | `agency_discover` | Find agents by skill through the configured Agency transport. |
-| `agency_send` | Submit a task by `peer_id` or skill through the configured transport; remote terminal wait/artifact return over Keryx remains Phase 17 work. |
+| `agency_send` | Submit a task by `peer_id` or skill through the configured transport; terminal wait/artifact return uses the Keryx result protocol when the live transport path is available. |
 | `agency_status` | Check the latest locally tracked status/artifacts for a sent task. |
 | `agency_inbox` | Inspect recent incoming tasks observed by the Agency process. |
 | `agency_moa_status` | Show Agency MoA policy and native Hermes Agent MoA availability. |
@@ -307,7 +306,7 @@ In a Hermes session:
 - Incoming work must pass Agency allowlist and trust verification before handler execution.
 - AgentCards expose only a non-secret metadata allowlist: provider/model names, configured booleans, and profile/toolset summaries.
 - AgentCards, logs, docs, and tests must not expose API keys, raw environment variables, Discord channel IDs, local daemon paths, local profile paths, private hostnames, or profile-private data.
-- Phase 17 must use transport-authenticated sender identity rather than trusting arbitrary sender metadata.
+- Incoming trust must use transport-authenticated sender identity rather than trusting arbitrary sender metadata.
 - Daemon, relay, and edge-node components are runtime dependencies/foundations. Do not vendor their binaries into a Hermes upstream plugin proposal.
 
 ## Architecture
@@ -364,6 +363,4 @@ make integration-agency
 make integration-agency-full
 ```
 
-`tests/test_golden_path.py` is the current permanent Agency workflow proof. The older E2E scripts contain legacy transport assumptions and must not be presented as a complete remote Keryx Agency round trip. The full cross-process proof is tracked in issue #81 and depends on Hermes Keryx Phase 17.
-
-Use `../docs/qa-validation-ladder.md` as the source of truth for the full validation ladder, proof boundaries, prerequisites, cost/risk, and release-vs-end-of-shift reporting expectations.
+`tests/test_golden_path.py` is the permanent in-process Agency workflow proof. The live multi-process Keryx Agency round trip is `scripts/e2e_agency_keryx.py` (CI: `agency-phase17-e2e.yml`). Older E2E helpers under `tests/test_e2e*.py` may still contain legacy transport assumptions; prefer the golden path and Phase 17 script for product claims.

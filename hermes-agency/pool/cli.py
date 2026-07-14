@@ -4,14 +4,54 @@ Hermes Agency Pool CLI
 hermes agency pool <command>
 """
 
+from __future__ import annotations
+
 import os
+import sys
 
 import click
-import requests
-from manager import PoolManager
+import httpx
+
+try:
+    from manager import PoolManager
+except ImportError:  # package-relative fallback
+    from .manager import PoolManager
 
 pm = PoolManager()
-BASE = f"http://localhost:{pm.config['pool']['port']}"
+BASE = f"http://{os.environ.get('HERMES_POOL_BIND', '127.0.0.1')}:{pm.config['pool']['port']}"
+DEFAULT_TIMEOUT = float(os.environ.get("HERMES_POOL_HTTP_TIMEOUT", "10"))
+
+
+def _headers() -> dict[str, str]:
+    token = str(os.environ.get("HERMES_POOL_TOKEN") or "").strip()
+    if not token:
+        return {}
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _request(method: str, path: str) -> dict:
+    url = f"{BASE}{path}"
+    try:
+        response = httpx.request(
+            method,
+            url,
+            headers=_headers(),
+            timeout=DEFAULT_TIMEOUT,
+        )
+    except httpx.HTTPError as exc:
+        click.echo({"error": f"pool request failed: {type(exc).__name__}: {exc}"}, err=True)
+        sys.exit(1)
+    if response.status_code == 401:
+        click.echo({"error": "unauthorized — set HERMES_POOL_TOKEN if required"}, err=True)
+        sys.exit(1)
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {"status_code": response.status_code, "text": response.text}
+    if response.status_code >= 400:
+        click.echo(payload, err=True)
+        sys.exit(1)
+    return payload
 
 
 def _mutation_headers():
@@ -28,31 +68,27 @@ def pool():
 @pool.command()
 def status():
     """Show pool status"""
-    r = requests.get(f"{BASE}/pool/status")
-    click.echo(r.json())
+    click.echo(_request("GET", "/pool/status"))
 
 
-@pool.command()
-def list():
+@pool.command(name="list")
+def list_agents():
     """List all agents"""
-    r = requests.get(f"{BASE}/pool/agents")
-    click.echo(r.json())
+    click.echo(_request("GET", "/pool/agents"))
 
 
 @pool.command()
 @click.argument("agent")
 def wake(agent):
     """Wake an agent"""
-    r = requests.post(f"{BASE}/pool/agents/{agent}/wake", headers=_mutation_headers())
-    click.echo(r.json())
+    click.echo(_request("POST", f"/pool/agents/{agent}/wake"))
 
 
 @pool.command()
 @click.argument("agent")
 def sleep(agent):
     """Sleep an agent"""
-    r = requests.post(f"{BASE}/pool/agents/{agent}/sleep", headers=_mutation_headers())
-    click.echo(r.json())
+    click.echo(_request("POST", f"/pool/agents/{agent}/sleep"))
 
 
 @pool.command()

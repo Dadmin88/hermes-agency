@@ -775,8 +775,64 @@ class IncomingQueueMixin:
 
         return "\n".join(response_parts)
 
+    async def _authorize_record_for_execution(
+        self,
+        task: Any,
+        record: IncomingTaskRecord,
+        cfg: Any,
+    ) -> bool:
+        """Re-authorize current policy before executing a queued/recovered task."""
+
+        from .incoming_security import authorize_recovered_record
+        from .outbound_security import stable_remote_error
+
+        sender_name = ""
+        if isinstance(record.sender_card, dict):
+            sender_name = str(record.sender_card.get("name") or "").strip()
+        decision = authorize_recovered_record(
+            cfg,
+            sender_peer_id=record.sender_peer_id,
+            sender_name=sender_name,
+            metadata=record.metadata if isinstance(record.metadata, dict) else {},
+        )
+        if decision.allowed:
+            return True
+
+        remote_code = stable_remote_error(decision.action or decision.reason)
+        local_reason = decision.reason or decision.action or "authorization_rejected"
+        logger.warning(
+            "Hermes Agency blocked recovered/queued task before execution: task_id=%s peer=%s reason=%s",
+            record.task_id,
+            decision.sender_peer_id or "unknown",
+            local_reason,
+        )
+        record.status = "failed"
+        record.error = local_reason
+        record.metadata = dict(record.metadata or {})
+        record.metadata["authorization_rejected"] = True
+        record.metadata["authorization_action"] = decision.action
+        record.updated_at = time.time()
+        record.completed_at = time.time()
+        if record.kanban_task_id:
+            self._call_on_agency_board(
+                record.metadata.get("agency_board"),
+                self._nm().kanban_update_task,
+                record.kanban_task_id,
+                status="blocked",
+                error=local_reason,
+            )
+        self._persist_incoming_records()
+        try:
+            # Stable remote code only — do not echo task message content.
+            await task.fail(remote_code)
+        except Exception:
+            logger.debug("Failed to mark unauthorized recovered task as failed", exc_info=True)
+        return False
+
     async def _send_progress_update(self, task: Any, record: IncomingTaskRecord, text: str) -> None:
-        message = str(text or "").strip()
+        from .outbound_security import sanitize_remote_text
+
+        message = sanitize_remote_text(str(text or "").strip(), kind="progress")
         if not message:
             return
         timestamp = time.time()
@@ -842,14 +898,13 @@ class IncomingQueueMixin:
             try:
                 if record is None:
                     continue
+                cfg = self._nm().get_config()
+                # Re-authorize recovered work immediately before execution so a
+                # revoked peer cannot resume after restart. Live intake already
+                # passes verify_incoming_sender at queue time.
                 if record.metadata.get("recovered"):
-                    cfg = self._nm().get_config()
-                    security = self._nm().verify_incoming_sender(task, cfg, purpose="task")
-                    if not security.allowed:
-                        raise IncomingTaskSecurityError(
-                            security.reason
-                            or "incoming task rejected by Hermes Agency security policy"
-                        )
+                    if not await self._authorize_record_for_execution(task, record, cfg):
+                        continue
                     try:
                         await task.update_status("working")
                     except Exception as exc:
@@ -867,7 +922,6 @@ class IncomingQueueMixin:
                 self._nm().announce_start(record.message_text)
                 self._refresh_incoming_state()
                 self._persist_incoming_records()
-                cfg = self._nm().get_config()
                 if not cfg.allow_remote_tasks:
                     response = self._safe_stub_response(record)
                 elif cfg.incoming_mode in {"delegation", "subprocess"}:
@@ -907,13 +961,16 @@ class IncomingQueueMixin:
                 # status update, which otherwise intermittently marks the task
                 # FAILED before CompleteTask is accepted in bidirectional flows.
                 await asyncio.sleep(0.05)
+                from .outbound_security import sanitize_remote_text
+
+                safe_response = sanitize_remote_text(response, kind="artifact")
                 try:
                     await task.complete(
                         artifacts=[
                             {
                                 "artifact_id": f"safe-stub-{record.task_id}",
                                 "name": "agency-safe-stub-response",
-                                "parts": [{"text": response}],
+                                "parts": [{"text": safe_response}],
                             }
                         ]
                     )
@@ -921,37 +978,36 @@ class IncomingQueueMixin:
                     if not self._is_terminal_completed_error(exc):
                         raise
                 record.status = "completed"
-                record.result_text = response
+                record.result_text = safe_response
                 record.updated_at = time.time()
                 record.completed_at = time.time()
                 self._persist_incoming_records()
-                self._remember_conversation_turn(record, response)
+                self._remember_conversation_turn(record, safe_response)
                 if record.kanban_task_id:
                     self._call_on_agency_board(
                         record.metadata.get("agency_board"),
                         self._nm().kanban_update_task,
                         record.kanban_task_id,
                         status="done",
-                        result=response,
+                        result=safe_response,
                     )
                     self._mark_agency_board_pending_review(
                         record.metadata.get("agency_board"),
                         task_id=record.kanban_task_id,
-                        result=response,
+                        result=safe_response,
                     )
                 self._nm().announce_complete(
-                    record.message_text, response, kanban_task_id=record.kanban_task_id
+                    record.message_text, safe_response, kanban_task_id=record.kanban_task_id
                 )
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                from .outbound_security import sanitize_remote_text, stable_remote_error
+
                 if record is not None:
+                    local_error = f"{type(exc).__name__}: {exc}"
                     record.status = "failed"
-                    record.error = (
-                        str(exc)
-                        if isinstance(exc, IncomingTaskSecurityError)
-                        else f"{type(exc).__name__}: {exc}"
-                    )
+                    record.error = sanitize_remote_text(local_error, kind="error")
                     record.updated_at = time.time()
                     record.completed_at = time.time()
                     if record.kanban_task_id:
@@ -966,10 +1022,11 @@ class IncomingQueueMixin:
                     self._nm().announce_error(
                         record.message_text, record.error, kanban_task_id=record.kanban_task_id
                     )
+                remote_error = stable_remote_error(
+                    record.error if record is not None else type(exc).__name__
+                )
                 try:
-                    await task.fail(
-                        record.error if record is not None else f"{type(exc).__name__}: {exc}"
-                    )
+                    await task.fail(remote_error)
                 except Exception:
                     pass
             finally:

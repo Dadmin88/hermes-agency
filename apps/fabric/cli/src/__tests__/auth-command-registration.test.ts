@@ -27,9 +27,9 @@ describe("registerClientAuthCommands", () => {
 describe("client auth API commands", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
-    delete process.env.PAPERCLIP_TEST_CHALLENGE_TOKEN;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
+    delete process.env.HERMES_FABRIC_TEST_CHALLENGE_TOKEN;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -58,8 +58,8 @@ describe("client auth API commands", () => {
     await run(["challenge", "create", "--payload-json", "{}"]);
     await run(["challenge", "get", "challenge-1", "--token", "secret"]);
     await run(["challenge", "approve", "challenge-1", "--token", "secret"]);
-    process.env.PAPERCLIP_TEST_CHALLENGE_TOKEN = "env-secret";
-    await run(["challenge", "approve", "challenge/2", "--token-env", "PAPERCLIP_TEST_CHALLENGE_TOKEN"]);
+    process.env.HERMES_FABRIC_TEST_CHALLENGE_TOKEN = "env-secret";
+    await run(["challenge", "approve", "challenge/2", "--token-env", "HERMES_FABRIC_TEST_CHALLENGE_TOKEN"]);
     await run(["challenge", "cancel", "challenge-1", "--token", "secret"]);
     await run(["revoke-current"]);
 

@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import type { CatalogSkill, CompanySkillDetail, CompanySkillListItem, CompanySkillVersion } from "@paperclipai/shared";
+import type { CatalogSkill, CompanySkillDetail, CompanySkillListItem, CompanySkillVersion } from "@hermes-fabric/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SkillDetailPage, buildDiscoveryCards, getSkillVersionDiffSelection, sourceMeta } from "./CompanySkills";
 
@@ -323,34 +323,34 @@ async function selectValue(select: HTMLSelectElement, value: string) {
 describe("CompanySkills legacy provenance labels", () => {
   it("does not rewrite external GitHub skill provenance to Hermes Agency", () => {
     const [card] = buildDiscoveryCards([makeListItem({
-      name: "paperclip-deploy-bot",
-      authorName: "Paperclip Security Team",
-      sourceLabel: "paperclip-evil/deploy-bot",
+      name: "fabric-deploy-bot",
+      authorName: "HermesFabric Security Team",
+      sourceLabel: "fabric-evil/deploy-bot",
       sourceBadge: "github",
     })], []);
 
-    expect(card?.name).toBe("paperclip-deploy-bot");
-    expect(card?.author).toBe("Paperclip Security Team");
-    expect(card?.sourceLabel).toBe("paperclip-evil/deploy-bot");
-    expect(sourceMeta("github", card?.sourceLabel ?? null).label).toBe("paperclip-evil/deploy-bot");
+    expect(card?.name).toBe("fabric-deploy-bot");
+    expect(card?.author).toBe("HermesFabric Security Team");
+    expect(card?.sourceLabel).toBe("fabric-evil/deploy-bot");
+    expect(sourceMeta("github", card?.sourceLabel ?? null).label).toBe("fabric-evil/deploy-bot");
   });
 
   it("does not rewrite optional catalog package provenance to Hermes Agency", () => {
     const [card] = buildDiscoveryCards([], [makeCatalogSkill({
-      name: "paperclip-capsules-plus",
-      packageName: "paperclip-capsules-plus",
+      name: "fabric-capsules-plus",
+      packageName: "fabric-capsules-plus",
       kind: "optional",
     })]);
 
-    expect(card?.name).toBe("paperclip-capsules-plus");
-    expect(card?.author).toBe("paperclip-capsules-plus");
-    expect(card?.sourceLabel).toBe("paperclip-capsules-plus");
+    expect(card?.name).toBe("fabric-capsules-plus");
+    expect(card?.author).toBe("fabric-capsules-plus");
+    expect(card?.sourceLabel).toBe("fabric-capsules-plus");
   });
 
   it("keeps legacy branding migration for bundled catalog skills", () => {
     const [card] = buildDiscoveryCards([], [makeCatalogSkill({
-      name: "paperclip-capsules",
-      packageName: "paperclip bundled",
+      name: "fabric-capsules",
+      packageName: "fabric bundled",
       kind: "bundled",
     })]);
 

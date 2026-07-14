@@ -2,7 +2,7 @@
 
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import type { RoutineVariable } from "@paperclipai/shared";
+import type { RoutineVariable } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoutineVariablesEditor, RoutineVariablesHint } from "./RoutineVariablesEditor";
 

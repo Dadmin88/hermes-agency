@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        New agent adapters are welcome without prior discussion. If you plan to implement, prefer extending Paperclip via the [plugin system](https://github.com/paperclipai/paperclip/blob/master/doc/plugins/PLUGIN_SPEC.md) when possible.
+        New agent adapters are welcome without prior discussion. If you plan to implement, prefer extending HermesFabric via the [plugin system](https://github.com/DeployFaith/Hermes_Agency/blob/master/doc/plugins/PLUGIN_SPEC.md) when possible.
   - type: input
     id: agent
     attributes:

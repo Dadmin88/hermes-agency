@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const KIND_CONTEXT = "kind-paperclip";
+export const KIND_CONTEXT = "kind-fabric";
 
 export function readKindKubeconfig(): string {
   return readFileSync(join(homedir(), ".kube", "config"), "utf-8");

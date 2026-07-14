@@ -28,37 +28,39 @@ Use [GitHub Security Advisories](https://github.com/DeployFaith/Hermes_Agency/se
 
 Hermes Agency spans several processes and trust boundaries. Reports should identify which boundary is crossed.
 
-### Pool and Management Services
+### Hermes Agency plugin and pool
 
-The pool manager can wake and stop staff processes, queue tasks, and route work. Local HTTP services bind to loopback by default. State-changing pool endpoints require `HERMES_POOL_TOKEN`; when the token is not configured, mutations fail closed rather than running unauthenticated. Exposing a management service beyond loopback requires explicit network controls in addition to application authentication.
+The Agency plugin and pool manager route tasks to staff agents, attempt wake for offline specialists, and queue work persistently. A compromised pool manager could misroute tasks or exhaust agent wake budgets. Lifecycle tools must validate profile names and process ownership before signaling host processes.
 
-### Remote Task Execution
+### Remote task execution
 
-Remote execution is disabled by default (`allow_remote_tasks: false`). When enabled, incoming senders are checked against the configured peer and trust policy before acceptance. Recovered queued tasks are checked again before execution so revoking trust also affects persisted work. Tool access defaults to the safe policy and subprocess processing requires an explicit opt-in plus the configured minimum sender trust.
+Staff agents execute delegated tasks with access to their configured tools and model providers. Defaults are conservative:
 
-Remote prompts and model output remain untrusted data. Operators should grant only the tools and credentials required by each profile and should not treat transport authentication as prompt-safety enforcement.
+- `allow_remote_tasks: false`
+- `incoming.tool_access: safe`
+- empty peer allowlist means deny (unless explicitly configured otherwise)
 
-### Configuration and Profile Files
+Incoming work must pass allowlist and trust verification. Prefer transport-authenticated sender identity over arbitrary task metadata.
 
-Hermes profile names are validated before path construction. Fabric model-set application resolves the configured profiles root, rejects path escapes including symlinked profile directories outside that root, and writes profile configuration atomically. Profile configuration and model-set files must not contain credentials.
+### Keryx transport (primary)
 
-### Relay and Registry
+Keryx provides daemon, relay, registry, mailbox, routing, claim-next worker dispatch, and terminal result/artifact return. Peer communication uses encrypted transport primitives owned by the Keryx runtime. Compromising the relay or registry could allow traffic analysis or service disruption; see the [hermes-keryx](https://github.com/DeployFaith/hermes-keryx) security guidance for runtime-specific details.
 
-Keryx is the primary transport. The Python SDK in this repository communicates with the external `keryxd` runtime; the Rust daemon, relay, registry, deployment topology, and migration tooling are maintained in the separate `hermes-keryx` repository. Security claims about Keryx wire encryption, relay visibility, identity verification, and deployment hardening must be evaluated against the exact external runtime version and configuration in use. This repository does not make a stronger cryptographic guarantee than that runtime proves.
+### AgentAnycast (legacy fallback)
 
-AgentAnycast remains a legacy/fallback transport under `src/agentanycast/`. Its Noise and NaCl behavior applies only when that backend is explicitly selected and must not be used as evidence for Keryx deployments.
+AgentAnycast under `src/agentanycast/` is retained for explicit legacy/fallback deployments only (`agency.transport_backend: agentanycast`). Do not treat it as the recommended production path. Legacy daemon download/verification behavior, when used, must follow AgentAnycast verification guidance.
 
-### External Runtime Binaries
+### Management endpoints
 
-Hermes Agency does not vendor the Keryx Rust binaries. Obtain `keryxd` and `keryx-relay` from the separately maintained Keryx release or build process, verify the release provenance expected by that project, and run them with least privilege. Legacy AgentAnycast binary-download behavior is confined to the fallback SDK and is not the Keryx installation path.
+Pool management HTTP and local APIs should bind to loopback by default. Non-loopback binds require authentication (for example `HERMES_POOL_TOKEN`). State-changing endpoints must require authentication.
+
+### Model and tool access
 
 ### Hermes Fabric
 
-Hermes Fabric is a separate operator interface. Its current Agency roster and dispatch store are instance-global, so those routes require an instance administrator. Future company-scoped Agency state must enforce company and actor authorization before access. The default Agency dispatch client is unconfigured/dry-run; dry-run records are not proof of live end-to-end dispatch.
+### Outbound remote content
 
-### Models, Tools, and Secrets
-
-Each profile has a configured model and tool scope. Secret values belong in the supported credential stores or environment configuration, never in AgentCards, model-set YAML, public task metadata, documentation, logs, or test fixtures. Reports involving credential disclosure should include redacted evidence only.
+Remote-visible progress, artifacts, and error summaries should not include secrets, credential-bearing URLs, private keys, or local absolute paths. Detailed raw diagnostics stay local.
 
 ## Disclosure Policy
 

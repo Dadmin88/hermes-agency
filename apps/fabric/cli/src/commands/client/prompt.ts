@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import type { Agent, Issue, IssueComment } from "@paperclipai/shared";
-import { addIssueCommentSchema, createIssueSchema } from "@paperclipai/shared";
+import type { Agent, Issue, IssueComment } from "@hermes-fabric/shared";
+import { addIssueCommentSchema, createIssueSchema } from "@hermes-fabric/shared";
 import {
   addCommonClientOptions,
   apiPath,
@@ -39,7 +39,7 @@ export function registerPromptCommands(program: Command): void {
   addCommonClientOptions(
     program
       .command("agent-prompt")
-      .description("Create/update Paperclip work for an agent using an agent API key")
+      .description("Create/update HermesFabric work for an agent using an agent API key")
       .argument("<agent>", "Agent ID, shortname, or name")
       .argument("<agentApiKey>", "Agent API key")
       .argument("<prompt...>", "Prompt text")
@@ -64,7 +64,7 @@ export function registerPromptCommands(program: Command): void {
   addCommonClientOptions(
     agent
       .command("prompt")
-      .description("Create/update Paperclip work using an agent persona")
+      .description("Create/update HermesFabric work using an agent persona")
       .argument("<prompt...>", "Prompt text")
       .option("--agent <agent>", "Agent ID, shortname, or name; defaults to profile/identity agent")
       .option("--api-key-env <name>", "Read the agent API key from this environment variable")
@@ -90,7 +90,7 @@ export function registerPromptCommands(program: Command): void {
   addCommonClientOptions(
     board
       .command("prompt")
-      .description("Create/update Paperclip work for an agent using board auth")
+      .description("Create/update HermesFabric work for an agent using board auth")
       .requiredOption("--agent <agent>", "Target agent ID, shortname, or name")
       .option("-C, --company-id <id>", "Company ID")
       .option("--issue <issueId>", "Append as a comment to an existing issue")

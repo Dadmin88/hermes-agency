@@ -1,4 +1,4 @@
-import type { Goal, Project } from "@paperclipai/shared";
+import type { Goal, Project } from "@hermes-fabric/shared";
 
 export const ONBOARDING_PROJECT_NAME = "Onboarding";
 

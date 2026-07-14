@@ -35,7 +35,7 @@ import type {
   AgentInstructionsBundle,
   AgentInstructionsFileSummary,
   HeartbeatRun,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 export function RunButton({
   onClick,

@@ -51,7 +51,7 @@ const mockGetTelemetryClient = vi.hoisted(() => vi.fn());
 function registerModuleMocks() {
   vi.doMock("../routes/authz.js", async () => vi.importActual("../routes/authz.js"));
 
-  vi.doMock("@paperclipai/shared/telemetry", () => ({
+  vi.doMock("@hermes-fabric/shared/telemetry", () => ({
     trackSkillImported: mockTrackSkillImported,
     trackErrorHandlerCrash: vi.fn(),
   }));
@@ -105,7 +105,7 @@ async function createApp(actor: Record<string, unknown>) {
 describe("company skill mutation permissions", () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.doUnmock("@paperclipai/shared/telemetry");
+    vi.doUnmock("@hermes-fabric/shared/telemetry");
     vi.doUnmock("../telemetry.js");
     vi.doUnmock("../services/access.js");
     vi.doUnmock("../services/activity-log.js");
@@ -224,7 +224,7 @@ describe("company skill mutation permissions", () => {
       skill: {
         id: "skill-1",
         companyId: "company-1",
-        key: "paperclipai/bundled/software-development/review",
+        key: "hermes-fabric/bundled/software-development/review",
         slug: "review",
         name: "review",
         description: "Review code",
@@ -237,15 +237,15 @@ describe("company skill mutation permissions", () => {
         fileInventory: [{ path: "SKILL.md", kind: "skill" }],
         metadata: {
           sourceKind: "catalog",
-          catalogId: "paperclipai:bundled:software-development:review",
+          catalogId: "hermes-fabric:bundled:software-development:review",
           originHash: "sha256:abc",
         },
         createdAt: new Date("2026-05-26T00:00:00.000Z"),
         updatedAt: new Date("2026-05-26T00:00:00.000Z"),
       },
       catalogSkill: {
-        id: "paperclipai:bundled:software-development:review",
-        key: "paperclipai/bundled/software-development/review",
+        id: "hermes-fabric:bundled:software-development:review",
+        key: "hermes-fabric/bundled/software-development/review",
         kind: "bundled",
         category: "software-development",
         slug: "review",
@@ -356,8 +356,8 @@ describe("company skill mutation permissions", () => {
     });
     mockCatalogService.listCatalogSkillsOrEmpty.mockReturnValue([]);
     mockCatalogService.getCatalogSkillOrThrow.mockReturnValue({
-      id: "paperclipai:bundled:software-development:review",
-      key: "paperclipai/bundled/software-development/review",
+      id: "hermes-fabric:bundled:software-development:review",
+      key: "hermes-fabric/bundled/software-development/review",
       kind: "bundled",
       category: "software-development",
       slug: "review",
@@ -375,7 +375,7 @@ describe("company skill mutation permissions", () => {
       contentHash: "sha256:abc",
     });
     mockCatalogService.readCatalogSkillFile.mockResolvedValue({
-      catalogSkillId: "paperclipai:bundled:software-development:review",
+      catalogSkillId: "hermes-fabric:bundled:software-development:review",
       path: "SKILL.md",
       kind: "skill",
       content: "# Review",
@@ -424,7 +424,7 @@ describe("company skill mutation permissions", () => {
       .expect(201);
     await request(app)
       .post("/api/companies/company-1/skills/install-catalog")
-      .send({ catalogSkillId: "paperclipai:bundled:software-development:review" })
+      .send({ catalogSkillId: "hermes-fabric:bundled:software-development:review" })
       .expect(201);
     await request(app)
       .patch("/api/companies/company-1/skills/skill-1")
@@ -476,8 +476,8 @@ describe("company skill mutation permissions", () => {
   it("serves catalog listing without mutating company skills", async () => {
     mockCatalogService.listCatalogSkillsOrEmpty.mockReturnValue([
       {
-        id: "paperclipai:bundled:software-development:review",
-        key: "paperclipai/bundled/software-development/review",
+        id: "hermes-fabric:bundled:software-development:review",
+        key: "hermes-fabric/bundled/software-development/review",
         kind: "bundled",
         category: "software-development",
         slug: "review",
@@ -558,13 +558,13 @@ describe("company skill mutation permissions", () => {
     }))
       .post("/api/companies/company-1/skills/install-catalog")
       .send({
-        catalogSkillId: "paperclipai:bundled:software-development:review",
+        catalogSkillId: "hermes-fabric:bundled:software-development:review",
         slug: "review",
       });
 
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     expect(mockCompanySkillService.installFromCatalog).toHaveBeenCalledWith("company-1", {
-      catalogSkillId: "paperclipai:bundled:software-development:review",
+      catalogSkillId: "hermes-fabric:bundled:software-development:review",
       slug: "review",
     });
     expect(mockLogActivity).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
@@ -573,8 +573,8 @@ describe("company skill mutation permissions", () => {
       entityType: "company_skill",
       entityId: "skill-1",
       details: expect.objectContaining({
-        catalogId: "paperclipai:bundled:software-development:review",
-        catalogKey: "paperclipai/bundled/software-development/review",
+        catalogId: "hermes-fabric:bundled:software-development:review",
+        catalogKey: "hermes-fabric/bundled/software-development/review",
         originHash: "sha256:abc",
       }),
     }));
@@ -751,7 +751,7 @@ describe("company skill mutation permissions", () => {
       runId: "run-1",
     }))
       .post("/api/companies/company-2/skills/install-catalog")
-      .send({ catalogSkillId: "paperclipai:bundled:software-development:review" });
+      .send({ catalogSkillId: "hermes-fabric:bundled:software-development:review" });
 
     expect(res.status, JSON.stringify(res.body)).toBe(403);
     expect(mockCompanySkillService.installFromCatalog).not.toHaveBeenCalled();

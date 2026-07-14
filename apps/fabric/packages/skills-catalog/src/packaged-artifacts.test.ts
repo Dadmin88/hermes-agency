@@ -24,7 +24,7 @@ describe("skills catalog package artifacts", () => {
   const cleanup: string[] = [];
 
   function createPackDestination() {
-    const destination = mkdtempSync(path.join(tmpdir(), "paperclip-skills-catalog-pack-"));
+    const destination = mkdtempSync(path.join(tmpdir(), "fabric-skills-catalog-pack-"));
     cleanup.push(destination);
     return destination;
   }
@@ -38,9 +38,9 @@ describe("skills catalog package artifacts", () => {
     let metadata = readPackMetadata(createPackDestination());
 
     if (!metadata.files.some((entry) => entry.path === "dist/generated/catalog.json")) {
-      execFileSync("pnpm", ["--filter", "@paperclipai/skills-catalog", "build"], {
+      execFileSync("pnpm", ["run", "build"], {
         cwd: packageRoot,
-        stdio: "ignore",
+        stdio: "inherit",
       });
       metadata = readPackMetadata(createPackDestination());
     }

@@ -117,7 +117,7 @@ function parseStdoutLine(line, ts) {
   const trimmed = line.trim();
   if (!trimmed) return [];
 
-  if (trimmed.startsWith("[hermes]") || trimmed.startsWith("[paperclip]")) {
+  if (trimmed.startsWith("[hermes]") || trimmed.startsWith("[fabric]")) {
     return [{ kind: "system", ts, text: trimmed }];
   }
 

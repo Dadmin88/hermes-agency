@@ -1,13 +1,13 @@
 import { AlertTriangle, Clock, Pause, User, Wrench } from "lucide-react";
 import type { ComponentType } from "react";
-import type { IssueBlockedInboxSeverity } from "@paperclipai/shared";
+import type { IssueBlockedInboxSeverity } from "@hermes-fabric/shared";
 import { cn } from "../lib/utils";
 import {
   blockedReasonVariant,
   blockedVariantLabel,
   type BlockedReasonVariant,
 } from "../lib/blockedInbox";
-import type { IssueBlockedInboxReason } from "@paperclipai/shared";
+import type { IssueBlockedInboxReason } from "@hermes-fabric/shared";
 
 interface BlockedReasonChipProps {
   reason: IssueBlockedInboxReason;

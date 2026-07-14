@@ -128,7 +128,7 @@ function agentActor(overrides: Record<string, unknown> = {}) {
 function readyPlugin() {
   mockRegistry.getById.mockResolvedValue({
     id: pluginId,
-    pluginKey: "paperclip.example",
+    pluginKey: "fabric.example",
     version: "1.0.0",
     status: "ready",
   });
@@ -149,16 +149,16 @@ describe.sequential("plugin install and upgrade authz", () => {
     const byPackageName = new Map(
       res.body.map((plugin: { packageName: string; experimental: boolean; hasBuiltEntrypoints: boolean }) => [plugin.packageName, plugin]),
     );
-    expect(packageNames).toContain("@paperclipai/plugin-workspace-diff");
-    expect(packageNames).toContain("@paperclipai/plugin-llm-wiki");
-    expect(packageNames).toContain("@paperclipai/plugin-modal");
-    expect(packageNames).toContain("@paperclipai/plugin-authoring-smoke-example");
-    expect(packageNames).not.toContain("@paperclipai/plugin-sdk");
-    expect(byPackageName.get("@paperclipai/plugin-workspace-diff")?.experimental).toBe(true);
-    expect(byPackageName.get("@paperclipai/plugin-llm-wiki")?.experimental).toBe(true);
-    expect(byPackageName.get("@paperclipai/plugin-modal")?.experimental).toBe(true);
-    expect(byPackageName.get("@paperclipai/plugin-authoring-smoke-example")?.experimental).toBe(false);
-    expect(typeof byPackageName.get("@paperclipai/plugin-workspace-diff")?.hasBuiltEntrypoints).toBe("boolean");
+    expect(packageNames).toContain("@hermes-fabric/plugin-workspace-diff");
+    expect(packageNames).toContain("@hermes-fabric/plugin-llm-wiki");
+    expect(packageNames).toContain("@hermes-fabric/plugin-modal");
+    expect(packageNames).toContain("@hermes-fabric/plugin-authoring-smoke-example");
+    expect(packageNames).not.toContain("@hermes-fabric/plugin-sdk");
+    expect(byPackageName.get("@hermes-fabric/plugin-workspace-diff")?.experimental).toBe(true);
+    expect(byPackageName.get("@hermes-fabric/plugin-llm-wiki")?.experimental).toBe(true);
+    expect(byPackageName.get("@hermes-fabric/plugin-modal")?.experimental).toBe(true);
+    expect(byPackageName.get("@hermes-fabric/plugin-authoring-smoke-example")?.experimental).toBe(false);
+    expect(typeof byPackageName.get("@hermes-fabric/plugin-workspace-diff")?.hasBuiltEntrypoints).toBe("boolean");
   }, 20_000);
 
   it("rejects plugin installation for non-admin board users", async () => {
@@ -172,7 +172,7 @@ describe.sequential("plugin install and upgrade authz", () => {
 
     const res = await request(app)
       .post("/api/plugins/install")
-      .send({ packageName: "paperclip-plugin-example" });
+      .send({ packageName: "fabric-plugin-example" });
 
     expect(res.status).toBe(403);
     expect(loader.installPlugin).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe.sequential("plugin install and upgrade authz", () => {
 
   it("allows instance admins to install plugins", async () => {
     const pluginId = "11111111-1111-4111-8111-111111111111";
-    const pluginKey = "paperclip.example";
+    const pluginKey = "fabric.example";
     const discovered = {
       manifest: {
         id: pluginKey,
@@ -190,13 +190,13 @@ describe.sequential("plugin install and upgrade authz", () => {
     mockRegistry.getByKey.mockResolvedValue({
       id: pluginId,
       pluginKey,
-      packageName: "paperclip-plugin-example",
+      packageName: "fabric-plugin-example",
       version: "1.0.0",
     });
     mockRegistry.getById.mockResolvedValue({
       id: pluginId,
       pluginKey,
-      packageName: "paperclip-plugin-example",
+      packageName: "fabric-plugin-example",
       version: "1.0.0",
     });
     mockLifecycle.load.mockResolvedValue(undefined);
@@ -214,11 +214,11 @@ describe.sequential("plugin install and upgrade authz", () => {
 
     const res = await request(app)
       .post("/api/plugins/install")
-      .send({ packageName: "paperclip-plugin-example" });
+      .send({ packageName: "fabric-plugin-example" });
 
     expect(res.status).toBe(200);
     expect(loader.installPlugin).toHaveBeenCalledWith({
-      packageName: "paperclip-plugin-example",
+      packageName: "fabric-plugin-example",
       version: undefined,
     });
     expect(mockLifecycle.load).toHaveBeenCalledWith(pluginId);
@@ -269,7 +269,7 @@ describe.sequential("plugin install and upgrade authz", () => {
   }, 20_000);
 
   it("resolves plugin keys without probing the UUID id column for core plugin actions", async () => {
-    const pluginKey = "paperclipqa.hello-plugin";
+    const pluginKey = "fabricqa.hello-plugin";
     const plugin = {
       id: pluginId,
       pluginKey,
@@ -336,7 +336,7 @@ describe.sequential("plugin install and upgrade authz", () => {
     const pluginId = "11111111-1111-4111-8111-111111111111";
     mockRegistry.getById.mockResolvedValue({
       id: pluginId,
-      pluginKey: "paperclip.example",
+      pluginKey: "fabric.example",
       version: "1.0.0",
     });
     mockLifecycle.upgrade.mockResolvedValue({
@@ -377,11 +377,11 @@ describe.sequential("scoped plugin API routes", () => {
     mockRegistry.getById.mockResolvedValue(null);
     mockRegistry.getByKey.mockResolvedValue({
       id: pluginId,
-      pluginKey: "paperclip.example",
+      pluginKey: "fabric.example",
       version: "1.0.0",
       status: "ready",
       manifestJson: {
-        id: "paperclip.example",
+        id: "fabric.example",
         capabilities: ["api.routes.register"],
         apiRoutes: [
           {
@@ -409,7 +409,7 @@ describe.sequential("scoped plugin API routes", () => {
     );
 
     const res = await request(app)
-      .get("/api/plugins/paperclip.example/api/smoke")
+      .get("/api/plugins/fabric.example/api/smoke")
       .query({ companyId: "company-1" });
 
     expect(res.status).toBe(202);
@@ -436,11 +436,11 @@ describe.sequential("plugin local folder routes", () => {
   function readyLocalFolderPlugin() {
     mockRegistry.getById.mockResolvedValue({
       id: pluginId,
-      pluginKey: "paperclip.example",
+      pluginKey: "fabric.example",
       version: "1.0.0",
       status: "ready",
       manifestJson: {
-        id: "paperclip.example",
+        id: "fabric.example",
         capabilities: ["local.folders"],
         localFolders: [
           {
@@ -503,7 +503,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: {},
         runContext: {
           agentId: agentA,
@@ -557,7 +557,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search" })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search" })),
             executeTool,
           },
         },
@@ -566,7 +566,7 @@ describe.sequential("plugin tool and bridge authz", () => {
       const res = await request(app)
         .post("/api/plugins/tools/execute")
         .send({
-          tool: "paperclip.example:search",
+          tool: "fabric.example:search",
           parameters: {},
           runContext: {
             agentId: agentA,
@@ -592,7 +592,7 @@ describe.sequential("plugin tool and bridge authz", () => {
       toolDeps: {
         toolDispatcher: {
           listToolsForAgent: vi.fn(),
-          getTool: vi.fn(() => ({ name: "paperclip.example:search" })),
+          getTool: vi.fn(() => ({ name: "fabric.example:search" })),
           executeTool,
         },
       },
@@ -601,7 +601,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: { q: "test" },
         runContext: {
           agentId: agentA,
@@ -613,7 +613,7 @@ describe.sequential("plugin tool and bridge authz", () => {
 
     expect(res.status).toBe(200);
     expect(executeTool).toHaveBeenCalledWith(
-      "paperclip.example:search",
+      "fabric.example:search",
       { q: "test" },
       {
         agentId: agentA,
@@ -869,7 +869,7 @@ describe.sequential("plugin tool and bridge authz", () => {
       message: "missing source_objects column",
       details: {
         pluginId,
-        pluginKey: "paperclip.example",
+        pluginKey: "fabric.example",
         bridgeMethod: "getData",
         dataKey: "source-objects",
         bridgeCode: "UNKNOWN",
@@ -970,7 +970,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search", pluginDbId: pluginId })),
             executeTool,
           },
         },
@@ -980,14 +980,14 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: { q: "test" },
         runContext: { agentId: agentA, runId: runA, companyId: companyA, projectId: projectA },
       });
 
     expect(res.status).toBe(200);
     expect(executeTool).toHaveBeenCalledWith(
-      "paperclip.example:search",
+      "fabric.example:search",
       { q: "test" },
       { agentId: agentA, runId: runA, companyId: companyA, projectId: projectA },
     );
@@ -1004,7 +1004,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search", pluginDbId: pluginId })),
             executeTool,
           },
         },
@@ -1014,7 +1014,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: {},
         runContext: { agentId: otherAgent, runId: runA, companyId: companyA, projectId: projectA },
       });
@@ -1035,7 +1035,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search", pluginDbId: pluginId })),
             executeTool,
           },
         },
@@ -1045,7 +1045,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: {},
         runContext: { agentId: agentA, runId: otherRun, companyId: companyA, projectId: projectA },
       });
@@ -1065,7 +1065,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search", pluginDbId: pluginId })),
             executeTool,
           },
         },
@@ -1075,7 +1075,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: {},
         runContext: { agentId: agentA, runId: runA, companyId: companyA, projectId: projectA },
       });
@@ -1095,7 +1095,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search", pluginDbId: pluginId })),
             executeTool,
           },
         },
@@ -1105,7 +1105,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: {},
         runContext: { agentId: agentA, runId: runA, companyId: companyB, projectId: projectA },
       });
@@ -1127,7 +1127,7 @@ describe.sequential("plugin tool and bridge authz", () => {
         toolDeps: {
           toolDispatcher: {
             listToolsForAgent: vi.fn(),
-            getTool: vi.fn(() => ({ name: "paperclip.example:search", pluginDbId: pluginId })),
+            getTool: vi.fn(() => ({ name: "fabric.example:search", pluginDbId: pluginId })),
             executeTool,
           },
         },
@@ -1137,7 +1137,7 @@ describe.sequential("plugin tool and bridge authz", () => {
     const res = await request(app)
       .post("/api/plugins/tools/execute")
       .send({
-        tool: "paperclip.example:search",
+        tool: "fabric.example:search",
         parameters: {},
         runContext: { agentId: otherAgent, runId: runA, companyId: companyA, projectId: projectA },
       });

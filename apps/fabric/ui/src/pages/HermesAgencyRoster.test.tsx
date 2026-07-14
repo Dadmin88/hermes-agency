@@ -3,7 +3,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { HermesAgencyAgent, HermesAgencyRosterResponse } from "@paperclipai/shared";
+import type { HermesAgencyAgent, HermesAgencyRosterResponse } from "@hermes-fabric/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HermesAgencyRoster } from "./HermesAgencyRoster";
 
@@ -127,16 +127,14 @@ describe("HermesAgencyRoster", () => {
     expect(container.textContent).toContain("1 wake failed");
     expect(container.textContent).toContain("agency-backend-engineer");
     expect(container.textContent).toContain("Offline target");
-
-    const agentRow = Array.from(container.querySelectorAll("button")).find((button) => (
-      button.textContent?.includes("agency-backend-engineer")
-    ));
-    expect(agentRow).toBeDefined();
+    const backendRow = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("agency-backend-engineer"),
+    ) as HTMLButtonElement | undefined;
+    expect(backendRow).toBeTruthy();
     await act(async () => {
-      agentRow!.click();
+      backendRow?.click();
     });
     await flushReact();
-
     expect(container.textContent).toContain("Error: profile agency-backend-engineer not found");
   });
 
@@ -201,26 +199,25 @@ describe("HermesAgencyRoster", () => {
     const { container, root } = await renderPage();
     roots.push(root);
 
-    const taskControlsToggle = Array.from(container.querySelectorAll("button")).find((button) => (
-      button.textContent?.trim() === "Task controls"
-    ));
-    const agentRow = Array.from(container.querySelectorAll("button")).find((button) => (
-      button.textContent?.includes("agency-backend-engineer")
-    ));
-    expect(taskControlsToggle).toBeDefined();
-    expect(agentRow).toBeDefined();
+    const agentRow = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("agency-backend-engineer"),
+    ) as HTMLButtonElement | undefined;
+    const taskControls = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.trim() === "Task controls",
+    ) as HTMLButtonElement | undefined;
+    expect(agentRow).toBeTruthy();
+    expect(taskControls).toBeTruthy();
     await act(async () => {
-      taskControlsToggle!.click();
-      agentRow!.click();
+      agentRow?.click();
+      taskControls?.click();
     });
     await flushReact();
-
-    const sendTaskButton = Array.from(container.querySelectorAll("button")).find((button) => (
-      button.textContent?.trim() === "Send task"
-    ));
-    expect(sendTaskButton).toBeDefined();
+    const sendTask = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Send task"),
+    ) as HTMLButtonElement | undefined;
+    expect(sendTask).toBeTruthy();
     await act(async () => {
-      sendTaskButton!.click();
+      sendTask?.click();
     });
     await flushReact();
 

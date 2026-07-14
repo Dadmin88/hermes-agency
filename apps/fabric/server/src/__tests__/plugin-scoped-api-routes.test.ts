@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pluginManifestV1Schema, type PaperclipPluginManifestV1 } from "@paperclipai/shared";
+import { pluginManifestV1Schema, type HermesFabricPluginManifestV1 } from "@hermes-fabric/shared";
 
 const mockRegistry = vi.hoisted(() => ({
   getById: vi.fn(),
@@ -38,14 +38,14 @@ vi.mock("../services/live-events.js", () => ({
   publishGlobalLiveEvent: vi.fn(),
 }));
 
-function manifest(apiRoutes: NonNullable<PaperclipPluginManifestV1["apiRoutes"]>): PaperclipPluginManifestV1 {
+function manifest(apiRoutes: NonNullable<HermesFabricPluginManifestV1["apiRoutes"]>): HermesFabricPluginManifestV1 {
   return {
-    id: "paperclip.scoped-api-test",
+    id: "fabric.scoped-api-test",
     apiVersion: 1,
     version: "1.0.0",
     displayName: "Scoped API Test",
     description: "Test plugin for scoped API routes",
-    author: "Paperclip",
+    author: "Hermes Fabric",
     categories: ["automation"],
     capabilities: ["api.routes.register"],
     entrypoints: { worker: "dist/worker.js" },

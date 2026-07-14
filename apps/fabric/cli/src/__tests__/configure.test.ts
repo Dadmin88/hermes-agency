@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { configure } from "../commands/configure.js";
-import type { PaperclipConfig } from "../config/schema.js";
+import type { HermesFabricConfig } from "../config/schema.js";
 
 const ORIGINAL_EXIT_CODE = process.exitCode;
 
@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 function writeBaseConfig(configPath: string) {
-  const base: PaperclipConfig = {
+  const base: HermesFabricConfig = {
     $meta: {
       version: 1,
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -20,18 +20,18 @@ function writeBaseConfig(configPath: string) {
     },
     database: {
       mode: "embedded-postgres",
-      embeddedPostgresDataDir: "/tmp/paperclip-db",
+      embeddedPostgresDataDir: "/tmp/fabric-db",
       embeddedPostgresPort: 54329,
       backup: {
         enabled: true,
         intervalMinutes: 60,
         retentionDays: 30,
-        dir: "/tmp/paperclip-backups",
+        dir: "/tmp/fabric-backups",
       },
     },
     logging: {
       mode: "file",
-      logDir: "/tmp/paperclip-logs",
+      logDir: "/tmp/fabric-logs",
     },
     server: {
       deploymentMode: "local_trusted",
@@ -51,9 +51,9 @@ function writeBaseConfig(configPath: string) {
     },
     storage: {
       provider: "local_disk",
-      localDisk: { baseDir: "/tmp/paperclip-storage" },
+      localDisk: { baseDir: "/tmp/fabric-storage" },
       s3: {
-        bucket: "paperclip",
+        bucket: "fabric",
         region: "us-east-1",
         prefix: "",
         forcePathStyle: false,
@@ -62,7 +62,7 @@ function writeBaseConfig(configPath: string) {
     secrets: {
       provider: "local_encrypted",
       strictMode: false,
-      localEncrypted: { keyFilePath: "/tmp/paperclip-secrets/master.key" },
+      localEncrypted: { keyFilePath: "/tmp/fabric-secrets/master.key" },
     },
   };
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -71,7 +71,7 @@ function writeBaseConfig(configPath: string) {
 
 describe("configure command", () => {
   it("sets a failing exit code for unknown sections", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-configure-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "fabric-configure-"));
     const configPath = path.join(root, "config.json");
     writeBaseConfig(configPath);
 
@@ -85,7 +85,7 @@ describe("configure command", () => {
   });
 
   it("sets a failing exit code when no config exists", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-configure-missing-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "fabric-configure-missing-"));
     const configPath = path.join(root, "missing.json");
 
     try {

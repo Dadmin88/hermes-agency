@@ -1,5 +1,5 @@
 /**
- * UI module exports — used by Paperclip's dashboard for run viewing
+ * UI module exports — used by HermesFabric's dashboard for run viewing
  * and agent configuration forms.
  */
 

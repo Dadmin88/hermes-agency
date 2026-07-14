@@ -8,26 +8,107 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
-- Keryx primary transport integration through `agency.transport_backend: keryx`
-- Vendored Keryx Python SDK under `src/keryx/`
-- Transport-selection diagnostics and Keryx-aware node and pool paths
-- Hermes Fabric generated-catalog, type, test, and build gates in root CI
-- Clean-wheel installation and packaged-resource smoke checks in CI and release workflows
+- Keryx primary transport integration (`agency.transport_backend: keryx`)
+- Vendored Keryx Python SDK at `src/keryx/` with deterministic sync manifest
+- Phase 17 live multi-process Agency round trip (`scripts/e2e_agency_keryx.py`, CI workflow)
+- Transport selection helpers and Keryx-aware node/pool paths
+- Agency golden-path integration proof (`hermes-agency/tests/test_golden_path.py`)
+- Pool process-safety, profile validation, and node lifecycle concurrency protections
+- `hermes-agency/tests/test_keryx_transport.py` smoke suite
+- Full remediation plan: `docs/plans/2026-07-13-hermes-agency-full-remediation.md`
 
 ### Changed
 
-- Public product and contributor documentation now describes Keryx as primary transport and AgentAnycast as legacy/fallback only
-- Hermes Fabric profile resolution honors `HERMES_PROFILES_DIR`, then `HERMES_HOME/profiles`, before the default home
-- Linux Fabric runtime service ownership detection falls back to `fuser` when `lsof` is unavailable
-- CI and release workflows run both the legacy compatibility SDK tests and Hermes Agency/Keryx tests
-
-### Security
-
-- Pool HTTP mutations fail closed when bearer-token authentication is not configured
-- Recovered remote tasks revalidate sender trust before execution
-- Hermes Fabric rejects profile configuration writes that escape the configured profiles root through symlinks
+- Public docs, AGENTS guides, llms.txt, SECURITY, and CONTRIBUTING describe Keryx as primary transport
+- Product claim ledger updated: Phase 17 live round trip is shipped; Fabric live dispatch remains follow-up
+- AgentAnycast retained under `src/agentanycast/` as legacy/fallback only
+- Development install no longer requires a separate git URL for the Keryx Python package
+- Examples: `examples/hello_world.py` is Keryx-first
 
 ### Notes
 
-- External Keryx binaries (`keryxd`, `keryx-relay`) and migration or dual-run scripts live in the separate `hermes-keryx` repository
-- Historical AgentAnycast Python SDK release notes are preserved in [`src/agentanycast/CHANGELOG.md`](src/agentanycast/CHANGELOG.md)
+- External Keryx binaries (`keryxd`, `keryx-relay`) and migration/dual-run scripts live in the separate `hermes-keryx` repository
+- Residual hardening (reauth, outbound redaction, CI taxonomy) tracked in the 2026-07-13 remediation plan
+
+## [0.7.0] - 2026-03-21
+
+### Added
+
+- Claude Agent SDK adapter (`agentanycast[claude]`) — expose prompt-based agents over P2P
+- AWS Strands Agents adapter (`agentanycast[strands]`) — bridge Strands agents to P2P
+- Proto stubs updated with OpenTelemetry trace context fields for distributed tracing
+
+## [0.6.0] - 2026-03-20
+
+### Added
+
+- MCP server mode with stdio and HTTP transports
+- AGNTCY Directory client for agent discovery via the AGNTCY ecosystem
+- Streaming support for chunked artifact delivery
+- `did:web` and `did:dns` DID method support alongside existing `did:key`
+- `BaseAdapter` ABC for consistent adapter authoring with auto-card generation
+
+### Changed
+
+- Adapter robustness improvements and MCP server correctness fixes
+
+## [0.5.0] - 2026-03-19
+
+### Added
+
+- Google ADK adapter (`agentanycast[google-adk]`)
+- OpenAI Agents SDK adapter (`agentanycast[openai-agents]`)
+- A2A v1.0 protocol compatibility layer (`task_to_a2a_json` / `task_from_a2a_json`)
+- OASF record conversion (`card_to_oasf_record` / `card_from_oasf_record`)
+- AI discoverability metadata for package indexes
+
+## [0.4.0] - 2026-03-19
+
+### Added
+
+- CrewAI adapter (`agentanycast[crewai]`) — serve CrewAI crews as P2P agents
+- LangGraph adapter (`agentanycast[langgraph]`) — serve compiled graphs as P2P agents
+- Click-based CLI with `demo`, `discover`, `send`, `status`, and `info` commands
+- Integration test framework with Docker Compose E2E tests
+
+## [0.3.0] - 2026-03-18
+
+### Added
+
+- HTTP Bridge support — `url=` parameter in `send_task()` for interop with standard HTTP A2A agents
+- MCP tool mapping (`mcp_tools_to_agent_card`, `mcp_tool_to_skill`, `skill_to_mcp_tool`)
+- DID support (`peer_id_to_did_key`, `did_key_to_peer_id`)
+- PyPI release workflow with OIDC Trusted Publishing
+
+## [0.2.0] - 2026-03-18
+
+### Added
+
+- Skill-based anycast discovery via `discover()` method
+- Relay connection support for cross-network communication
+- `connect_peer()` and `list_peers()` for peer management
+- Real P2P task E2E tests over Noise-encrypted channels
+
+## [0.1.0] - 2026-03-17
+
+### Added
+
+- `Node` class — async context manager for P2P agent communication
+- `AgentCard` and `Skill` dataclasses for agent capability description
+- `TaskHandle` for tracking outgoing tasks with `wait()` support
+- `IncomingTask` for receiving and responding to tasks (`complete()`, `fail()`, `update_status()`)
+- Automatic daemon lifecycle management (start, stop, health check)
+- Auto-download of daemon binary when not provided
+- gRPC client for SDK-daemon communication over Unix domain socket
+- `home` parameter for running multiple nodes on the same machine
+- Hello world example with server and client agents
+- PEP 561 `py.typed` marker for type checking support
+- CI pipeline with ruff lint, mypy type check, and multi-version pytest
+
+[0.7.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.7.0
+[0.6.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.6.0
+[0.5.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.5.0
+[0.4.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.4.0
+[0.3.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.3.0
+[0.2.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.2.0
+[0.1.0]: https://github.com/AgentAnycast/agentanycast-python/releases/tag/v0.1.0

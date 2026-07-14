@@ -131,7 +131,15 @@ import {
   remoteSecretImportSchema,
   workspaceFileListQuerySchema,
   workspaceFileResourceQuerySchema,
-} from "@paperclipai/shared";
+  applyModelSetSchema,
+  createModelSetSchema,
+  deleteProfileOverrideQuerySchema,
+  modelSetCompanyQuerySchema,
+  putDepartmentOverridesSchema,
+  putModelPricingSchema,
+  updateModelSetSchema,
+  upsertProfileOverrideSchema,
+} from "@hermes-fabric/shared";
 
 type JsonSchema = Record<string, unknown>;
 type OpenApiResponse = Record<string, unknown>;
@@ -456,6 +464,42 @@ const refreshExternalObjectsBodySchema = z.object({
   objectIds: z.array(z.string().uuid()).max(50).optional(),
 }).strict();
 
+const hermesAgencyIssuePreviewSchema = z.object({
+  id: z.string().optional(),
+  identifier: z.string().optional(),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  priority: z.string().optional(),
+  labels: z.array(
+    z.object({
+      name: z.string(),
+    }),
+  ).optional(),
+  currentExecutionWorkspace: z.object({
+    name: z.string().optional(),
+    rootPath: z.string().optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+const hermesAgencyTaskPacketPreviewBodySchema = z.object({
+  issue: hermesAgencyIssuePreviewSchema,
+  requestedSkills: z.array(z.string()).optional(),
+  targetAgentName: z.string().nullable().optional(),
+  validationExpectations: z.array(z.string()).optional(),
+  artifactExpectations: z.array(z.string()).optional(),
+  stopConditions: z.array(z.string()).optional(),
+});
+
+const hermesAgencyDispatchBodySchema = z.object({
+  packet: z.object({
+    title: z.string().min(1),
+  }).passthrough(),
+  mode: z.enum([
+    "skill-fit",
+    "direct-agent",
+  ]).optional(),
+});
+
 function paramsSchemaFromPath(routePath: string): z.ZodObject<z.ZodRawShape> | undefined {
   const names = [...routePath.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]);
   if (names.length === 0) return undefined;
@@ -542,6 +586,11 @@ const BOARD_ONLY_PREFIXES = [
   "/api/model-",
   "/api/plugins",
   "/api/instance/",
+  "/api/hermes-agency",
+  "/api/model-sets",
+  "/api/model-overrides",
+  "/api/model-pricing",
+  "/api/model-cost-estimate",
 ];
 
 const BOARD_ONLY_OPERATIONS = new Set([
@@ -702,7 +751,7 @@ function applyDocumentFixups(document: any): any {
     [BOARD_SESSION_AUTH_SCHEME]: {
       type: "apiKey",
       in: "cookie",
-      name: "paperclip_session",
+      name: "fabric_session",
       description:
         "Board session cookie in authenticated mode. Hermes Agency uses Better Auth; cookie transport may vary by deployment.",
     },
@@ -733,7 +782,7 @@ function applyDocumentFixups(document: any): any {
         operation.security = BOARD_SECURITY;
       }
 
-      operation["x-paperclip-authorization"] =
+      operation["x-fabric-authorization"] =
         authLevel === "instance_admin"
           ? { actor: "board", instanceAdmin: true }
           : authLevel === "board"
@@ -4190,6 +4239,196 @@ registry.registerPath({
   summary: "Get adapter UI parser script",
   request: { params: z.object({ type: z.string() }) },
   responses: { 200: { description: "JavaScript file" }, 404: r.notFound },
+});
+
+// ─── Hermes Agency ──────────────────────────────────────────────────────────
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/hermes-agency/roster",
+  tags: ["hermes-agency"],
+  summary: "List the installed Hermes Agency roster",
+  responses: {
+    200: r.ok(),
+    401: r.unauthorized,
+    503: {
+      description: "Hermes Agency roster is unavailable",
+    },
+  },
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/hermes-agency/task-packet-preview",
+  tags: ["hermes-agency"],
+  summary: "Preview a Hermes Agency task packet",
+  body: hermesAgencyTaskPacketPreviewBodySchema,
+  responses: {
+    200: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+  },
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/hermes-agency/dispatch",
+  tags: ["hermes-agency"],
+  summary: "Dispatch a task through Hermes Agency",
+  body: hermesAgencyDispatchBodySchema,
+  responses: {
+    202: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+    503: {
+      description: "Hermes Agency dispatch is unavailable",
+    },
+  },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/hermes-agency/dispatches/{id}",
+  tags: ["hermes-agency"],
+  summary: "Get a Hermes Agency dispatch record",
+  responses: {
+    200: r.ok(),
+    401: r.unauthorized,
+    404: r.notFound,
+  },
+});
+
+// ─── Model sets and routing overrides ────────────────────────────────────────
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-sets",
+  tags: ["model-sets"],
+  summary: "List model sets for a company",
+  query: modelSetCompanyQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-sets/{name}",
+  tags: ["model-sets"],
+  summary: "Get a model set",
+  query: modelSetCompanyQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/model-sets",
+  tags: ["model-sets"],
+  summary: "Create a model set",
+  body: createModelSetSchema,
+  responses: {
+    201: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+  },
+});
+
+registerCurrentRoute({
+  method: "put",
+  path: "/api/model-sets/{name}",
+  tags: ["model-sets"],
+  summary: "Update a model set",
+  body: updateModelSetSchema,
+});
+
+registerCurrentRoute({
+  method: "delete",
+  path: "/api/model-sets/{name}",
+  tags: ["model-sets"],
+  summary: "Delete a model set",
+  query: modelSetCompanyQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-sets/{name}/preview",
+  tags: ["model-sets"],
+  summary: "Preview applying a model set",
+  query: modelSetCompanyQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/model-sets/{name}/apply",
+  tags: ["model-sets"],
+  summary: "Apply a model set",
+  body: applyModelSetSchema,
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-overrides/department",
+  tags: ["model-sets"],
+  summary: "List department model overrides",
+  query: modelSetCompanyQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "put",
+  path: "/api/model-overrides/department",
+  tags: ["model-sets"],
+  summary: "Replace department model overrides",
+  body: putDepartmentOverridesSchema,
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-overrides/profile",
+  tags: ["model-sets"],
+  summary: "List profile model overrides",
+  query: modelSetCompanyQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "put",
+  path: "/api/model-overrides/profile/{agentId}",
+  tags: ["model-sets"],
+  summary: "Create or update a profile model override",
+  body: upsertProfileOverrideSchema,
+});
+
+registerCurrentRoute({
+  method: "delete",
+  path: "/api/model-overrides/profile/{agentId}",
+  tags: ["model-sets"],
+  summary: "Delete a profile model override",
+  query: deleteProfileOverrideQuerySchema,
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-pricing",
+  tags: ["model-sets"],
+  summary: "List model pricing",
+});
+
+registerCurrentRoute({
+  method: "put",
+  path: "/api/model-pricing",
+  tags: ["model-sets"],
+  summary: "Update model pricing",
+  body: putModelPricingSchema,
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/model-pricing/auto-detect",
+  tags: ["model-sets"],
+  summary: "Auto-detect OpenRouter model pricing",
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/model-cost-estimate",
+  tags: ["model-sets"],
+  summary: "Estimate model costs for a company",
+  query: modelSetCompanyQuerySchema,
 });
 
 // ─── Current route coverage ─────────────────────────────────────────────────

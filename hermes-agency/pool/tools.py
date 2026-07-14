@@ -34,10 +34,43 @@ from .roster import (
     update_agent_status,
 )
 
+# Backward-compatible module attribute; prefer profiles_dir() for runtime resolution.
 PROFILES = Path.home() / ".hermes" / "profiles"
 NODE_RUNNER = Path(__file__).with_name("agency_node_runner.py")
 PLUGIN_PATH = Path(__file__).resolve().parents[1]
 STARTUP_WAIT = 90
+
+
+def profiles_dir() -> Path:
+    """Resolve the active profiles directory at call time.
+
+    Precedence:
+    1. ``HERMES_PROFILES_DIR``
+    2. ``HERMES_HOME/profiles``
+    3. default Hermes home profiles (``~/.hermes/profiles``)
+
+    Tests may still monkeypatch the module-level ``PROFILES`` attribute; when
+    ``PROFILES`` differs from the process default it is treated as an explicit
+    override.
+    """
+
+    explicit_profiles = os.environ.get("HERMES_PROFILES_DIR", "").strip()
+    if explicit_profiles:
+        return Path(explicit_profiles).expanduser()
+
+    hermes_home = os.environ.get("HERMES_HOME", "").strip()
+    if hermes_home:
+        home = Path(hermes_home).expanduser()
+        # Active profile homes look like .../profiles/<name>; resolve the shared tree.
+        if home.parent.name == "profiles":
+            return home.parent
+        return home / "profiles"
+
+    default = Path.home() / ".hermes" / "profiles"
+    # Preserve test/monkeypatch overrides of the module constant when env is unset.
+    if PROFILES != default:
+        return Path(PROFILES).expanduser()
+    return default
 
 
 def _current_orchestrator_identity() -> dict[str, str] | None:
@@ -111,9 +144,9 @@ def _ensure_worker_trusts_current_orchestrator(name: str, profile_dir: Path) -> 
 
 def _validate_agent_name(name: str) -> str | None:
     """Return an error message when an agent lifecycle name is invalid."""
-    if not name.startswith("agency-"):
+    if not isinstance(name, str) or not name.startswith("agency-"):
         return "name must start with 'agency-'"
-    if not re.fullmatch(r"[a-z0-9-]+", name):
+    if not re.fullmatch(r"agency-[a-z0-9][a-z0-9-]*", name):
         return "name must be lowercase alphanumeric with hyphens"
     if len(name) > 64:
         return "name must be 64 characters or fewer"
@@ -122,11 +155,34 @@ def _validate_agent_name(name: str) -> str | None:
 
 def _profile_dir_for_agent_name(name: str) -> Path:
     """Build a safe profile directory path for a validated agent name."""
-    profile_root = PROFILES.expanduser().resolve()
+    profile_root = profiles_dir().expanduser().resolve()
     profile_dir = (profile_root / name).resolve()
     if profile_dir.parent != profile_root or profile_dir.name != name:
         raise ValueError("profile dir must be directly under profiles")
     return profile_dir
+
+
+def _normalise_pool_name(name: object) -> tuple[str | None, str | None]:
+    """Normalize a short pool name and reject malformed lifecycle targets."""
+    if not isinstance(name, str):
+        return None, "name must be a string"
+    candidate = name if name.startswith("agency-") else f"agency-{name}"
+    error = _validate_agent_name(candidate)
+    return (None, error) if error else (candidate, None)
+
+
+def _resolve_existing_pool_profile(name: object) -> tuple[str, Path] | tuple[None, str]:
+    """Return a validated, canonical existing pool profile."""
+    candidate, error = _normalise_pool_name(name)
+    if candidate is None:
+        return None, error or "invalid profile name"
+    try:
+        profile_dir = _profile_dir_for_agent_name(candidate)
+    except ValueError as exc:
+        return None, str(exc)
+    if not profile_dir.is_dir():
+        return None, f"profile {candidate} not found"
+    return candidate, profile_dir
 
 
 def _pid_alive(pid: int) -> bool:
@@ -180,6 +236,13 @@ def _proc_cmdline(pid: int, proc_root: Path = Path("/proc")) -> list[str]:
     return _read_proc_nul_file(proc_root / str(pid) / "cmdline")
 
 
+def _proc_cwd(pid: int, proc_root: Path = Path("/proc")) -> Path | None:
+    try:
+        return (proc_root / str(pid) / "cwd").resolve(strict=True)
+    except OSError:
+        return None
+
+
 def _same_path(left: str | Path | None, right: Path) -> bool:
     if not left:
         return False
@@ -187,6 +250,14 @@ def _same_path(left: str | Path | None, right: Path) -> bool:
         return Path(left).expanduser().resolve() == right.expanduser().resolve()
     except OSError:
         return Path(left).expanduser() == right.expanduser()
+
+
+def _is_python_runner_command(argv: list[str], runner_path: Path) -> bool:
+    return (
+        len(argv) == 2
+        and re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", Path(argv[0]).name) is not None
+        and _same_path(argv[1], runner_path)
+    )
 
 
 def _pid_matches_profile_runner(
@@ -198,20 +269,36 @@ def _pid_matches_profile_runner(
 ) -> bool:
     if pid == os.getpid():
         return False
+    try:
+        status = (proc_root / str(pid) / "status").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        status = ""
+    if any(
+        fields[:1] == ["State:"] and len(fields) > 1 and fields[1] == "Z"
+        for fields in (line.split() for line in status.splitlines())
+    ):
+        return False
     argv = _proc_cmdline(pid, proc_root=proc_root)
     if not any(Path(arg).name == "agency_node_runner.py" for arg in argv):
         return False
 
     env = _proc_environ(pid, proc_root=proc_root)
-    if env.get("HERMES_PROFILE") == name:
-        return True
-    if _same_path(env.get("HERMES_HOME"), profile_dir):
-        return True
+    if env:
+        return env.get("HERMES_PROFILE") == name and _same_path(env.get("HERMES_HOME"), profile_dir)
 
-    # Fallback for processes whose environ cannot be read: pool-managed runner
-    # command lines include the profile-scoped plugin symlink path.
-    profile_fragment = f"profiles/{name}/plugins/hermes-agency/pool/agency_node_runner.py"
-    return any(profile_fragment in arg for arg in argv)
+    # If a process hides its environment, prefer the canonical runner script
+    # plus the requested profile as cwd. Older pool runners lack a readable cwd,
+    # so retain only the exact two-argument profile-plugin invocation used by
+    # the pool launcher; do not accept profile-shaped text in unrelated argv.
+    cwd = _proc_cwd(pid, proc_root=proc_root)
+    if (
+        cwd is not None
+        and _same_path(cwd, profile_dir)
+        and _is_python_runner_command(argv, NODE_RUNNER)
+    ):
+        return True
+    legacy_runner = PROFILES / name / "plugins" / "hermes-agency" / "pool" / "agency_node_runner.py"
+    return _is_python_runner_command(argv, legacy_runner)
 
 
 def _profile_runner_pids(
@@ -231,47 +318,154 @@ def _profile_runner_pids(
     return sorted(set(pids))
 
 
-def _terminate_pids(pids: list[int], *, grace_seconds: float = 1.5) -> None:
-    for pid in sorted(set(pids)):
-        if _pid_alive(pid):
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-    deadline = time.time() + grace_seconds
-    while time.time() < deadline and any(_pid_alive(pid) for pid in pids):
-        time.sleep(0.05)
-    for pid in sorted(set(pids)):
-        if _pid_alive(pid):
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+def _pid_matches_profile_daemon(
+    pid: int,
+    name: str,
+    profile_dir: Path,
+    *,
+    proc_root: Path = Path("/proc"),
+) -> bool:
+    if pid == os.getpid():
+        return False
+    try:
+        status = (proc_root / str(pid) / "status").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        status = ""
+    if any(
+        fields[:1] == ["State:"] and len(fields) > 1 and fields[1] == "Z"
+        for fields in (line.split() for line in status.splitlines())
+    ):
+        return False
+    argv = _proc_cmdline(pid, proc_root=proc_root)
+    expected_socket = f"--grpc-listen=unix://{profile_dir / '.agency' / 'daemon.sock'}"
+    if not argv or Path(argv[0]).name != "agentanycastd" or expected_socket not in argv:
+        return False
+    env = _proc_environ(pid, proc_root=proc_root)
+    return env.get("HERMES_PROFILE") == name and _same_path(env.get("HERMES_HOME"), profile_dir)
 
 
-def stop_profile_runner_processes(name: str, profile_dir: Path | None = None) -> list[int]:
-    """Stop all long-lived pool runners for a profile, including stale pidfiles.
-
-    Gateway restarts run the active orchestrator node in-process. If an older
-    pool-managed ``agency_node_runner.py`` survives with a stale pidfile, it can
-    keep receiving A2A tasks with code that no longer matches the files on disk.
-    Scan ``/proc`` by profile env/cmdline so cleanup does not depend on the
-    pidfile being current.
-    """
-
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
-    resolved_profile_dir = profile_dir or (PROFILES / name)
+def _profile_daemon_pids(
+    name: str, profile_dir: Path, *, proc_root: Path = Path("/proc")
+) -> list[int]:
     pids: list[int] = []
-    runner_pid = _read_runner_pid(resolved_profile_dir)
-    if runner_pid is not None:
-        pids.append(runner_pid)
-    pids.extend(_profile_runner_pids(name, resolved_profile_dir))
-    pids = sorted({pid for pid in pids if pid != os.getpid()})
-    if pids:
-        _terminate_pids(pids)
-    _runner_pid_file(resolved_profile_dir).unlink(missing_ok=True)
-    return pids
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return pids
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        if _pid_matches_profile_daemon(pid, name, profile_dir, proc_root=proc_root):
+            pids.append(pid)
+    return sorted(set(pids))
+
+
+class _RunnerPids(list[int]):
+    """Process candidates plus the identity required to safely terminate them."""
+
+    def __init__(self, pids: list[int], name: str, profile_dir: Path, proc_root: Path):
+        super().__init__(pids)
+        self.name = name
+        self.profile_dir = profile_dir
+        self.proc_root = proc_root
+
+
+class _DaemonPids(_RunnerPids):
+    """Verified legacy daemon candidates for a single pool profile."""
+
+
+def _pid_is_owned_runner(pid: int, pids: list[int]) -> bool:
+    """Require profile ownership metadata before signaling a process."""
+    if isinstance(pids, _RunnerPids) and not isinstance(pids, _DaemonPids):
+        return _pid_matches_profile_runner(
+            pid, pids.name, pids.profile_dir, proc_root=pids.proc_root
+        )
+    if isinstance(pids, _DaemonPids):
+        return _pid_matches_profile_daemon(
+            pid, pids.name, pids.profile_dir, proc_root=pids.proc_root
+        )
+    return False
+
+
+def _verified_runner_pidfds(pids: list[int]) -> dict[int, int]:
+    """Open pidfds before verification so PID reuse cannot redirect signals."""
+    if not isinstance(pids, _RunnerPids) or not hasattr(signal, "pidfd_send_signal"):
+        return {}
+    pidfds: dict[int, int] = {}
+    for pid in sorted(set(pids)):
+        try:
+            pidfd = os.pidfd_open(pid)
+        except (AttributeError, OSError):
+            continue
+        if _pid_is_owned_runner(pid, pids):
+            pidfds[pid] = pidfd
+        else:
+            os.close(pidfd)
+    return pidfds
+
+
+def _terminate_pids(pids: list[int], *, grace_seconds: float = 1.5) -> list[int]:
+    pidfds = _verified_runner_pidfds(pids)
+    term_signaled: list[int] = []
+    try:
+        for pid, pidfd in pidfds.items():
+            try:
+                signal.pidfd_send_signal(pidfd, signal.SIGTERM)
+                term_signaled.append(pid)
+            except ProcessLookupError:
+                pass
+        deadline = time.time() + grace_seconds
+        while time.time() < deadline and any(_pid_is_owned_runner(pid, pids) for pid in pidfds):
+            time.sleep(0.05)
+        for pid, pidfd in pidfds.items():
+            if _pid_is_owned_runner(pid, pids):
+                try:
+                    signal.pidfd_send_signal(pidfd, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+    finally:
+        for pidfd in pidfds.values():
+            os.close(pidfd)
+    return term_signaled
+
+
+def stop_profile_runner_processes(
+    name: str,
+    profile_dir: Path | None = None,
+    *,
+    proc_root: Path = Path("/proc"),
+    grace_seconds: float = 1.5,
+) -> list[int]:
+    """Stop verified long-lived pool runners for an existing pool profile."""
+
+    normalized_name, canonical_profile_dir = _resolve_existing_pool_profile(name)
+    if not isinstance(normalized_name, str) or not isinstance(canonical_profile_dir, Path):
+        return []
+    if profile_dir is not None and not _same_path(profile_dir, canonical_profile_dir):
+        return []
+
+    runner_pid = _read_runner_pid(canonical_profile_dir)
+    if proc_root == Path("/proc"):
+        discovered_pids = _profile_runner_pids(normalized_name, canonical_profile_dir)
+    else:
+        discovered_pids = _profile_runner_pids(
+            normalized_name, canonical_profile_dir, proc_root=proc_root
+        )
+    candidates = sorted(
+        {pid for pid in [runner_pid, *discovered_pids] if pid is not None and pid != os.getpid()}
+    )
+    signaled_pids: list[int] = []
+    if candidates:
+        owned_candidates = _RunnerPids(
+            candidates, normalized_name, canonical_profile_dir, proc_root
+        )
+        if grace_seconds == 1.5:
+            signaled_pids = _terminate_pids(owned_candidates)
+        else:
+            signaled_pids = _terminate_pids(owned_candidates, grace_seconds=grace_seconds)
+    _runner_pid_file(canonical_profile_dir).unlink(missing_ok=True)
+    return signaled_pids
 
 
 def _profile_env(name: str, profile_dir: Path) -> dict[str, str]:
@@ -383,13 +577,26 @@ def _provider_failure_blocker(
     )
 
 
-def _stop_profile_daemon_processes(name: str) -> None:
-    subprocess.run(
-        ["pkill", "-9", "-f", f"profiles/{name}/.agency/.*agentanycastd"],
-        capture_output=True,
-        timeout=3,
-        check=False,
-    )
+def _stop_profile_daemon_processes(
+    name: str,
+    profile_dir: Path | None = None,
+    *,
+    proc_root: Path = Path("/proc"),
+    grace_seconds: float = 1.5,
+) -> list[int]:
+    """Stop only pidfd-verified legacy daemons for a canonical pool profile."""
+    normalized_name, canonical_profile_dir = _resolve_existing_pool_profile(name)
+    if not isinstance(normalized_name, str) or not isinstance(canonical_profile_dir, Path):
+        return []
+    if profile_dir is not None and not _same_path(profile_dir, canonical_profile_dir):
+        return []
+    candidates = _profile_daemon_pids(normalized_name, canonical_profile_dir, proc_root=proc_root)
+    if not candidates:
+        return []
+    owned_candidates = _DaemonPids(candidates, normalized_name, canonical_profile_dir, proc_root)
+    if grace_seconds == 1.5:
+        return _terminate_pids(owned_candidates)
+    return _terminate_pids(owned_candidates, grace_seconds=grace_seconds)
 
 
 def _proc_rss_kb(pid: int, proc_root: Path = Path("/proc")) -> int:
@@ -589,13 +796,10 @@ def pool_roster(query: str = "", show_offline: bool = True) -> str:
 
 def pool_wake(name: str) -> str:
     """Wake an agency profile with the long-lived node runner."""
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
-
-    profile_dir = PROFILES / name
-    if not profile_dir.exists():
-        record_wake_attempt(name, success=False, error=f"profile {name} not found")
-        return f"Error: profile {name} not found"
+    resolved = _resolve_existing_pool_profile(name)
+    if resolved[0] is None:
+        return f"Error: {resolved[1]}"
+    name, profile_dir = resolved
 
     setup = ensure_profile_plugins()
     if setup.get("profiles_errors"):
@@ -701,23 +905,15 @@ def pool_wake(name: str) -> str:
 
 def pool_sleep(name: str) -> str:
     """Sleep an agency profile — stop its daemon."""
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
-
-    profile_dir = PROFILES / name
-    if not profile_dir.exists():
-        return f"Error: profile {name} not found"
+    resolved = _resolve_existing_pool_profile(name)
+    if resolved[0] is None:
+        return f"Error: {resolved[1]}"
+    name, profile_dir = resolved
 
     # Stop long-lived runners, including stale processes no longer tracked by
     # runner.pid, then kill any profile-owned daemon.
     stop_profile_runner_processes(name, profile_dir)
     _stop_profile_daemon_processes(name)
-    subprocess.run(
-        ["pkill", "-9", "-f", f"profiles/{name}/.agency/bin/agentanycastd"],
-        capture_output=True,
-        timeout=3,
-        check=False,
-    )
     time.sleep(0.5)
 
     # Clean locks
@@ -749,8 +945,9 @@ def _recent_failed_wake(agent: dict[str, Any], cooldown_seconds: int = 60) -> bo
 
 def pool_send(name: str, message: str) -> str:
     """Send work to an agent. Auto-wakes if offline; queues if wake/send fails."""
-    if not name.startswith("agency-"):
-        name = f"agency-{name}"
+    name, error = _normalise_pool_name(name)
+    if name is None:
+        return f"Error: {error}"
 
     agent = find_agent(name)
     if not agent:

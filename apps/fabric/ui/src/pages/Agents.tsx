@@ -21,7 +21,7 @@ import { PageTabBar } from "../components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Bot, Plus, List, GitBranch } from "lucide-react";
-import { AGENT_ROLE_LABELS, type Agent, type Environment, type EnvironmentCapabilities } from "@paperclipai/shared";
+import { AGENT_ROLE_LABELS, type Agent, type Environment, type EnvironmentCapabilities } from "@hermes-fabric/shared";
 import {
   resourceMembershipState,
   useResourceMembershipMutation,
@@ -42,8 +42,8 @@ interface EnvironmentDescriptor {
 
 const localEnvironmentDescriptor: EnvironmentDescriptor = {
   label: "Local",
-  detail: "Paperclip host",
-  title: "Local - Paperclip host",
+  detail: "HermesFabric host",
+  title: "Local - HermesFabric host",
 };
 
 const loadingEnvironmentDescriptor: EnvironmentDescriptor = {
@@ -101,7 +101,7 @@ function describeEnvironment(
   const detail = environment.driver === "sandbox"
     ? `${getSandboxProviderLabel(environment, capabilities)} sandbox provider`
     : environment.driver === "local"
-      ? "Paperclip host"
+      ? "HermesFabric host"
       : formatEnvironmentDriver(environment.driver);
 
   return {

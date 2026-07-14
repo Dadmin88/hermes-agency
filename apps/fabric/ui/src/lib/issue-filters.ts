@@ -1,4 +1,4 @@
-import type { ExternalObjectSummary, Issue } from "@paperclipai/shared";
+import type { ExternalObjectSummary, Issue } from "@hermes-fabric/shared";
 
 export type IssueFilterWorkspaceLookup = {
   mode?: string | null;

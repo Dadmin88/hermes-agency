@@ -11,7 +11,7 @@ import {
   heartbeatRuns,
   issueComments,
   issues,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import { runningProcesses } from "../adapters/index.js";
 import { heartbeatService } from "../services/heartbeat.ts";
 import { SUCCESSFUL_RUN_HANDOFF_REQUIRED_NOTICE_BODY } from "../services/recovery/index.ts";
@@ -165,7 +165,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    const started = await startEmbeddedPostgresTestDatabase("paperclip-heartbeat-comment-wake-");
+    const started = await startEmbeddedPostgresTestDatabase("fabric-heartbeat-comment-wake-");
     db = createDb(started.connectionString);
     tempDb = started;
   }, 120_000);
@@ -189,7 +189,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "Hermes Fabric",
       issuePrefix,
       requireBoardApprovalForNewAgents: false,
     });
@@ -280,7 +280,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
       approvalId: "approval-1",
       approvalStatus: "approved",
     });
-    expect((deferred?.payload as Record<string, unknown>)._paperclipWakeContext).toMatchObject({
+    expect((deferred?.payload as Record<string, unknown>)._fabricWakeContext).toMatchObject({
       issueId,
       taskId: issueId,
       approvalId: "approval-1",
@@ -304,7 +304,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -457,7 +457,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
           )
           .then((rows) => rows[0] ?? null);
 
-      const deferredContext = (deferredWake?.payload as Record<string, unknown> | null)?._paperclipWakeContext as
+      const deferredContext = (deferredWake?.payload as Record<string, unknown> | null)?._fabricWakeContext as
         | Record<string, unknown>
         | undefined;
       expect(deferredContext?.wakeCommentIds).toEqual([comment2.id, comment3.id]);
@@ -477,7 +477,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
         return statusesByRunId.get(firstRun!.id) === "succeeded" && statusesByRunId.get(secondRunId) === "succeeded";
       }, 90_000);
 
-      expect(secondPayload.paperclip).toBeUndefined();
+      expect(secondPayload.fabric).toBeUndefined();
       const secondWake = parseWakePayloadFromMessage(secondPayload.message);
       expect(secondWake).toMatchObject({
         commentIds: [comment2.id, comment3.id],
@@ -503,7 +503,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -616,7 +616,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
 
       await waitFor(() => gateway.getAgentPayloads().length === 2);
       const promotedPayload = gateway.getAgentPayloads()[1] ?? {};
-      expect(promotedPayload.paperclip).toBeUndefined();
+      expect(promotedPayload.fabric).toBeUndefined();
       const promotedWake = parseWakePayloadFromMessage(promotedPayload.message);
       expect(promotedWake).toMatchObject({
         commentIds: [queuedComment.id],
@@ -649,7 +649,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -809,7 +809,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
       });
 
       const secondPayload = gateway.getAgentPayloads()[1] ?? {};
-      expect(secondPayload.paperclip).toBeUndefined();
+      expect(secondPayload.fabric).toBeUndefined();
       const secondWake = parseWakePayloadFromMessage(secondPayload.message);
       expect(secondWake).toMatchObject({
         reason: "issue_commented",
@@ -842,7 +842,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -1009,7 +1009,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
       expect(issueAfterPromotion?.completedAt).not.toBeNull();
 
       const secondPayload = gateway.getAgentPayloads()[1] ?? {};
-      expect(secondPayload.paperclip).toBeUndefined();
+      expect(secondPayload.fabric).toBeUndefined();
       const secondWake = parseWakePayloadFromMessage(secondPayload.message);
       expect(secondWake).toMatchObject({
         reason: "issue_comment_mentioned",
@@ -1041,7 +1041,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -1207,7 +1207,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -1386,7 +1386,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
       });
 
       const secondPayload = gateway.getAgentPayloads()[1] ?? {};
-      expect(secondPayload.paperclip).toBeUndefined();
+      expect(secondPayload.fabric).toBeUndefined();
       const secondWake = parseWakePayloadFromMessage(secondPayload.message);
       expect(secondWake).toMatchObject({
         reason: "issue_commented",
@@ -1418,7 +1418,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -1472,8 +1472,8 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
       expect(firstRun).not.toBeNull();
       await waitFor(() => gateway.getAgentPayloads().length === 1);
       const firstPayload = gateway.getAgentPayloads()[0] ?? {};
-      expect(firstPayload.paperclip).toBeUndefined();
-      expect(String(firstPayload.message ?? "")).toContain("## Paperclip Wake Payload");
+      expect(firstPayload.fabric).toBeUndefined();
+      expect(String(firstPayload.message ?? "")).toContain("## HermesFabric Wake Payload");
       expect(String(firstPayload.message ?? "")).toContain("Do not switch to another issue until you have handled this wake.");
       expect(String(firstPayload.message ?? "")).toContain("- checkout: already claimed by the harness for this run");
       expect(String(firstPayload.message ?? "")).toContain(
@@ -1568,7 +1568,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -1769,7 +1769,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -1916,7 +1916,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "Hermes Fabric",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });

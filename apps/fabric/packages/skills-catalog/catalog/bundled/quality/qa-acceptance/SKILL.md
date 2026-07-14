@@ -1,7 +1,7 @@
 ---
 name: qa-acceptance
 description: Produce QA acceptance criteria and a manual validation plan for a feature change — golden path, edge cases, error states, performance limits, and explicit pass/fail evidence.
-key: paperclipai/bundled/quality/qa-acceptance
+key: hermes-fabric/bundled/quality/qa-acceptance
 recommendedForRoles:
   - qa
   - engineer

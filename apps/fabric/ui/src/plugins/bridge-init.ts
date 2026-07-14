@@ -66,7 +66,7 @@ import { getRecentProjectIds, trackRecentProject } from "@/lib/recent-projects";
 /**
  * The global bridge registry shape.
  *
- * This is placed on `globalThis.__paperclipPluginBridge__` and consumed by
+ * This is placed on `globalThis.__fabricPluginBridge__` and consumed by
  * the plugin module loader to provide implementations for external imports.
  */
 export interface PluginBridgeRegistry {
@@ -77,7 +77,7 @@ export interface PluginBridgeRegistry {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __paperclipPluginBridge__: PluginBridgeRegistry | undefined;
+  var __fabricPluginBridge__: PluginBridgeRegistry | undefined;
 }
 
 type PluginFileTreePathCollection = ReadonlySet<string> | readonly string[];
@@ -220,7 +220,7 @@ function PluginSdkIssuesList({
   companyId,
   projectId = null,
   filters,
-  viewStateKey = "paperclip:plugin-issues-view",
+  viewStateKey = "fabric:plugin-issues-view",
   initialSearch,
   createIssueLabel,
   searchWithinLoadedIssues = true,
@@ -629,7 +629,7 @@ class PluginSdkErrorBoundary extends Component<{ children: ReactNode; fallback?:
  * Initialize the plugin bridge global registry.
  *
  * Registers the host's React, ReactDOM, and SDK UI bridge implementations
- * on `globalThis.__paperclipPluginBridge__` so the plugin module loader
+ * on `globalThis.__fabricPluginBridge__` so the plugin module loader
  * can provide them to plugin bundles.
  *
  * @param react - The host's React module
@@ -639,7 +639,7 @@ export function initPluginBridge(
   react: typeof import("react"),
   reactDom: typeof import("react-dom"),
 ): void {
-  globalThis.__paperclipPluginBridge__ = {
+  globalThis.__fabricPluginBridge__ = {
     react,
     reactDom,
     sdkUi: {

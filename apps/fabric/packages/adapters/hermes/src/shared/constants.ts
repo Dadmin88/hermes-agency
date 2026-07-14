@@ -2,10 +2,10 @@
  * Shared constants for the Hermes Agent adapter.
  */
 
-/** Adapter type identifier registered with Paperclip. */
+/** Adapter type identifier registered with HermesFabric. */
 export const ADAPTER_TYPE = "hermes_local";
 
-/** Human-readable label shown in the Paperclip UI. */
+/** Human-readable label shown in the HermesFabric UI. */
 export const ADAPTER_LABEL = "Hermes Agent";
 
 /** Default CLI binary name. */
@@ -23,7 +23,7 @@ export const DEFAULT_GRACE_SEC = 10;
  * Use "auto" so that Hermes resolves the model from the user's local
  * ~/.hermes/config.yaml — preventing the adapter from overriding a
  * user's configured default (e.g. MiniMax, OpenRouter, etc.) with a
- * hardcoded Anthropic model during Paperclip onboarding.
+ * hardcoded Anthropic model during HermesFabric onboarding.
  */
 export const DEFAULT_MODEL = "auto";
 

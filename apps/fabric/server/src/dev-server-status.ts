@@ -34,7 +34,7 @@ export type DevServerRestartRequest = {
 export function getDevServerRestartRequestFilePath(
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  const statusFilePath = (env[`FABRIC_DEV_SERVER_STATUS_FILE`] ?? env[`PAPERCLIP_DEV_SERVER_STATUS_FILE`])?.trim();
+  const statusFilePath = (env[`FABRIC_DEV_SERVER_STATUS_FILE`] ?? env[`HERMES_FABRIC_DEV_SERVER_STATUS_FILE`])?.trim();
   if (!statusFilePath) return null;
   return path.join(path.dirname(statusFilePath), "dev-server-restart-request.json");
 }
@@ -68,7 +68,7 @@ function normalizeTimestamp(value: unknown): string | null {
 export function readPersistedDevServerStatus(
   env: NodeJS.ProcessEnv = process.env,
 ): PersistedDevServerStatus | null {
-  const filePath = (env[`FABRIC_DEV_SERVER_STATUS_FILE`] ?? env[`PAPERCLIP_DEV_SERVER_STATUS_FILE`])?.trim();
+  const filePath = (env[`FABRIC_DEV_SERVER_STATUS_FILE`] ?? env[`HERMES_FABRIC_DEV_SERVER_STATUS_FILE`])?.trim();
   if (!filePath || !existsSync(filePath)) return null;
 
   try {

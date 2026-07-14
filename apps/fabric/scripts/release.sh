@@ -200,7 +200,7 @@ set_cleanup_trap
 
 # The release flow already prepares ui/dist before packaging. Reuse that output
 # so server prepack does not rebuild the UI a second time during preview/publish.
-export PAPERCLIP_RELEASE_REUSE_UI_DIST=1
+export HERMES_FABRIC_RELEASE_REUSE_UI_DIST=1
 
 if [ "$skip_verify" = false ]; then
   release_info ""
@@ -333,7 +333,7 @@ if [ "$dry_run" = true ]; then
 else
   if [ "$channel" = "canary" ]; then
     release_info "Published canary ${TARGET_PUBLISH_VERSION}."
-    release_info "Install with: npx paperclipai@canary onboard"
+    release_info "Install with: npx hermes-fabric@canary onboard"
     release_info "Next step: git push ${PUBLISH_REMOTE} refs/tags/${tag_name}"
   else
     release_info "Published stable ${TARGET_PUBLISH_VERSION}."

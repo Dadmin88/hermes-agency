@@ -22,7 +22,7 @@ describe("local disk storage provider", () => {
   });
 
   it("round-trips bytes through storage service", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-storage-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-storage-"));
     tempRoots.push(root);
 
     const service = createStorageService(createLocalDiskStorageProvider(root));
@@ -43,7 +43,7 @@ describe("local disk storage provider", () => {
   });
 
   it("streams only requested byte ranges", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-storage-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-storage-"));
     tempRoots.push(root);
 
     const service = createStorageService(createLocalDiskStorageProvider(root));
@@ -63,7 +63,7 @@ describe("local disk storage provider", () => {
   });
 
   it("blocks cross-company object access", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-storage-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-storage-"));
     tempRoots.push(root);
 
     const service = createStorageService(createLocalDiskStorageProvider(root));
@@ -79,7 +79,7 @@ describe("local disk storage provider", () => {
   });
 
   it("delete is idempotent", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-storage-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-storage-"));
     tempRoots.push(root);
 
     const service = createStorageService(createLocalDiskStorageProvider(root));

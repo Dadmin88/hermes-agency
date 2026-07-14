@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BudgetIncident } from "@paperclipai/shared";
+import type { BudgetIncident } from "@hermes-fabric/shared";
 import { AlertOctagon, ArrowUpRight, PauseCircle } from "lucide-react";
 import { formatCents } from "../lib/utils";
 import { Badge } from "@/components/ui/badge";

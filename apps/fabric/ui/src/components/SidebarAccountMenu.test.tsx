@@ -115,7 +115,7 @@ describe("SidebarAccountMenu", () => {
     expect(document.body.textContent).toContain("Feedback");
 
     // Feedback link opens in a new tab pointing at the upstream issue tracker until this fork has its own remote.
-    const feedbackAnchor = document.body.querySelector('a[href="https://github.com/paperclipai/paperclip/issues"]') as HTMLAnchorElement | null;
+    const feedbackAnchor = document.body.querySelector('a[href="https://github.com/DeployFaith/Hermes_Agency/issues"]') as HTMLAnchorElement | null;
     expect(feedbackAnchor).not.toBeNull();
     expect(feedbackAnchor?.getAttribute("target")).toBe("_blank");
 

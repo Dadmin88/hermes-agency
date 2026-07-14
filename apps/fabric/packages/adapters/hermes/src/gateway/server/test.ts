@@ -2,8 +2,8 @@ import type {
   AdapterEnvironmentCheck,
   AdapterEnvironmentTestContext,
   AdapterEnvironmentTestResult,
-} from "@paperclipai/adapter-utils";
-import { asString } from "@paperclipai/adapter-utils/server-utils";
+} from "@hermes-fabric/adapter-utils";
+import { asString } from "@hermes-fabric/adapter-utils/server-utils";
 import {
   allowsInsecureRemoteHttp,
   isLoopbackHostname,
@@ -95,7 +95,7 @@ export async function testEnvironment(
       code: "hermes_gateway_dashboard_root_mapped",
       level: "info",
       message: `Default Hermes dashboard root mapped to API base ${parsed.toString()}.`,
-      hint: "Hermes dashboard routes such as /chat are browser UI routes. Paperclip gateway calls use /api/health and /api/v1/runs.",
+      hint: "Hermes dashboard routes such as /chat are browser UI routes. HermesFabric gateway calls use /api/health and /api/v1/runs.",
     });
   }
 
@@ -148,7 +148,7 @@ export async function testEnvironment(
         : `Hermes Gateway health endpoint returned HTTP ${response.status}.`,
       hint: response.ok
         ? undefined
-        : "Check apiBaseUrl, API_SERVER_KEY, and that the Hermes API server is reachable from Paperclip.",
+        : "Check apiBaseUrl, API_SERVER_KEY, and that the Hermes API server is reachable from HermesFabric.",
     });
   } catch (err) {
     checks.push({
@@ -156,7 +156,7 @@ export async function testEnvironment(
       level: "error",
       message: "Could not reach Hermes Gateway health endpoint.",
       detail: errorDetail(err),
-      hint: "Check apiBaseUrl and make sure the Hermes API server is running where Paperclip can reach it.",
+      hint: "Check apiBaseUrl and make sure the Hermes API server is running where HermesFabric can reach it.",
     });
   }
 

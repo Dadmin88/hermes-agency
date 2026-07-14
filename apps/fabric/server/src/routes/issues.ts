@@ -3,7 +3,7 @@ import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { and, asc, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   activityLog,
   agents,
@@ -21,7 +21,7 @@ import {
   pipelineStages,
   pipelines,
   projectWorkspaces,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import {
   addIssueCommentSchema,
   acceptIssueThreadInteractionSchema,
@@ -68,8 +68,8 @@ import {
   type IssueWatchdogDiscoveryKind,
   type SourceTrustMetadata,
   type SuccessfulRunHandoffState,
-} from "@paperclipai/shared";
-import { trackAgentTaskCompleted } from "@paperclipai/shared/telemetry";
+} from "@hermes-fabric/shared";
+import { trackAgentTaskCompleted } from "@hermes-fabric/shared/telemetry";
 import { getTelemetryClient } from "../telemetry.js";
 import type { StorageService } from "../storage/types.js";
 import { validate } from "../middleware/validate.js";
@@ -335,7 +335,7 @@ function resolveAttachmentResponseContentType(input: {
   return inferVideoContentTypeFromFilename(input.originalFilename) ?? storedContentType;
 }
 
-function requiresPaperclipAttachmentMetadata(input: {
+function requiresHermesFabricAttachmentMetadata(input: {
   type?: unknown;
   provider?: unknown;
 }, fallback?: {
@@ -344,7 +344,7 @@ function requiresPaperclipAttachmentMetadata(input: {
 }) {
   const type = typeof input.type === "string" ? input.type : fallback?.type ?? null;
   const provider = typeof input.provider === "string" ? input.provider : fallback?.provider ?? null;
-  return type === "artifact" && provider === "paperclip";
+  return type === "artifact" && provider === "fabric";
 }
 
 const attachmentArtifactMetadataInputSchema = z.object({
@@ -1223,10 +1223,10 @@ export function issueRoutes(
       ? run.contextSnapshot as Record<string, unknown>
       : null;
     if (!context || !readNonEmptyString(context.executionWorkspaceId)) return null;
-    const paperclipIssue = context.paperclipIssue && typeof context.paperclipIssue === "object"
-      ? context.paperclipIssue as Record<string, unknown>
+    const fabricIssue = context.fabricIssue && typeof context.fabricIssue === "object"
+      ? context.fabricIssue as Record<string, unknown>
       : null;
-    return readNonEmptyString(context.issueId) ?? readNonEmptyString(paperclipIssue?.id);
+    return readNonEmptyString(context.issueId) ?? readNonEmptyString(fabricIssue?.id);
   }
 
   async function resolveAgentTrustForIssue(
@@ -1676,7 +1676,7 @@ export function issueRoutes(
     };
   }
 
-  async function canonicalizePaperclipArtifactMetadata(input: {
+  async function canonicalizeHermesFabricArtifactMetadata(input: {
     issue: { id: string; companyId: string };
     metadata: Record<string, unknown> | null | undefined;
   }) {
@@ -4587,8 +4587,8 @@ export function issueRoutes(
     const createdByRunId = await resolveWorkProductCreatedByRunId(req, res, issue.companyId, req.body, "create");
     if (createdByRunId === undefined) return;
     createInput.createdByRunId = createdByRunId;
-    if (requiresPaperclipAttachmentMetadata(createInput)) {
-      createInput.metadata = await canonicalizePaperclipArtifactMetadata({
+    if (requiresHermesFabricAttachmentMetadata(createInput)) {
+      createInput.metadata = await canonicalizeHermesFabricArtifactMetadata({
         issue,
         metadata: req.body.metadata ?? null,
       });
@@ -4710,7 +4710,7 @@ export function issueRoutes(
           issueId: issue.id,
           projectId: issue.projectId ?? null,
           type: "artifact",
-          provider: "paperclip",
+          provider: "fabric",
           externalId: req.body.sourceArtifactId,
           title: req.body.title,
           status: "approved",
@@ -4783,13 +4783,13 @@ export function issueRoutes(
     const createdByRunId = await resolveWorkProductCreatedByRunId(req, res, existing.companyId, req.body, "update");
     if (createdByRunId === undefined && Object.prototype.hasOwnProperty.call(req.body, "createdByRunId")) return;
     if (createdByRunId !== undefined) patch.createdByRunId = createdByRunId;
-    if (requiresPaperclipAttachmentMetadata(patch, existing)) {
+    if (requiresHermesFabricAttachmentMetadata(patch, existing)) {
       if (patch.metadata !== undefined) {
-        patch.metadata = await canonicalizePaperclipArtifactMetadata({
+        patch.metadata = await canonicalizeHermesFabricArtifactMetadata({
           issue,
           metadata: patch.metadata ?? null,
         });
-      } else if (!requiresPaperclipAttachmentMetadata(existing)) {
+      } else if (!requiresHermesFabricAttachmentMetadata(existing)) {
         res.status(422).json({ error: "Attachment-backed artifact metadata is required" });
         return;
       }

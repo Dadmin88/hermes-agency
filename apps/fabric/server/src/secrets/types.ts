@@ -2,8 +2,8 @@ import type {
   SecretProvider,
   SecretProviderConfigDiscoveryPreviewResult,
   SecretProviderDescriptor,
-} from "@paperclipai/shared";
-import type { DeploymentMode } from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
+import type { DeploymentMode } from "@hermes-fabric/shared";
 
 export interface StoredSecretVersionMaterial {
   [key: string]: unknown;

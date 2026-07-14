@@ -4,6 +4,11 @@ Date: 2026-07-10
 Branch: `fix/p0-product-truth-keryx-alignment`
 Baseline: `main` after the July 10 security merges
 
+> **Follow-up (2026-07-13):** Residual product-truth, remote-hardening, CI, and packaging work is tracked in
+> [`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](../plans/2026-07-13-hermes-agency-full-remediation.md).
+> Slice B (Keryx default) and Phase 17 live round trip have landed; remaining slices C–E and docs claim-ledger
+> refresh are executed under that plan.
+
 ## Objective
 
 Make Hermes Agency's runtime behavior, package metadata, contributor guidance, tests, and public product language describe the same system.
@@ -43,7 +48,7 @@ The pool runtime uses `hermes-agency/pool/registry_definition.json` as its stati
 
 ### Hermes Fabric
 
-Fabric is a Paperclip-derived Node/React application. It currently has real Agency-specific roster, task-packet, dispatch-record, API, and UI surfaces.
+Fabric is a Hermes Fabric-derived Node/React application. It currently has real Agency-specific roster, task-packet, dispatch-record, API, and UI surfaces.
 
 The current default dispatch client is not a live Hermes Agency client. It is either unconfigured or dry-run gated. Public claims must distinguish the implemented operator flow from live end-to-end dispatch.
 
@@ -155,7 +160,7 @@ Required resolution:
 - [ ] Update orchestrator module header
 - [ ] Remove maintainer-local/VPS assumptions from pool comments
 - [ ] Rewrite Fabric contributor guidance around the current Hermes Agency fork
-- [ ] Audit public docs for `AgentAnycast`, `83`, `84`, `Paperclip`, `control plane`, and live-dispatch claims
+- [ ] Audit public docs for `AgentAnycast`, `83`, `84`, `HermesFabric`, `control plane`, and live-dispatch claims
 - [ ] Update changelog with the Keryx-default behavior change
 
 ### Slice D: golden-path proof

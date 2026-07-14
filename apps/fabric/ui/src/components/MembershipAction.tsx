@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 import { Loader2, LogIn, LogOut } from "lucide-react";
-import type { ResourceMembershipState } from "@paperclipai/shared";
+import type { ResourceMembershipState } from "@hermes-fabric/shared";
 import { Button } from "@/components/ui/button";
 import { cn } from "../lib/utils";
 

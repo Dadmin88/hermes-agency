@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { PaperclipConfig } from "@paperclipai/shared";
-import { resolvePaperclipConfigPath, resolvePaperclipEnvPath } from "./paths.js";
+import type { HermesFabricConfig } from "@hermes-fabric/shared";
+import { resolveHermesFabricConfigPath, resolveHermesFabricEnvPath } from "./paths.js";
 import { fabricEnvSet } from "./fabric-env.js";
 
 function nonEmpty(value: string | null | undefined): string | null {
@@ -111,12 +111,12 @@ function resolveWorktreeRuntimeContext(
   env: NodeJS.ProcessEnv,
   overrideConfigPath?: string,
 ): WorktreeRuntimeContext | null {
-  if ((env[`FABRIC_IN_WORKTREE`] ?? env[`PAPERCLIP_IN_WORKTREE`]) !== "true") return null;
+  if ((env[`FABRIC_IN_WORKTREE`] ?? env[`HERMES_FABRIC_IN_WORKTREE`]) !== "true") return null;
 
-  const configPath = resolvePaperclipConfigPath(overrideConfigPath);
-  const envPath = resolvePaperclipEnvPath(configPath);
+  const configPath = resolveHermesFabricConfigPath(overrideConfigPath);
+  const envPath = resolveHermesFabricEnvPath(configPath);
   const persistedEnv = readEnvEntries(envPath);
-  const persistedConfigPath = nonEmpty(persistedEnv.PAPERCLIP_CONFIG);
+  const persistedConfigPath = nonEmpty(persistedEnv.HERMES_FABRIC_CONFIG);
   const persistedConfigLooksStale =
     persistedConfigPath !== null &&
     path.resolve(expandHomePrefix(persistedConfigPath)) !== path.resolve(configPath) &&
@@ -124,18 +124,18 @@ function resolveWorktreeRuntimeContext(
   const stablePersistedEnv = persistedConfigLooksStale ? {} : persistedEnv;
   const worktreeRoot = path.resolve(path.dirname(configPath), "..");
   const worktreeName =
-    nonEmpty(stablePersistedEnv.PAPERCLIP_WORKTREE_NAME) ??
-    nonEmpty((env[`FABRIC_WORKTREE_NAME`] ?? env[`PAPERCLIP_WORKTREE_NAME`])) ??
+    nonEmpty(stablePersistedEnv.HERMES_FABRIC_WORKTREE_NAME) ??
+    nonEmpty((env[`FABRIC_WORKTREE_NAME`] ?? env[`HERMES_FABRIC_WORKTREE_NAME`])) ??
     path.basename(worktreeRoot);
   const instanceId =
-    nonEmpty(stablePersistedEnv.PAPERCLIP_INSTANCE_ID) ??
-    nonEmpty((env[`FABRIC_INSTANCE_ID`] ?? env[`PAPERCLIP_INSTANCE_ID`])) ??
+    nonEmpty(stablePersistedEnv.HERMES_FABRIC_INSTANCE_ID) ??
+    nonEmpty((env[`FABRIC_INSTANCE_ID`] ?? env[`HERMES_FABRIC_INSTANCE_ID`])) ??
     sanitizeWorktreeInstanceId(worktreeName);
   const homeDir = resolveHomeAwarePath(
-    nonEmpty(stablePersistedEnv.PAPERCLIP_HOME) ??
-      nonEmpty((env[`FABRIC_HOME`] ?? env[`PAPERCLIP_HOME`])) ??
-      nonEmpty((env[`FABRIC_WORKTREES_DIR`] ?? env[`PAPERCLIP_WORKTREES_DIR`])) ??
-      "~/.paperclip-worktrees",
+    nonEmpty(stablePersistedEnv.HERMES_FABRIC_HOME) ??
+      nonEmpty((env[`FABRIC_HOME`] ?? env[`HERMES_FABRIC_HOME`])) ??
+      nonEmpty((env[`FABRIC_WORKTREES_DIR`] ?? env[`HERMES_FABRIC_WORKTREES_DIR`])) ??
+      "~/.hermes-fabric-worktrees",
   );
   const instanceRoot = path.resolve(homeDir, "instances", instanceId);
 
@@ -155,18 +155,18 @@ function resolveWorktreeRuntimeContext(
   };
 }
 
-function writeConfigFile(configPath: string, config: PaperclipConfig): void {
+function writeConfigFile(configPath: string, config: HermesFabricConfig): void {
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
 }
 
 function resolveRepoManagedWorktreesRoot(worktreeRoot: string): string | null {
   const normalized = path.resolve(worktreeRoot);
-  const marker = `${path.sep}.paperclip${path.sep}worktrees${path.sep}`;
+  const marker = `${path.sep}.fabric${path.sep}worktrees${path.sep}`;
   const index = normalized.indexOf(marker);
   if (index === -1) return null;
   const repoRoot = normalized.slice(0, index);
-  return path.resolve(repoRoot, ".paperclip", "worktrees");
+  return path.resolve(repoRoot, ".fabric", "worktrees");
 }
 
 function collectSiblingWorktreePorts(context: WorktreeRuntimeContext): {
@@ -193,7 +193,7 @@ function collectSiblingWorktreePorts(context: WorktreeRuntimeContext): {
     for (const entry of fs.readdirSync(repoManagedWorktreesRoot, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
 
-      const siblingConfigPath = path.resolve(repoManagedWorktreesRoot, entry.name, ".paperclip", "config.json");
+      const siblingConfigPath = path.resolve(repoManagedWorktreesRoot, entry.name, ".fabric", "config.json");
       if (path.resolve(siblingConfigPath) === path.resolve(context.configPath)) continue;
       if (fs.existsSync(siblingConfigPath)) {
         siblingConfigPaths.add(siblingConfigPath);
@@ -203,7 +203,7 @@ function collectSiblingWorktreePorts(context: WorktreeRuntimeContext): {
 
   for (const siblingConfigPath of siblingConfigPaths) {
     try {
-      const siblingConfig = JSON.parse(fs.readFileSync(siblingConfigPath, "utf8")) as PaperclipConfig;
+      const siblingConfig = JSON.parse(fs.readFileSync(siblingConfigPath, "utf8")) as HermesFabricConfig;
       if (Number.isInteger(siblingConfig.server.port) && siblingConfig.server.port > 0) {
         serverPorts.add(siblingConfig.server.port);
       }
@@ -231,19 +231,19 @@ function findNextUnclaimedPort(preferredPort: number, claimedPorts: Set<number>)
 }
 
 function buildIsolatedWorktreeConfig(
-  config: PaperclipConfig,
+  config: HermesFabricConfig,
   context: WorktreeRuntimeContext,
   portOverrides?: {
     serverPort?: number;
     databasePort?: number;
   },
-): PaperclipConfig {
+): HermesFabricConfig {
   const serverPort = portOverrides?.serverPort ?? config.server.port;
   const databasePort =
     config.database.mode === "embedded-postgres"
       ? portOverrides?.databasePort ?? config.database.embeddedPostgresPort
       : undefined;
-  const nextConfig: PaperclipConfig = {
+  const nextConfig: HermesFabricConfig = {
     ...config,
     database: {
       ...config.database,
@@ -293,7 +293,7 @@ function buildIsolatedWorktreeConfig(
 }
 
 function needsWorktreeConfigRepair(
-  config: PaperclipConfig,
+  config: HermesFabricConfig,
   context: WorktreeRuntimeContext,
 ): boolean {
   if (config.database.mode === "embedded-postgres") {
@@ -319,14 +319,14 @@ function needsWorktreeConfigRepair(
 }
 
 export function applyRuntimePortSelectionToConfig(
-  config: PaperclipConfig,
+  config: HermesFabricConfig,
   input: {
     serverPort: number;
     databasePort?: number | null;
     allowServerPortWrite?: boolean;
     allowDatabasePortWrite?: boolean;
   },
-): { config: PaperclipConfig; changed: boolean } {
+): { config: HermesFabricConfig; changed: boolean } {
   let changed = false;
   let nextConfig = config;
 
@@ -392,7 +392,7 @@ export function maybeRepairLegacyWorktreeConfigAndEnvFiles(): {
   let repairedConfig = false;
   if (fs.existsSync(context.configPath)) {
     try {
-      const parsed = JSON.parse(fs.readFileSync(context.configPath, "utf8")) as PaperclipConfig;
+      const parsed = JSON.parse(fs.readFileSync(context.configPath, "utf8")) as HermesFabricConfig;
       const siblingPorts = collectSiblingWorktreePorts(context);
       const hasSiblingPortCollision =
         siblingPorts.serverPorts.has(parsed.server.port) ||
@@ -432,17 +432,17 @@ export function maybeRepairLegacyWorktreeConfigAndEnvFiles(): {
   const desiredEnvEntries: Record<string, string> = {
     ...existingEnvEntries,
     FABRIC_HOME: context.homeDir,
-    PAPERCLIP_HOME: context.homeDir,
+    HERMES_FABRIC_HOME: context.homeDir,
     FABRIC_INSTANCE_ID: context.instanceId,
-    PAPERCLIP_INSTANCE_ID: context.instanceId,
+    HERMES_FABRIC_INSTANCE_ID: context.instanceId,
     FABRIC_CONFIG: context.configPath,
-    PAPERCLIP_CONFIG: context.configPath,
+    HERMES_FABRIC_CONFIG: context.configPath,
     FABRIC_CONTEXT: context.contextPath,
-    PAPERCLIP_CONTEXT: context.contextPath,
+    HERMES_FABRIC_CONTEXT: context.contextPath,
     FABRIC_IN_WORKTREE: "true",
-    PAPERCLIP_IN_WORKTREE: "true",
+    HERMES_FABRIC_IN_WORKTREE: "true",
     FABRIC_WORKTREE_NAME: context.worktreeName,
-    PAPERCLIP_WORKTREE_NAME: context.worktreeName,
+    HERMES_FABRIC_WORKTREE_NAME: context.worktreeName,
   };
 
   const repairedEnv = Object.entries(desiredEnvEntries).some(
@@ -464,9 +464,9 @@ export function maybePersistWorktreeRuntimePorts(input: {
   const context = resolveWorktreeRuntimeContext(process.env);
   if (!context || !fs.existsSync(context.configPath)) return;
 
-  let fileConfig: PaperclipConfig;
+  let fileConfig: HermesFabricConfig;
   try {
-    fileConfig = JSON.parse(fs.readFileSync(context.configPath, "utf8")) as PaperclipConfig;
+    fileConfig = JSON.parse(fs.readFileSync(context.configPath, "utf8")) as HermesFabricConfig;
   } catch {
     return;
   }

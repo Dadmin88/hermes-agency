@@ -32,7 +32,7 @@ describe("plugin", () => {
     expect(result.ok).toBe(true);
     expect(result.normalizedConfig).toEqual(
       expect.objectContaining({
-        namespacePrefix: "paperclip-",
+        namespacePrefix: "fabric-",
         egressMode: "standard",
         jobTtlSecondsAfterFinished: 900,
         podActivityDeadlineSec: 3600,

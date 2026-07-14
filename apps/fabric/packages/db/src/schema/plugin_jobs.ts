@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { plugins } from "./plugins.js";
-import type { PluginJobStatus, PluginJobRunStatus, PluginJobRunTrigger } from "@paperclipai/shared";
+import type { PluginJobStatus, PluginJobRunStatus, PluginJobRunTrigger } from "@hermes-fabric/shared";
 
 /**
  * `plugin_jobs` table — registration and runtime configuration for

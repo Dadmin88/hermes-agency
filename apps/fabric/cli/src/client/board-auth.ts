@@ -67,7 +67,7 @@ function isTruthyEnv(value: string | undefined): boolean {
 
 export function resolveBoardAuthStorePath(overridePath?: string): string {
   if (overridePath?.trim()) return path.resolve(overridePath.trim());
-  if (process.env.PAPERCLIP_AUTH_STORE?.trim()) return path.resolve(process.env.PAPERCLIP_AUTH_STORE.trim());
+  if (process.env.HERMES_FABRIC_AUTH_STORE?.trim()) return path.resolve(process.env.HERMES_FABRIC_AUTH_STORE.trim());
   return resolveDefaultCliAuthPath();
 }
 
@@ -217,13 +217,13 @@ export async function loginBoardCli(params: {
     method: "POST",
     body: JSON.stringify({
       command,
-      clientName: params.clientName?.trim() || "paperclipai cli",
+      clientName: params.clientName?.trim() || "hermes-fabric cli",
       requestedAccess: params.requestedAccess,
       requestedCompanyId: params.requestedCompanyId?.trim() || null,
     }),
   });
 
-  const publicBase = params.publicBaseUrl?.trim() || process.env.PAPERCLIP_PUBLIC_URL?.trim();
+  const publicBase = params.publicBaseUrl?.trim() || process.env.HERMES_FABRIC_PUBLIC_URL?.trim();
   const approvalUrl = publicBase
     ? `${normalizeApiBase(publicBase)}${challenge.approvalPath}`
     : challenge.approvalUrl ?? `${apiBase}${challenge.approvalPath}`;
@@ -233,7 +233,7 @@ export async function loginBoardCli(params: {
     console.error(`Open this URL in your browser to approve CLI access:\n${approvalUrl}`);
   }
 
-  const wantBrowser = params.openBrowser !== false && !isTruthyEnv(process.env.PAPERCLIP_NO_BROWSER);
+  const wantBrowser = params.openBrowser !== false && !isTruthyEnv(process.env.HERMES_FABRIC_NO_BROWSER);
   const opened = wantBrowser ? await openUrl(approvalUrl) : false;
   if (params.print !== false) {
     const browserMessage = !wantBrowser

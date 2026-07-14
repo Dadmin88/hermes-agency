@@ -1,15 +1,15 @@
 # Cloudflare Sandbox Bridge Template
 
-This Worker is the operator-facing bridge used by `@paperclipai/plugin-cloudflare-sandbox`.
+This Worker is the operator-facing bridge used by `@hermes-fabric/plugin-cloudflare-sandbox`.
 
-It exposes a small authenticated JSON API under `/api/paperclip-sandbox/v1` and translates Paperclip lease and command requests into Cloudflare Sandbox SDK calls.
+It exposes a small authenticated JSON API under `/api/fabric-sandbox/v1` and translates Hermes Fabric lease and command requests into Cloudflare Sandbox SDK calls.
 
 ## What it does
 
 - health and probe
 - acquire, resume, release, and destroy leases
 - execute commands in a sandbox session
-- clean up timed-out sessions so Paperclip does not inherit wedged background processes
+- clean up timed-out sessions so Hermes Fabric does not inherit wedged background processes
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ pnpm dev
 pnpm deploy
 ```
 
-After deploy, configure Paperclip with:
+After deploy, configure Hermes Fabric with:
 
 - `bridgeBaseUrl`: your Worker URL
 - `bridgeAuthToken`: the same bearer token value stored in `BRIDGE_AUTH_TOKEN`

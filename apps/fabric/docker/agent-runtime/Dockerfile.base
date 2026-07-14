@@ -8,11 +8,11 @@ ARG TARGETARCH
 WORKDIR /src
 COPY tools/agent-shim/ ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
-    go build -ldflags='-s -w' -o /out/paperclip-agent-shim .
+    go build -ldflags='-s -w' -o /out/fabric-agent-shim .
 
 # ---------- Stage 2: runtime base image ----------
-# Ubuntu + Node + git + tini + non-root paperclip user + the agent-shim. This is
-# everything the sandbox exec-in model needs: the pod idles and paperclip-server
+# Ubuntu + Node + git + tini + non-root fabric user + the agent-shim. This is
+# everything the sandbox exec-in model needs: the pod idles and fabric-server
 # execs the harness CLI in, so the harness images only add their CLI on top of
 # this. Git workspace population (an init-container workspace bootstrap) is
 # intentionally NOT built here yet: the current scope is a blank workspace.
@@ -26,12 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 1000 paperclip \
-    && useradd -u 1000 -g 1000 -d /home/paperclip -m -s /bin/bash paperclip
+    && groupadd -g 1000 fabric \
+    && useradd -u 1000 -g 1000 -d /home/fabric -m -s /bin/bash fabric
 
-COPY --from=shim-build   /out/paperclip-agent-shim                          /usr/local/bin/paperclip-agent-shim
+COPY --from=shim-build   /out/fabric-agent-shim                          /usr/local/bin/fabric-agent-shim
 
 USER 1000:1000
 WORKDIR /workspace
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/usr/local/bin/paperclip-agent-shim"]
+CMD ["/usr/local/bin/fabric-agent-shim"]

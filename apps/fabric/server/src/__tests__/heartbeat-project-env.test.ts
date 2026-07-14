@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSkillMentionHref } from "@paperclipai/shared";
+import { buildSkillMentionHref } from "@hermes-fabric/shared";
 import {
   LOW_TRUST_REVIEW_PRESET,
   applyRunScopedMentionedSkillKeys,
@@ -132,7 +132,7 @@ describe("resolveExecutionRunAdapterConfig", () => {
     });
   });
 
-  it("drops Paperclip runtime-owned env before resolving environment, agent, project, and routine overlays", async () => {
+  it("drops HermesFabric runtime-owned env before resolving environment, agent, project, and routine overlays", async () => {
     const resolveAdapterConfigForRuntime = vi.fn(async (_companyId, config: Record<string, unknown>) => ({
       config: {
         ...config,
@@ -154,25 +154,25 @@ describe("resolveExecutionRunAdapterConfig", () => {
       agentId: "agent-1",
       environmentId: "environment-1",
       environmentEnv: {
-        PAPERCLIP_API_KEY: "environment-api-key",
-        PAPERCLIP_AGENT_ID: "environment-agent",
+        HERMES_FABRIC_API_KEY: "environment-api-key",
+        HERMES_FABRIC_AGENT_ID: "environment-agent",
         ENV_ONLY: "environment-only",
       },
       executionRunConfig: {
         env: {
-          PAPERCLIP_API_KEY: { type: "secret_ref", secretId: "secret-api-key", version: "latest" },
-          PAPERCLIP_AGENT_ID: "spoofed-agent",
+          HERMES_FABRIC_API_KEY: { type: "secret_ref", secretId: "secret-api-key", version: "latest" },
+          HERMES_FABRIC_AGENT_ID: "spoofed-agent",
           AGENT_ONLY: "agent-only",
         },
       },
       projectEnv: {
-        PAPERCLIP_API_KEY: "project-api-key",
-        PAPERCLIP_COMPANY_ID: "spoofed-company",
+        HERMES_FABRIC_API_KEY: "project-api-key",
+        HERMES_FABRIC_COMPANY_ID: "spoofed-company",
         PROJECT_ONLY: "project-only",
       },
       routineEnv: {
-        PAPERCLIP_API_KEY: "routine-api-key",
-        PAPERCLIP_RUN_ID: "spoofed-run",
+        HERMES_FABRIC_API_KEY: "routine-api-key",
+        HERMES_FABRIC_RUN_ID: "spoofed-run",
         ROUTINE_ONLY: "routine-only",
       },
       routineId: "routine-1",
@@ -202,7 +202,7 @@ describe("resolveExecutionRunAdapterConfig", () => {
       PROJECT_ONLY: "project-only",
       ROUTINE_ONLY: "routine-only",
     });
-    expect(JSON.stringify(result.resolvedConfig.env)).not.toContain("PAPERCLIP_");
+    expect(JSON.stringify(result.resolvedConfig.env)).not.toContain("HERMES_FABRIC_");
   });
 
   it("skips project env resolution when the project has no bindings", async () => {
@@ -424,30 +424,30 @@ describe("applyRunScopedMentionedSkillKeys", () => {
   it("adds mentioned skills without mutating the original config", () => {
     const originalConfig = {
       command: "codex",
-      paperclipSkillSync: {
-        desiredSkills: ["paperclipai/paperclip/paperclip"],
+      fabricSkillSync: {
+        desiredSkills: ["hermes-fabric/fabric/fabric"],
       },
     };
 
     const updatedConfig = applyRunScopedMentionedSkillKeys(originalConfig, [
       "company/company-1/release-changelog",
-      "paperclipai/paperclip/paperclip",
+      "hermes-fabric/fabric/fabric",
       "company/company-1/release-changelog",
     ]);
 
     expect(updatedConfig).toEqual({
       command: "codex",
-      paperclipSkillSync: {
+      fabricSkillSync: {
         desiredSkills: [
-          "paperclipai/paperclip/paperclip",
+          "hermes-fabric/fabric/fabric",
           "company/company-1/release-changelog",
         ],
       },
     });
     expect(originalConfig).toEqual({
       command: "codex",
-      paperclipSkillSync: {
-        desiredSkills: ["paperclipai/paperclip/paperclip"],
+      fabricSkillSync: {
+        desiredSkills: ["hermes-fabric/fabric/fabric"],
       },
     });
   });
@@ -455,7 +455,7 @@ describe("applyRunScopedMentionedSkillKeys", () => {
   it("preserves existing version pins when adding mentioned skills", () => {
     const originalConfig = {
       command: "codex",
-      paperclipSkillSync: {
+      fabricSkillSync: {
         desiredSkills: [
           { key: "company/company-1/release-changelog", versionId: "version-1" },
         ],
@@ -468,7 +468,7 @@ describe("applyRunScopedMentionedSkillKeys", () => {
 
     expect(updatedConfig).toEqual({
       command: "codex",
-      paperclipSkillSync: {
+      fabricSkillSync: {
         desiredSkills: [
           { key: "company/company-1/release-changelog", versionId: "version-1" },
           { key: "company/company-1/security-review", versionId: null },

@@ -1,6 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import { S3Client } from "@aws-sdk/client-s3";
-import type { DeploymentMode, SecretProviderConfigDiscoveryPreviewResult } from "@paperclipai/shared";
+import type { DeploymentMode, SecretProviderConfigDiscoveryPreviewResult } from "@hermes-fabric/shared";
 import { unprocessable } from "../errors.js";
 import type {
   PreparedSecretVersion,
@@ -17,10 +17,10 @@ import { SecretProviderClientError } from "./types.js";
 import { fabricEnv } from "../fabric-env.js";
 
 const AWS_SECRETS_MANAGER_SCHEME = "aws_secrets_manager_v1";
-const DEFAULT_PREFIX = "paperclip";
-const DEFAULT_OWNER_TAG = "paperclip";
+const DEFAULT_PREFIX = "fabric";
+const DEFAULT_OWNER_TAG = "fabric";
 const DEFAULT_VERSION_STAGE = "AWSCURRENT";
-const PAPERCLIP_PENDING_VERSION_STAGE = "PAPERCLIP_PENDING";
+const HERMES_FABRIC_PENDING_VERSION_STAGE = "HERMES_FABRIC_PENDING";
 const DEFAULT_DELETE_RECOVERY_WINDOW_DAYS = 30;
 const AWS_SECRETS_MANAGER_REQUEST_TIMEOUT_MS = 30_000;
 const AWS_CREDENTIAL_CACHE_TTL_MS = 5 * 60_000;
@@ -295,7 +295,7 @@ function readProviderVaultConfig(input: SecretProviderVaultRuntimeConfig): AwsSe
   const recoveryWindow = recoveryWindowRaw ? Number(recoveryWindowRaw) : DEFAULT_DELETE_RECOVERY_WINDOW_DAYS;
   if (!Number.isFinite(recoveryWindow) || recoveryWindow < 7 || recoveryWindow > 30) {
     throw unprocessable(
-      "PAPERCLIP_SECRETS_AWS_DELETE_RECOVERY_DAYS must be an integer between 7 and 30",
+      "HERMES_FABRIC_SECRETS_AWS_DELETE_RECOVERY_DAYS must be an integer between 7 and 30",
     );
   }
 
@@ -332,13 +332,13 @@ function getAwsConfigReadiness() {
   const missingConfig: string[] = [];
 
   if (!region) {
-    missingConfig.push("PAPERCLIP_SECRETS_AWS_REGION or AWS_REGION/AWS_DEFAULT_REGION");
+    missingConfig.push("HERMES_FABRIC_SECRETS_AWS_REGION or AWS_REGION/AWS_DEFAULT_REGION");
   }
   if (!deploymentId) {
-    missingConfig.push("PAPERCLIP_SECRETS_AWS_DEPLOYMENT_ID");
+    missingConfig.push("HERMES_FABRIC_SECRETS_AWS_DEPLOYMENT_ID");
   }
   if (!kmsKeyId) {
-    missingConfig.push("PAPERCLIP_SECRETS_AWS_KMS_KEY_ID");
+    missingConfig.push("HERMES_FABRIC_SECRETS_AWS_KMS_KEY_ID");
   }
 
   return {
@@ -387,17 +387,17 @@ function loadAwsSecretsManagerConfig(): AwsSecretsManagerConfig {
   }
   if (!region) {
     throw unprocessable(
-      "AWS Secrets Manager provider requires PAPERCLIP_SECRETS_AWS_REGION or AWS_REGION",
+      "AWS Secrets Manager provider requires HERMES_FABRIC_SECRETS_AWS_REGION or AWS_REGION",
     );
   }
   if (!deploymentId) {
     throw unprocessable(
-      "AWS Secrets Manager provider requires PAPERCLIP_SECRETS_AWS_DEPLOYMENT_ID",
+      "AWS Secrets Manager provider requires HERMES_FABRIC_SECRETS_AWS_DEPLOYMENT_ID",
     );
   }
   if (!kmsKeyId) {
     throw unprocessable(
-      "AWS Secrets Manager provider requires PAPERCLIP_SECRETS_AWS_KMS_KEY_ID",
+      "AWS Secrets Manager provider requires HERMES_FABRIC_SECRETS_AWS_KMS_KEY_ID",
     );
   }
 
@@ -405,7 +405,7 @@ function loadAwsSecretsManagerConfig(): AwsSecretsManagerConfig {
   const recoveryWindow = recoveryWindowRaw ? Number(recoveryWindowRaw) : DEFAULT_DELETE_RECOVERY_WINDOW_DAYS;
   if (!Number.isFinite(recoveryWindow) || recoveryWindow < 7 || recoveryWindow > 30) {
     throw unprocessable(
-      "PAPERCLIP_SECRETS_AWS_DELETE_RECOVERY_DAYS must be an integer between 7 and 30",
+      "HERMES_FABRIC_SECRETS_AWS_DELETE_RECOVERY_DAYS must be an integer between 7 and 30",
     );
   }
 
@@ -534,12 +534,12 @@ function buildManagedSecretTags(
 ): AwsSecretsManagerTag[] {
   if (!context) return [];
   return [
-    { Key: "paperclip:managed-by", Value: "paperclip" },
-    { Key: "paperclip:provider-owner", Value: config.providerOwnerTag },
-    { Key: "paperclip:deployment-id", Value: config.deploymentId },
-    { Key: "paperclip:company-id", Value: context.companyId },
-    { Key: "paperclip:secret-key", Value: context.secretKey },
-    { Key: "paperclip:environment", Value: config.environmentTag },
+    { Key: "fabric:managed-by", Value: "fabric" },
+    { Key: "fabric:provider-owner", Value: config.providerOwnerTag },
+    { Key: "fabric:deployment-id", Value: config.deploymentId },
+    { Key: "fabric:company-id", Value: context.companyId },
+    { Key: "fabric:secret-key", Value: context.secretKey },
+    { Key: "fabric:environment", Value: config.environmentTag },
   ];
 }
 
@@ -629,13 +629,13 @@ function pathSegments(name: string) {
 function inferPathSignals(entry: AwsSecretsManagerListSecretEntry, tags: Map<string, string>) {
   const name = entry.Name?.trim() || entry.ARN?.trim() || "";
   const segments = pathSegments(name);
-  const paperclipDeploymentId = tagValue(tags, ["paperclip:deployment-id"]);
-  const paperclipManaged = tagValue(tags, ["paperclip:managed-by"])?.toLowerCase() === "paperclip";
+  const fabricDeploymentId = tagValue(tags, ["fabric:deployment-id"]);
+  const fabricManaged = tagValue(tags, ["fabric:managed-by"])?.toLowerCase() === "fabric";
 
-  if (paperclipDeploymentId || paperclipManaged) {
+  if (fabricDeploymentId || fabricManaged) {
     return {
       prefix: segments[0] ?? DEFAULT_PREFIX,
-      namespace: paperclipDeploymentId ?? segments[1] ?? null,
+      namespace: fabricDeploymentId ?? segments[1] ?? null,
     };
   }
 
@@ -683,8 +683,8 @@ function discoverAwsProviderConfigCandidates(input: {
     environmentTag: string | null;
     ownerTag: string | null;
     kmsKeyId: string | null;
-    paperclipManaged: boolean;
-    paperclipCompanyId: string | null;
+    fabricManaged: boolean;
+    fabricCompanyId: string | null;
   };
 
   const skippedWarnings: string[] = [];
@@ -695,9 +695,9 @@ function discoverAwsProviderConfigCandidates(input: {
     const name = entry.Name?.trim() || entry.ARN?.trim();
     if (!name) continue;
     const tags = normalizeAwsTags(entry.Tags);
-    const paperclipManaged = tagValue(tags, ["paperclip:managed-by"])?.toLowerCase() === "paperclip";
-    const paperclipCompanyId = tagValue(tags, ["paperclip:company-id"]);
-    if (paperclipManaged && paperclipCompanyId !== input.companyId) {
+    const fabricManaged = tagValue(tags, ["fabric:managed-by"])?.toLowerCase() === "fabric";
+    const fabricCompanyId = tagValue(tags, ["fabric:company-id"]);
+    if (fabricManaged && fabricCompanyId !== input.companyId) {
       skippedForeignManagedSampleCount += 1;
       continue;
     }
@@ -708,11 +708,11 @@ function discoverAwsProviderConfigCandidates(input: {
       tags,
       prefix: path.prefix,
       namespace: path.namespace,
-      environmentTag: tagValue(tags, ["paperclip:environment", "environment", "env", "stage"]),
-      ownerTag: tagValue(tags, ["paperclip:provider-owner", "owner", "team", "service", "application"]),
+      environmentTag: tagValue(tags, ["fabric:environment", "environment", "env", "stage"]),
+      ownerTag: tagValue(tags, ["fabric:provider-owner", "owner", "team", "service", "application"]),
       kmsKeyId: asOptionalNonEmptyString(entry.KmsKeyId),
-      paperclipManaged,
-      paperclipCompanyId,
+      fabricManaged,
+      fabricCompanyId,
     });
   }
 
@@ -762,7 +762,7 @@ function discoverAwsProviderConfigCandidates(input: {
       if (kmsKeys.length > 1 && !draftKmsKeyId) {
         candidateWarnings.push("Sampled AWS secrets use multiple KMS keys; choose the intended KMS key before saving.");
       }
-      if (group.some((sample) => sample.paperclipManaged && sample.paperclipCompanyId === input.companyId)) {
+      if (group.some((sample) => sample.fabricManaged && sample.fabricCompanyId === input.companyId)) {
         candidateWarnings.push("Sample includes Hermes Agency-managed secrets for this company; do not import them as external references.");
       }
 
@@ -796,8 +796,8 @@ function discoverAwsProviderConfigCandidates(input: {
           kmsKeyId: kmsKeyId ?? null,
           hasKmsKey: kmsKeys.length > 0,
           sampleCount: group.length,
-          paperclipManagedSampleCount: group.filter((sample) => sample.paperclipManaged).length,
-          skippedForeignPaperclipSampleCount: skippedForeignManagedSampleCount,
+          fabricManagedSampleCount: group.filter((sample) => sample.fabricManaged).length,
+          skippedForeignHermesFabricSampleCount: skippedForeignManagedSampleCount,
         },
         warnings: candidateWarnings,
       };
@@ -815,7 +815,7 @@ function discoverAwsProviderConfigCandidates(input: {
     provider: "aws_secrets_manager",
     nextToken: input.nextToken,
     sampledSecretCount: samples.length,
-    skippedForeignPaperclipSampleCount: skippedForeignManagedSampleCount,
+    skippedForeignHermesFabricSampleCount: skippedForeignManagedSampleCount,
     candidates,
     warnings,
   };
@@ -1022,7 +1022,7 @@ export function createAwsSecretsManagerProvider(
     }
     const config = resolveConfig(input?.providerConfig);
     if (!config.prefix) {
-      warnings.push("PAPERCLIP_SECRETS_AWS_PREFIX should be set to a deployment-scoped prefix");
+      warnings.push("HERMES_FABRIC_SECRETS_AWS_PREFIX should be set to a deployment-scoped prefix");
     }
     return { ok: true, warnings };
   }
@@ -1094,16 +1094,16 @@ export function createAwsSecretsManagerProvider(
           requiredProviderConfig: input?.providerConfig
             ? ["region"]
             : [
-                "PAPERCLIP_SECRETS_AWS_REGION or AWS_REGION/AWS_DEFAULT_REGION",
-                "PAPERCLIP_SECRETS_AWS_DEPLOYMENT_ID",
-                "PAPERCLIP_SECRETS_AWS_KMS_KEY_ID",
+                "HERMES_FABRIC_SECRETS_AWS_REGION or AWS_REGION/AWS_DEFAULT_REGION",
+                "HERMES_FABRIC_SECRETS_AWS_DEPLOYMENT_ID",
+                "HERMES_FABRIC_SECRETS_AWS_KMS_KEY_ID",
               ],
           optionalProviderConfig: [
-            "PAPERCLIP_SECRETS_AWS_PREFIX",
-            "PAPERCLIP_SECRETS_AWS_ENVIRONMENT",
-            "PAPERCLIP_SECRETS_AWS_PROVIDER_OWNER",
-            "PAPERCLIP_SECRETS_AWS_ENDPOINT",
-            "PAPERCLIP_SECRETS_AWS_DELETE_RECOVERY_DAYS",
+            "HERMES_FABRIC_SECRETS_AWS_PREFIX",
+            "HERMES_FABRIC_SECRETS_AWS_ENVIRONMENT",
+            "HERMES_FABRIC_SECRETS_AWS_PROVIDER_OWNER",
+            "HERMES_FABRIC_SECRETS_AWS_ENDPOINT",
+            "HERMES_FABRIC_SECRETS_AWS_DELETE_RECOVERY_DAYS",
           ],
           credentialSource: "AWS SDK default credential provider chain",
           detectedCredentialSources: readiness.credentialSources,
@@ -1161,7 +1161,7 @@ export function createAwsSecretsManagerProvider(
         const created = await gateway.putSecretValue({
           SecretId: secretId,
           SecretString: input.value,
-          VersionStages: [PAPERCLIP_PENDING_VERSION_STAGE],
+          VersionStages: [HERMES_FABRIC_PENDING_VERSION_STAGE],
         });
         const normalizedSecretId = created.ARN ?? created.Name ?? secretId;
         return {
@@ -1293,7 +1293,7 @@ export function createAwsSecretsManagerProvider(
           if (material.versionId && gateway.updateSecretVersionStage) {
             await gateway.updateSecretVersionStage({
               SecretId: secretId,
-              VersionStage: PAPERCLIP_PENDING_VERSION_STAGE,
+              VersionStage: HERMES_FABRIC_PENDING_VERSION_STAGE,
               RemoveFromVersionId: material.versionId,
             });
           }

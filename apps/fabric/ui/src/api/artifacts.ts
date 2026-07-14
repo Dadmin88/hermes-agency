@@ -4,7 +4,7 @@ import type {
   CompanyArtifactGroupBy,
   CompanyArtifactMediaKind,
   CompanyArtifactsResponse,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 export type {
   CompanyArtifact,
@@ -13,7 +13,7 @@ export type {
   CompanyArtifactMediaKind as ArtifactMediaKind,
   CompanyArtifactsResponse,
   CompanyArtifactSource as ArtifactSource,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 
 /**
  * Company-level Artifacts client (PAP-10359).
@@ -25,7 +25,7 @@ export type {
  * card-ready list so the UI never has to stitch issue-specific endpoints
  * together.
  *
- * The `CompanyArtifact` shape is imported from `@paperclipai/shared` so the
+ * The `CompanyArtifact` shape is imported from `@hermes-fabric/shared` so the
  * frontend and server stay synchronized as the contract evolves.
  */
 

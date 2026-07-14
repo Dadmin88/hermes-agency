@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.21,<1.22"]
+requires = ["hatchling>=1.21,<1.32"]
 build-backend = "hatchling.build"
 
 [project]
@@ -13,10 +13,9 @@ authors = [
     { name = "Hermes Agency Contributors" },
 ]
 keywords = [
-    "a2a", "a2a-protocol", "agent", "agent-communication", "p2p", "libp2p",
-    "grpc", "mcp", "mcp-server", "crewai", "langgraph", "google-adk", "openai-agents",
-    "claude-agent-sdk", "strands-agents", "pydantic-ai", "agno", "zero-config",
-    "end-to-end-encryption", "nat-traversal", "decentralized", "noise-protocol", "did",
+    "hermes-agent", "hermes-agency", "multi-agent", "agency", "keryx",
+    "agent-orchestration", "agent-communication", "p2p", "libp2p", "grpc",
+    "skill-routing", "kanban", "model-sets", "wake-queue", "end-to-end-encryption",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -63,12 +62,16 @@ adapters = [
     "crewai>=0.80", "langgraph>=0.2", "google-adk>=1.0", "openai-agents>=0.10",
     "claude-agent-sdk>=0.1", "strands-agents>=0.1", "pydantic-ai>=0.1", "agno>=1.0",
 ]
+pool = [
+    "flask>=3.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov>=6.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "flask>=3.0",
 ]
 
 [project.scripts]
@@ -114,6 +117,8 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "hermes-agency/kanban_bridge.py" = ["N818"]
 "hermes-agency/tests/test_e2e*.py" = ["N818"]
 "hermes-agency/tests/test_unit.py" = ["N802"]
+"apps/fabric/scripts/*.py" = ["E", "F", "I", "N", "W", "UP"]
+"scripts/*fabric*.py" = ["E", "F", "I", "N", "W", "UP"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -145,7 +150,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests", "hermes-agency/tests/test_unit.py", "hermes-agency/tests/test_model_sets.py", "hermes-agency/tests/test_extended_status_discord.py", "hermes-agency/tests/test_keryx_transport.py"]
+# Prefer explicit Make targets (test-sdk / test-agency / test-pool) for CI and release.
+# testpaths remains a sensible default for local discovery.
+testpaths = ["tests", "hermes-agency/tests"]
 markers = [
     "integration: mark test as integration test (requires relay/daemon binaries)",
 ]

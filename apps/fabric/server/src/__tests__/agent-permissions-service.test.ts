@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agentPermissionsSchema,
   updateAgentPermissionsSchema,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import {
   defaultPermissionsForRole,
   normalizeAgentPermissions,

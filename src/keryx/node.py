@@ -160,7 +160,7 @@ class KeryxNode:
         return self
 
     async def close(self) -> None:
-        """Close the SDK-owned gRPC channel."""
+        """Close the SDK-owned gRPC channel. Idempotent; never closes caller-owned channels."""
 
         if self._client is not None:
             await self._client.close()
@@ -169,7 +169,8 @@ class KeryxNode:
             result = self._channel.close()
             if inspect.isawaitable(result):
                 await result
-        self._channel = None
+            self._channel = None
+        # Detach stubs regardless of channel ownership so close() can be repeated safely.
         self._daemon_stub = None
         self._connected = False
         self._running = False

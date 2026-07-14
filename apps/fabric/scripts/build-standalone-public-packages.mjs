@@ -148,7 +148,7 @@ async function prepareAndBuildPackage(pkg) {
 
     // The fresh install above wipes node_modules and no longer fires a
     // per-plugin postinstall (removed for supply-chain safety), so link the
-    // in-repo @paperclipai/plugin-sdk that the build's tsc resolves against.
+    // in-repo @hermes-fabric/plugin-sdk that the build's tsc resolves against.
     linkSdkInto(pkgDir);
 
     if (pkgJson.scripts?.build) {

@@ -1,4 +1,4 @@
-import type { ServerInfoSnapshot } from "@paperclipai/shared";
+import type { ServerInfoSnapshot } from "@hermes-fabric/shared";
 
 export type DevServerHealthStatus = {
   enabled: true;

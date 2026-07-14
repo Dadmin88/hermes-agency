@@ -22,7 +22,7 @@ function sampleArtifact(overrides: Partial<CompanyArtifact> = {}): CompanyArtifa
     openPath: "/files/wp-1.mp4",
     downloadPath: "/files/wp-1.mp4?download=1",
     issue: { id: "issue-1", identifier: "PAP-10205", title: "Demo reel" },
-    project: { id: "proj-1", name: "Paperclip App" },
+    project: { id: "proj-1", name: "HermesFabric App" },
     createdByAgent: { id: "agent-1", name: "ClaudeCoder" },
     updatedAt: "2026-06-01T00:00:00.000Z",
     href: "/issues/PAP-10205#work-product-wp-1",

@@ -270,7 +270,7 @@ sequenceDiagram
   Gateway->>API: POST /api/join-requests/:requestId/claim-api-key (claimSecret)
   API->>Keys: Create initial API key
   API->>Join: Mark claim secret consumed
-  API-->>Gateway: Plaintext Paperclip API key
+  API-->>Gateway: Plaintext HermesFabric API key
 
   opt Replay accepted invite for updated gateway defaults
     Gateway->>API: POST /api/invites/:token/accept again

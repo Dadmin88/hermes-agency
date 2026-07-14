@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CatalogTeam } from "@paperclipai/shared";
+import type { CatalogTeam } from "@hermes-fabric/shared";
 
 const mockAgentService = vi.hoisted(() => ({
   getById: vi.fn(),
@@ -38,18 +38,17 @@ const {
   teamsCatalogService,
 } = await import("../services/teams-catalog.js");
 
-const CORE_EXEC_TEAM_ID = "paperclipai:bundled:company-defaults:core-exec-team";
-const CORE_EXEC_TEAM_HASH = "sha256:0f20e9d56124c1dc90a1e4b128fabd863538bcc935117220f719d9620f7c89f1";
+const CORE_EXEC_TEAM_ID = "hermes-fabric:bundled:company-defaults:core-exec-team";
 
 function agentWithCatalogTeam(originHash: string | null, extra: Record<string, unknown> = {}) {
   return {
     id: `agent-${Math.random().toString(36).slice(2)}`,
     companyId: "company-1",
     metadata: {
-      paperclip: {
+      fabric: {
         catalogTeam: {
           catalogId: CORE_EXEC_TEAM_ID,
-          catalogKey: "paperclipai/bundled/company-defaults/core-exec-team",
+          catalogKey: "hermes-fabric/bundled/company-defaults/core-exec-team",
           ...(originHash ? { originHash } : {}),
         },
       },
@@ -69,7 +68,7 @@ describe("teamsCatalogService", () => {
     mockCompanyPortabilityService.previewImport.mockResolvedValue({
       include: { company: false, agents: true, projects: true, issues: true, skills: true },
       targetCompanyId: "company-1",
-      targetCompanyName: "Paperclip",
+      targetCompanyName: "Hermes Fabric",
       collisionStrategy: "rename",
       selectedAgentSlugs: ["ceo", "cto"],
       plan: { companyAction: "none", agentPlans: [], projectPlans: [], issuePlans: [] },
@@ -80,7 +79,7 @@ describe("teamsCatalogService", () => {
       errors: [],
     });
     mockCompanyPortabilityService.importBundle.mockResolvedValue({
-      company: { id: "company-1", name: "Paperclip", action: "unchanged" },
+      company: { id: "company-1", name: "Hermes Fabric", action: "unchanged" },
       agents: [],
       projects: [],
       envInputs: [],
@@ -88,8 +87,8 @@ describe("teamsCatalogService", () => {
     });
     mockCompanySkillService.installFromCatalog.mockResolvedValue({
       action: "created",
-      skill: { key: "paperclipai/bundled/paperclip-operations/task-planning" },
-      catalogSkill: { id: "paperclipai:bundled:paperclip-operations:task-planning" },
+      skill: { key: "hermes-fabric/bundled/fabric-operations/task-planning" },
+      catalogSkill: { id: "hermes-fabric:bundled:fabric-operations:task-planning" },
       warnings: [],
     });
     mockCompanySkillService.importFromSource.mockResolvedValue({
@@ -107,10 +106,10 @@ describe("teamsCatalogService", () => {
 
     expect(prepared.errors).toEqual([]);
     expect(prepared.source.files["COMPANY.md"]).toEqual(expect.stringContaining("Core Exec Team"));
-    expect(prepared.source.files["agents/ceo/AGENTS.md"]).toEqual(expect.stringContaining("paperclipai/bundled/paperclip-operations/task-planning"));
-    expect(prepared.source.files["agents/cto/AGENTS.md"]).toEqual(expect.stringContaining("paperclipai/bundled/software-development/github-pr-workflow"));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentId: \"manager-1\""));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentSlug: \"engineering-manager\""));
+    expect(prepared.source.files["agents/ceo/AGENTS.md"]).toEqual(expect.stringContaining("hermes-fabric/bundled/fabric-operations/task-planning"));
+    expect(prepared.source.files["agents/cto/AGENTS.md"]).toEqual(expect.stringContaining("hermes-fabric/bundled/software-development/github-pr-workflow"));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentId: \"manager-1\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentSlug: \"engineering-manager\""));
   });
 
   it("resolves target-manager slug against same-company agents before rendering reparent metadata", async () => {
@@ -124,19 +123,19 @@ describe("teamsCatalogService", () => {
     });
 
     expect(mockAgentService.list).toHaveBeenCalledWith("company-1");
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentId: \"manager-1\""));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentSlug: \"ceo\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentId: \"manager-1\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentSlug: \"ceo\""));
   });
 
-  it("preserves package-declared Paperclip sidecar permissions while adding generated catalog provenance", async () => {
+  it("preserves package-declared HermesFabric sidecar permissions while adding generated catalog provenance", async () => {
     const svc = teamsCatalogService({} as any);
 
     const prepared = await svc.prepareCatalogTeamSource("company-1", "product-engineering");
 
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("permissions:"));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("canCreateAgents: true"));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("catalogTeam:"));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("catalogSlug: \"product-engineering\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("permissions:"));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("canCreateAgents: true"));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("catalogTeam:"));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("catalogSlug: \"product-engineering\""));
   });
 
   it("preserves package sidecar permissions when generated target-manager metadata is merged onto the same root agent", async () => {
@@ -146,11 +145,11 @@ describe("teamsCatalogService", () => {
       targetManagerAgentId: "manager-1",
     });
 
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("permissions:"));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("canCreateAgents: true"));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentId: \"manager-1\""));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentSlug: \"engineering-manager\""));
-    expect(prepared.source.files[".paperclip.yaml"]).toEqual(expect.stringContaining("catalogSlug: \"product-engineering\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("permissions:"));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("canCreateAgents: true"));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentId: \"manager-1\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("reportsToExistingAgentSlug: \"engineering-manager\""));
+    expect(prepared.source.files[".fabric.yaml"]).toEqual(expect.stringContaining("catalogSlug: \"product-engineering\""));
   });
 
   it("rejects missing target-manager slugs instead of emitting unresolved reparent metadata", async () => {
@@ -208,7 +207,7 @@ describe("teamsCatalogService", () => {
     mockCompanyPortabilityService.previewImport.mockResolvedValueOnce({
       include: { company: false, agents: true, projects: true, issues: true, skills: true },
       targetCompanyId: "company-1",
-      targetCompanyName: "Paperclip",
+      targetCompanyName: "Hermes Fabric",
       collisionStrategy: "rename",
       selectedAgentSlugs: ["ceo"],
       plan: { companyAction: "none", agentPlans: [], projectPlans: [], issuePlans: [] },
@@ -264,8 +263,8 @@ describe("teamsCatalogService", () => {
   });
 
   it("uses the configured safe adapter default for bundled agents", async () => {
-    const previousDefault = process.env.PAPERCLIP_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE;
-    process.env.PAPERCLIP_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE = "opencode_local";
+    const previousDefault = process.env.HERMES_FABRIC_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE;
+    process.env.HERMES_FABRIC_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE = "opencode_local";
     try {
       const svc = teamsCatalogService({} as any);
 
@@ -279,9 +278,9 @@ describe("teamsCatalogService", () => {
       });
     } finally {
       if (previousDefault === undefined) {
-        delete process.env.PAPERCLIP_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE;
+        delete process.env.HERMES_FABRIC_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE;
       } else {
-        process.env.PAPERCLIP_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE = previousDefault;
+        process.env.HERMES_FABRIC_TEAMS_CATALOG_DEFAULT_ADAPTER_TYPE = previousDefault;
       }
     }
   });
@@ -374,7 +373,7 @@ describe("teamsCatalogService", () => {
     it("reads catalogTeam provenance from agent metadata", () => {
       expect(
         readCatalogTeamProvenance({
-          paperclip: { catalogTeam: { catalogId: "team-x", catalogKey: "k", originHash: "sha256:1" } },
+          fabric: { catalogTeam: { catalogId: "team-x", catalogKey: "k", originHash: "sha256:1" } },
         }),
       ).toEqual({ catalogId: "team-x", catalogKey: "k", originHash: "sha256:1" });
     });
@@ -382,8 +381,8 @@ describe("teamsCatalogService", () => {
     it("returns null when there is no catalogTeam provenance", () => {
       expect(readCatalogTeamProvenance(null)).toBeNull();
       expect(readCatalogTeamProvenance({})).toBeNull();
-      expect(readCatalogTeamProvenance({ paperclip: { catalog: { skillKey: "s" } } })).toBeNull();
-      expect(readCatalogTeamProvenance({ paperclip: { catalogTeam: { originHash: "h" } } })).toBeNull();
+      expect(readCatalogTeamProvenance({ fabric: { catalog: { skillKey: "s" } } })).toBeNull();
+      expect(readCatalogTeamProvenance({ fabric: { catalogTeam: { originHash: "h" } } })).toBeNull();
     });
   });
 
@@ -395,6 +394,7 @@ describe("teamsCatalogService", () => {
         { id: "no-provenance", companyId: "company-1", metadata: null },
       ]);
       const svc = teamsCatalogService({} as any);
+      const currentTeam = await svc.getCatalogTeamOrThrow(CORE_EXEC_TEAM_ID);
 
       const installed = await svc.listInstalledCatalogTeams("company-1");
 
@@ -403,7 +403,7 @@ describe("teamsCatalogService", () => {
         expect.objectContaining({
           catalogId: CORE_EXEC_TEAM_ID,
           present: true,
-          currentContentHash: CORE_EXEC_TEAM_HASH,
+          currentContentHash: currentTeam.contentHash,
           installedOriginHashes: ["sha256:stale-hash"],
           agentCount: 2,
           outOfDate: true,
@@ -412,8 +412,11 @@ describe("teamsCatalogService", () => {
     });
 
     it("marks a team up to date when the installed originHash matches the catalog hash", async () => {
-      mockAgentService.list.mockResolvedValue([agentWithCatalogTeam(CORE_EXEC_TEAM_HASH)]);
       const svc = teamsCatalogService({} as any);
+      const currentTeam = await svc.getCatalogTeamOrThrow(CORE_EXEC_TEAM_ID);
+      mockAgentService.list.mockResolvedValue([
+        agentWithCatalogTeam(currentTeam.contentHash),
+      ]);
 
       const installed = await svc.listInstalledCatalogTeams("company-1");
 
@@ -426,7 +429,7 @@ describe("teamsCatalogService", () => {
         {
           id: "removed",
           companyId: "company-1",
-          metadata: { paperclip: { catalogTeam: { catalogId: "paperclipai:bundled:gone:removed", originHash: "sha256:x" } } },
+          metadata: { fabric: { catalogTeam: { catalogId: "hermes-fabric:bundled:gone:removed", originHash: "sha256:x" } } },
         },
       ]);
       const svc = teamsCatalogService({} as any);
@@ -448,8 +451,8 @@ describe("teamsCatalogService", () => {
 
   it("classifies unresolved and unsafe external skill requirements as blocked", () => {
     const fakeTeam: CatalogTeam = {
-      id: "paperclipai:optional:test:unsafe",
-      key: "paperclipai/optional/test/unsafe",
+      id: "hermes-fabric:optional:test:unsafe",
+      key: "hermes-fabric/optional/test/unsafe",
       kind: "optional",
       category: "test",
       slug: "unsafe",

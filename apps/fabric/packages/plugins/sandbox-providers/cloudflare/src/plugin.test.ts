@@ -66,7 +66,7 @@ describe("Cloudflare sandbox provider plugin", () => {
         normalizeId: false,
         requestedCwd: "/workspace/custom",
         sessionStrategy: "default",
-        sessionId: "paperclip",
+        sessionId: "fabric",
         timeoutMs: 450000,
         bridgeRequestTimeoutMs: 40000,
         previewHostname: null,
@@ -100,7 +100,7 @@ describe("Cloudflare sandbox provider plugin", () => {
         providerLeaseId: "pc-run-1-abcd1234",
         metadata: {
           provider: "cloudflare",
-          remoteCwd: "/workspace/paperclip",
+          remoteCwd: "/workspace/fabric",
           resumedLease: false,
         },
       }),
@@ -112,7 +112,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       environmentId: "env-1",
       issueId: "issue-1",
       runId: "run-1",
-      requestedCwd: "/workspace/paperclip",
+      requestedCwd: "/workspace/fabric",
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
@@ -123,25 +123,25 @@ describe("Cloudflare sandbox provider plugin", () => {
       providerLeaseId: "pc-run-1-abcd1234",
       metadata: {
         provider: "cloudflare",
-        remoteCwd: "/workspace/paperclip",
+        remoteCwd: "/workspace/fabric",
         resumedLease: false,
       },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://bridge.example.workers.dev/api/paperclip-sandbox/v1/leases/acquire",
+      "https://bridge.example.workers.dev/api/fabric-sandbox/v1/leases/acquire",
       expect.objectContaining({
         method: "POST",
         headers: expect.any(Headers),
       }),
     );
-    expect(requestHeadersAt().get("X-Paperclip-Run-Id")).toBe("run-1");
-    expect(requestHeadersAt().get("X-Paperclip-Environment-Id")).toBe("env-1");
-    expect(requestHeadersAt().get("X-Paperclip-Issue-Id")).toBe("issue-1");
+    expect(requestHeadersAt().get("X-HermesFabric-Run-Id")).toBe("run-1");
+    expect(requestHeadersAt().get("X-HermesFabric-Environment-Id")).toBe("env-1");
+    expect(requestHeadersAt().get("X-HermesFabric-Issue-Id")).toBe("issue-1");
     expect(requestBodyAt()).toMatchObject({
       environmentId: "env-1",
       runId: "run-1",
       issueId: "issue-1",
-      requestedCwd: "/workspace/paperclip",
+      requestedCwd: "/workspace/fabric",
     });
   });
 
@@ -149,7 +149,7 @@ describe("Cloudflare sandbox provider plugin", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         providerLeaseId: "pc-run-1-abcd1234",
-        metadata: { provider: "cloudflare", remoteCwd: "/workspace/paperclip", resumedLease: false },
+        metadata: { provider: "cloudflare", remoteCwd: "/workspace/fabric", resumedLease: false },
       }),
     );
 
@@ -158,7 +158,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       companyId: "company-1",
       environmentId: "env-1",
       runId: "run-1",
-      requestedCwd: "/workspace/paperclip",
+      requestedCwd: "/workspace/fabric",
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
@@ -184,7 +184,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       companyId: "company-1",
       environmentId: "env-1",
       providerLeaseId: "pc-env-env-1",
-      leaseMetadata: { remoteCwd: "/workspace/paperclip" },
+      leaseMetadata: { remoteCwd: "/workspace/fabric" },
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
@@ -206,7 +206,7 @@ describe("Cloudflare sandbox provider plugin", () => {
         exitCode: 0,
         signal: null,
         timedOut: false,
-        stdout: "/workspace/paperclip\n",
+        stdout: "/workspace/fabric\n",
         stderr: "",
       }),
     );
@@ -218,7 +218,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       lease: { providerLeaseId: "pc-run-1-abcd1234", metadata: {} },
       command: "pwd",
       args: [],
-      cwd: "/workspace/paperclip",
+      cwd: "/workspace/fabric",
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
@@ -229,7 +229,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       exitCode: 0,
       signal: null,
       timedOut: false,
-      stdout: "/workspace/paperclip\n",
+      stdout: "/workspace/fabric\n",
       stderr: "",
     });
   });
@@ -258,27 +258,27 @@ describe("Cloudflare sandbox provider plugin", () => {
       lease: { providerLeaseId: "pc-run-1-abcd1234", metadata: {} },
       command: "sh",
       args: ["-lc", "ls"],
-      cwd: "/workspace/paperclip",
+      cwd: "/workspace/fabric",
       env: {
-        PAPERCLIP_SANDBOX_EXEC_CHANNEL: "bridge",
+        HERMES_FABRIC_SANDBOX_EXEC_CHANNEL: "bridge",
         KEEP_ME: "visible",
       },
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
         sessionStrategy: "default",
-        sessionId: "paperclip",
+        sessionId: "fabric",
       },
     });
 
     expect(requestBodyAt()).toMatchObject({
       sessionStrategy: "named",
-      sessionId: "paperclip-bridge",
+      sessionId: "fabric-bridge",
       env: {
         KEEP_ME: "visible",
       },
     });
-    expect(requestBodyAt().env).not.toHaveProperty("PAPERCLIP_SANDBOX_EXEC_CHANNEL");
+    expect(requestBodyAt().env).not.toHaveProperty("HERMES_FABRIC_SANDBOX_EXEC_CHANNEL");
     // Bridge-channel commands must use the non-streaming exec path. The
     // @cloudflare/sandbox SDK's streaming mode can drop the final stdout
     // chunk when a short shell exits the same tick it writes — bridge ops
@@ -311,13 +311,13 @@ describe("Cloudflare sandbox provider plugin", () => {
       lease: { providerLeaseId: "pc-run-1-abcd1234", metadata: {} },
       command: "echo",
       args: ["hello"],
-      cwd: "/workspace/paperclip",
+      cwd: "/workspace/fabric",
       env: { KEEP_ME: "visible" },
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
         sessionStrategy: "named",
-        sessionId: "paperclip",
+        sessionId: "fabric",
       },
     });
 
@@ -342,7 +342,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       lease: { providerLeaseId: "pc-run-1-abcd1234", metadata: {} },
       command: "pwd",
       args: [],
-      cwd: "/workspace/paperclip",
+      cwd: "/workspace/fabric",
       config: {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
@@ -376,7 +376,7 @@ describe("Cloudflare sandbox provider plugin", () => {
       issueId: "issue-1",
       lease: {
         providerLeaseId: "pc-run-1-abcd1234",
-        metadata: { remoteCwd: "/workspace/paperclip" },
+        metadata: { remoteCwd: "/workspace/fabric" },
       },
       workspace: {
         localPath: "/tmp/project",
@@ -390,8 +390,8 @@ describe("Cloudflare sandbox provider plugin", () => {
         bridgeBaseUrl: "https://bridge.example.workers.dev",
         bridgeAuthToken: "resolved-token",
       },
-    })).rejects.toThrow("Failed to prepare Cloudflare sandbox workspace at /workspace/paperclip: mkdir: permission denied");
+    })).rejects.toThrow("Failed to prepare Cloudflare sandbox workspace at /workspace/fabric: mkdir: permission denied");
 
-    expect(requestHeadersAt().get("X-Paperclip-Issue-Id")).toBe("issue-1");
+    expect(requestHeadersAt().get("X-HermesFabric-Issue-Id")).toBe("issue-1");
   });
 });

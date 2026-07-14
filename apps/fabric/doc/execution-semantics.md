@@ -4,13 +4,13 @@ Status: Current implementation guide
 Date: 2026-06-10
 Audience: Product and engineering
 
-This document explains how Paperclip interprets issue assignment, issue status, execution runs, wakeups, parent/sub-issue structure, and blocker relationships.
+This document explains how Hermes Fabric interprets issue assignment, issue status, execution runs, wakeups, parent/sub-issue structure, and blocker relationships.
 
 `doc/SPEC-implementation.md` remains the V1 contract. This document is the detailed execution model behind that contract.
 
 ## 1. Core Model
 
-Paperclip separates four concepts that are easy to blur together:
+Hermes Fabric separates four concepts that are easy to blur together:
 
 1. structure: parent/sub-issue relationships
 2. dependency: blocker relationships
@@ -27,11 +27,11 @@ An issue has at most one assignee.
 - `assigneeUserId` means the issue is owned by a human board user
 - both cannot be set at the same time
 
-This is a hard invariant. Paperclip is single-assignee by design.
+This is a hard invariant. Hermes Fabric is single-assignee by design.
 
 ## 3. Status Semantics
 
-Paperclip issue statuses are not just UI labels. They imply different expectations about ownership and execution.
+Hermes Fabric issue statuses are not just UI labels. They imply different expectations about ownership and execution.
 
 ### `backlog`
 
@@ -47,7 +47,7 @@ The issue is actionable but not actively claimed.
 
 - it may be assigned or unassigned
 - no checkout/execution lock is required yet
-- for agent-assigned work, Paperclip may still need a wake path to ensure the assignee actually sees it
+- for agent-assigned work, Hermes Fabric may still need a wake path to ensure the assignee actually sees it
 
 ### `in_progress`
 
@@ -67,7 +67,7 @@ This is the right state for:
 
 - waiting on another issue
 - waiting on a human decision
-- waiting on an external dependency or system when Paperclip does not own a scheduled re-check
+- waiting on an external dependency or system when Hermes Fabric does not own a scheduled re-check
 - work that automatic recovery could not safely continue
 
 ### `in_review`
@@ -92,16 +92,16 @@ The execution model differs depending on assignee type.
 
 Agent-owned issues are part of the control plane's execution loop.
 
-- Paperclip can wake the assignee
-- Paperclip can track runs linked to the issue
-- Paperclip can recover some lost execution state after crashes/restarts
+- Hermes Fabric can wake the assignee
+- Hermes Fabric can track runs linked to the issue
+- Hermes Fabric can recover some lost execution state after crashes/restarts
 
 ### User-owned issues
 
 User-owned issues are not executed by the heartbeat scheduler.
 
-- Paperclip can track the ownership and status
-- Paperclip cannot rely on heartbeat/run semantics to keep them moving
+- Hermes Fabric can track the ownership and status
+- Hermes Fabric cannot rely on heartbeat/run semantics to keep them moving
 - stranded-work reconciliation does not apply to them
 
 This is why `in_progress` can be strict for agents without forcing the same runtime rules onto human-held work.
@@ -119,7 +119,7 @@ These are related but not identical:
 - `checkoutRunId` answers who currently owns execution rights for the issue
 - `executionRunId` answers which run is actually live right now
 
-Paperclip already clears stale execution locks and can adopt some stale checkout locks when the original run is gone.
+Hermes Fabric already clears stale execution locks and can adopt some stale checkout locks when the original run is gone.
 
 The active-lock lifecycle is part of the checkout contract:
 
@@ -130,7 +130,7 @@ The active-lock lifecycle is part of the checkout contract:
 - checkout and checkout-owner checks may self-heal lock columns that point at terminal or missing runs before evaluating conflicts
 - the recovery sweeper may clear rows whose checkout and execution locks all point at terminal or missing runs
 
-Stale-lock recovery is crash recovery, not a retry loop. Paperclip must not clear or adopt locks held by non-terminal runs. After stale cleanup, a checkout `409` should mean a real live owner, status/assignee mismatch, unresolved blocker, or active gate still prevents checkout. Agents must treat that `409` as an ownership conflict and stop rather than retrying the same checkout.
+Stale-lock recovery is crash recovery, not a retry loop. Hermes Fabric must not clear or adopt locks held by non-terminal runs. After stale cleanup, a checkout `409` should mean a real live owner, status/assignee mismatch, unresolved blocker, or active gate still prevents checkout. Agents must treat that `409` as an ownership conflict and stop rather than retrying the same checkout.
 
 ### Pre-dispatch configuration validation
 
@@ -142,7 +142,7 @@ A configuration-incomplete result is a gate outcome, not a runtime failure. It i
 
 ## 6. Parent/Sub-Issue vs Blockers
 
-Paperclip uses two different relationships for different jobs.
+Hermes Fabric uses two different relationships for different jobs.
 
 ### Parent/Sub-Issue (`parentId`)
 
@@ -167,7 +167,7 @@ Use it for:
 - explicit waiting relationships
 - automatic wakeups when all blockers resolve
 
-Blocked issues should stay idle while blockers remain unresolved. Paperclip should not create a queued heartbeat run for that issue until the final blocker is done and the `issue_blockers_resolved` wake can start real work.
+Blocked issues should stay idle while blockers remain unresolved. Hermes Fabric should not create a queued heartbeat run for that issue until the final blocker is done and the `issue_blockers_resolved` wake can start real work.
 
 If a parent is truly waiting on a child, model that with blockers. Do not rely on the parent/child relationship alone.
 
@@ -177,7 +177,7 @@ An accepted plan confirmation is permission to decompose one specific accepted p
 
 This complements the existing accepted-plan continuation rule: once a plan is accepted, the source issue may create child implementation issues, but it must not start implementation work on the source issue itself during that continuation.
 
-Paperclip must treat accepted-plan decomposition as an exact-once control-plane primitive, not as a free-floating wake that any later run may interpret again.
+Hermes Fabric must treat accepted-plan decomposition as an exact-once control-plane primitive, not as a free-floating wake that any later run may interpret again.
 
 ### Exact-once fingerprint
 
@@ -205,7 +205,7 @@ That durable record must be able to answer, without reconstructing the thread fr
 - which child issues, if any, have already been created under that fingerprint
 - which final child issue ids belong to the completed result
 
-Paperclip does not need to mandate a specific storage shape in this document. The record may live in a dedicated table, source-issue execution state, interaction metadata, or another durable product surface. What matters is the contract:
+Hermes Fabric does not need to mandate a specific storage shape in this document. The record may live in a dedicated table, source-issue execution state, interaction metadata, or another durable product surface. What matters is the contract:
 
 - the claim is durable before fan-out starts
 - partial progress is durable while fan-out is underway
@@ -224,7 +224,7 @@ The accepted interaction by itself is only evidence that the plan was approved. 
 - a monitor or explicit recovery action tied to the same decomposition claim
 - a blocked state that names the real blocker for finishing that claimed decomposition
 
-If the live run disappears, Paperclip must repair, resume, or visibly block the existing claim. It must not leave the source issue in a state where a second run can interpret the same acceptance as fresh permission to create sibling issues again.
+If the live run disappears, Hermes Fabric must repair, resume, or visibly block the existing claim. It must not leave the source issue in a state where a second run can interpret the same acceptance as fresh permission to create sibling issues again.
 
 Once decomposition completes and the umbrella's remaining work is "wait for the children to finish," the umbrella must hold a first-class waiting path — a `blocked`-by-children state — not merely `in_progress` resting on `parentId` rollup. `parentId` is not a dependency (§6), so an `in_progress` umbrella with no run, no wake, and no blockers looks stranded to recovery. If the executor instead parks the continuation as waiting-for-review, recovery converts that park into the missing dependency wait (§9.2, "Deliberate wait is not a lost run").
 
@@ -241,9 +241,9 @@ Concurrent accepted-plan runs are therefore idempotent relative to the fingerpri
 
 ## 8. Non-Terminal Issue Liveness Contract
 
-For agent-owned, non-terminal issues, Paperclip should never leave work in a state where nobody is responsible for the next move and nothing will wake or surface it.
+For agent-owned, non-terminal issues, Hermes Fabric should never leave work in a state where nobody is responsible for the next move and nothing will wake or surface it.
 
-This is a visibility contract, not an auto-completion contract. If Paperclip cannot safely infer the next action, it should surface the ambiguity with a blocked state, a visible notice, or an explicit recovery action. It must not silently mark work done from prose comments or guess that a dependency is complete.
+This is a visibility contract, not an auto-completion contract. If Hermes Fabric cannot safely infer the next action, it should surface the ambiguity with a blocked state, a visible notice, or an explicit recovery action. It must not silently mark work done from prose comments or guess that a dependency is complete.
 
 An issue is healthy when the product can answer "what moves this forward next?" without requiring a human to reconstruct intent from the whole thread. An issue is stalled when it is non-terminal but has no live execution path, no explicit waiting path, and no recovery path.
 
@@ -277,7 +277,7 @@ Freeform document approval text is not auto-acceptance. Plan approval, implement
 
 ### Comment interrupts and ownership handoffs
 
-A board comment can be an interrupt, an ownership change, both, or neither. Paperclip must keep those concepts separate in the product contract.
+A board comment can be an interrupt, an ownership change, both, or neither. Hermes Fabric must keep those concepts separate in the product contract.
 
 An interrupt stops the current live execution path for the issue. It does not, by itself, select the next owner. If an active run is interrupted by the board, the run may still terminate with the underlying `cancelled` status, but the issue activity and wake context should make the operator intent visible as an interruption rather than an unexplained runtime failure.
 
@@ -287,9 +287,9 @@ An ownership change selects who owns the issue after the comment is committed:
 - setting `assigneeUserId`, or clearing `assigneeAgentId`, makes the issue human-owned or unassigned
 - leaving assignee fields unchanged preserves the current owner
 
-A wake is the delivery path for a selected agent owner. If an interrupting update also assigns a non-terminal, non-backlog issue to an agent, Paperclip should enqueue one wake for the new assignee and include the interrupting comment and interrupted run id in the wake payload/context when available. Stale scheduled retries for the previous owner must not run after ownership changes away from that owner.
+A wake is the delivery path for a selected agent owner. If an interrupting update also assigns a non-terminal, non-backlog issue to an agent, Hermes Fabric should enqueue one wake for the new assignee and include the interrupting comment and interrupted run id in the wake payload/context when available. Stale scheduled retries for the previous owner must not run after ownership changes away from that owner.
 
-If the committed update assigns the issue to a user, clears the agent assignee, or leaves the issue without an agent owner, Paperclip must not imply that an agent handoff happened. The issue is then waiting on the human owner or on a future explicit assignment, blocker, approval, interaction, monitor, or recovery action.
+If the committed update assigns the issue to a user, clears the agent assignee, or leaves the issue without an agent owner, Hermes Fabric must not imply that an agent handoff happened. The issue is then waiting on the human owner or on a future explicit assignment, blocker, approval, interaction, monitor, or recovery action.
 
 Plain text is not assignment. Writing an agent's name, role, or team label in a comment does not change ownership and does not create an agent wake. Agent routing from comment text requires a structured agent mention that resolves inside the company, an explicit `assigneeAgentId` mutation, or an existing current agent assignee receiving normal issue-thread feedback.
 
@@ -297,17 +297,17 @@ Pause and tree-control previews should make the same distinction visible. They s
 
 ### Adapter-backed workspace coherence
 
-For adapter-backed execution, an active run or queued wake counts as a live path only when Paperclip can also prove that the selected workspace is coherent for that adapter invocation. A wake that cannot start in the intended workspace is only a failed delivery attempt, not a healthy liveness path.
+For adapter-backed execution, an active run or queued wake counts as a live path only when Hermes Fabric can also prove that the selected workspace is coherent for that adapter invocation. A wake that cannot start in the intended workspace is only a failed delivery attempt, not a healthy liveness path.
 
 A workspace-coherent adapter path means:
 
 - the selected `executionWorkspaceId`, `projectWorkspaceId`, `projectId`, source issue, and company all refer to the same company-scoped work context
 - any `projectWorkspaceId` is accompanied by the owning `projectId`, and that project relationship is unambiguous
-- the adapter will receive the same effective workspace/cwd that Paperclip resolved for the run, including the same workspace ids and `PAPERCLIP_WORKSPACE_*` environment values
+- the adapter will receive the same effective workspace/cwd that Hermes Fabric resolved for the run, including the same workspace ids and `HERMES_FABRIC_WORKSPACE_*` environment values
 - the effective cwd exists or is provider-reachable, according to the workspace provider
 - when the adapter or workspace strategy relies on git state, the cwd is git-valid for the selected workspace: it resolves to the expected repository root, required base refs or branch metadata can be resolved, and runtime-created worktrees are still registered or explicitly recoverable
 
-The state `projectWorkspaceId` plus `executionWorkspaceId` without `projectId` is invalid for project-scoped execution. Paperclip may treat it as recoverable only when it can derive exactly one owning project from the execution workspace, project workspace, or source issue in the same company and then repair the persisted state before delivery. If the owning project is missing, ambiguous, or cross-company, the queued adapter run must not be counted as a live path.
+The state `projectWorkspaceId` plus `executionWorkspaceId` without `projectId` is invalid for project-scoped execution. Hermes Fabric may treat it as recoverable only when it can derive exactly one owning project from the execution workspace, project workspace, or source issue in the same company and then repair the persisted state before delivery. If the owning project is missing, ambiguous, or cross-company, the queued adapter run must not be counted as a live path.
 
 Workspace incoherence feeds into the same non-terminal liveness and stranded assigned-work model as a disappeared run. The recovery path should first fail or reject the incoherent wake, then either repair and requeue one bounded continuation for the same assignee or surface an explicit recovery action. It must not leave an agent-owned `in_progress` issue healthy solely because a wake record exists that would invoke the adapter in the wrong cwd, a non-git directory where git is required, an unrelated project workspace, or an unrecoverable missing worktree.
 
@@ -360,9 +360,9 @@ An assigned `todo` issue is stalled when dispatch was interrupted, no wake remai
 
 This is parked state, not dispatch state.
 
-Assigning an issue normally implies executable intent. When create APIs receive an assignee and no explicit status, Paperclip defaults the issue to `todo` so the assignee has a wake path instead of silently inheriting the unassigned `backlog` default.
+Assigning an issue normally implies executable intent. When create APIs receive an assignee and no explicit status, Hermes Fabric defaults the issue to `todo` so the assignee has a wake path instead of silently inheriting the unassigned `backlog` default.
 
-An explicit assigned `backlog` issue remains valid when the creator is deliberately parking the work. It must not wake the assignee just because it has an assignee. Paperclip should make that choice visible in activity and UI so operators can distinguish intentional parking from a missed handoff.
+An explicit assigned `backlog` issue remains valid when the creator is deliberately parking the work. It must not wake the assignee just because it has an assignee. Hermes Fabric should make that choice visible in activity and UI so operators can distinguish intentional parking from a missed handoff.
 
 An assigned `backlog` issue becomes a liveness problem when another issue is blocked on it and there is no explicit waiting path such as a human owner, active run, queued wake, pending interaction or approval, monitor, or open recovery action. In that case the blocked parent should surface "blocked by parked work" rather than treating the dependency chain as healthy.
 
@@ -394,7 +394,7 @@ A healthy `in_review` issue has at least one valid action path:
 
 Agent-assigned `in_review` with no typed participant is only healthy when one of the other paths exists. Assignment to the same agent that produced the handoff is not, by itself, a review path.
 
-An `in_review` issue is stalled when it has no typed participant, no pending interaction or approval, no user owner, no active monitor, no active run, no queued wake, and no explicit recovery action. Paperclip should surface that state as recovery work rather than silently completing the issue or leaving blocker chains parked indefinitely.
+An `in_review` issue is stalled when it has no typed participant, no pending interaction or approval, no user owner, no active monitor, no active run, no queued wake, and no explicit recovery action. Hermes Fabric should surface that state as recovery work rather than silently completing the issue or leaving blocker chains parked indefinitely.
 
 ### Issue monitors
 
@@ -404,19 +404,19 @@ Use a monitor when the current assignee owns a future check against an async sys
 
 Monitor policy lives under `executionPolicy.monitor` and includes:
 
-- `nextCheckAt`: when Paperclip should wake the assignee
+- `nextCheckAt`: when Hermes Fabric should wake the assignee
 - `notes`: non-secret instructions for what the assignee should check
 - `serviceName`: optional non-secret external-service context
-- `externalRef`: optional external-service reference input; Paperclip treats it as secret-adjacent, redacts it before persistence/visibility, and omits it from activity and wake payloads
+- `externalRef`: optional external-service reference input; Hermes Fabric treats it as secret-adjacent, redacts it before persistence/visibility, and omits it from activity and wake payloads
 - `timeoutAt`, `maxAttempts`, and `recoveryPolicy`: optional recovery hints for bounded waits
 
-Monitors are not recurring intervals. When a monitor fires, Paperclip clears the scheduled monitor and queues an `issue_monitor_due` wake for the assignee. If the external service is still pending, the assignee must explicitly re-arm the monitor with a new `nextCheckAt`. If the issue moves to `done`, `cancelled`, an invalid status, or a human/unassigned owner, the monitor is cleared.
+Monitors are not recurring intervals. When a monitor fires, Hermes Fabric clears the scheduled monitor and queues an `issue_monitor_due` wake for the assignee. If the external service is still pending, the assignee must explicitly re-arm the monitor with a new `nextCheckAt`. If the issue moves to `done`, `cancelled`, an invalid status, or a human/unassigned owner, the monitor is cleared.
 
 Because `serviceName` and `notes` remain visible in issue activity and wake context, operators should keep them short and non-secret. Put enough context for the assignee to know what to inspect, but do not include signed URLs, bearer tokens, customer secrets, tenant-private identifiers, or provider links with embedded credentials.
 
-Monitor bounds are enforced. Paperclip rejects attempts to re-arm a monitor whose `timeoutAt` or `maxAttempts` is already exhausted. When a scheduled monitor reaches an exhausted bound at trigger time, Paperclip clears it and follows `recoveryPolicy`: `wake_owner` queues a bounded recovery wake for the assignee, `create_recovery_issue` opens visible issue-backed recovery work, and `escalate_to_board` records a board-visible escalation comment/activity.
+Monitor bounds are enforced. Hermes Fabric rejects attempts to re-arm a monitor whose `timeoutAt` or `maxAttempts` is already exhausted. When a scheduled monitor reaches an exhausted bound at trigger time, Hermes Fabric clears it and follows `recoveryPolicy`: `wake_owner` queues a bounded recovery wake for the assignee, `create_recovery_issue` opens visible issue-backed recovery work, and `escalate_to_board` records a board-visible escalation comment/activity.
 
-Use `blocked` instead of a monitor when no Paperclip assignee owns a responsible polling path. In that case, name the external owner/action or create first-class recovery/blocker work.
+Use `blocked` instead of a monitor when no Hermes Fabric assignee owns a responsible polling path. In that case, name the external owner/action or create first-class recovery/blocker work.
 
 ### `blocked`
 
@@ -434,7 +434,7 @@ A `blocked` issue is stalled when the unresolved blocker leaf has no active run,
 
 ## 9. Crash and Restart Recovery
 
-Paperclip now treats crash/restart recovery as a stranded-assigned-work problem, not just a stranded-run problem.
+Hermes Fabric now treats crash/restart recovery as a stranded-assigned-work problem, not just a stranded-run problem.
 
 There are two distinct failure modes.
 
@@ -449,8 +449,8 @@ Example:
 
 Recovery rule:
 
-- if the latest issue-linked run failed/timed out/cancelled and no live execution path remains, Paperclip queues one automatic assignment recovery wake
-- if that recovery wake also finishes and the issue is still stranded, Paperclip moves the issue to `blocked` and opens or updates an explicit recovery action when a bounded owner/action is known; the visible comment is evidence, not the recovery path by itself
+- if the latest issue-linked run failed/timed out/cancelled and no live execution path remains, Hermes Fabric queues one automatic assignment recovery wake
+- if that recovery wake also finishes and the issue is still stranded, Hermes Fabric moves the issue to `blocked` and opens or updates an explicit recovery action when a bounded owner/action is known; the visible comment is evidence, not the recovery path by itself
 
 This is a dispatch recovery, not a continuation recovery.
 
@@ -465,8 +465,8 @@ Example:
 
 Recovery rule:
 
-- Paperclip queues one automatic continuation wake
-- if that continuation wake also finishes and the issue is still stranded, Paperclip moves the issue to `blocked` and opens or updates an explicit recovery action when a bounded owner/action is known; the visible comment is evidence, not the recovery path by itself
+- Hermes Fabric queues one automatic continuation wake
+- if that continuation wake also finishes and the issue is still stranded, Hermes Fabric moves the issue to `blocked` and opens or updates an explicit recovery action when a bounded owner/action is known; the visible comment is evidence, not the recovery path by itself
 
 This is an active-work continuity recovery.
 
@@ -476,14 +476,14 @@ A continuation that the staleness gate cancelled with `issue_continuation_waitin
 
 Recovery rule for a parked-for-review continuation:
 
-- if the issue has a real waiting target — open (non-terminal) sub-tasks or existing unresolved blockers — Paperclip converts the deliberate wait into a first-class dependency wait: it sets the issue `blocked` by those issues, keeps the original assignee, and posts a plain-language comment explaining that the task will resume automatically when its dependencies finish. The issue then self-resumes through the normal `issue_blockers_resolved` path; no recovery action or escalation owner is involved
+- if the issue has a real waiting target — open (non-terminal) sub-tasks or existing unresolved blockers — Hermes Fabric converts the deliberate wait into a first-class dependency wait: it sets the issue `blocked` by those issues, keeps the original assignee, and posts a plain-language comment explaining that the task will resume automatically when its dependencies finish. The issue then self-resumes through the normal `issue_blockers_resolved` path; no recovery action or escalation owner is involved
 - if the issue has no waiting target, the park is indistinguishable from a genuine strand and falls through to the standard §9.2 escalation, preserving stranded detection
 
 This keeps the post-decomposition umbrella (§7) on a real waiting path instead of relying on `parentId` rollup, which §6 does not treat as a dependency.
 
 ### 9.3 Recovery model-profile lane
 
-Cheap model profiles are only for status-only operational recovery overhead. Paperclip may request `modelProfile: "cheap"` for bounded recovery-owner work that updates task liveness, clears bad status, records a disposition, or asks for human/manager intervention. Those wakes must carry guard context such as `allowDeliverableWork: false`, `allowDocumentUpdates: false`, and `resumeRequiresNormalModel: true`.
+Cheap model profiles are only for status-only operational recovery overhead. Hermes Fabric may request `modelProfile: "cheap"` for bounded recovery-owner work that updates task liveness, clears bad status, records a disposition, or asks for human/manager intervention. Those wakes must carry guard context such as `allowDeliverableWork: false`, `allowDocumentUpdates: false`, and `resumeRequiresNormalModel: true`.
 
 Automatic retries that can continue source work must use the original/normal model lane. This includes failed source-work retries, process-loss retries, transient/scheduled retries, max-turn continuations, source-assignee continuations, assigned-todo dispatch recovery, and any run that can update repo files, issue documents, plans, work products, or attachments. When a cheap status-only recovery determines that actual work remains, it must hand back to a normal-model worker run before source work or persistent deliverable updates resume. Cheap recovery hints must be scrubbed from copied retry, resume, child, and downstream source-work contexts.
 
@@ -491,7 +491,7 @@ Automatic retries that can continue source work must use the original/normal mod
 
 Startup recovery and periodic recovery are different from normal wakeup delivery.
 
-On startup and on the periodic recovery loop, Paperclip now does five things in sequence:
+On startup and on the periodic recovery loop, Hermes Fabric now does five things in sequence:
 
 1. reap orphaned `running` runs
 2. resume persisted `queued` runs
@@ -528,7 +528,7 @@ The reusable watchdog issue is a child of the watched source issue for audit and
 
 Task watchdog evaluation is conservative. If any included issue has a live run, queued wake, or scheduled retry that should fire without intervention, the subtree is live and the task watchdog does not run.
 
-If no included issue has a live path, Paperclip computes a stop fingerprint from durable subtree state, including at least:
+If no included issue has a live path, Hermes Fabric computes a stop fingerprint from durable subtree state, including at least:
 
 - included leaf issue ids, statuses, assignees, and latest durable update timestamps
 - first-class blockers and unresolved blocker leaf summaries
@@ -537,7 +537,7 @@ If no included issue has a live path, Paperclip computes a stop fingerprint from
 - terminal or cancelled leaf evidence
 - the watchdog configuration revision, including watchdog agent and instructions changes
 
-If the fingerprint equals the watchdog's last reviewed fingerprint, Paperclip suppresses another watchdog wake. If the fingerprint is new, Paperclip creates or reopens the reusable watchdog issue and wakes the configured watchdog agent with the source issue, watchdog config, stop fingerprint, leaf summary, default mandate, custom instructions, and server-derived capability metadata that names the allowed operations, denied operations, reusable watchdog issue, and non-watchdog target scope.
+If the fingerprint equals the watchdog's last reviewed fingerprint, Hermes Fabric suppresses another watchdog wake. If the fingerprint is new, Hermes Fabric creates or reopens the reusable watchdog issue and wakes the configured watchdog agent with the source issue, watchdog config, stop fingerprint, leaf summary, default mandate, custom instructions, and server-derived capability metadata that names the allowed operations, denied operations, reusable watchdog issue, and non-watchdog target scope.
 
 Changing the watchdog agent or custom instructions invalidates the reviewed fingerprint and forces a fresh evaluation even if the subtree state did not otherwise change.
 
@@ -577,13 +577,13 @@ The watchdog's reviewed fingerprint should update only after the watchdog issue 
 - `blocked` with first-class blockers or a named external owner/action
 - a watchdog mutation that restores live work, where the subsequent source-subtree mutation naturally changes the stop fingerprint
 
-If the watchdog moved work forward, Paperclip should not mark the old fingerprint as permanently acceptable just because the watchdog issue completed. The next scan should observe the changed subtree state and either suppress because work is live or compute a new stopped fingerprint later.
+If the watchdog moved work forward, Hermes Fabric should not mark the old fingerprint as permanently acceptable just because the watchdog issue completed. The next scan should observe the changed subtree state and either suppress because work is live or compute a new stopped fingerprint later.
 
 Task watchdogs must not silently mark source work done from prose comments, must not duplicate child trees for the same accepted plan revision, and must not create another task-watchdog issue for the same source issue.
 
 ## 12. Silent Active-Run Watchdog
 
-An active run can still be unhealthy even when its process is `running`. Paperclip treats prolonged output silence as a watchdog signal, not as proof that the run is failed.
+An active run can still be unhealthy even when its process is `running`. Hermes Fabric treats prolonged output silence as a watchdog signal, not as proof that the run is failed.
 
 The recovery service owns this contract:
 
@@ -631,11 +631,11 @@ In the normal non-terminal case, critical silence can still create issue-backed 
 
 This is distinct from productivity review. Productivity review asks whether an assigned source issue has unusual progression patterns, such as no-comment terminal-run streaks, long active duration, or high churn. Source-resolved watchdog folding asks whether a stale active-run signal outlived a source issue that already reached a valid terminal disposition. One does not substitute for the other.
 
-Detached process cleanup is operational hygiene, not source issue liveness. Cleanup should be best-effort and auditable. If cleanup fails but the source issue is already terminal with same-run durable evidence, Paperclip should preserve the cleanup failure on the run/watchdog audit trail and route only the cleanup concern to bounded recovery when a real owner/action remains.
+Detached process cleanup is operational hygiene, not source issue liveness. Cleanup should be best-effort and auditable. If cleanup fails but the source issue is already terminal with same-run durable evidence, Hermes Fabric should preserve the cleanup failure on the run/watchdog audit trail and route only the cleanup concern to bounded recovery when a real owner/action remains.
 
 ## 13. Auto-Recover vs Explicit Recovery vs Human Escalation
 
-Paperclip uses three different recovery outcomes, depending on how much it can safely infer.
+Hermes Fabric uses three different recovery outcomes, depending on how much it can safely infer.
 
 ### Auto-Recover
 
@@ -651,7 +651,7 @@ Auto-recovery preserves the existing owner. It does not choose a replacement age
 
 ### Explicit Recovery Action
 
-Paperclip opens an explicit recovery action when the system can identify a problem but cannot safely complete the work itself.
+Hermes Fabric opens an explicit recovery action when the system can identify a problem but cannot safely complete the work itself.
 
 Examples:
 
@@ -675,13 +675,13 @@ Examples:
 - the issue is human-owned rather than agent-owned
 - the run is intentionally quiet but needs an operator decision before cancellation or continuation
 
-In these cases Paperclip should leave a visible issue/comment trail instead of silently retrying.
+In these cases Hermes Fabric should leave a visible issue/comment trail instead of silently retrying.
 
 ## 14. What This Does Not Mean
 
 These semantics do not change V1 into an auto-reassignment system.
 
-Paperclip still does not:
+Hermes Fabric still does not:
 
 - automatically reassign work to a different agent
 - infer dependency semantics from `parentId` alone
@@ -703,4 +703,4 @@ For a board operator, the intended meaning is:
 - parent/sub-issue explains structure
 - blockers explain waiting
 
-That is the execution contract Paperclip should present to operators.
+That is the execution contract Hermes Fabric should present to operators.

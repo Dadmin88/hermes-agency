@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { definePlugin } from "@paperclipai/plugin-sdk";
+import { definePlugin } from "@hermes-fabric/plugin-sdk";
 import type {
   PluginEnvironmentAcquireLeaseParams,
   PluginEnvironmentDestroyLeaseParams,
@@ -14,7 +14,7 @@ import type {
   PluginEnvironmentResumeLeaseParams,
   PluginEnvironmentValidateConfigParams,
   PluginEnvironmentValidationResult,
-} from "@paperclipai/plugin-sdk";
+} from "@hermes-fabric/plugin-sdk";
 import { Sandbox } from "novita-sandbox";
 
 export interface NovitaDriverConfig {
@@ -44,7 +44,7 @@ export function parseNovitaDriverConfig(raw: Record<string, unknown>): NovitaDri
     apiKey: parseOptionalString(raw.apiKey),
     domain: parseOptionalString(raw.domain),
     template: parseOptionalString(raw.template),
-    requestedCwd: parseOptionalString(raw.requestedCwd) ?? "/home/user/paperclip-workspace",
+    requestedCwd: parseOptionalString(raw.requestedCwd) ?? "/home/user/fabric-workspace",
     timeoutMs: parsePositiveInteger(raw.timeoutMs, 300_000),
     requestTimeoutMs: parsePositiveInteger(raw.requestTimeoutMs, 30_000),
     secure: typeof raw.secure === "boolean" ? raw.secure : null,
@@ -105,7 +105,7 @@ function isValidShellEnvKey(value: string): boolean {
 }
 
 function buildStdinPath(): string {
-  return `/tmp/.paperclip-stdin-${randomUUID()}`;
+  return `/tmp/.fabric-stdin-${randomUUID()}`;
 }
 
 export function buildShellCommand(input: {
@@ -147,11 +147,11 @@ export function buildShellCommand(input: {
 
 async function createSandbox(params: PluginEnvironmentAcquireLeaseParams | PluginEnvironmentProbeParams, config: NovitaDriverConfig) {
   const metadata = {
-    "paperclip-provider": "novita",
-    "paperclip-company-id": params.companyId,
-    "paperclip-environment-id": params.environmentId,
-    ...(params.issueId ? { "paperclip-issue-id": params.issueId } : {}),
-    ...("runId" in params ? { "paperclip-run-id": params.runId } : {}),
+    "fabric-provider": "novita",
+    "fabric-company-id": params.companyId,
+    "fabric-environment-id": params.environmentId,
+    ...(params.issueId ? { "fabric-issue-id": params.issueId } : {}),
+    ...("runId" in params ? { "fabric-run-id": params.runId } : {}),
   };
   const opts = {
     ...sandboxOpts(config),

@@ -7,9 +7,9 @@ import type {
   CompanyPortabilityExportResult,
   CompanyPortabilityFileEntry,
   InstanceExperimentalSettings,
-} from "@paperclipai/shared";
+} from "@hermes-fabric/shared";
 import { openUrl } from "../../client/board-auth.js";
-import { resolvePaperclipInstanceId } from "../../config/home.js";
+import { resolveHermesFabricInstanceId } from "../../config/home.js";
 import {
   addCommonClientOptions,
   apiPath,
@@ -101,13 +101,13 @@ class CloudAuthRequestError extends Error {
 }
 
 export function registerCloudCommands(program: Command): void {
-  const cloud = program.command("cloud").description("Paperclip Cloud upstream sync commands");
+  const cloud = program.command("cloud").description("HermesFabric Cloud upstream sync commands");
 
   addCommonClientOptions(
     cloud
       .command("connect")
-      .description("Authorize this local instance to push into a Paperclip Cloud stack")
-      .argument("<remote-url>", "Paperclip Cloud stack URL")
+      .description("Authorize this local instance to push into a HermesFabric Cloud stack")
+      .argument("<remote-url>", "HermesFabric Cloud stack URL")
       .option("--no-browser", "Use the device-code flow instead of opening a browser", false)
       .action(async (remoteUrl: string, opts: CloudConnectOptions) => {
         try {
@@ -121,7 +121,7 @@ export function registerCloudCommands(program: Command): void {
   addCommonClientOptions(
     cloud
       .command("push")
-      .description("Preview or apply a local company push into the connected Paperclip Cloud stack")
+      .description("Preview or apply a local company push into the connected HermesFabric Cloud stack")
       .requiredOption("--company <local-company-id>", "Local company ID to export")
       .option("--remote-url <remote-url>", "Use a specific stored cloud connection")
       .option("--dry-run", "Preview without applying", false)
@@ -175,7 +175,7 @@ export async function connectCloud(remoteUrl: string, opts: CloudConnectOptions 
   if (ctx.json) {
     printOutput(redactConnection(connection), { json: true });
   } else {
-    console.log(pc.bold("Connected to Paperclip Cloud"));
+    console.log(pc.bold("Connected to HermesFabric Cloud"));
     console.log(`stack=${connection.stackDisplayName ?? connection.stackSlug ?? connection.stackId}`);
     console.log(`origin=${connection.targetOrigin}`);
     console.log(`company=${connection.targetCompanyId}`);
@@ -189,7 +189,7 @@ export async function pushCloud(opts: CloudPushOptions): Promise<unknown> {
   await assertCloudSyncEnabled(ctx.api.get<InstanceExperimentalSettings>("/api/instance/settings/experimental"));
   const connection = getCloudConnection(opts.remoteUrl);
   if (!connection) {
-    throw new Error("No cloud connection found. Run `paperclipai cloud connect <remote-url>` first.");
+    throw new Error("No cloud connection found. Run `hermes-fabric cloud connect <remote-url>` first.");
   }
 
   const discovery = await discoverUpstream(connection.targetOrigin);
@@ -204,7 +204,7 @@ export async function pushCloud(opts: CloudPushOptions): Promise<unknown> {
   });
   const coordinator = new LocalUpstreamPushCoordinator({
     targetOrigin: connection.targetOrigin,
-    paperclipCompanyId: connection.targetCompanyId,
+    fabricCompanyId: connection.targetCompanyId,
     headers: ({ method, path }) => cloudProofHeaders(connection, method, path),
   });
 
@@ -237,13 +237,13 @@ export async function pushCloud(opts: CloudPushOptions): Promise<unknown> {
 
 export async function discoverUpstream(remoteUrl: string): Promise<UpstreamDiscovery> {
   const base = new URL(remoteUrl);
-  const discoveryUrl = new URL("/.well-known/paperclip-upstream", base);
+  const discoveryUrl = new URL("/.well-known/fabric-upstream", base);
   return requestCloudJson<UpstreamDiscovery>(discoveryUrl.toString(), { method: "GET" });
 }
 
 export function assertDiscoveryCompatible(discovery: UpstreamDiscovery): void {
-  if (discovery.schema !== "paperclip-upstream-discovery-v1") {
-    throw new Error("Remote URL is not a Paperclip Cloud upstream target.");
+  if (discovery.schema !== "fabric-upstream-discovery-v1") {
+    throw new Error("Remote URL is not a HermesFabric Cloud upstream target.");
   }
   if (discovery.transfer.supportedSchemaMajor !== upstreamTransferSchema.major) {
     throw new Error(
@@ -251,7 +251,7 @@ export function assertDiscoveryCompatible(discovery: UpstreamDiscovery): void {
     );
   }
   if (!discovery.transfer.featureFlags?.includes("cloud_sync")) {
-    throw new Error("Remote Paperclip Cloud stack does not advertise the cloud_sync transfer flag.");
+    throw new Error("Remote HermesFabric Cloud stack does not advertise the cloud_sync transfer flag.");
   }
 }
 
@@ -293,8 +293,8 @@ export async function buildBundleFromLocalCompany(input: {
     sourceInstanceId: input.connection.sourceInstanceId,
     sourceCompanyId: input.localCompanyId,
     sourceInstanceKeyFingerprint: input.connection.sourceInstanceFingerprint,
-    exporterVersion: "paperclipai-cli-cloud-v1",
-    sourceSchemaVersion: "paperclip-local-portability-v1",
+    exporterVersion: "hermes-fabric-cli-cloud-v1",
+    sourceSchemaVersion: "fabric-local-portability-v1",
   };
   const target: UpstreamTransferManifestTarget = {
     targetStackId: input.discovery.stack.id,
@@ -339,7 +339,7 @@ async function authorizeConnection(
     }
   }
   if (!discovery.auth.deviceCode) {
-    throw new Error("Remote Paperclip Cloud stack does not support device-code authorization.");
+    throw new Error("Remote HermesFabric Cloud stack does not support device-code authorization.");
   }
   return authorizeWithDeviceCode(discovery, source, { openBrowser: !opts.noBrowser && canOpenBrowser() });
 }
@@ -451,10 +451,10 @@ function buildEntitiesFromPortableExport(
     {
       key: companyKey,
       body: {
-        kind: "paperclip_company_portability_manifest",
+        kind: "fabric_company_portability_manifest",
         manifest: exported.manifest,
         rootPath: exported.rootPath,
-        paperclipExtensionPath: exported.paperclipExtensionPath,
+        fabricExtensionPath: exported.fabricExtensionPath,
         fileCount: Object.keys(exported.files).length,
       },
       conflictKeys: [`company:${companyKey.sourceNaturalKey ?? localCompanyId}`],
@@ -471,7 +471,7 @@ function buildEntitiesFromPortableExport(
         sourceNaturalKey: filePath,
       },
       body: {
-        kind: "paperclip_portable_file",
+        kind: "fabric_portable_file",
         path: filePath,
         entry: normalizePortableFileEntry(entry),
       },
@@ -493,7 +493,7 @@ async function assertCloudSyncEnabled(settingsPromise: Promise<InstanceExperimen
   const settings = await settingsPromise;
   if (settings?.enableCloudSync !== true) {
     throw new Error(
-      "Cloud sync is disabled. Enable the cloud sync experimental setting before running `paperclipai cloud push`.",
+      "Cloud sync is disabled. Enable the cloud sync experimental setting before running `hermes-fabric cloud push`.",
     );
   }
 }
@@ -512,10 +512,10 @@ function cloudProofHeaders(connection: CloudConnection, method: string, pathAndS
   ].join("\n");
   return {
     Authorization: `Bearer ${connection.accessToken}`,
-    "X-Paperclip-Upstream-Source-Instance-Id": connection.sourceInstanceId,
-    "X-Paperclip-Upstream-Proof-Timestamp": timestamp,
-    "X-Paperclip-Upstream-Proof-Nonce": nonce,
-    "X-Paperclip-Upstream-Proof-Signature": sign(
+    "X-HermesFabric-Upstream-Source-Instance-Id": connection.sourceInstanceId,
+    "X-HermesFabric-Upstream-Proof-Timestamp": timestamp,
+    "X-HermesFabric-Upstream-Proof-Nonce": nonce,
+    "X-HermesFabric-Upstream-Proof-Signature": sign(
       null,
       Buffer.from(payload, "utf8"),
       connection.privateKeyPem,
@@ -548,7 +548,7 @@ function createSourceIdentity() {
     .update(publicKey.export({ type: "spki", format: "der" }))
     .digest("hex")}`;
   return {
-    sourceInstanceId: `paperclip-local-${resolvePaperclipInstanceId()}`,
+    sourceInstanceId: `fabric-local-${resolveHermesFabricInstanceId()}`,
     sourceInstanceFingerprint,
     sourcePublicKey,
     privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
@@ -573,12 +573,12 @@ async function startPkceCallbackServer(): Promise<{
     const state = url.searchParams.get("state");
     if (!code || state !== expectedState) {
       res.writeHead(400, { "Content-Type": "text/plain" });
-      res.end("Paperclip Cloud authorization failed. You can close this tab.");
+      res.end("HermesFabric Cloud authorization failed. You can close this tab.");
       rejectCode?.(new Error("Authorization callback was missing a valid code or state."));
       return;
     }
     res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("Paperclip Cloud authorization complete. You can close this tab.");
+    res.end("HermesFabric Cloud authorization complete. You can close this tab.");
     resolveCode?.(code);
   });
   await listenOnLoopback(server);

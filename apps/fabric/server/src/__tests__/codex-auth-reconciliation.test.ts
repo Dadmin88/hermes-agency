@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import { reconcileCodexLocalManagedHomesOnStartup } from "../services/codex-auth-reconciliation.js";
 
 type AgentRow = {
@@ -23,13 +23,13 @@ function makeDb(rows: AgentRow[]): Db {
 
 describe("reconcileCodexLocalManagedHomesOnStartup", () => {
   let root: string;
-  let paperclipHome: string;
+  let fabricHome: string;
   let sharedCodexHome: string;
   const savedEnv: Record<string, string | undefined> = {};
 
   function managedAgentHome(companyId: string, agentId: string): string {
     return path.join(
-      paperclipHome,
+      fabricHome,
       "instances",
       "default",
       "companies",
@@ -41,17 +41,17 @@ describe("reconcileCodexLocalManagedHomesOnStartup", () => {
   }
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-startup-"));
-    paperclipHome = path.join(root, "paperclip-home");
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "fabric-codex-startup-"));
+    fabricHome = path.join(root, "fabric-home");
     sharedCodexHome = path.join(root, "shared-codex-home");
     await fs.mkdir(sharedCodexHome, { recursive: true });
     await fs.writeFile(path.join(sharedCodexHome, "auth.json"), '{"token":"shared"}', "utf8");
 
-    for (const key of ["PAPERCLIP_HOME", "PAPERCLIP_INSTANCE_ID", "CODEX_HOME"]) {
+    for (const key of ["HERMES_FABRIC_HOME", "HERMES_FABRIC_INSTANCE_ID", "CODEX_HOME"]) {
       savedEnv[key] = process.env[key];
     }
-    process.env.PAPERCLIP_HOME = paperclipHome;
-    process.env.PAPERCLIP_INSTANCE_ID = "default";
+    process.env.HERMES_FABRIC_HOME = fabricHome;
+    process.env.HERMES_FABRIC_INSTANCE_ID = "default";
     process.env.CODEX_HOME = sharedCodexHome;
   });
 

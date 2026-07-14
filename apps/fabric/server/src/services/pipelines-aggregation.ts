@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@hermes-fabric/db";
 import {
   agents,
   issues,
@@ -10,7 +10,7 @@ import {
   pipelineStages,
   pipelines,
   routines,
-} from "@paperclipai/db";
+} from "@hermes-fabric/db";
 import { notFound } from "../errors.js";
 
 export const PIPELINE_ATTENTION_DEFAULT_LIMIT = 50;

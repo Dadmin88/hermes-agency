@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { createDb, instanceUserRoles } from "@paperclipai/db";
+import { createDb, instanceUserRoles } from "@hermes-fabric/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -15,7 +15,7 @@ describeEmbeddedPostgres("claimFirstInstanceAdmin", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
   beforeAll(async () => {
-    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-first-admin-claim-");
+    tempDb = await startEmbeddedPostgresTestDatabase("fabric-first-admin-claim-");
     db = createDb(tempDb.connectionString);
   }, 20_000);
 

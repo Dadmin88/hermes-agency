@@ -8,7 +8,7 @@
  *
  * Read-only routes require board org access. Mutating adapter management
  * routes require instance-admin access because they can install, reload, or
- * toggle server-side adapter code for the whole Paperclip instance.
+ * toggle server-side adapter code for the whole HermesFabric instance.
  *
  * @module server/routes/adapters
  */
@@ -53,7 +53,7 @@ const execFileAsync = promisify(execFile);
 // ---------------------------------------------------------------------------
 
 interface AdapterInstallRequest {
-  /** npm package name (e.g., "droid-paperclip-adapter") or local path */
+  /** npm package name (e.g., "droid-fabric-adapter") or local path */
   packageName: string;
   /** True if packageName is a local filesystem path */
   isLocalPath?: boolean;
@@ -237,7 +237,7 @@ export function adapterRoutes() {
     }
 
     // Strip version suffix if the UI sends "pkg@1.2.3" instead of separating it
-    // e.g. "@henkey/hermes-paperclip-adapter@0.3.0" → packageName + version
+    // e.g. "@henkey/hermes-fabric-adapter@0.3.0" → packageName + version
     let canonicalName = packageName;
     let explicitVersion = version;
     const versionSuffix = packageName.match(/@(\d+\.\d+\.\d+.*)$/);
@@ -672,7 +672,7 @@ export function adapterRoutes() {
   // ── GET /api/adapters/:type/ui-parser.js ─────────────────────────────────
   // Serve the self-contained UI parser JS for an adapter type.
   // This allows external adapters to provide custom run-log parsing
-  // without modifying Paperclip's source code.
+  // without modifying HermesFabric's source code.
   //
   // The adapter package must export a "./ui-parser" entry in package.json
   // pointing to a self-contained ESM module with zero runtime dependencies.

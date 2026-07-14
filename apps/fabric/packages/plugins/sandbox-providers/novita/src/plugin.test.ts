@@ -29,7 +29,7 @@ describe("Novita sandbox provider plugin", () => {
       apiKey: null,
       domain: null,
       template: null,
-      requestedCwd: "/home/user/paperclip-workspace",
+      requestedCwd: "/home/user/fabric-workspace",
       timeoutMs: 300_000,
       requestTimeoutMs: 30_000,
       secure: null,
@@ -42,7 +42,7 @@ describe("Novita sandbox provider plugin", () => {
     expect(parseNovitaDriverConfig({
       apiKey: "sk-test",
       domain: "https://sandbox.example.test",
-      template: "paperclip-template",
+      template: "fabric-template",
       requestedCwd: "/workspace",
       timeoutMs: 600000,
       requestTimeoutMs: 45000,
@@ -52,7 +52,7 @@ describe("Novita sandbox provider plugin", () => {
     })).toMatchObject({
       apiKey: "sk-test",
       domain: "https://sandbox.example.test",
-      template: "paperclip-template",
+      template: "fabric-template",
       requestedCwd: "/workspace",
       timeoutMs: 600_000,
       requestTimeoutMs: 45_000,
@@ -74,19 +74,19 @@ describe("Novita sandbox provider plugin", () => {
     expect(command).toContain("cd '/workspace/project'");
     expect(command).toContain("export MESSAGE='hello world';");
     expect(command).toContain("'node' '-e' 'console.log(process.env.MESSAGE)'");
-    expect(command).toContain("printf '%s' 'input body' > '/tmp/.paperclip-stdin-");
-    expect(command).toMatch(/< '\/tmp\/\.paperclip-stdin-[^']+'/);
-    expect(command).toMatch(/rm -f '\/tmp\/\.paperclip-stdin-[^']+'/);
+    expect(command).toContain("printf '%s' 'input body' > '/tmp/.fabric-stdin-");
+    expect(command).toMatch(/< '\/tmp\/\.fabric-stdin-[^']+'/);
+    expect(command).toMatch(/rm -f '\/tmp\/\.fabric-stdin-[^']+'/);
     expect(command).toContain("exit $status");
   });
 
   it("does not use a heredoc delimiter for stdin", () => {
     const command = buildShellCommand({
       command: "cat",
-      stdin: "before\nPAPERCLIP_STDIN\nafter",
+      stdin: "before\nHERMES_FABRIC_STDIN\nafter",
     });
 
-    expect(command).toContain("before\nPAPERCLIP_STDIN\nafter");
+    expect(command).toContain("before\nHERMES_FABRIC_STDIN\nafter");
     expect(command).not.toContain("<<");
   });
 
@@ -99,14 +99,14 @@ describe("Novita sandbox provider plugin", () => {
       command: "cat",
       stdin: "second",
     });
-    const firstPath = first.match(/\/tmp\/\.paperclip-stdin-[^']+/)?.[0];
-    const secondPath = second.match(/\/tmp\/\.paperclip-stdin-[^']+/)?.[0];
+    const firstPath = first.match(/\/tmp\/\.fabric-stdin-[^']+/)?.[0];
+    const secondPath = second.match(/\/tmp\/\.fabric-stdin-[^']+/)?.[0];
 
     expect(firstPath).toBeTruthy();
     expect(secondPath).toBeTruthy();
     expect(firstPath).not.toBe(secondPath);
-    expect(first).not.toContain("/tmp/.paperclip-stdin <<");
-    expect(second).not.toContain("/tmp/.paperclip-stdin <<");
+    expect(first).not.toContain("/tmp/.fabric-stdin <<");
+    expect(second).not.toContain("/tmp/.fabric-stdin <<");
   });
 
   it("rejects unsafe environment variable keys", () => {

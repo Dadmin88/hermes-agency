@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { buildHermesAgencyTaskPacketPreview } from "@paperclipai/shared";
-import { assertInstanceAdmin } from "./authz.js";
+import { buildHermesAgencyTaskPacketPreview } from "@hermes-fabric/shared";
+import { assertBoard } from "./authz.js";
 import {
   dispatchHermesAgencyTask,
   getHermesAgencyDispatch,

@@ -36,11 +36,11 @@ describe("admin, asset, and skill parity commands", () => {
 
   beforeEach(async () => {
     vi.restoreAllMocks();
-    delete process.env.PAPERCLIP_API_KEY;
-    delete process.env.PAPERCLIP_API_URL;
+    delete process.env.HERMES_FABRIC_API_KEY;
+    delete process.env.HERMES_FABRIC_API_URL;
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    tempDir = await mkdtemp(path.join(tmpdir(), "paperclip-cli-parity-"));
+    tempDir = await mkdtemp(path.join(tmpdir(), "fabric-cli-parity-"));
   });
 
   afterEach(async () => {

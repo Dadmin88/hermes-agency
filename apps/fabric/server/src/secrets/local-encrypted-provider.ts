@@ -52,7 +52,7 @@ function loadOrCreateMasterKey(): Buffer {
     const fromEnv = decodeMasterKey(envKeyRaw);
     if (!fromEnv) {
       throw badRequest(
-        "Invalid PAPERCLIP_SECRETS_MASTER_KEY (expected 32-byte base64, 64-char hex, or raw 32-char string)",
+        "Invalid HERMES_FABRIC_SECRETS_MASTER_KEY (expected 32-byte base64, 64-char hex, or raw 32-char string)",
       );
     }
     return fromEnv;
@@ -115,13 +115,13 @@ async function inspectLocalEncryptedHealth(): Promise<SecretProviderHealthCheck>
         provider: "local_encrypted",
         status: "error",
         message:
-          "PAPERCLIP_SECRETS_MASTER_KEY is invalid; expected 32-byte base64, 64-char hex, or raw 32-char string",
+          "HERMES_FABRIC_SECRETS_MASTER_KEY is invalid; expected 32-byte base64, 64-char hex, or raw 32-char string",
       };
     }
     return {
       provider: "local_encrypted",
       status: "ok",
-      message: "Local encrypted provider is using PAPERCLIP_SECRETS_MASTER_KEY",
+      message: "Local encrypted provider is using HERMES_FABRIC_SECRETS_MASTER_KEY",
       backupGuidance: [
         "Back up the configured master key separately from the database.",
         "A restore needs both the database metadata and the same master key.",
@@ -277,7 +277,7 @@ export const localEncryptedProvider: SecretProviderModule = {
     return decryptValue(masterKey, asLocalEncryptedMaterial(input.material));
   },
   async deleteOrArchive() {
-    // Secret metadata deletion is handled in Paperclip DB; the local key is shared and must remain.
+    // Secret metadata deletion is handled in HermesFabric DB; the local key is shared and must remain.
   },
   async healthCheck() {
     return inspectLocalEncryptedHealth();

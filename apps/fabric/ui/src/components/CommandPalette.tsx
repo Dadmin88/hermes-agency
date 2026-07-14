@@ -35,7 +35,7 @@ import {
 import { Identity } from "./Identity";
 import { agentUrl, projectUrl } from "../lib/utils";
 
-const SEARCH_ALL_VALUE = "__paperclip-search-all__";
+const SEARCH_ALL_VALUE = "__fabric-search-all__";
 
 export function buildFullSearchPath(query: string) {
   const trimmed = query.trim();
@@ -197,7 +197,7 @@ export function CommandPalette() {
             <CommandItem
               onSelect={() => {
                 setOpen(false);
-                window.dispatchEvent(new CustomEvent("paperclip:open-file-viewer"));
+                window.dispatchEvent(new CustomEvent("fabric:open-file-viewer"));
               }}
             >
               <FileCode2 className="mr-2 h-4 w-4" />
