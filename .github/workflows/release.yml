@@ -22,8 +22,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v
-      - run: pytest hermes-agency/tests/test_unit.py hermes-agency/tests/test_model_sets.py hermes-agency/tests/test_gpt_bridge.py hermes-agency/tests/test_extended_status_discord.py -v -m "not integration"
+      - run: make test-sdk
+      - run: make test-agency
+      - run: python -m pytest -m "not integration"
 
   publish:
     name: Publish to PyPI
@@ -52,6 +53,30 @@ jobs:
 
       - name: Build package
         run: python -m build
+
+      - name: Install and smoke-test release wheel
+        run: |
+          python -m venv .wheel-smoke
+          .wheel-smoke/bin/python -m pip install --upgrade pip
+          .wheel-smoke/bin/python -m pip install dist/*.whl
+          .wheel-smoke/bin/python -c "import hermes_agency; import keryx"
+          .wheel-smoke/bin/hermes-agency --help
+          .wheel-smoke/bin/python - <<'PY'
+          import json
+          from importlib.resources import files
+          import yaml
+
+          root = files("hermes_agency")
+          manifest = root.joinpath("default_staff", "manifest.json")
+          profile = root.joinpath("default_staff", "profiles", "agency-orchestrator", "SOUL.md")
+          model_set = root.joinpath("model_sets", "openai-codex-only.yaml")
+          assert manifest.is_file(), "default staff manifest missing from wheel"
+          assert profile.is_file() and profile.read_text(encoding="utf-8").strip(), "default staff profile missing from wheel"
+          assert model_set.is_file(), "canonical model set missing from wheel"
+          assert json.loads(manifest.read_text(encoding="utf-8"))["total_profiles"] == 83
+          assert yaml.safe_load(model_set.read_text(encoding="utf-8"))["name"] == "openai-codex-only"
+          PY
+          .wheel-smoke/bin/python -m pip check
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
