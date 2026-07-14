@@ -1616,7 +1616,7 @@ describeEmbeddedPostgres("secretService", () => {
     expect(JSON.stringify(result.results[0]?.reason)).not.toContain("123456789012");
   });
 
-  it("rejects Paperclip-managed AWS namespace refs during preview and import commit", async () => {
+  it("rejects Hermes Agency-managed AWS namespace refs during preview and import commit", async () => {
     const companyId = await seedCompany();
     const svc = secretService(db);
     const awsVault = await svc.createProviderConfig(companyId, {
@@ -1676,7 +1676,7 @@ describeEmbeddedPostgres("secretService", () => {
       errorCount: 1,
       results: [expect.objectContaining({ status: "error" })],
     });
-    expect(result.results[0]?.reason).toMatch(/Paperclip-managed namespace/i);
+    expect(result.results[0]?.reason).toMatch(/Hermes Agency-managed namespace/i);
     const imported = await db.select().from(companySecrets).where(eq(companySecrets.key, "foreign-managed-secret"));
     expect(imported).toHaveLength(0);
   });

@@ -127,6 +127,16 @@ describe("HermesAgencyRoster", () => {
     expect(container.textContent).toContain("1 wake failed");
     expect(container.textContent).toContain("agency-backend-engineer");
     expect(container.textContent).toContain("Offline target");
+
+    const agentRow = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.includes("agency-backend-engineer")
+    ));
+    expect(agentRow).toBeDefined();
+    await act(async () => {
+      agentRow!.click();
+    });
+    await flushReact();
+
     expect(container.textContent).toContain("Error: profile agency-backend-engineer not found");
   });
 
@@ -191,8 +201,26 @@ describe("HermesAgencyRoster", () => {
     const { container, root } = await renderPage();
     roots.push(root);
 
+    const taskControlsToggle = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Task controls"
+    ));
+    const agentRow = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.includes("agency-backend-engineer")
+    ));
+    expect(taskControlsToggle).toBeDefined();
+    expect(agentRow).toBeDefined();
     await act(async () => {
-      (container.querySelector("button") as HTMLButtonElement).click();
+      taskControlsToggle!.click();
+      agentRow!.click();
+    });
+    await flushReact();
+
+    const sendTaskButton = Array.from(container.querySelectorAll("button")).find((button) => (
+      button.textContent?.trim() === "Send task"
+    ));
+    expect(sendTaskButton).toBeDefined();
+    await act(async () => {
+      sendTaskButton!.click();
     });
     await flushReact();
 

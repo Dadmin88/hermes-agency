@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
@@ -12,6 +13,8 @@ export type HermesProfileConfigWriteResult =
 export function resolveHermesProfilesDir(): string {
   const override = process.env.HERMES_PROFILES_DIR?.trim();
   if (override) return path.resolve(override);
+  const hermesHome = process.env.HERMES_HOME?.trim();
+  if (hermesHome) return path.join(path.resolve(hermesHome), "profiles");
   return path.join(os.homedir(), ".hermes", "profiles");
 }
 
@@ -140,13 +143,36 @@ function mergeModelIntoConfig(
   return next;
 }
 
-async function atomicYamlWrite(configPath: string, data: Record<string, unknown>) {
+async function assertProfileTargetContained(configPath: string, profilesDir: string) {
+  const profilesRoot = path.resolve(profilesDir);
   const dir = path.dirname(configPath);
   await mkdir(dir, { recursive: true });
-  const tmpPath = path.join(dir, `.${path.basename(configPath)}.tmp`);
+  const [realProfilesRoot, realProfileDir] = await Promise.all([realpath(profilesRoot), realpath(dir)]);
+  const relative = path.relative(realProfilesRoot, realProfileDir);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("Profile config path must stay within Hermes profiles directory.");
+  }
+  try {
+    if ((await lstat(configPath)).isSymbolicLink()) {
+      throw new Error("Profile config path must not be a symbolic link.");
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+async function atomicYamlWrite(configPath: string, profilesDir: string, data: Record<string, unknown>) {
+  await assertProfileTargetContained(configPath, profilesDir);
+  const dir = path.dirname(configPath);
+  const tmpPath = path.join(dir, `.${path.basename(configPath)}.${randomUUID()}.tmp`);
   const body = YAML.stringify(data, { sortMapEntries: false });
-  await writeFile(tmpPath, body, "utf8");
-  await rename(tmpPath, configPath);
+  try {
+    await writeFile(tmpPath, body, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await assertProfileTargetContained(configPath, profilesDir);
+    await rename(tmpPath, configPath);
+  } finally {
+    await rm(tmpPath, { force: true });
+  }
 }
 
 export async function writeModelToProfileConfig(input: {
@@ -171,11 +197,12 @@ export async function writeModelToProfileConfig(input: {
     };
   }
   try {
+    await assertProfileTargetContained(configPath, profilesDir);
     const existing = await readProfileConfigYaml(configPath);
     const family = input.family ?? null;
     if (existing === null) {
       const created = buildMinimalProfileConfig(input.provider, input.model, input.modelSetName, family);
-      await atomicYamlWrite(configPath, created);
+      await atomicYamlWrite(configPath, profilesDir, created);
       return {
         status: "updated",
         profile,
@@ -196,7 +223,7 @@ export async function writeModelToProfileConfig(input: {
       modelSetName: input.modelSetName,
       family,
     });
-    await atomicYamlWrite(configPath, merged);
+    await atomicYamlWrite(configPath, profilesDir, merged);
     return {
       status: "updated",
       profile,

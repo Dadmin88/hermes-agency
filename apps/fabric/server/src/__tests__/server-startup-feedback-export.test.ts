@@ -5,6 +5,11 @@ const ORIGINAL_PAPERCLIP_RUNTIME_API_URL = process.env.PAPERCLIP_RUNTIME_API_URL
 const ORIGINAL_PAPERCLIP_RUNTIME_API_CANDIDATES_JSON = process.env.PAPERCLIP_RUNTIME_API_CANDIDATES_JSON;
 const ORIGINAL_PAPERCLIP_LISTEN_HOST = process.env.PAPERCLIP_LISTEN_HOST;
 const ORIGINAL_PAPERCLIP_LISTEN_PORT = process.env.PAPERCLIP_LISTEN_PORT;
+const ORIGINAL_FABRIC_API_URL = process.env.FABRIC_API_URL;
+const ORIGINAL_FABRIC_RUNTIME_API_URL = process.env.FABRIC_RUNTIME_API_URL;
+const ORIGINAL_FABRIC_RUNTIME_API_CANDIDATES_JSON = process.env.FABRIC_RUNTIME_API_CANDIDATES_JSON;
+const ORIGINAL_FABRIC_LISTEN_HOST = process.env.FABRIC_LISTEN_HOST;
+const ORIGINAL_FABRIC_LISTEN_PORT = process.env.FABRIC_LISTEN_PORT;
 
 const {
   createAppMock,
@@ -315,6 +320,13 @@ describe("startServer PAPERCLIP_API_URL handling", () => {
     loadConfigMock.mockReturnValue(buildTestConfig());
     process.env.BETTER_AUTH_SECRET = "test-secret";
     delete process.env.PAPERCLIP_API_URL;
+    delete process.env.PAPERCLIP_RUNTIME_API_URL;
+    delete process.env.PAPERCLIP_RUNTIME_API_CANDIDATES_JSON;
+    delete process.env.FABRIC_API_URL;
+    delete process.env.FABRIC_RUNTIME_API_URL;
+    delete process.env.FABRIC_RUNTIME_API_CANDIDATES_JSON;
+    delete process.env.FABRIC_LISTEN_HOST;
+    delete process.env.FABRIC_LISTEN_PORT;
   });
 
   afterEach(() => {
@@ -335,6 +347,24 @@ describe("startServer PAPERCLIP_API_URL handling", () => {
 
     if (ORIGINAL_PAPERCLIP_LISTEN_PORT === undefined) delete process.env.PAPERCLIP_LISTEN_PORT;
     else process.env.PAPERCLIP_LISTEN_PORT = ORIGINAL_PAPERCLIP_LISTEN_PORT;
+
+    if (ORIGINAL_FABRIC_API_URL === undefined) delete process.env.FABRIC_API_URL;
+    else process.env.FABRIC_API_URL = ORIGINAL_FABRIC_API_URL;
+
+    if (ORIGINAL_FABRIC_RUNTIME_API_URL === undefined) delete process.env.FABRIC_RUNTIME_API_URL;
+    else process.env.FABRIC_RUNTIME_API_URL = ORIGINAL_FABRIC_RUNTIME_API_URL;
+
+    if (ORIGINAL_FABRIC_RUNTIME_API_CANDIDATES_JSON === undefined) {
+      delete process.env.FABRIC_RUNTIME_API_CANDIDATES_JSON;
+    } else {
+      process.env.FABRIC_RUNTIME_API_CANDIDATES_JSON = ORIGINAL_FABRIC_RUNTIME_API_CANDIDATES_JSON;
+    }
+
+    if (ORIGINAL_FABRIC_LISTEN_HOST === undefined) delete process.env.FABRIC_LISTEN_HOST;
+    else process.env.FABRIC_LISTEN_HOST = ORIGINAL_FABRIC_LISTEN_HOST;
+
+    if (ORIGINAL_FABRIC_LISTEN_PORT === undefined) delete process.env.FABRIC_LISTEN_PORT;
+    else process.env.FABRIC_LISTEN_PORT = ORIGINAL_FABRIC_LISTEN_PORT;
   });
 
   it("uses the externally set PAPERCLIP_API_URL when provided", async () => {

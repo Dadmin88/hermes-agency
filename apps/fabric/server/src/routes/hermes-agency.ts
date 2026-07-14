@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { buildHermesAgencyTaskPacketPreview } from "@paperclipai/shared";
-import { assertBoard } from "./authz.js";
+import { assertInstanceAdmin } from "./authz.js";
 import {
   dispatchHermesAgencyTask,
   getHermesAgencyDispatch,
@@ -17,7 +17,7 @@ export function hermesAgencyRoutes(options: HermesAgencyRosterServiceOptions & H
   const router = Router();
 
   router.get("/roster", async (req, res) => {
-    assertBoard(req);
+    assertInstanceAdmin(req);
     try {
       res.json(await readHermesAgencyRoster(options));
     } catch (error) {
@@ -33,7 +33,7 @@ export function hermesAgencyRoutes(options: HermesAgencyRosterServiceOptions & H
   });
 
   router.post("/task-packet-preview", (req, res) => {
-    assertBoard(req);
+    assertInstanceAdmin(req);
     const body = req.body as {
       issue?: { title?: unknown };
       requestedSkills?: string[];
@@ -62,7 +62,7 @@ export function hermesAgencyRoutes(options: HermesAgencyRosterServiceOptions & H
   });
 
   router.post("/dispatch", async (req, res) => {
-    assertBoard(req);
+    assertInstanceAdmin(req);
     const body = req.body as {
       packet?: unknown;
       mode?: "skill-fit" | "direct-agent";
@@ -91,7 +91,7 @@ export function hermesAgencyRoutes(options: HermesAgencyRosterServiceOptions & H
   });
 
   router.get("/dispatches/:id", async (req, res) => {
-    assertBoard(req);
+    assertInstanceAdmin(req);
     const record = await getHermesAgencyDispatch(req.params.id, options);
     if (!record) {
       res.status(404).json({ error: "hermes_agency_dispatch_not_found" });

@@ -389,16 +389,42 @@ export async function terminateLocalService(
   }
 }
 
-export async function readLocalServicePortOwner(port: number) {
-  if (!Number.isInteger(port) || port <= 0 || process.platform === "win32") return null;
+type PortOwnerCommandRunner = (
+  command: string,
+  args: string[],
+) => Promise<{ stdout: string | Buffer; stderr?: string | Buffer }>;
+
+function firstPositivePid(output: string | Buffer) {
+  return String(output)
+    .split(/\s+/)
+    .map((value) => Number.parseInt(value.trim(), 10))
+    .find((value) => Number.isInteger(value) && value > 0) ?? null;
+}
+
+export async function readLocalServicePortOwner(
+  port: number,
+  options: { platform?: NodeJS.Platform; runCommand?: PortOwnerCommandRunner } = {},
+) {
+  const platform = options.platform ?? process.platform;
+  if (!Number.isInteger(port) || port <= 0 || platform === "win32") return null;
+  const runCommand: PortOwnerCommandRunner = options.runCommand ?? (async (command, args) => {
+    const { stdout, stderr } = await execFileAsync(command, args);
+    return { stdout, stderr };
+  });
   try {
-    const { stdout } = await execFileAsync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"]);
-    const firstPid = stdout
-      .split("\n")
-      .map((line) => Number.parseInt(line.trim(), 10))
-      .find((value) => Number.isInteger(value) && value > 0);
-    return firstPid ?? null;
+    const { stdout } = await runCommand("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"]);
+    const ownerPid = firstPositivePid(stdout);
+    if (ownerPid) return ownerPid;
   } catch {
-    return null;
+    // Try a widely available Linux fallback below.
   }
+  if (platform === "linux") {
+    try {
+      const { stdout } = await runCommand("fuser", ["-n", "tcp", String(port)]);
+      return firstPositivePid(stdout);
+    } catch {
+      // No supported port-owner command is available, or no process owns the port.
+    }
+  }
+  return null;
 }

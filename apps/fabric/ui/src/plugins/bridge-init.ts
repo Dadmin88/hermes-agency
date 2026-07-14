@@ -21,7 +21,7 @@ import {
   usePluginStream,
   usePluginToast,
 } from "./bridge.js";
-import { Component, createElement, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { Component, createElement, useMemo, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { User } from "lucide-react";
 import {
@@ -33,6 +33,7 @@ import { InlineEntitySelector, type InlineEntityOption } from "@/components/Inli
 import { IssuesList as HostIssuesList } from "@/components/IssuesList";
 import { ManagedRoutinesList as HostManagedRoutinesList } from "@/components/ManagedRoutinesList";
 import { MarkdownBody } from "@/components/MarkdownBody";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { accessApi } from "@/api/access";
 import { agentsApi } from "@/api/agents";
 import { authApi } from "@/api/auth";
@@ -204,28 +205,7 @@ type PluginProjectPickerProps = {
 };
 
 function PluginSdkMarkdownEditor(props: PluginMarkdownEditorProps) {
-  const [Editor, setEditor] = useState<ComponentType<PluginMarkdownEditorProps> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    import("@/components/MarkdownEditor").then((module) => {
-      if (!cancelled) setEditor(() => module.MarkdownEditor as ComponentType<PluginMarkdownEditorProps>);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (Editor) return createElement(Editor, props);
-
-  return createElement("textarea", {
-    className: props.className,
-    value: props.value,
-    placeholder: props.placeholder,
-    readOnly: props.readOnly,
-    onBlur: props.onBlur,
-    onChange: (event) => props.onChange((event.currentTarget as HTMLTextAreaElement).value),
-  });
+  return createElement(MarkdownEditor, props);
 }
 
 function compactIssueFilters(filters: PluginIssuesListFilters): PluginIssuesListFilters {

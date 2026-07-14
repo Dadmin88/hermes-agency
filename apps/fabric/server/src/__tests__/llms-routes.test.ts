@@ -66,7 +66,9 @@ describe("llm routes", () => {
     const res = await request(app).get("/api/llms/agent-configuration.txt");
 
     expect(res.status).toBe(200);
-    expect(res.text).toContain("Use the paperclip-create-agent skill for end-to-end hiring");
+    expect(res.text).toContain(
+      "Use the `paperclip-create-agent` hiring skill (compatibility name) for end-to-end hiring",
+    );
     expect(res.text).toContain("desiredSkills");
     expect(res.text).toContain("sourceIssueId/sourceIssueIds");
     expect(res.text).toContain("Timer heartbeats are opt-in for new hires.");
@@ -100,7 +102,7 @@ describe("llm routes", () => {
     expect(res.text).toContain("agentDefaultsPayload.apiBaseUrl");
     expect(res.text).toContain("agentDefaultsPayload.paperclipApiUrl");
     expect(res.text).toContain("hermes_local");
-    expect(res.text).toContain("Hermes-originated Paperclip API usage");
+    expect(res.text).toContain("Hermes-originated Hermes Agency API usage");
     expect(res.text).toContain("http://127.0.0.1:8642");
     expect(res.text).toContain("http://192.168.1.25:8642");
     expect(res.text).toContain("tailnet-name.ts.net:8642");

@@ -70,7 +70,7 @@ export function ModelPricing() {
       pushToast({ title: "Pricing saved", tone: "success" });
     },
     onError: (error: Error) => {
-      pushToast({ title: "Save failed", description: error.message, tone: "error" });
+      pushToast({ title: "Save failed", body: error.message, tone: "error" });
     },
   });
 
@@ -80,12 +80,12 @@ export function ModelPricing() {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.pricing });
       pushToast({
         title: "OpenRouter pricing refreshed",
-        description: `${result.discovered} models discovered`,
+        body: `${result.discovered} models discovered`,
         tone: "success",
       });
     },
     onError: (error: Error) => {
-      pushToast({ title: "Auto-detect failed", description: error.message, tone: "error" });
+      pushToast({ title: "Auto-detect failed", body: error.message, tone: "error" });
     },
   });
 

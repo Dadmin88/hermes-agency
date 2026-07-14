@@ -353,7 +353,7 @@ describe("worktree config repair", () => {
 
     expect(result).toEqual({
       repairedConfig: true,
-      repairedEnv: false,
+      repairedEnv: true,
     });
     expect(repairedConfig.database.embeddedPostgresDataDir).toBe(path.join(stableInstanceRoot, "db"));
     expect(repairedConfig.database.backup.dir).toBe(path.join(stableInstanceRoot, "data", "backups"));
@@ -363,6 +363,8 @@ describe("worktree config repair", () => {
       path.join(stableInstanceRoot, "secrets", "master.key"),
     );
     expect(repairedEnv).toContain(`PAPERCLIP_HOME=${JSON.stringify(isolatedHome)}`);
+    expect(repairedEnv).toContain(`FABRIC_HOME=${JSON.stringify(isolatedHome)}`);
+    expect(repairedEnv).toContain(`FABRIC_INSTANCE_ID=${JSON.stringify(instanceId)}`);
     expect(repairedEnv).not.toContain(`PAPERCLIP_HOME=${JSON.stringify(transientHome)}`);
     expect(process.env.PAPERCLIP_HOME).toBe(isolatedHome);
   });

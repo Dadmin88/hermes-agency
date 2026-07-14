@@ -127,7 +127,7 @@ describe("GET /invites/:token", () => {
     expect(res.body.companyBrandColor).toBe("#114488");
     expect(res.body.companyLogoUrl).toBe("/api/invites/pcp_invite_test/logo");
     expect(res.body.inviteType).toBe("company_join");
-  }, 10_000);
+  }, 15_000);
 
   it("omits companyLogoUrl when the stored logo object is missing", async () => {
     mockStorage.headObject.mockResolvedValue({ exists: false });

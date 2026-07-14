@@ -161,6 +161,8 @@ describe("buildPluginWorkerEnv", () => {
     });
 
     expect(env).toEqual({
+      FABRIC_DEPLOYMENT_MODE: "authenticated",
+      FABRIC_DEPLOYMENT_EXPOSURE: "public",
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated",
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "public",
       ANTHROPIC_API_KEY: "anthropic-token",
@@ -181,6 +183,8 @@ describe("buildPluginWorkerEnv", () => {
     });
 
     expect(env).toEqual({
+      FABRIC_DEPLOYMENT_MODE: "authenticated",
+      FABRIC_DEPLOYMENT_EXPOSURE: "public",
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated",
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "public",
       KUBERNETES_SERVICE_HOST: "10.0.0.1",
@@ -198,6 +202,8 @@ describe("buildPluginWorkerEnv", () => {
     });
 
     expect(env).toEqual({
+      FABRIC_DEPLOYMENT_MODE: "authenticated",
+      FABRIC_DEPLOYMENT_EXPOSURE: "public",
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated",
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "public",
     });
@@ -617,6 +623,8 @@ describeEmbeddedPostgres("plugin database namespaces", () => {
       expect.objectContaining({
         databaseNamespace: namespace,
         env: {
+          FABRIC_DEPLOYMENT_MODE: "authenticated",
+          FABRIC_DEPLOYMENT_EXPOSURE: "public",
           PAPERCLIP_DEPLOYMENT_MODE: "authenticated",
           PAPERCLIP_DEPLOYMENT_EXPOSURE: "public",
         },
