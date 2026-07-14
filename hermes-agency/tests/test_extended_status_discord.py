@@ -84,7 +84,7 @@ def test_extended_status_renderer_minimal(monkeypatch):
             "doctor": {"exit_code": 0, "summary": {"pass": 17, "warn": 0, "fail": 0, "na": 0}},
             "models": {
                 "ok": True,
-                "active_set": "economic",
+                "active_set": "openai-codex-only",
                 "profiles_checked": 84,
                 "drift": 0,
                 "missing": 0,
@@ -109,7 +109,7 @@ def test_extended_status_renderer_minimal(monkeypatch):
     )
 
     assert "Hermes Agency extended status" in rendered
-    assert "models: active=economic" in rendered
+    assert "models: active=openai-codex-only" in rendered
     assert "missing=0 drift=0 unchanged=84" in rendered
     assert "department boards" in rendered
     assert "Engineering" in rendered
