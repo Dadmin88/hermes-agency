@@ -215,6 +215,10 @@ Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.h
 
 See `docs/agency-model-sets.md` for implementation details and rollout procedure.
 
+## Autonomous workflow playbook
+
+For headless, Kanban-backed autonomous work, follow `docs/agency-night-shift-playbook.md`. It is the canonical intake → execution → validation → handoff loop and sits beneath `AGENTS.md`, the staff contract, and each profile’s `ROUTING.md`.
+
 ## Monitoring
 
 Extended status:
@@ -342,6 +346,8 @@ make lint-agency
 python -m pip check
 ```
 
+This command set is the default green CI / seam-test rung for the plugin. It proves the in-repo Agency seams and golden-path workflow checks that actually ran; it does not by itself prove live daemon, Docker, or cross-machine Keryx behavior.
+
 Equivalent focused commands:
 
 ```bash
@@ -359,3 +365,5 @@ make integration-agency-full
 ```
 
 `tests/test_golden_path.py` is the current permanent Agency workflow proof. The older E2E scripts contain legacy transport assumptions and must not be presented as a complete remote Keryx Agency round trip. The full cross-process proof is tracked in issue #81 and depends on Hermes Keryx Phase 17.
+
+Use `../docs/qa-validation-ladder.md` as the source of truth for the full validation ladder, proof boundaries, prerequisites, cost/risk, and release-vs-end-of-shift reporting expectations.

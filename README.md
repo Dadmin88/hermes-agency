@@ -25,12 +25,12 @@ The complete remote Keryx round trip, where a relay-delivered task is consumed b
 |---|---|
 | `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, and pool delegation. |
 | `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
-| `hermes-agency/model_sets/` | Packaged provider/model strategies such as balanced/economic/premium-style profile mappings. |
+| `hermes-agency/model_sets/` | The single canonical OpenAI Codex Sol/Terra/Luna profile-routing strategy. |
 | `src/keryx/` | Vendored Keryx Python SDK (primary transport). |
 | `src/agentanycast/` | Legacy AgentAnycast compatibility transport (fallback only). |
 | `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
 | `scripts/` | Operational helpers such as batch agent wake scripts. |
-| `docs/` | Focused implementation, operations, and current-product boundary notes. |
+| `docs/` | Focused implementation, operations, current-product boundary notes, and the canonical Night Shift autonomous-workflow playbook. |
 
 ## Install
 
@@ -230,6 +230,8 @@ python -m pytest
 python -m pip check
 ```
 
+These commands are the default green CI / seam-test rung. They prove the in-repo logic and golden-path workflow checks that actually ran; they do not by themselves prove live daemon, live relay, Docker, or cross-machine remote-execution behavior.
+
 Manual/live checks:
 
 ```bash
@@ -238,6 +240,8 @@ make integration-agency-full
 ```
 
 The default pytest configuration skips tests marked `integration`. The permanent Agency golden path is part of `make test-agency`. A complete cross-process Keryx round trip remains gated by Phase 17 and issue #81.
+
+Use `docs/qa-validation-ladder.md` as the source of truth for what each validation rung proves, what it does not prove, prerequisites, cost/risk, and when higher gates such as Docker, real-profile/manual checks, or opt-in live Keryx E2E are required.
 
 ## Requirements
 

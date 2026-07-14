@@ -48,6 +48,8 @@ Tracking:
 
 Do not claim that a remote Hermes Agency profile automatically consumes a relay-delivered Keryx task and sends its final artifact back until the Phase 17 cross-process E2E passes.
 
+Validation language must follow `docs/qa-validation-ladder.md`: default green CI means mocked/in-process seam tests only unless higher rungs such as local-daemon, Docker, real-profile/manual, or opt-in live Keryx E2E also ran and are reported explicitly.
+
 ## Transport configuration
 
 ```yaml
