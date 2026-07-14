@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from .events import event, event_digest
 from .graph import validate_workflow_graph
 from .models import (
     ArtifactIdentity,
+    EventType,
     GateKind,
     GateStatus,
     RevisionStatus,
@@ -16,6 +18,12 @@ from .models import (
 )
 
 ARCHITECTURE_GOVERNANCE = "architecture-governance"
+_CANONICAL_MAX_ATTEMPTS = 2
+
+
+def _creation_event_id(workflow_id: str, revision_id: str) -> str:
+    return f"workflow-created:{workflow_id}:{revision_id}"
+
 
 _ORDER = (
     GateKind.AUTHOR,
@@ -39,6 +47,8 @@ def architecture_governance_revision(
     predecessor_revision_id: str | None = None,
 ) -> WorkflowRevision:
     """Create the fixed graph without generating IDs or timestamps."""
+    if max_attempts != _CANONICAL_MAX_ATTEMPTS:
+        raise ValueError("architecture-governance retry policy is fixed at two attempts")
     gates: list[WorkflowGate] = []
     previous: str | None = None
     for kind in _ORDER:
@@ -94,6 +104,12 @@ def architecture_governance_state(
     artifact_identity: ArtifactIdentity,
     max_attempts: int = 2,
 ) -> WorkflowState:
+    if max_attempts != _CANONICAL_MAX_ATTEMPTS:
+        raise ValueError("architecture-governance retry policy is fixed at two attempts")
+    if artifact_identity.frozen or artifact_identity.frozen_at:
+        raise ValueError("workflow creation requires an unfrozen artifact identity")
+    if artifact_identity.created_by != created_by:
+        raise ValueError("workflow creation artifact identity must be created by the author")
     revision = architecture_governance_revision(
         workflow_id=workflow_id,
         revision_id=revision_id,
@@ -102,6 +118,25 @@ def architecture_governance_state(
         author=created_by,
         artifact_identity=artifact_identity,
         max_attempts=max_attempts,
+    )
+    creation = event(
+        _creation_event_id(workflow_id, revision_id),
+        workflow_id,
+        EventType.WORKFLOW_CREATED,
+        actor=created_by,
+        occurred_at=created_at,
+        revision_id=revision_id,
+        payload={
+            "workflow_id": workflow_id,
+            "workflow_type": ARCHITECTURE_GOVERNANCE,
+            "revision_id": revision_id,
+            "revision_number": 1,
+            "objective": objective,
+            "author": created_by,
+            "created_at": created_at,
+            "artifact_identity": artifact_identity,
+            "max_attempts": _CANONICAL_MAX_ATTEMPTS,
+        },
     )
     return WorkflowState(
         run=WorkflowRun(
@@ -114,6 +149,8 @@ def architecture_governance_state(
             updated_at=created_at,
         ),
         revisions=(revision,),
+        events=(creation,),
+        event_digests={creation.event_id: event_digest(creation)},
     )
 
 

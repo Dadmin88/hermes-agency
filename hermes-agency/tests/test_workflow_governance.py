@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from dataclasses import replace
@@ -62,6 +63,16 @@ def state():
         created_at=NOW,
         artifact_identity=artifact(),
     )
+
+
+def reindex_events(payload):
+    payload["event_digests"] = {
+        item["event_id"]: hashlib.sha256(
+            json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest()
+        for item in payload["events"]
+    }
+    return payload
 
 
 def gate_id(revision_id: str, kind: GateKind) -> str:
@@ -853,3 +864,139 @@ def test_real_world_regression_sequence():
     )
     assert transition(current, current.events[-1]) is current
     assert restore_state(serialize_state(current)) == current
+
+
+def test_creation_event_is_first_and_normal_transitions_reject_new_creation_events():
+    initial = state()
+    creation = initial.events[0]
+    assert creation.event_type is EventType.WORKFLOW_CREATED
+    assert creation.gate_id is None
+    assert creation.actor == initial.run.created_by
+    assert creation.occurred_at == initial.run.created_at
+    assert transition(initial, creation) is initial
+    with pytest.raises(IllegalTransitionError, match="only valid as genesis"):
+        transition(
+            initial,
+            event(
+                "another-creation",
+                "wf-1",
+                EventType.WORKFLOW_CREATED,
+                actor="author",
+                occurred_at=NOW,
+                revision_id="rev-1",
+                payload=dict(creation.payload),
+            ),
+        )
+
+
+def test_restore_requires_one_first_well_formed_creation_event():
+    payload = json.loads(serialize_state(state()))
+    payload["events"] = []
+    payload["event_digests"] = {}
+    with pytest.raises(SerializationError, match="exactly one first creation"):
+        restore_state(payload)
+
+    payload = json.loads(serialize_state(state()))
+    duplicate = dict(payload["events"][0])
+    duplicate["event_id"] = "workflow-created:wf-1:rev-1-copy"
+    payload["events"].append(duplicate)
+    reindex_events(payload)
+    with pytest.raises(SerializationError, match="exactly one first creation"):
+        restore_state(payload)
+
+    payload = json.loads(serialize_state(start(state(), GateKind.AUTHOR, "author", "author-start")))
+    payload["events"][:2] = reversed(payload["events"][:2])
+    reindex_events(payload)
+    with pytest.raises(SerializationError, match="exactly one first creation"):
+        restore_state(payload)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda creation: creation["payload"].update({"unknown": "injected"}),
+        lambda creation: creation.update({"gate_id": "rev-1:author"}),
+        lambda creation: creation.update({"actor": "other"}),
+        lambda creation: creation.update({"occurred_at": "2026-07-13T20:01:00Z"}),
+        lambda creation: creation["payload"].update({"max_attempts": 99}),
+        lambda creation: creation["payload"]["artifact_identity"].update({"frozen": True}),
+        lambda creation: creation["payload"]["artifact_identity"].update({"created_by": "other"}),
+    ],
+)
+def test_restore_rejects_malformed_creation_event_fields(mutate):
+    payload = json.loads(serialize_state(state()))
+    mutate(payload["events"][0])
+    reindex_events(payload)
+    with pytest.raises(SerializationError):
+        restore_state(payload)
+
+
+def test_restore_rejects_snapshot_only_policy_and_genesis_identity_tampering():
+    payload = json.loads(serialize_state(state()))
+    for gate in payload["revisions"][0]["gates"]:
+        if gate["kind"] not in {
+            GateKind.ARCHIVE_REJECTION.value,
+            GateKind.OPERATOR_ESCALATION.value,
+        }:
+            gate["max_attempts"] = 99
+    with pytest.raises(SerializationError, match="does not match deterministic event replay"):
+        restore_state(payload)
+
+    payload = json.loads(serialize_state(state()))
+    identity = payload["revisions"][0]["artifact_identity"]
+    identity["hashes"]["docs/architecture.md"] = "f" * 64
+    author = next(gate for gate in payload["revisions"][0]["gates"] if gate["kind"] == "author")
+    author["artifact_identity"] = identity
+    with pytest.raises(SerializationError, match="does not match deterministic event replay"):
+        restore_state(payload)
+
+
+def test_restore_rejects_genesis_only_and_coherent_snapshot_revision_tampering():
+    payload = json.loads(serialize_state(state()))
+    creation = payload["events"][0]
+    creation["actor"] = "other"
+    creation["payload"]["author"] = "other"
+    creation["payload"]["artifact_identity"]["created_by"] = "other"
+    reindex_events(payload)
+    with pytest.raises(SerializationError, match="creation event does not match materialized run"):
+        restore_state(payload)
+
+    payload = json.loads(serialize_state(state()))
+    payload["run"]["active_revision"] = "rev-injected"
+    revision = payload["revisions"][0]
+    revision["revision_id"] = "rev-injected"
+    for gate in revision["gates"]:
+        gate["revision_id"] = "rev-injected"
+        gate["gate_id"] = gate["gate_id"].replace("rev-1", "rev-injected")
+        gate["dependencies"] = [
+            item.replace("rev-1", "rev-injected") for item in gate["dependencies"]
+        ]
+    with pytest.raises(SerializationError, match="does not match deterministic event replay"):
+        restore_state(payload)
+
+
+def test_restore_rejects_successor_snapshot_topology_or_policy_injection():
+    current = author_complete(start(state(), GateKind.AUTHOR, "author", "author-start"))
+    current = start(current, GateKind.COMPLETENESS_QA, "qa", "qa-start")
+    current = verdict(current, GateKind.COMPLETENESS_QA, "qa", VerdictDecision.REJECT, "qa-reject")
+    current = transition(
+        current,
+        event(
+            "r2",
+            "wf-1",
+            EventType.SUCCESSOR_REVISION_STARTED,
+            actor="author-2",
+            occurred_at=NOW,
+            revision_id="rev-1",
+            payload={
+                "revision_id": "rev-2",
+                "author": "author-2",
+                "artifact_identity": artifact(created_by="author-2"),
+            },
+        ),
+    )
+    payload = json.loads(serialize_state(current))
+    payload["revisions"][1]["gates"][0]["max_attempts"] = 99
+    payload["revisions"][1]["gates"][1]["dependencies"] = []
+    with pytest.raises(SerializationError, match="does not match deterministic event replay"):
+        restore_state(payload)

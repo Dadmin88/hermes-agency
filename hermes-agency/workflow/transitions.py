@@ -406,6 +406,8 @@ def transition(current_state: WorkflowState, event: WorkflowEvent) -> WorkflowSt
         )
     if event.workflow_id != current_state.run.workflow_id:
         raise _error(current_state, event, "event belongs to another workflow")
+    if event.event_type is EventType.WORKFLOW_CREATED:
+        raise _error(current_state, event, "workflow creation event is only valid as genesis")
     if event.event_type is EventType.SUCCESSOR_REVISION_STARTED:
         next_state = _successor(current_state, _revision(current_state, event), event)
     elif event.event_type is EventType.OPERATOR_INPUT_REQUIRED:

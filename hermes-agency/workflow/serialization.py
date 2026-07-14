@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
 from .errors import SerializationError
-from .events import jsonable
+from .events import event_digest, jsonable
 from .graph import validate_state
 from .models import (
     ArtifactIdentity,
@@ -200,7 +201,9 @@ def serialize_state(state: WorkflowState) -> str:
 def _rehydrate_event(event: WorkflowEvent) -> WorkflowEvent:
     """Restore typed event payloads before deterministic replay."""
     payload = dict(event.payload)
-    if event.event_type is EventType.REVIEW_VERDICT_ISSUED:
+    if event.event_type is EventType.WORKFLOW_CREATED:
+        payload["artifact_identity"] = artifact_from_dict(payload.get("artifact_identity"))
+    elif event.event_type is EventType.REVIEW_VERDICT_ISSUED:
         payload["verdict"] = verdict_from_dict(payload.get("verdict"))
     elif event.event_type in {
         EventType.ARTIFACT_FROZEN,
@@ -210,33 +213,112 @@ def _rehydrate_event(event: WorkflowEvent) -> WorkflowEvent:
     return replace(event, payload=payload)
 
 
+_GENESIS_PAYLOAD_KEYS = frozenset(
+    {
+        "workflow_id",
+        "workflow_type",
+        "revision_id",
+        "revision_number",
+        "objective",
+        "author",
+        "created_at",
+        "artifact_identity",
+        "max_attempts",
+    }
+)
+
+
+def _creation_event_id(workflow_id: str, revision_id: str) -> str:
+    return f"workflow-created:{workflow_id}:{revision_id}"
+
+
+def _validate_genesis_event(event: WorkflowEvent) -> WorkflowEvent:
+    """Validate the only ledger record allowed to supply creation inputs."""
+    raw_identity = event.payload.get("artifact_identity")
+    if isinstance(raw_identity, Mapping) and set(raw_identity) != {
+        "artifact_id",
+        "references",
+        "hashes",
+        "byte_sizes",
+        "frozen",
+        "frozen_at",
+        "created_by",
+    }:
+        raise SerializationError("workflow creation artifact identity has an invalid schema")
+    event = _rehydrate_event(event)
+    payload = dict(event.payload)
+    if event.event_type is not EventType.WORKFLOW_CREATED:
+        raise SerializationError("first ledger event must be workflow creation")
+    if set(payload) != _GENESIS_PAYLOAD_KEYS:
+        raise SerializationError("workflow creation payload has an invalid schema")
+    if (
+        event.gate_id is not None
+        or not event.workflow_id
+        or not event.revision_id
+        or event.event_id != _creation_event_id(event.workflow_id, event.revision_id)
+        or payload["workflow_id"] != event.workflow_id
+        or payload["workflow_type"] != "architecture-governance"
+        or payload["revision_id"] != event.revision_id
+        or payload["revision_number"] != 1
+        or not isinstance(payload["objective"], str)
+        or not isinstance(payload["author"], str)
+        or not payload["author"]
+        or event.actor != payload["author"]
+        or not isinstance(payload["created_at"], str)
+        or not payload["created_at"]
+        or event.occurred_at != payload["created_at"]
+        or payload["max_attempts"] != 2
+        or type(payload["max_attempts"]) is not int
+    ):
+        raise SerializationError("workflow creation envelope does not match its payload")
+    identity = payload["artifact_identity"]
+    if (
+        not isinstance(identity, ArtifactIdentity)
+        or identity.frozen
+        or identity.frozen_at is not None
+        or identity.created_by != payload["author"]
+    ):
+        raise SerializationError("workflow creation requires an unfrozen author-owned artifact")
+    return event
+
+
 def _replay_from_genesis(state: WorkflowState) -> WorkflowState:
     """Rebuild materialized state from the canonical template and its event ledger."""
-    if state.run.workflow_type != "architecture-governance" or not state.revisions:
-        raise SerializationError("unsupported workflow type or missing genesis revision")
-    genesis = min(state.revisions, key=lambda revision: revision.revision_number)
-    if genesis.revision_number != 1 or genesis.predecessor_revision_id is not None:
-        raise SerializationError("workflow state lacks a valid genesis revision")
-    if genesis.artifact_identity is None:
-        raise SerializationError("genesis revision is missing artifact identity")
+    if state.run.workflow_type != "architecture-governance":
+        raise SerializationError("unsupported workflow type")
+    creation_events = [
+        item for item in state.events if item.event_type is EventType.WORKFLOW_CREATED
+    ]
+    if len(creation_events) != 1 or not state.events or state.events[0] != creation_events[0]:
+        raise SerializationError("workflow ledger requires exactly one first creation event")
+    genesis = _validate_genesis_event(creation_events[0])
+    payload = dict(genesis.payload)
+    if (
+        state.run.workflow_id != genesis.workflow_id
+        or state.run.workflow_type != payload["workflow_type"]
+        or state.run.objective != payload["objective"]
+        or state.run.created_by != payload["author"]
+        or state.run.created_at != payload["created_at"]
+    ):
+        raise SerializationError("workflow creation event does not match materialized run")
     from .templates import architecture_governance_state
     from .transitions import transition
 
-    initial_artifact = replace(genesis.artifact_identity, frozen=False, frozen_at=None)
-    author_gate = next((gate for gate in genesis.gates if gate.kind is GateKind.AUTHOR), None)
-    if author_gate is None:
-        raise SerializationError("genesis revision is missing author gate")
     replayed = architecture_governance_state(
-        workflow_id=state.run.workflow_id,
-        revision_id=genesis.revision_id,
-        objective=state.run.objective,
-        created_by=state.run.created_by,
-        created_at=state.run.created_at,
-        artifact_identity=initial_artifact,
-        max_attempts=author_gate.max_attempts,
+        workflow_id=genesis.workflow_id,
+        revision_id=genesis.revision_id or "",
+        objective=payload["objective"],
+        created_by=payload["author"],
+        created_at=payload["created_at"],
+        artifact_identity=payload["artifact_identity"],
+        max_attempts=payload["max_attempts"],
     )
-    for event in state.events:
-        replayed = transition(replayed, _rehydrate_event(event))
+    if replayed.events[0] != genesis or replayed.event_digests[genesis.event_id] != event_digest(
+        genesis
+    ):
+        raise SerializationError("workflow creation event is not canonical")
+    for item in state.events[1:]:
+        replayed = transition(replayed, _rehydrate_event(item))
     return replayed
 
 

@@ -79,6 +79,7 @@ class OperatorDecisionStatus(StrEnum):
 
 
 class EventType(StrEnum):
+    WORKFLOW_CREATED = "workflow_created"
     GATE_STARTED = "gate_started"
     GATE_COMPLETED = "gate_completed"
     ARTIFACT_FROZEN = "artifact_frozen"
