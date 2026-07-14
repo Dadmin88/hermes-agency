@@ -6,7 +6,12 @@ import { createRoot } from "react-dom/client";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/components/MarkdownEditor", () => ({
+  MarkdownEditor: ({ value }: { value: string }) =>
+    React.createElement("textarea", { value, readOnly: true }),
+}));
 import {
   FileTree as SdkFileTree,
   ManagedRoutinesList as SdkManagedRoutinesList,
