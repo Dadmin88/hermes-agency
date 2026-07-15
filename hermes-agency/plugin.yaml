@@ -1,6 +1,6 @@
 name: hermes-agency
-version: 0.1.0
-description: "Hermes Agency P2P multi-agent collaboration tools for Hermes profiles. Feature-complete collaboration stack: node lifecycle, peer discovery, team context, context packets, announcements, orchestration, Kanban tracking, self-serve fallback, autonomous self-registration, bidding, workflows, proactive task creation, autonomy policy checks, learning feedback, and tenant-aware routing."
+version: 0.7.3
+description: "Hermes Agency P2P multi-agent collaboration tools for Hermes profiles: node lifecycle, peer discovery, team context, orchestration, Kanban tracking, model sets, and tenant-aware routing. Keryx is the primary transport; AgentAnycast is a legacy compatibility fallback."
 author: DeployFaith
 kind: standalone
 provides_tools:
