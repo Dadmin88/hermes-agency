@@ -94,10 +94,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Run pip-audit
-        run: |
-          # Hermes Agent currently constrains cryptography below the advisory's fixed range.
-          # Keep this single explicit exception visible until the upstream constraint moves.
-          pip-audit --strict . --ignore-vuln GHSA-537c-gmf6-5ccf
+        run: pip-audit --strict .
 
   test:
     name: Test (Python ${{ matrix.python-version }})
