@@ -7,7 +7,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-verify:
@@ -19,8 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: test/golden-path-delegation
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
@@ -490,14 +491,12 @@ jobs:
           pytest hermes-agency/tests/test_unit.py -q -k golden_path
           make test-agency
 
-      - name: Commit verified implementation
+      - name: Report generated implementation diff
         run: |
           if git diff --quiet; then
             echo "Golden-path implementation already applied."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add hermes-agency/orchestrator.py hermes-agency/tests/test_unit.py
-          git commit -m "test(agency): prove the delegation golden path"
-          git push origin HEAD:test/golden-path-delegation
+          echo "Golden-path verifier produced local changes after tests."
+          echo "Apply the diff from this run to update the source branch."
+          git diff -- hermes-agency/orchestrator.py hermes-agency/tests/test_unit.py
