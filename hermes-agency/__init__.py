@@ -53,12 +53,16 @@ if __package__:
         """Inject cached team/orchestrator context through Hermes' plugin context path."""
 
         blocks = []
+        cfg = get_config()
         # Do not retrieve a previously cached roster when prompt injection is
-        # disabled. This avoids both stale context and unnecessary refresh work.
-        if get_config().team.inject_context:
+        # disabled, but still clear any stale state left from a prior enabled
+        # configuration so serialized node state cannot reintroduce it.
+        if cfg.team.inject_context:
             team_context = manager.cached_team_context()
             if team_context:
                 blocks.append(team_context)
+        else:
+            manager.clear_team_context(cfg)
         orchestrator_context = manager.cached_orchestrator_context()
         if orchestrator_context:
             blocks.append(orchestrator_context)
