@@ -4,14 +4,14 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "hermes-agency/**"
+      - "hermes-agency/**/*.py"
       - "src/keryx/**"
       - "scripts/e2e_agency_keryx.py"
       - ".github/workflows/agency-phase17-e2e.yml"
   push:
     branches: [main]
     paths:
-      - "hermes-agency/**"
+      - "hermes-agency/**/*.py"
       - "src/keryx/**"
       - "scripts/e2e_agency_keryx.py"
       - ".github/workflows/agency-phase17-e2e.yml"
