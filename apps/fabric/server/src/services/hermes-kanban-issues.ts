@@ -1490,11 +1490,17 @@ function projectionFieldDisplayName(field: string) {
 
 function mergeProjectionRecord(target: Record<string, unknown>, source: Record<string, unknown>) {
   for (const [key, value] of Object.entries(source)) {
-    const targetRecord = asRecord(target[key]);
+    if (isUnsafeProjectionMergeKey(key)) continue;
+    const targetValue = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : undefined;
+    const targetRecord = asRecord(targetValue);
     const sourceRecord = asRecord(value);
     if (targetRecord && sourceRecord) mergeProjectionRecord(targetRecord, sourceRecord);
     else target[key] = value;
   }
+}
+
+function isUnsafeProjectionMergeKey(key: string) {
+  return key === "__proto__" || key === "prototype" || key === "constructor";
 }
 
 function extractLeadingJsonObject(value: string) {

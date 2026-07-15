@@ -622,6 +622,43 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(JSON.stringify(issue.executionState)).not.toContain("legacy_body_fallback");
   });
 
+  it("ignores prototype-polluting keys in structured Hermes metadata", async () => {
+    const companyId = await seedCompany();
+    const objectPrototype = Object.prototype as Record<string, unknown>;
+    delete objectPrototype.hermesPolluted;
+    const payload = JSON.parse(`{
+      "fabric": {
+        "__proto__": { "hermesPolluted": "from-proto" },
+        "constructor": { "hermesPolluted": "from-constructor" },
+        "labels": [{ "name": "safe-label" }]
+      },
+      "hermes_agency": {
+        "prototype": { "hermesPolluted": "from-prototype" }
+      }
+    }`) as Record<string, unknown>;
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_pollution",
+        title: "Prototype pollution attempt",
+        status: "todo",
+        priority: 50,
+        createdAt: 1_782_827_060,
+      }],
+      taskEvents: [{ taskId: "t_pollution", kind: "metadata", payload }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    const sync = await syncHermesKanbanIssues(db, companyId);
+    expect(sync.status).toBe("ok");
+    expect(({} as Record<string, unknown>).hermesPolluted).toBeUndefined();
+    expect(objectPrototype.hermesPolluted).toBeUndefined();
+    const issue = await projectedIssueRow("t_pollution");
+    expect(await issueLabelNames(issue.id)).toEqual(expect.arrayContaining(["kanban", "safe-label"]));
+    delete objectPrototype.hermesPolluted;
+  });
+
   it("infers assignee and labels safely when structured metadata is missing", async () => {
     const companyId = await seedCompany();
     const reviewerId = await seedAgent(companyId, "agency-code-reviewer");
