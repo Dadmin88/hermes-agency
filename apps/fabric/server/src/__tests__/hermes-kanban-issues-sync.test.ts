@@ -659,6 +659,64 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     delete objectPrototype.hermesPolluted;
   });
 
+  it("recursively sanitizes nested metadata records and arrays across event overlays", async () => {
+    const companyId = await seedCompany();
+    const objectPrototype = Object.prototype as Record<string, unknown>;
+    delete objectPrototype.hermesPolluted;
+    const firstPayload = JSON.parse(`{
+      "fabric": {
+        "labels": [{ "name": "safe-nested-label", "metadata": { "__proto__": { "hermesPolluted": "label" } } }],
+        "execution_policy": {
+          "mode": "autonomous_validated",
+          "limits": { "max_attempts": 2, "__proto__": { "hermesPolluted": "nested-record" } },
+          "gates": [{ "name": "initial", "constructor": { "hermesPolluted": "array-record" } }]
+        }
+      }
+    }`) as Record<string, unknown>;
+    const secondPayload = JSON.parse(`{
+      "fabric": {
+        "execution_policy": {
+          "limits": { "timeout_seconds": 30, "prototype": { "hermesPolluted": "overlay-record" } },
+          "gates": [{ "name": "final", "metadata": { "required": true, "__proto__": { "hermesPolluted": "nested-array-record" } } }],
+          "new_record": { "nested": { "safe": "retained", "constructor": { "hermesPolluted": "new-record" } } }
+        }
+      }
+    }`) as Record<string, unknown>;
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_recursive_pollution",
+        title: "Recursive prototype pollution attempt",
+        status: "todo",
+        priority: 50,
+        createdAt: 1_782_827_060,
+      }],
+      taskEvents: [
+        { taskId: "t_recursive_pollution", kind: "metadata", payload: firstPayload },
+        { taskId: "t_recursive_pollution", kind: "metadata", payload: secondPayload },
+      ],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    const sync = await syncHermesKanbanIssues(db, companyId);
+    expect(sync.status).toBe("ok");
+    expect(({} as Record<string, unknown>).hermesPolluted).toBeUndefined();
+    expect(objectPrototype.hermesPolluted).toBeUndefined();
+    const issue = await projectedIssueRow("t_recursive_pollution");
+    expect(issue.executionPolicy).toEqual({
+      mode: "autonomous_validated",
+      limits: { max_attempts: 2, timeout_seconds: 30 },
+      gates: [{ name: "final", metadata: { required: true } }],
+      new_record: { nested: { safe: "retained" } },
+    });
+    expect(JSON.stringify(issue.executionPolicy)).not.toContain("__proto__");
+    expect(JSON.stringify(issue.executionPolicy)).not.toContain("constructor");
+    expect(JSON.stringify(issue.executionPolicy)).not.toContain("prototype");
+    expect(await issueLabelNames(issue.id)).toEqual(expect.arrayContaining(["kanban", "safe-nested-label"]));
+    delete objectPrototype.hermesPolluted;
+  });
+
   it("infers assignee and labels safely when structured metadata is missing", async () => {
     const companyId = await seedCompany();
     const reviewerId = await seedAgent(companyId, "agency-code-reviewer");

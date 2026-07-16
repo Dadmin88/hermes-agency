@@ -1495,8 +1495,17 @@ function mergeProjectionRecord(target: Record<string, unknown>, source: Record<s
     const targetRecord = asRecord(targetValue);
     const sourceRecord = asRecord(value);
     if (targetRecord && sourceRecord) mergeProjectionRecord(targetRecord, sourceRecord);
-    else target[key] = value;
+    else target[key] = sanitizeProjectionValue(value);
   }
+}
+
+function sanitizeProjectionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeProjectionValue(item));
+  const sourceRecord = asRecord(value);
+  if (!sourceRecord) return value;
+  const sanitized: Record<string, unknown> = {};
+  mergeProjectionRecord(sanitized, sourceRecord);
+  return sanitized;
 }
 
 function isUnsafeProjectionMergeKey(key: string) {
