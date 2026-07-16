@@ -1490,11 +1490,26 @@ function projectionFieldDisplayName(field: string) {
 
 function mergeProjectionRecord(target: Record<string, unknown>, source: Record<string, unknown>) {
   for (const [key, value] of Object.entries(source)) {
-    const targetRecord = asRecord(target[key]);
+    if (isUnsafeProjectionMergeKey(key)) continue;
+    const targetValue = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : undefined;
+    const targetRecord = asRecord(targetValue);
     const sourceRecord = asRecord(value);
     if (targetRecord && sourceRecord) mergeProjectionRecord(targetRecord, sourceRecord);
-    else target[key] = value;
+    else target[key] = sanitizeProjectionValue(value);
   }
+}
+
+function sanitizeProjectionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeProjectionValue(item));
+  const sourceRecord = asRecord(value);
+  if (!sourceRecord) return value;
+  const sanitized: Record<string, unknown> = {};
+  mergeProjectionRecord(sanitized, sourceRecord);
+  return sanitized;
+}
+
+function isUnsafeProjectionMergeKey(key: string) {
+  return key === "__proto__" || key === "prototype" || key === "constructor";
 }
 
 function extractLeadingJsonObject(value: string) {
