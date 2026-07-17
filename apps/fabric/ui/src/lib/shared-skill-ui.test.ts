@@ -13,9 +13,10 @@ describe("shared skill UI helpers", () => {
   });
   it("shows source-correct actions and protects built-in, shadowed, and disabled entries", () => {
     const base = { name: "skill", description: "", enabled: true, editable: true, assigned: false, shadowed: false, status: "enabled" as const, category: null, effective: true };
-    expect(effectiveSkillActions({ ...base, origin: "shared_pool" })).toMatchObject({ detach: true, editShared: true, editLocal: false });
-    expect(effectiveSkillActions({ ...base, origin: "profile" })).toMatchObject({ editLocal: true, detach: false, editShared: false });
-    expect(effectiveSkillActions({ ...base, origin: "builtin" })).toMatchObject({ readOnly: true, detach: false, editShared: false, editLocal: false });
-    expect(effectiveSkillActions({ ...base, origin: "shared_pool", effective: false, shadowed: true, status: "shadowed" as const })).toMatchObject({ readOnly: true, detach: false, editShared: false });
+    expect(effectiveSkillActions({ ...base, origin: "shared_pool" })).toMatchObject({ disable: true, enable: false, editShared: true, editLocal: false });
+    expect(effectiveSkillActions({ ...base, origin: "profile" })).toMatchObject({ editLocal: true, disable: false, enable: false, editShared: false });
+    expect(effectiveSkillActions({ ...base, origin: "builtin" })).toMatchObject({ readOnly: true, disable: false, enable: false, editShared: false, editLocal: false });
+    expect(effectiveSkillActions({ ...base, origin: "shared_pool", effective: false, shadowed: true, status: "shadowed" as const })).toMatchObject({ readOnly: false, disable: false, enable: false, editShared: false });
+    expect(effectiveSkillActions({ ...base, origin: "shared_pool", effective: false, enabled: false, status: "disabled" as const })).toMatchObject({ disable: false, enable: true });
   });
 });

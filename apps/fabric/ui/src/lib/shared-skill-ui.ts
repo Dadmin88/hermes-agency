@@ -22,12 +22,13 @@ export function filterSharedPoolSkills<T extends { name: string; category: strin
   });
 }
 
-export function effectiveSkillActions(skill: EffectiveHermesSkill): { editShared: boolean; editLocal: boolean; detach: boolean; readOnly: boolean } {
+export function effectiveSkillActions(skill: EffectiveHermesSkill): { editShared: boolean; editLocal: boolean; disable: boolean; enable: boolean; readOnly: boolean } {
   const active = skill.effective && skill.enabled && !skill.shadowed;
   return {
     editShared: skill.origin === "shared_pool" && active,
     editLocal: skill.origin === "profile" && active,
-    detach: skill.origin === "shared_pool" && active,
-    readOnly: skill.origin === "builtin" || !active,
+    disable: skill.origin === "shared_pool" && skill.enabled && !skill.shadowed,
+    enable: skill.origin === "shared_pool" && !skill.enabled,
+    readOnly: skill.origin === "builtin" || skill.origin === "external",
   };
 }

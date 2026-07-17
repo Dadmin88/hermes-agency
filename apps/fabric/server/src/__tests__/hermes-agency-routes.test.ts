@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import express from "express";
 import os from "node:os";
 import path from "node:path";
@@ -36,7 +36,7 @@ function createApp(rosterPath: string, options: Record<string, unknown> = {}) {
   return app;
 }
 
-function createNonAdminApp(rosterPath: string) {
+function createNonAdminApp(rosterPath: string, options: Record<string, unknown> = {}) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -50,7 +50,19 @@ function createNonAdminApp(rosterPath: string) {
     };
     next();
   });
-  app.use("/api/hermes-agency", hermesAgencyRoutes({ rosterPath }));
+  app.use("/api/hermes-agency", hermesAgencyRoutes({ rosterPath, ...options }));
+  app.use(errorHandler);
+  return app;
+}
+
+function createActorApp(rosterPath: string, actor: Record<string, unknown>, options: Record<string, unknown> = {}) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    (req as any).actor = actor;
+    next();
+  });
+  app.use("/api/hermes-agency", hermesAgencyRoutes({ rosterPath, ...options }));
   app.use(errorHandler);
   return app;
 }
@@ -69,6 +81,53 @@ it("rejects company members because Agency roster and dispatch storage are insta
 
   expect(roster.status).toBe(403);
   expect(dispatch.status).toBe(403);
+});
+
+describe("Hermes Agency shared skill routes", () => {
+  it("lets authenticated company members read the canonical filesystem pool but keeps mutations admin-only", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const root = path.dirname(rosterPath);
+    const poolRoot = path.join(root, "pool");
+    const profilesDir = path.join(root, "profiles");
+    const skillDir = path.join(poolRoot, "newsjack", "breaking-news");
+    const invalidSkillDir = path.join(poolRoot, "newsjack", "broken-yaml");
+    await mkdir(skillDir, { recursive: true });
+    await mkdir(invalidSkillDir, { recursive: true });
+    await mkdir(profilesDir, { recursive: true });
+    await writeFile(path.join(poolRoot, "pool-manifest.json"), JSON.stringify({ version: "1.0", categories: {} }));
+    await writeFile(path.join(skillDir, "SKILL.md"), "---\nname: breaking-news\ndescription: React to news\n---\n");
+    await writeFile(path.join(invalidSkillDir, "SKILL.md"), "---\nname: broken-yaml\ndescription: [unterminated\n---\n");
+
+    const app = createNonAdminApp(rosterPath, { poolRoot, profilesDir, builtinSkillsDir: path.join(root, "builtin") });
+    const listed = await request(app).get("/api/hermes-agency/shared-skills");
+    const created = await request(app).post("/api/hermes-agency/shared-skills").send({});
+
+    expect(listed.status).toBe(200);
+    expect(listed.body).toMatchObject({ canManage: false, skills: [
+      expect.objectContaining({ name: "breaking-news", manifested: false, source: "shared_pool", valid: true, actionable: true }),
+      expect.objectContaining({ name: "broken-yaml", valid: false, actionable: false, diagnostic: expect.objectContaining({ location: "newsjack/broken-yaml/SKILL.md" }) }),
+    ] });
+    expect(JSON.stringify(listed.body)).not.toContain(root);
+    expect(created.status).toBe(403);
+  });
+
+  it("requires authentication for shared-pool reads", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const res = await request(createActorApp(rosterPath, { type: "none", source: "none" }))
+      .get("/api/hermes-agency/shared-skills");
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects cross-company agent profile access before filesystem resolution", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const db = {
+      select: () => ({ from: () => ({ where: () => Promise.resolve([{ id: "agent-2", name: "agency-target", companyId: "company-2", adapterConfig: { hermesProfile: "agency-target" } }]) }) }),
+    };
+    const actor = { type: "agent", source: "agent_key", agentId: "agent-1", companyId: "company-1" };
+    const res = await request(createActorApp(rosterPath, actor, { db: db as never }))
+      .get("/api/hermes-agency/agents/agent-2/skills");
+    expect(res.status).toBe(403);
+  });
 });
 
 describe("Hermes Agency roster route", () => {

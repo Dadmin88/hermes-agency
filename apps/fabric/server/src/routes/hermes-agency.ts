@@ -3,7 +3,7 @@ import type { Db } from "@hermes-fabric/db";
 import { agents } from "@hermes-fabric/db";
 import { eq } from "drizzle-orm";
 import { buildHermesAgencyTaskPacketPreview } from "@hermes-fabric/shared";
-import { assertCompanyAccess, assertInstanceAdmin } from "./authz.js";
+import { assertAuthenticated, assertCompanyAccess, assertInstanceAdmin } from "./authz.js";
 import { forbidden } from "../errors.js";
 import { authorizationService } from "../services/authorization.js";
 import { resolveHermesProfileName } from "../services/hermes-profile-config.js";
@@ -18,6 +18,9 @@ export function hermesAgencyRoutes(options: AgencyRouteOptions = {}) {
     if (!(error instanceof SharedSkillPoolError)) throw error;
     res.status(error.code === "not_found" ? 404 : error.code === "conflict" ? 409 : 422).json({ error: `shared_skill_pool_${error.code}`, message: error.message, ...(error.impact ? { impact: { count: error.impact.profiles.length, profiles: error.impact.profiles } } : {}) });
   };
+  const canManageSharedPool = (req: import("express").Request) => (
+    req.actor.type === "board" && (req.actor.isInstanceAdmin || req.actor.source === "local_implicit")
+  );
   async function agentProfile(req: import("express").Request, agentId: string, mutate = false) {
     if (!options.db) throw new SharedSkillPoolError("Agent-scoped skill control is unavailable.", "not_found");
     const agent = await options.db.select().from(agents).where(eq(agents.id, agentId)).then((rows) => rows[0] ?? null);
@@ -33,8 +36,8 @@ export function hermesAgencyRoutes(options: AgencyRouteOptions = {}) {
     if (profile === "." || profile === ".." || /[\\/]/.test(profile)) throw new SharedSkillPoolError("Agent Hermes profile mapping is invalid.");
     return { agent, profile };
   }
-  router.get("/shared-skills", async (req, res) => { assertInstanceAdmin(req); try { res.json({ skills: await listSharedPool(options) }); } catch (error) { poolError(res, error); } });
-  router.get("/shared-skills/:name", async (req, res) => { assertInstanceAdmin(req); try { res.json(await getSharedPoolSkill(req.params.name, options)); } catch (error) { poolError(res, error); } });
+  router.get("/shared-skills", async (req, res) => { assertAuthenticated(req); try { res.json({ skills: await listSharedPool(options), canManage: canManageSharedPool(req) }); } catch (error) { poolError(res, error); } });
+  router.get("/shared-skills/:name", async (req, res) => { assertAuthenticated(req); try { res.json(await getSharedPoolSkill(req.params.name, options)); } catch (error) { poolError(res, error); } });
   router.post("/shared-skills", async (req, res) => { assertInstanceAdmin(req); try { res.status(201).json(await createSharedPoolSkill(req.body, options)); } catch (error) { poolError(res, error); } });
   router.put("/shared-skills/:name", async (req, res) => { assertInstanceAdmin(req); try { res.json(await updateSharedPoolSkill(req.params.name, req.body, options)); } catch (error) { poolError(res, error); } });
   router.delete("/shared-skills/:name", async (req, res) => { assertInstanceAdmin(req); try { res.json(await deleteSharedPoolSkill(req.params.name, req.query.confirm === "true", options)); } catch (error) { poolError(res, error); } });

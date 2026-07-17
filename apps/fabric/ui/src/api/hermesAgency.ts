@@ -6,7 +6,7 @@ import type {
 } from "@hermes-fabric/shared";
 import { api } from "./client";
 
-export type SharedPoolSkill = { name: string; category: string; description: string; tags: string[]; files: Array<{ path: string; sizeBytes: number; editable?: boolean }>; consumerCount: number };
+export type SharedPoolSkill = { name: string; category: string; description: string; tags: string[]; files: Array<{ path: string; sizeBytes: number; editable?: boolean }>; consumerCount: number; manifested: boolean; source: "shared_pool"; valid: boolean; actionable: boolean; diagnostic: { code: "invalid_skill"; location: string; message: string } | null };
 export type SharedPoolImpact = { count: number; profiles: string[] };
 export type SharedPoolApiErrorBody = { error?: string; message?: string; impact?: SharedPoolImpact };
 export type EffectiveHermesSkill = { name: string; description: string; origin: "profile" | "shared_pool" | "builtin" | "external"; effective: boolean; enabled: boolean; editable: boolean; assigned: boolean; shadowed: boolean; status: "enabled" | "disabled" | "shadowed"; category: string | null };
@@ -17,7 +17,7 @@ export const hermesAgencyApi = {
     api.post<HermesAgencyDispatchRecord>("/hermes-agency/dispatch", body)
   ),
   dispatchStatus: (id: string) => api.get<HermesAgencyDispatchRecord>(`/hermes-agency/dispatches/${id}`),
-  sharedSkills: () => api.get<{ skills: SharedPoolSkill[] }>("/hermes-agency/shared-skills"),
+  sharedSkills: () => api.get<{ skills: SharedPoolSkill[]; canManage: boolean }>("/hermes-agency/shared-skills"),
   sharedSkill: (name: string) => api.get<SharedPoolSkill & { content: Record<string, string> }>(`/hermes-agency/shared-skills/${encodeURIComponent(name)}`),
   createSharedSkill: (body: { name: string; category: string; description?: string; tags?: string[]; files: Record<string, string> }) => api.post<SharedPoolSkill>("/hermes-agency/shared-skills", body),
   updateSharedSkill: (name: string, body: { category?: string; description?: string; tags?: string[]; files: Record<string, string> }) => api.put<SharedPoolSkill>(`/hermes-agency/shared-skills/${encodeURIComponent(name)}`, body),
