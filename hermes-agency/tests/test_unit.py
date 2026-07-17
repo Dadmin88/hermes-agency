@@ -1086,7 +1086,10 @@ def test_pool_roster_accepts_keryx_registry_peer_matching_local_identity(tmp_pat
     logs_dir = profiles_dir / "agency-frontend-engineer" / ".agency" / "logs"
     logs_dir.mkdir(parents=True)
     trusted_peer_id = "12D3KooWtrustedPeer"
-    (logs_dir / "daemon.log").write_text(f'{{"peer_id":"{trusted_peer_id}"}}\n', encoding="utf-8")
+    (logs_dir / "daemon.log").write_text(
+        f'{{"event":"agentanycastd started","peer_id":"{trusted_peer_id}"}}\n',
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
     monkeypatch.setattr(roster_mod, "PROFILES", profiles_dir)
