@@ -1231,6 +1231,45 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(unrelatedEvents).toHaveLength(0);
   });
 
+  it("retires a projection when the configured database changes under the same board and company", async () => {
+    const companyId = await seedCompany();
+    const firstSource = seedKanbanDb({
+      tasks: [{ id: "t_reused", title: "Task from first database", status: "todo", priority: 20, createdAt: 1_782_827_060 }],
+    });
+    const secondSource = seedKanbanDb({
+      tasks: [{ id: "t_reused", title: "Task from replacement database", status: "running", priority: 90, createdAt: 1_782_827_120 }],
+    });
+    tempDirs.push(firstSource.dir, secondSource.dir);
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "orchestrator";
+    process.env.FABRIC_HERMES_KANBAN_DB = firstSource.dbPath;
+    expect((await syncHermesKanbanIssues(db, companyId)).status).toBe("ok");
+
+    process.env.FABRIC_HERMES_KANBAN_DB = secondSource.dbPath;
+    expect((await syncHermesKanbanIssues(db, companyId)).status).toBe("ok");
+
+    const projectedRows = await db.select({
+      title: issues.title,
+      status: issues.status,
+      hiddenAt: issues.hiddenAt,
+      executionState: issues.executionState,
+    }).from(issues).where(and(
+      eq(issues.companyId, companyId),
+      eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND),
+      eq(issues.originId, "t_reused"),
+    ));
+    expect(projectedRows).toHaveLength(2);
+    expect(projectedRows.find((row) => row.title === "Task from first database")?.hiddenAt).not.toBeNull();
+    const replacement = projectedRows.find((row) => row.title === "Task from replacement database");
+    expect(replacement?.hiddenAt).toBeNull();
+    expect(replacement?.status).toBe("in_progress");
+    expect(replacement?.executionState).toMatchObject({
+      hermesKanbanProjection: {
+        source: { board: "orchestrator", dbPath: secondSource.dbPath, companyId },
+      },
+    });
+  });
+
   it("does not project Hermes tasks into an unrelated company when scope is pinned", async () => {
     const allowedCompanyId = await seedCompany("Allowed");
     const unrelatedCompanyId = await seedCompany("Unrelated");

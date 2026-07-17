@@ -752,6 +752,7 @@ function isProjectionForSourceOrLegacy(
   const projectedSource = projectionSourceBinding(row);
   if (projectedSource) {
     return projectedSource.board === source.board
+      && projectedSource.dbPath === source.dbPath
       && projectedSource.companyId === source.companyId;
   }
   return Boolean(row.originId && row.originFingerprint === `hermes-kanban:${row.originId}`);

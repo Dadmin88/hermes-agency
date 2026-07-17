@@ -311,7 +311,7 @@ def test_fabric_metadata_patch_scopes_board_and_explicit_db(plugin_modules, monk
         "task-123",
         {"project": {"id": "project-1"}},
         "user:operator",
-        "hermes-kanban:task-123",
+        "hermes-kanban:agency-quality:task-123",
         "agency-quality",
         str(db_path),
     )
@@ -319,6 +319,79 @@ def test_fabric_metadata_patch_scopes_board_and_explicit_db(plugin_modules, monk
     assert result["ok"] is True
     assert observed == {"board": "agency-quality", "db": str(db_path)}
     assert os.environ.get("HERMES_KANBAN_DB") != str(db_path)
+
+
+def test_fabric_metadata_sync_cli_accepts_board_qualified_fingerprint(
+    plugin_modules, monkeypatch, tmp_path, capsys
+):
+    kb_mod = plugin_modules.kanban_bridge
+    task = types.SimpleNamespace(id="task-123", assignee=None, status="ready")
+    observed = {}
+
+    class FakeKanban:
+        def get_task(self, conn, task_id):
+            return task
+
+        def add_comment(self, conn, task_id, author, body):
+            return 1
+
+        def recompute_ready(self, conn):
+            pass
+
+    @contextmanager
+    def fake_connection(board=None):
+        observed["board"] = board
+        observed["db"] = os.environ.get("HERMES_KANBAN_DB")
+        yield FakeKanban(), {}
+
+    monkeypatch.setattr(kb_mod, "_connection", fake_connection)
+    monkeypatch.setattr(kb_mod, "_resolve_task_id", lambda _kb, _conn, task_id: task_id)
+    monkeypatch.setattr(kb_mod, "_append_event", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        kb_mod,
+        "_task_to_dict",
+        lambda _kb, _conn, value, include_thread=False: {"id": value.id},
+    )
+    db_path = tmp_path / "canonical.db"
+
+    plugin_modules.cli.main(
+        [
+            "fabric-metadata-sync",
+            "task-123",
+            "--patch-json",
+            '{"project":{"id":"project-1"}}',
+            "--actor",
+            "user:operator",
+            "--fingerprint",
+            "hermes-kanban:agency-quality:task-123",
+            "--board",
+            "agency-quality",
+            "--db",
+            str(db_path),
+        ]
+    )
+
+    assert json.loads(capsys.readouterr().out)["ok"] is True
+    assert observed == {"board": "agency-quality", "db": str(db_path)}
+    assert os.environ.get("HERMES_KANBAN_DB") != str(db_path)
+
+
+def test_fabric_metadata_patch_rejects_board_qualified_fingerprint_for_another_board(
+    plugin_modules,
+):
+    result = plugin_modules.kanban_bridge._apply_fabric_metadata_patch_impl(
+        "task-123",
+        {"project": {"id": "project-1"}},
+        "user:operator",
+        "hermes-kanban:default:task-123",
+        "orchestrator",
+    )
+
+    assert result == {
+        "available": True,
+        "ok": False,
+        "error": "origin fingerprint mismatch",
+    }
 
 
 def test_explicit_board_scope_unavailable_fails_before_database_access(plugin_modules, monkeypatch):

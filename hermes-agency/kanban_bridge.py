@@ -25,6 +25,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, is_dataclass
 from typing import Any, cast
+from urllib.parse import quote
 
 from .config import current_profile_name, get_config
 from .departments import (
@@ -967,10 +968,12 @@ def _apply_fabric_metadata_patch_impl(
             "error": f"unsupported Fabric metadata fields: {', '.join(unknown)}",
         }
     clean_task_id = _clean(task_id)
-    if (
-        expected_origin_fingerprint
-        and expected_origin_fingerprint != f"hermes-kanban:{clean_task_id}"
-    ):
+    clean_board = _clean(board)
+    accepted_fingerprints = {f"hermes-kanban:{clean_task_id}"}
+    if clean_board:
+        encoded_board = quote(clean_board, safe="-_.!~*'()")
+        accepted_fingerprints.add(f"hermes-kanban:{encoded_board}:{clean_task_id}")
+    if expected_origin_fingerprint and expected_origin_fingerprint not in accepted_fingerprints:
         return {"available": True, "ok": False, "error": "origin fingerprint mismatch"}
 
     label_intents = patch.get("labels")
