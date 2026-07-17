@@ -36,8 +36,39 @@ function createApp(rosterPath: string, options: Record<string, unknown> = {}) {
   return app;
 }
 
+function createNonAdminApp(rosterPath: string) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    (req as any).actor = {
+      type: "board",
+      userId: "company-member",
+      companyIds: ["company-1"],
+      memberships: [{ companyId: "company-1", status: "active", membershipRole: "member" }],
+      isInstanceAdmin: false,
+      source: "session",
+    };
+    next();
+  });
+  app.use("/api/hermes-agency", hermesAgencyRoutes({ rosterPath }));
+  app.use(errorHandler);
+  return app;
+}
+
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+it("rejects company members because Agency roster and dispatch storage are instance-global", async () => {
+  const rosterPath = await tempRosterPath({ profiles: [] });
+
+  const roster = await request(createNonAdminApp(rosterPath)).get("/api/hermes-agency/roster");
+  const dispatch = await request(createNonAdminApp(rosterPath))
+    .post("/api/hermes-agency/dispatch")
+    .send({ packet: { title: "must not dispatch" } });
+
+  expect(roster.status).toBe(403);
+  expect(dispatch.status).toBe(403);
 });
 
 describe("Hermes Agency roster route", () => {

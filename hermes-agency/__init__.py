@@ -18,7 +18,43 @@ if __package__:
     from .kanban_workspace import install_workspace_preservation_patch
     from .node_manager import manager
     from .orchestrator import ORCHESTRATOR_TOOLS, check_orchestrator_enabled
+    from .skill_governance import (
+        GovernancePaths,
+        SkillGovernanceControlPlane,
+        SkillGovernanceManager,
+    )
+    from .skill_governance.service import default_paths
+    from .skill_tools import SKILL_TOOLS
+    from .skill_tools import TOOLSET as SKILL_TOOLSET
     from .tools import POOL_CONTROL_TOOLS, TOOLS, TOOLSET, check_agency_available
+
+    _skill_governance_manager = None
+
+    def _skill_governance_hook(**_: object) -> None:
+        """Start the singleton reconciler only on the explicitly enabled orchestrator."""
+        global _skill_governance_manager
+        cfg = get_config()
+        governance = cfg.skill_governance
+        if not governance.enabled or not is_current_orchestrator(cfg):
+            return
+        if _skill_governance_manager is None:
+            defaults = default_paths()
+            shared_path = governance.shared_skills_path or defaults.shared_skills_path
+            plane = SkillGovernanceControlPlane(
+                GovernancePaths(
+                    governance.state_path or defaults.state_root,
+                    defaults.profiles_root,
+                    shared_path,
+                ),
+                max_pending_bytes=governance.max_pending_bytes,
+            )
+            _skill_governance_manager = SkillGovernanceManager(
+                plane,
+                enabled=True,
+                is_orchestrator=True,
+                poll_interval_seconds=governance.poll_interval_seconds,
+            )
+        _skill_governance_manager.start_sync()
 
     def _stop_stale_pool_runner_for_in_process_node(cfg) -> None:
         """Prevent stale pool runners from racing the gateway-owned node.
@@ -111,6 +147,16 @@ if __package__:
                     emoji=emoji,
                 )
 
+            if cfg.skill_governance.hub_acquisition_enabled:
+                for name, schema, handler, emoji in SKILL_TOOLS:
+                    ctx.register_tool(
+                        name=name,
+                        toolset=SKILL_TOOLSET,
+                        schema=schema,
+                        handler=handler,
+                        emoji=emoji,
+                    )
+
             if is_current_orchestrator(cfg):
                 for name, schema, handler, emoji in (
                     *ORCHESTRATOR_TOOLS,
@@ -126,6 +172,8 @@ if __package__:
                     )
 
         ctx.register_hook("on_session_start", _auto_start_hook)
+        if cfg.skill_governance.enabled:
+            ctx.register_hook("on_session_start", _skill_governance_hook)
         ctx.register_hook("on_session_start", _team_context_hook)
         ctx.register_hook("pre_llm_call", _team_context_hook)
         ctx.register_hook("on_session_reset", _shutdown_hook)

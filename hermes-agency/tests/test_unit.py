@@ -1086,7 +1086,10 @@ def test_pool_roster_accepts_keryx_registry_peer_matching_local_identity(tmp_pat
     logs_dir = profiles_dir / "agency-frontend-engineer" / ".agency" / "logs"
     logs_dir.mkdir(parents=True)
     trusted_peer_id = "12D3KooWtrustedPeer"
-    (logs_dir / "daemon.log").write_text(f'{{"peer_id":"{trusted_peer_id}"}}\n', encoding="utf-8")
+    (logs_dir / "daemon.log").write_text(
+        f'{{"event":"agentanycastd started","peer_id":"{trusted_peer_id}"}}\n',
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(roster_mod, "REGISTRY_DEFINITION_PATH", registry_path)
     monkeypatch.setattr(roster_mod, "PROFILES", profiles_dir)
@@ -4184,15 +4187,81 @@ async def test_incoming_worker_delegation_mode_uses_task_processor(plugin_module
 
 
 class _WorkerTask:
-    def __init__(self):
+    def __init__(self, peer_id="peer-a"):
+        self.peer_id = peer_id
         self.completed = None
         self.failed = None
+
+    async def update_status(self, status):
+        self.status = status
 
     async def complete(self, artifacts):
         self.completed = artifacts
 
     async def fail(self, error):
         self.failed = error
+
+
+@pytest.mark.asyncio
+async def test_incoming_worker_revalidates_recovered_sender_before_execution(
+    plugin_modules, monkeypatch
+):
+    asyncio = __import__("asyncio")
+    from types import SimpleNamespace
+
+    nm_mod = plugin_modules.node_manager
+    cfg_mod = plugin_modules.config
+    manager = nm_mod.NodeManager()
+    manager._incoming_queue = asyncio.Queue()
+    record = nm_mod.IncomingTaskRecord(
+        task_id="task-revoked-after-recovery",
+        sender_peer_id="peer-revoked",
+        sender_card=None,
+        target_skill_id="",
+        message_text="must not execute",
+        metadata={"recovered": True},
+    )
+    manager._incoming_records[record.task_id] = record
+    cfg = cfg_mod.AgencyConfig(
+        allow_remote_tasks=True,
+        incoming=cfg_mod.IncomingConfig(mode="delegation"),
+    )
+    monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
+    incoming_security_mod = importlib.import_module("hermes_plugin.incoming_security")
+    monkeypatch.setattr(
+        incoming_security_mod,
+        "authorize_recovered_record",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            allowed=False,
+            reason="peer trust was revoked",
+            action="authorization_rejected",
+            sender_peer_id="peer-revoked",
+        ),
+    )
+    monkeypatch.setattr(nm_mod, "kanban_update_task", lambda *args, **kwargs: {})
+    monkeypatch.setattr(nm_mod, "announce_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "announce_complete", lambda *args, **kwargs: None)
+    monkeypatch.setattr(nm_mod, "announce_error", lambda *args, **kwargs: None)
+    called = {"process": False}
+
+    def fake_process(*_args, **_kwargs):
+        called["process"] = True
+        return "must not complete"
+
+    monkeypatch.setattr(nm_mod, "process_incoming_task", fake_process)
+
+    task = _WorkerTask(peer_id="peer-revoked")
+    worker = asyncio.create_task(manager._incoming_worker())
+    await manager._incoming_queue.put((task, record.task_id))
+    await asyncio.wait_for(manager._incoming_queue.join(), timeout=2)
+    worker.cancel()
+    await asyncio.gather(worker, return_exceptions=True)
+
+    assert called["process"] is False
+    assert task.completed is None
+    assert task.failed == "authorization_rejected"
+    assert record.status == "failed"
+    assert record.error == "peer trust was revoked"
 
 
 @pytest.mark.asyncio

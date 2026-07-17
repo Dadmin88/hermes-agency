@@ -137,6 +137,8 @@ export {
 export {
   MODEL_SET_SOURCES,
   MODEL_PRICING_TYPES,
+  REASONING_EFFORTS,
+  reasoningEffortSchema,
   modelFamilySchema,
   modelBudgetSchema,
   modelEscalationSchema,
@@ -153,6 +155,7 @@ export {
   modelPricingItemSchema,
   putModelPricingSchema,
   type ModelFamily,
+  type ReasoningEffort,
   type ModelBudget,
   type ModelEscalation,
   type ModelSetDefinition,

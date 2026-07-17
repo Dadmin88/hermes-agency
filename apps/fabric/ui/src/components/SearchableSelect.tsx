@@ -44,6 +44,9 @@ export interface SearchableSelectProps<
   loadingMessage?: string;
   loading?: boolean;
   disabled?: boolean;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
   className?: string;
   triggerClassName?: string;
   contentClassName?: string;
@@ -80,6 +83,9 @@ export function SearchableSelect<
   loadingMessage = "Loading...",
   loading = false,
   disabled = false,
+  ariaLabel,
+  ariaDescribedBy,
+  ariaInvalid,
   className,
   triggerClassName,
   contentClassName,
@@ -189,6 +195,9 @@ export function SearchableSelect<
             }
           }}
           aria-expanded={open}
+          aria-label={ariaLabel}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           role="combobox"
           className={cn("w-full justify-between overflow-hidden", className, triggerClassName)}
         >

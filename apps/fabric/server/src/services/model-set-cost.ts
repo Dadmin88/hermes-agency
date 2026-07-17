@@ -8,10 +8,24 @@ type AgentRow = typeof agents.$inferSelect;
 export type ModelResolutionLike = {
   provider: string;
   model: string;
+  reasoningEffort: ModelCostEstimateItem["reasoningEffort"];
   source: string;
   setName: string | null;
   family: string | null;
+  reason: string | null;
 };
+
+function routingSummary(resolution: ModelResolutionLike): ModelCostEstimateItem["inheritedRouting"] {
+  return {
+    provider: resolution.provider || null,
+    model: resolution.model || null,
+    reasoningEffort: resolution.reasoningEffort,
+    source: resolution.source,
+    setName: resolution.setName,
+    family: resolution.family,
+    reason: resolution.reason,
+  };
+}
 
 export function formatMonthlyEstimateLabel(value: number | null): string {
   if (value == null) return "N/A";
@@ -91,6 +105,7 @@ export function buildCostEstimateItems(input: {
   pricingByKey: Map<string, PricingRow>;
   historicalByKey: Map<string, number>;
   resolve: (agent: AgentRow) => ModelResolutionLike;
+  resolveInherited?: (agent: AgentRow) => ModelResolutionLike;
 }): {
   items: ModelCostEstimateItem[];
   monthlyEstimateTotal: number;
@@ -104,6 +119,7 @@ export function buildCostEstimateItems(input: {
 
   for (const agentRow of input.agentRows) {
     const resolution = input.resolve(agentRow);
+    const inheritedResolution = input.resolveInherited?.(agentRow) ?? resolution;
     const pricing =
       resolution.provider && resolution.model
         ? input.pricingByKey.get(`${resolution.provider}/${resolution.model}`)
@@ -127,9 +143,12 @@ export function buildCostEstimateItems(input: {
       agentName: agentRow.name,
       provider: resolution.provider || null,
       model: resolution.model || null,
+      reasoningEffort: resolution.reasoningEffort,
       source: resolution.source,
       setName: resolution.setName,
       family: resolution.family,
+      reason: resolution.reason,
+      inheritedRouting: routingSummary(inheritedResolution),
       pricingType: pricing?.pricingType ?? null,
       monthlyEstimate: estimate.monthlyEstimate,
       monthlyEstimateLabel: estimate.monthlyEstimateLabel,

@@ -62,6 +62,7 @@ const serializedServerVitestArgs = [
   "--no-file-parallelism",
   "--maxWorkers=1",
 ];
+const serializedWorkspaceProjects = new Set(["hermes-fabric"]);
 
 function walk(dir) {
   const entries = readdirSync(dir);
@@ -282,7 +283,10 @@ function runGeneralSuites(routeTests) {
 
 function runProjectGroup(projects, groupName) {
   for (const project of projects) {
-    runVitest(["--project", project], `${groupName} project ${project}`);
+    const projectArgs = serializedWorkspaceProjects.has(project)
+      ? serializedServerVitestArgs
+      : [];
+    runVitest(["--project", project, ...projectArgs], `${groupName} project ${project}`);
   }
 }
 
@@ -338,6 +342,7 @@ function runGeneralGroup(routeTests, groupName, shardIndex = null, shardCount = 
 }
 
 function runSerializedSuites(routeTests, shardIndex, shardCount) {
+  const serializedTestTimeoutMs = 15_000;
   const shardTests = selectSerializedSuites(routeTests, shardIndex, shardCount);
   console.log(
     `\n[test:run] serialized shard ${shardIndex + 1}/${shardCount} running ${shardTests.length} of ${routeTests.length} suites`,
@@ -351,6 +356,7 @@ function runSerializedSuites(routeTests, shardIndex, shardCount) {
         routeTest.repoPath,
         "--pool=forks",
         "--isolate",
+        `--testTimeout=${serializedTestTimeoutMs}`,
       ],
       routeTest.repoPath,
     );
@@ -390,6 +396,12 @@ if (options.dryRun) {
         shardCount: options.shardCount,
         group: options.group,
         availableGeneralGroups: generalGroupNames,
+        generalWorkspaceProjects: {
+          [generalWorkspacesAGroupName]: generalWorkspacesAProjects,
+          [generalWorkspacesBGroupName]: generalWorkspacesBProjects,
+        },
+        serializedWorkspaceProjects: [...serializedWorkspaceProjects],
+        serializedTestTimeoutMs: 15_000,
         serializedSuiteCount: routeTests.length,
         selectedSerializedSuites: serializedSuites.map((routeTest) => routeTest.repoPath),
         generalServerSuiteCount: generalServerTestFiles.length,

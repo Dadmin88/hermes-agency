@@ -97,6 +97,18 @@ function headersFromExpressRequest(req: Request): Headers {
 export function deriveAuthTrustedOrigins(config: Config, opts?: { listenPort?: number }): string[] {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
   const trustedOrigins = new Set<string>();
+  const configuredOrigins = fabricEnv("AUTH_TRUSTED_ORIGINS")
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+
+  for (const origin of configuredOrigins) {
+    try {
+      trustedOrigins.add(new URL(origin).origin);
+    } catch {
+      // Ignore malformed optional origins; Better Auth still validates configured base URL separately.
+    }
+  }
 
   if (baseUrl) {
     try {

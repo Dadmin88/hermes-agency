@@ -11,7 +11,7 @@ import yaml
 AGENCY_DIR = Path.home() / ".hermes" / "agency"
 CONFIG_PATH = AGENCY_DIR / "config.yaml"
 PROVIDERS = {
-    "1": {"name": "gpt-5.5", "provider": "openai-codex"},
+    "1": {"name": "gpt-5.6-terra", "provider": "openai-codex"},
     "2": {"name": "grok-4.3", "provider": "xai-oauth"},
     "3": {"name": "mimo-v2.5-pro", "provider": "xiaomi"},
 }
@@ -125,7 +125,7 @@ GROUPS = {
 
 
 def detect_providers():
-    print("Detected providers: OpenAI (gpt-5.5), xAI (grok-4.3), Xiaomi (mimo-v2.5-pro)")
+    print("Detected providers: OpenAI (gpt-5.6-terra), xAI (grok-4.3), Xiaomi (mimo-v2.5-pro)")
 
 
 def choose_model(group_name, agents):
@@ -159,7 +159,7 @@ def main():
             full_name = f"agency-{agent}"
             ans = input(f"  {full_name} — change model? [y/N]: ").strip().lower()
             if ans == "y":
-                print("    Choose: 1) gpt-5.5 2) grok-4.3 3) mimo-v2.5-pro")
+                print("    Choose: 1) gpt-5.6-terra 2) grok-4.3 3) mimo-v2.5-pro")
                 c = input("    > ").strip() or "1"
                 models["overrides"][full_name] = PROVIDERS.get(c, PROVIDERS["1"])
 

@@ -50,6 +50,8 @@ python -m pytest hermes-agency/tests/test_keryx_transport.py -q
 python -m pip check
 ```
 
+This command set is the default green CI / seam-test rung. It proves the repository checks that actually ran, including the in-process Agency golden path, but it does not by itself prove live daemon, Docker, or cross-machine Keryx behavior.
+
 Model-set changes:
 
 ```bash
@@ -65,6 +67,8 @@ make integration-agency-full
 ```
 
 Default pytest configuration skips `integration` tests.
+
+Use `docs/qa-validation-ladder.md` to decide when local-daemon, Docker, real-profile/manual, or opt-in live Keryx E2E validation is also required for the change you are making.
 
 ## Required CI checks
 

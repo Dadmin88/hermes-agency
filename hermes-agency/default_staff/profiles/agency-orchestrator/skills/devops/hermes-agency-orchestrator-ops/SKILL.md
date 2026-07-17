@@ -61,8 +61,9 @@ If `hermes agency dashboard` loads but health reports `agentanycast SDK is not i
 Core commands:
 
 ```bash
+cd <repository-root>
 PATH=$HOME/.hermes/hermes-agent/venv/bin:$PATH \
-  python3 -m pip install -e /home/dadmin/repos/Hermes_Agency
+  python3 -m pip install -e .
 
 PATH=$HOME/.hermes/hermes-agent/venv/bin:$PATH \
   python3 -m pip uninstall -y agentanycast

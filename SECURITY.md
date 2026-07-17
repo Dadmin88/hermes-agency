@@ -3,31 +3,30 @@
 ## Supported Versions
 
 | Version | Supported |
-|---------|-----------|
-| latest  | Yes       |
+|---|---|
+| latest | Yes |
 
 ## Reporting a Vulnerability
 
-**Please do NOT open a public GitHub issue for security vulnerabilities.**
+**Do not open a public GitHub issue for a security vulnerability.**
 
-Instead, please use [GitHub Security Advisories](https://github.com/DeployFaith/Hermes_Agency/security/advisories/new) to report vulnerabilities privately.
+Use [GitHub Security Advisories](https://github.com/DeployFaith/Hermes_Agency/security/advisories/new) to report vulnerabilities privately. Include:
 
-Please include:
-
-1. Description of the vulnerability
-2. Steps to reproduce
-3. Affected component(s)
-4. Impact assessment (if possible)
+1. A description of the vulnerability
+2. Deterministic reproduction steps
+3. The affected component and version or commit
+4. The expected impact
+5. Any known mitigation
 
 ## Response Timeline
 
-- **Acknowledgement**: within 48 hours
-- **Initial assessment**: within 7 days
-- **Fix or mitigation**: depends on severity, typically within 30 days
+- **Acknowledgement:** within 48 hours
+- **Initial assessment:** within 7 days
+- **Fix or mitigation:** depends on severity, typically within 30 days
 
 ## Security Boundaries
 
-Hermes Agency has several distinct trust boundaries. Understanding them helps you assess impact and report issues accurately.
+Hermes Agency spans several processes and trust boundaries. Reports should identify which boundary is crossed.
 
 ### Hermes Agency plugin and pool
 
@@ -57,7 +56,7 @@ Pool management HTTP and local APIs should bind to loopback by default. Non-loop
 
 ### Model and tool access
 
-Each agent has a configured model set and tool set. The agency restricts which tools and models an agent can access based on its role and configuration. An agent should not be able to escalate beyond its assigned tool or model scope.
+### Hermes Fabric
 
 ### Outbound remote content
 
@@ -65,8 +64,8 @@ Remote-visible progress, artifacts, and error summaries should not include secre
 
 ## Disclosure Policy
 
-We follow [coordinated disclosure](https://en.wikipedia.org/wiki/Coordinated_vulnerability_disclosure). We will work with you to understand and address the issue before any public disclosure.
+We follow [coordinated disclosure](https://en.wikipedia.org/wiki/Coordinated_vulnerability_disclosure) and will work with reporters before public disclosure.
 
 ## Recognition
 
-We appreciate responsible disclosure and will credit reporters (with permission) in release notes.
+We appreciate responsible disclosure and will credit reporters, with permission, in release notes.

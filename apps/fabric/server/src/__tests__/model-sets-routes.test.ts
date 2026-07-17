@@ -170,6 +170,25 @@ describe("model set routes", () => {
     expect(mockLogActivity).toHaveBeenCalledTimes(1);
   });
 
+  it("updates a model set and logs activity", async () => {
+    const app = await createApp(actor);
+    const res = await request(app)
+      .put("/api/model-sets/custom-alpha")
+      .send({
+        companyId: "11111111-1111-4111-8111-111111111111",
+        definition: { description: "Updated in the detail editor" },
+      })
+      .expect(200);
+
+    expect(res.body.name).toBe("custom-alpha");
+    expect(mockModelSetService.updateModelSet).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "custom-alpha",
+      expect.objectContaining({ updatedBy: "user-1" }),
+    );
+    expect(mockLogActivity).toHaveBeenCalledTimes(1);
+  });
+
   it("previews and applies a model set", async () => {
     const app = await createApp(actor);
     await request(app)
@@ -220,6 +239,20 @@ describe("model set routes", () => {
     expect(mockModelSetService.replaceDepartmentOverrides).toHaveBeenCalled();
     expect(mockModelSetService.upsertProfileOverride).toHaveBeenCalled();
     expect(mockModelSetService.deleteProfileOverride).toHaveBeenCalled();
+  });
+
+  it("validates canonical reasoning effort values on overrides", async () => {
+    const app = await createApp(actor);
+    await request(app)
+      .put("/api/model-overrides/profile/agent-1")
+      .send({
+        companyId: "11111111-1111-4111-8111-111111111111",
+        provider: "openai",
+        model: "gpt-5",
+        reasoningEffort: "invalid",
+      })
+      .expect(400);
+    expect(mockModelSetService.upsertProfileOverride).not.toHaveBeenCalled();
   });
 
   it("lists pricing and cost estimates", async () => {

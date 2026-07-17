@@ -37,6 +37,8 @@ dependencies = [
     "cryptography>=46.0.7",
     "PyYAML>=6.0",
     "fastapi>=0.110",
+    "flask>=3.0,<4",
+    "requests>=2.31,<3",
     "uvicorn>=0.29",
 ]
 

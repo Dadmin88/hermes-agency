@@ -1,4 +1,8 @@
-@import "tailwindcss";
+/* Keep Tailwind's content scanner scoped to application source. Its automatic base
+   can otherwise include transient `node_modules.pre-*` dependency-repair backups,
+   where an in-flight Storybook asset removal makes CSS transforms fail with ENOENT. */
+@import "tailwindcss" source(none);
+@source ".";
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));

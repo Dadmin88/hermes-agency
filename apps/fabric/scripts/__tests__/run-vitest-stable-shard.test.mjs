@@ -61,3 +61,17 @@ test("shard flags are rejected for the parallel workspace groups", () => {
   const result = dryRun(["--mode", "general", "--group", "general-workspaces-a", "--shard-index", "0", "--shard-count", "3"]);
   assert.notEqual(result.status, 0, "workspace groups must not accept shard flags");
 });
+
+test("the CLI workspace project follows the renamed Hermes Fabric package", () => {
+  const plan = dryRunJson(["--mode", "general", "--group", "general-workspaces-a"]);
+  assert.deepEqual(plan.generalWorkspaceProjects["general-workspaces-a"], [
+    "@hermes-fabric/ui",
+    "hermes-fabric",
+  ]);
+  assert.ok(
+    !Object.values(plan.generalWorkspaceProjects).flat().includes("paperclipai"),
+    "the removed Paperclip CLI project name must not be scheduled",
+  );
+  assert.deepEqual(plan.serializedWorkspaceProjects, ["hermes-fabric"]);
+  assert.equal(plan.serializedTestTimeoutMs, 15_000);
+});

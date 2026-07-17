@@ -2,6 +2,7 @@ import type {
   ModelSetDefinition,
   ModelSetDefinitionPatch,
   ModelPricingItem,
+  ReasoningEffort,
 } from "@hermes-fabric/shared";
 import { api } from "./client";
 
@@ -34,9 +35,20 @@ export interface ModelCostEstimateItem {
   agentName: string;
   provider: string | null;
   model: string | null;
+  reasoningEffort: ReasoningEffort | null;
   source: string;
   setName: string | null;
   family: string | null;
+  reason: string | null;
+  inheritedRouting: {
+    provider: string | null;
+    model: string | null;
+    reasoningEffort: ReasoningEffort | null;
+    source: string;
+    setName: string | null;
+    family: string | null;
+    reason: string | null;
+  };
   pricingType: string | null;
   monthlyEstimate: number | null;
   monthlyEstimateLabel?: string;
@@ -113,6 +125,7 @@ export interface ProfileOverride {
   agentName: string;
   provider: string;
   model: string;
+  reasoningEffort: ReasoningEffort | null;
   reason: string | null;
   createdAt: string;
   updatedAt: string;
@@ -219,12 +232,13 @@ export const modelSetsApi = {
   updateProfileOverride: (
     companyId: string,
     agentId: string,
-    input: { provider: string; model: string; reason?: string | null },
+    input: { provider: string; model: string; reasoningEffort?: ReasoningEffort; reason?: string | null },
   ) =>
     api.put<ProfileOverride>(`/model-overrides/profile/${encodeURIComponent(agentId)}`, {
       companyId,
       provider: input.provider,
       model: input.model,
+      ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }),
       reason: input.reason ?? null,
     }),
 

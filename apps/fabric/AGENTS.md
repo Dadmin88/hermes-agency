@@ -186,12 +186,17 @@ A change is done when all are true:
 
 This is a fork of `hermes-fabric/fabric` with QoL patches and a **built-in** Hermes adapter story on branch `feat/externalize-hermes-adapter` ([tree](https://github.com/HenkDz/Hermes Fabric/tree/feat/externalize-hermes-adapter)).
 
-### Branch Strategy
+- Hermes Agency remains the execution substrate; Fabric must not duplicate pool, trust, transport, or profile-lifecycle logic.
+- Keryx is the primary Agency transport. AgentAnycast references are compatibility-only.
+- `hermes_local` and `hermes_gateway` adapters may be present for agent execution, but they are distinct from the Agency dispatch service seam described in `HERMES_FABRIC.md`.
+- The default Agency dispatch client is unconfigured/dry-run. Do not claim live end-to-end Agency dispatch until a concrete client is wired and exercised.
+- Keep all Agency-backed routes company-scoped and actor-authorized.
+- Use the repository scripts and package commands documented above; do not add machine-specific process-kill, filesystem, port, or package-manager workarounds to shared contributor guidance.
 
-- `feat/externalize-hermes-adapter` now ships `hermes_local` and `hermes_gateway` as built-in core adapters.
-- Older fork branches may still document plugin-only Hermes; treat this file as authoritative for the current branch.
+## 13. Build Warning and Artifact Budgets
 
-### Hermes (built-in)
+`pnpm run build` is successful only when it is followed by `pnpm run check:build-budgets`.
+The current ceilings are 5,250,000 bytes for the largest UI JavaScript asset and 400,000 bytes for the largest UI CSS asset. Lower them when code splitting improves; do not raise them merely to silence growth.
 
 - `hermes_local` is available without Adapter manager installation and runs the local Hermes CLI.
 - `hermes_gateway` is available without Adapter manager installation and calls an already-running Hermes API server.

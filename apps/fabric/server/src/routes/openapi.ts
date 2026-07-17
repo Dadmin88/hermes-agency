@@ -583,6 +583,7 @@ const BOARD_ONLY_PREFIXES = [
   "/api/auth/",
   "/api/admin/",
   "/api/cloud-upstreams",
+  "/api/model-",
   "/api/plugins",
   "/api/instance/",
   "/api/hermes-agency",
@@ -644,6 +645,10 @@ const INSTANCE_ADMIN_OPERATIONS = new Set([
   "POST /api/companies",
   "POST /api/plugins/install",
   "POST /api/instance/database-backups",
+  "GET /api/hermes-agency/roster",
+  "POST /api/hermes-agency/task-packet-preview",
+  "POST /api/hermes-agency/dispatch",
+  "GET /api/hermes-agency/dispatches/{id}",
   "POST /api/admin/users/{userId}/promote-instance-admin",
   "POST /api/admin/users/{userId}/demote-instance-admin",
   "PUT /api/admin/users/{userId}/company-access",
@@ -692,12 +697,14 @@ const CREATED_OPERATIONS = new Set([
   "POST /api/admin/users/{userId}/promote-instance-admin",
   "POST /api/plugins/install",
   "POST /api/instance/database-backups",
+  "POST /api/model-sets",
 ]);
 
 const ACCEPTED_OPERATIONS = new Set([
   "POST /api/companies/import",
   "POST /api/health/dev-server/restart",
   "POST /api/invites/{token}/accept",
+  "POST /api/hermes-agency/dispatch",
 ]);
 
 const FORBIDDEN_RESPONSE = {
@@ -4236,6 +4243,102 @@ registry.registerPath({
 
 // ─── Hermes Agency ──────────────────────────────────────────────────────────
 
+const hermesAgencySkillMutationBodySchema = z.record(z.string(), z.unknown());
+
+function registerHermesAgencySkillRoute(
+  method: "get" | "post" | "put" | "delete",
+  path: string,
+  summary: string,
+  options: { body?: z.ZodTypeAny; query?: z.ZodTypeAny; created?: boolean } = {},
+) {
+  registerCurrentRoute({
+    method,
+    path,
+    tags: ["hermes-agency"],
+    summary,
+    ...(options.body ? { body: options.body } : {}),
+    ...(options.query ? { query: options.query } : {}),
+    responses: {
+      [options.created ? 201 : 200]: r.ok(),
+      400: r.badRequest,
+      401: r.unauthorized,
+      403: r.forbidden,
+      404: r.notFound,
+      409: r.conflict,
+    },
+  });
+}
+
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/shared-skills",
+  "List shared Hermes Agency skills",
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/shared-skills/{name}",
+  "Get a shared Hermes Agency skill",
+);
+registerHermesAgencySkillRoute(
+  "post",
+  "/api/hermes-agency/shared-skills",
+  "Create a shared Hermes Agency skill",
+  { body: hermesAgencySkillMutationBodySchema, created: true },
+);
+registerHermesAgencySkillRoute(
+  "put",
+  "/api/hermes-agency/shared-skills/{name}",
+  "Update a shared Hermes Agency skill",
+  { body: hermesAgencySkillMutationBodySchema },
+);
+registerHermesAgencySkillRoute(
+  "delete",
+  "/api/hermes-agency/shared-skills/{name}",
+  "Delete a shared Hermes Agency skill",
+  { query: z.object({ confirm: z.enum(["true", "false"]).optional() }) },
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/profiles/{profile}/skills",
+  "List effective skills for a Hermes profile",
+);
+registerHermesAgencySkillRoute(
+  "post",
+  "/api/hermes-agency/profiles/{profile}/skills/{name}",
+  "Enable a shared skill for a Hermes profile",
+);
+registerHermesAgencySkillRoute(
+  "delete",
+  "/api/hermes-agency/profiles/{profile}/skills/{name}",
+  "Disable a shared skill for a Hermes profile",
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/agents/{agentId}/skills",
+  "List effective skills for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "post",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}",
+  "Enable a shared skill for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "delete",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}",
+  "Disable a shared skill for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}/local",
+  "Get a profile-local skill for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "put",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}/local",
+  "Update a profile-local skill for a Hermes Fabric agent",
+  { body: hermesAgencySkillMutationBodySchema },
+);
+
 registerCurrentRoute({
   method: "get",
   path: "/api/hermes-agency/roster",
@@ -4848,6 +4951,31 @@ registerCurrentRoute({
   summary: "Cancel an issue question interaction",
   body: cancelIssueThreadInteractionSchema,
 });
+
+for (const [method, routePath, tag, summary] of [
+  ["get", "/api/hermes-agency/roster", "hermes-agency", "Read the Hermes Agency roster"],
+  ["post", "/api/hermes-agency/task-packet-preview", "hermes-agency", "Preview a Hermes Agency task packet"],
+  ["post", "/api/hermes-agency/dispatch", "hermes-agency", "Dispatch a Hermes Agency task"],
+  ["get", "/api/hermes-agency/dispatches/{id}", "hermes-agency", "Read a Hermes Agency dispatch"],
+  ["get", "/api/model-sets", "model-sets", "List model sets"],
+  ["get", "/api/model-sets/{name}", "model-sets", "Read a model set"],
+  ["post", "/api/model-sets", "model-sets", "Create a model set"],
+  ["put", "/api/model-sets/{name}", "model-sets", "Update a model set"],
+  ["delete", "/api/model-sets/{name}", "model-sets", "Delete a model set"],
+  ["post", "/api/model-sets/{name}/apply", "model-sets", "Apply a model set"],
+  ["get", "/api/model-sets/{name}/preview", "model-sets", "Preview a model set"],
+  ["get", "/api/model-overrides/department", "model-sets", "List department model overrides"],
+  ["put", "/api/model-overrides/department", "model-sets", "Update department model overrides"],
+  ["get", "/api/model-overrides/profile", "model-sets", "List profile model overrides"],
+  ["put", "/api/model-overrides/profile/{agentId}", "model-sets", "Update a profile model override"],
+  ["delete", "/api/model-overrides/profile/{agentId}", "model-sets", "Delete a profile model override"],
+  ["get", "/api/model-pricing", "model-sets", "List model pricing"],
+  ["put", "/api/model-pricing", "model-sets", "Update model pricing"],
+  ["post", "/api/model-pricing/auto-detect", "model-sets", "Auto-detect model pricing"],
+  ["get", "/api/model-cost-estimate", "model-sets", "Estimate model cost"],
+] as const) {
+  registerCurrentRoute({ method, path: routePath, tags: [tag], summary });
+}
 
 for (const route of [
   ["get", "/api/routines/{id}/revisions", "List routine revisions"],

@@ -38,6 +38,8 @@ See:
 
 Do not claim that Hermes Fabric live dispatch is the default operator path until a real server-to-Agency client is wired (default Fabric client remains unconfigured/dry-run).
 
+Validation language must follow `docs/qa-validation-ladder.md`: default green CI means mocked/in-process seam tests only unless higher rungs such as local-daemon, Docker, real-profile/manual, or opt-in live Keryx E2E also ran and are reported explicitly.
+
 ## Transport configuration
 
 ```yaml

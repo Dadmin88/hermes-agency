@@ -228,11 +228,17 @@ def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str
     """Read installed Hermes skills — cached with TTL to avoid repeated glob over 22K files."""
 
     profile_dir = resolve_profile_home(profile_home)
-    skills_dir = profile_dir / "skills"
-    if not skills_dir.exists():
+    local_skills = profile_dir / "skills"
+    config = _read_yaml_file(profile_dir / "config.yaml")
+    external = _cfg_get(config, "skills", "external_dirs", default=[])
+    roots = [local_skills]
+    if isinstance(external, list):
+        roots.extend(Path(item).expanduser() for item in external if isinstance(item, str))
+    roots = [root for root in roots if root.is_dir() and not root.is_symlink()]
+    if not roots:
         return []
 
-    cache_key = str(skills_dir)
+    cache_key = "|".join(str(root) for root in roots)
     now = time.time()
     if cache_key in _SKILLS_CACHE:
         cached_time, cached_skills = _SKILLS_CACHE[cache_key]
@@ -240,30 +246,33 @@ def read_profile_skills(profile_home: str | Path | None = None) -> list[dict[str
             return cached_skills
 
     raw_skills: list[dict[str, str]] = []
-    for skill_file in sorted(skills_dir.glob("**/SKILL.md")):
-        rel_parent = skill_file.parent.relative_to(skills_dir).as_posix()
-        text = _read_text(skill_file)
-        frontmatter = _extract_frontmatter(text)
+    for skills_dir in roots:
+        for skill_file in sorted(skills_dir.glob("**/SKILL.md")):
+            if skill_file.is_symlink() or not skill_file.is_file():
+                continue
+            rel_parent = skill_file.parent.relative_to(skills_dir).as_posix()
+            text = _read_text(skill_file)
+            frontmatter = _extract_frontmatter(text)
 
-        raw_name = str(frontmatter.get("name") or "").strip()
-        if not raw_name:
-            raw_name = _fallback_frontmatter_value(text, "name")
-        if not raw_name:
-            raw_name = skill_file.parent.name
+            raw_name = str(frontmatter.get("name") or "").strip()
+            if not raw_name:
+                raw_name = _fallback_frontmatter_value(text, "name")
+            if not raw_name:
+                raw_name = skill_file.parent.name
 
-        description = str(frontmatter.get("description") or "").strip()
-        if not description:
-            description = _fallback_frontmatter_value(text, "description")
-        if not description or _looks_sensitive(description):
-            description = f"Hermes skill from {rel_parent}."
+            description = str(frontmatter.get("description") or "").strip()
+            if not description:
+                description = _fallback_frontmatter_value(text, "description")
+            if not description or _looks_sensitive(description):
+                description = f"Hermes skill from {rel_parent}."
 
-        raw_skills.append(
-            {
-                "id": _normalise_skill_id(raw_name),
-                "description": description[:500],
-                "path_id": _normalise_skill_id(rel_parent),
-            }
-        )
+            raw_skills.append(
+                {
+                    "id": _normalise_skill_id(raw_name),
+                    "description": description[:500],
+                    "path_id": _normalise_skill_id(rel_parent),
+                }
+            )
 
     seen: set[str] = set()
     skills: list[dict[str, str]] = []

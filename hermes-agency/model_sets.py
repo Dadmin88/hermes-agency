@@ -22,6 +22,9 @@ except Exception:  # pragma: no cover - Hermes normally depends on PyYAML
 SECRET_KEY_FRAGMENTS = ("api_key", "apikey", "token", "secret", "password", "credential")
 SUPPORTED_VERSION = 1
 DEFAULT_MODEL_SET = "openai-codex-only"
+VALID_REASONING_EFFORTS = frozenset(
+    {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
+)
 CATEGORY_FAMILY_DEFAULTS: dict[str, str] = {
     "leadership": "orchestration",
     "engineering": "coding_worker",
@@ -62,6 +65,7 @@ class ModelFamily:
     provider: str
     model: str
     reason: str | None = None
+    reasoning_effort: str | None = None
     enabled: bool = True
 
 
@@ -96,6 +100,7 @@ class ResolvedProfileModel:
     source_preset: str
     source_path: str
     resolution_source: str
+    reasoning_effort: str | None = None
     warnings: list[str] = field(default_factory=list)
 
 
@@ -185,6 +190,19 @@ def _contains_secret_key(value: Any, prefix: str = "") -> list[str]:
     return hits
 
 
+def _parse_reasoning_effort(value: Any) -> str | None:
+    """Normalize optional family reasoning effort; ``inherit`` means omit it."""
+    if value is None:
+        return None
+    # Keep malformed scalar values available to validation instead of making a
+    # preset impossible to inspect. Lists/maps become their repr and fail the
+    # canonical-value check below as well.
+    normalized = str(value).strip().lower()
+    if normalized == "inherit":
+        return None
+    return normalized
+
+
 def discover_model_set_files() -> dict[str, Path]:
     """Return preset name to path. User presets override packaged presets."""
     discovered: dict[str, Path] = {}
@@ -227,6 +245,7 @@ def load_model_set(name: str) -> ModelSet:
             provider=str(family_data.get("provider") or "").strip(),
             model=str(family_data.get("model") or "").strip(),
             reason=str(family_data.get("reason") or "").strip() or None,
+            reasoning_effort=_parse_reasoning_effort(family_data.get("reasoning_effort")),
             enabled=bool(family_data.get("enabled", True)),
         )
     profiles = raw.get("profiles") or {}
@@ -275,6 +294,14 @@ def validate_model_set(
             result.error(f"Family {family_name} must define non-empty provider and model")
         if not family.enabled:
             result.error(f"Family {family_name} is disabled but present in selectable families")
+        if (
+            family.reasoning_effort is not None
+            and family.reasoning_effort not in VALID_REASONING_EFFORTS
+        ):
+            result.error(
+                f"Family {family_name} has invalid reasoning_effort {family.reasoning_effort!r}; "
+                f"expected one of {', '.join(sorted(VALID_REASONING_EFFORTS))}, inherit, or omitted"
+            )
         provider = catalog.providers.get(family.provider)
         if provider is None:
             result.error(f"Unknown provider '{family.provider}' in family {family_name}")
@@ -387,6 +414,7 @@ def resolve_profile_model(profile: str, model_set: ModelSet) -> ResolvedProfileM
         provider=family.provider,
         model=family.model,
         reason=family.reason,
+        reasoning_effort=family.reasoning_effort,
         source_preset=model_set.name,
         source_path=str(model_set.source_path),
         resolution_source=resolution_source,
@@ -428,6 +456,7 @@ def resolve_escalation_model(
             provider=family.provider,
             model=family.model,
             reason=family.reason,
+            reasoning_effort=family.reasoning_effort,
             source_preset=model_set.name,
             source_path=str(model_set.source_path),
             resolution_source="escalation_trigger",

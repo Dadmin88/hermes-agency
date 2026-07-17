@@ -63,7 +63,7 @@ OWN_PEER_ID_RE = re.compile(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 ED25519_PUBLIC_KEY_PREFIX = bytes([0x08, 0x01, 0x12, 0x20])
 IDENTITY_MULTIHASH_CODE = 0x00
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_PROVIDER = "openai-codex"
 KANBAN_SOUL_MARKER = "<!-- hermes-agency-kanban-worker -->"
 

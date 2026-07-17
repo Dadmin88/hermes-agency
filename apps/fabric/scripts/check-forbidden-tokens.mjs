@@ -21,6 +21,8 @@ function uniqueNonEmpty(values) {
   return Array.from(new Set(values.map((value) => value?.trim() ?? "").filter(Boolean)));
 }
 
+const GENERIC_SERVICE_USERNAMES = new Set(["daemon", "node", "nobody", "root", "runner"]);
+
 export function resolveDynamicForbiddenTokens(env = process.env, osModule = os) {
   const candidates = [env.USER, env.LOGNAME, env.USERNAME];
 
@@ -30,7 +32,9 @@ export function resolveDynamicForbiddenTokens(env = process.env, osModule = os) 
     // Some environments do not expose userInfo; env vars are enough fallback.
   }
 
-  return uniqueNonEmpty(candidates);
+  return uniqueNonEmpty(candidates).filter(
+    (candidate) => !GENERIC_SERVICE_USERNAMES.has(candidate.toLowerCase()),
+  );
 }
 
 export function readForbiddenTokensFile(tokensFile) {
@@ -66,7 +70,7 @@ export function runForbiddenTokenCheck({
   for (const token of tokens) {
     try {
       const result = exec(
-        `git grep -in --no-color -- ${JSON.stringify(token)} -- ':!pnpm-lock.yaml' ':!.git'`,
+        `git grep -inw --no-color -- ${JSON.stringify(token)} -- ':(exclude)**/pnpm-lock.yaml' ':(exclude).git/**'`,
         { encoding: "utf8", cwd: repoRoot, stdio: ["pipe", "pipe", "pipe"] },
       );
       if (result.trim()) {

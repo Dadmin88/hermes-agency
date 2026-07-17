@@ -499,14 +499,14 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     const companyId = await seedCompany();
     const reviewerId = await seedAgent(companyId, "agency-code-reviewer");
     const approverId = await seedAgent(companyId, "agency-security-reviewer");
-    const { projectId, workspaceId } = await seedProject(companyId, "Hermes Agency", "/home/dadmin/repos/Hermes_Agency");
+    const { projectId, workspaceId } = await seedProject(companyId, "Hermes Agency", "/workspace/hermes-agency");
     const { dir, dbPath } = seedKanbanDb({
       tasks: [{ id: "t_structured", title: "Structured metadata task", status: "running", priority: 80, createdAt: 1_782_827_060 }],
       taskRuns: [{
         taskId: "t_structured",
         metadata: {
           fabric: {
-            project: { key: "Hermes Agency", workspace_path: "/home/dadmin/repos/Hermes_Agency" },
+            project: { key: "Hermes Agency", workspace_path: "/workspace/hermes-agency" },
             labels: [{ name: "review", color: "#a855f7" }, { name: "server", color: "#22c55e" }],
             reviewers: [{ agent_name_key: "agency-code-reviewer", required: true, reason: "code_change" }],
             approvers: [{ agent_name_key: "agency-security-reviewer", required: true, reason: "security_sensitive" }],

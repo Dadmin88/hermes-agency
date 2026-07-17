@@ -141,7 +141,15 @@ def toolsets_for_access(tool_access: str | None) -> list[str] | None:
         return None
     if access != "safe":
         logger.warning("Unknown agency incoming tool_access=%r; using safe", tool_access)
-    return list(SAFE_TOOLSETS)
+    toolsets = list(SAFE_TOOLSETS)
+    try:
+        from .config import get_config
+
+        if get_config().skill_governance.hub_acquisition_enabled:
+            toolsets.insert(3, "agency-skills")
+    except Exception:
+        pass
+    return toolsets
 
 
 def load_skill_context(skill_id: str, profile_home: str | Path) -> str | None:
@@ -183,9 +191,7 @@ def load_skill_context(skill_id: str, profile_home: str | Path) -> str | None:
     if not description:
         description = _fallback_frontmatter_value(text, "description")
     if not description:
-        description = (
-            f"Hermes skill from {skill_file.parent.relative_to(profile_dir / 'skills').as_posix()}."
-        )
+        description = f"Hermes skill from {skill_file.parent.name}."
 
     logger.info(
         "Matched requested Hermes Agency skill %r to local Hermes skill %r at %s",
@@ -965,27 +971,34 @@ def _active_profile_home() -> Path:
 
 
 def _find_skill_file(requested: str, profile_home: Path) -> tuple[str, Path] | None:
-    skills_dir = profile_home / "skills"
-    if not skills_dir.exists():
+    from .card_builder import _cfg_get, _read_yaml_file
+
+    roots = [profile_home / "skills"]
+    config = _read_yaml_file(profile_home / "config.yaml")
+    external = _cfg_get(config, "skills", "external_dirs", default=[])
+    if isinstance(external, list):
+        roots.extend(Path(item).expanduser() for item in external if isinstance(item, str))
+    roots = [root for root in roots if root.is_dir() and not root.is_symlink()]
+    if not roots:
         return None
 
     candidates: list[tuple[str, Path]] = []
-    for skill_file in sorted(skills_dir.glob("**/SKILL.md")):
-        text = _read_text(skill_file)
-        frontmatter = _extract_frontmatter(text)
-        raw_name = str(frontmatter.get("name") or "").strip()
-        if not raw_name:
-            raw_name = _fallback_frontmatter_value(text, "name")
-        ids: list[str] = []
-        if raw_name:
-            ids.append(_normalise_skill_id(raw_name))
-        try:
+    for skills_dir in roots:
+        for skill_file in sorted(skills_dir.glob("**/SKILL.md")):
+            if skill_file.is_symlink() or not skill_file.is_file():
+                continue
+            text = _read_text(skill_file)
+            frontmatter = _extract_frontmatter(text)
+            raw_name = str(frontmatter.get("name") or "").strip()
+            if not raw_name:
+                raw_name = _fallback_frontmatter_value(text, "name")
+            ids: list[str] = []
+            if raw_name:
+                ids.append(_normalise_skill_id(raw_name))
             rel_parent = skill_file.parent.relative_to(skills_dir).as_posix()
-        except ValueError:
-            rel_parent = skill_file.parent.name
-        ids.append(_normalise_skill_id(rel_parent))
-        for candidate_id in dict.fromkeys(ids):
-            candidates.append((candidate_id, skill_file))
+            ids.append(_normalise_skill_id(rel_parent))
+            for candidate_id in dict.fromkeys(ids):
+                candidates.append((candidate_id, skill_file))
 
     for candidate_id, skill_file in candidates:
         if candidate_id == requested:

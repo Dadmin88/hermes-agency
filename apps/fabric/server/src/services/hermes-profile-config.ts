@@ -1,10 +1,11 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
 
 export type HermesProfileConfigWriteResult =
-  | { status: "updated"; profile: string; configPath: string; provider: string; model: string }
+  | { status: "updated"; profile: string; configPath: string; provider: string; model: string; reasoningEffort: string | null }
   | { status: "unchanged"; profile: string; configPath: string }
   | { status: "skipped"; profile: string; reason: string }
   | { status: "error"; profile: string; error: string };
@@ -12,6 +13,8 @@ export type HermesProfileConfigWriteResult =
 export function resolveHermesProfilesDir(): string {
   const override = process.env.HERMES_PROFILES_DIR?.trim();
   if (override) return path.resolve(override);
+  const hermesHome = process.env.HERMES_HOME?.trim();
+  if (hermesHome) return path.join(path.resolve(hermesHome), "profiles");
   return path.join(os.homedir(), ".hermes", "profiles");
 }
 
@@ -82,10 +85,10 @@ function firstNonEmptyString(values: unknown[]): string | null {
   return null;
 }
 
-function currentModelBlock(data: Record<string, unknown>): { provider: string | null; model: string | null } {
+function currentModelBlock(data: Record<string, unknown>): { provider: string | null; model: string | null; reasoningEffort: string | null } {
   const model = data.model;
   if (!model || typeof model !== "object" || Array.isArray(model)) {
-    return { provider: null, model: null };
+    return { provider: null, model: null, reasoningEffort: null };
   }
   const block = model as Record<string, unknown>;
   const provider = typeof block.provider === "string" ? block.provider : null;
@@ -95,15 +98,20 @@ function currentModelBlock(data: Record<string, unknown>): { provider: string | 
       : typeof block.model === "string"
         ? block.model
         : null;
-  return { provider, model: defaultModel };
+  return {
+    provider,
+    model: defaultModel,
+    reasoningEffort: typeof block.reasoning_effort === "string" ? block.reasoning_effort : null,
+  };
 }
 
-function buildMinimalProfileConfig(provider: string, model: string, modelSetName: string, family: string | null) {
+function buildMinimalProfileConfig(provider: string, model: string, modelSetName: string, family: string | null, reasoningEffort: string | null) {
   const appliedAt = new Date().toISOString();
   return {
     model: {
       provider,
       default: model,
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     },
     agency: {
       models: {
@@ -123,10 +131,13 @@ function mergeModelIntoConfig(
     model: string;
     modelSetName: string;
     family: string | null;
+    reasoningEffort: string | null;
   },
 ): Record<string, unknown> {
   const next = { ...data };
-  next.model = { provider: input.provider, default: input.model };
+  next.model = { ...asRecord(next.model), provider: input.provider, default: input.model };
+  if (input.reasoningEffort) (next.model as Record<string, unknown>).reasoning_effort = input.reasoningEffort;
+  else delete (next.model as Record<string, unknown>).reasoning_effort;
   const agencyRaw = next.agency;
   const agency = asRecord(agencyRaw);
   const modelsRaw = agency.models;
@@ -140,13 +151,36 @@ function mergeModelIntoConfig(
   return next;
 }
 
-async function atomicYamlWrite(configPath: string, data: Record<string, unknown>) {
+async function assertProfileTargetContained(configPath: string, profilesDir: string) {
+  const profilesRoot = path.resolve(profilesDir);
   const dir = path.dirname(configPath);
   await mkdir(dir, { recursive: true });
-  const tmpPath = path.join(dir, `.${path.basename(configPath)}.tmp`);
+  const [realProfilesRoot, realProfileDir] = await Promise.all([realpath(profilesRoot), realpath(dir)]);
+  const relative = path.relative(realProfilesRoot, realProfileDir);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("Profile config path must stay within Hermes profiles directory.");
+  }
+  try {
+    if ((await lstat(configPath)).isSymbolicLink()) {
+      throw new Error("Profile config path must not be a symbolic link.");
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+async function atomicYamlWrite(configPath: string, profilesDir: string, data: Record<string, unknown>) {
+  await assertProfileTargetContained(configPath, profilesDir);
+  const dir = path.dirname(configPath);
+  const tmpPath = path.join(dir, `.${path.basename(configPath)}.${randomUUID()}.tmp`);
   const body = YAML.stringify(data, { sortMapEntries: false });
-  await writeFile(tmpPath, body, "utf8");
-  await rename(tmpPath, configPath);
+  try {
+    await writeFile(tmpPath, body, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await assertProfileTargetContained(configPath, profilesDir);
+    await rename(tmpPath, configPath);
+  } finally {
+    await rm(tmpPath, { force: true });
+  }
 }
 
 export async function writeModelToProfileConfig(input: {
@@ -155,6 +189,7 @@ export async function writeModelToProfileConfig(input: {
   model: string;
   modelSetName: string;
   family?: string | null;
+  reasoningEffort?: string | null;
   profilesDir?: string;
 }): Promise<HermesProfileConfigWriteResult> {
   const profilesDir = input.profilesDir ?? resolveHermesProfilesDir();
@@ -171,22 +206,24 @@ export async function writeModelToProfileConfig(input: {
     };
   }
   try {
+    await assertProfileTargetContained(configPath, profilesDir);
     const existing = await readProfileConfigYaml(configPath);
     const family = input.family ?? null;
     if (existing === null) {
-      const created = buildMinimalProfileConfig(input.provider, input.model, input.modelSetName, family);
-      await atomicYamlWrite(configPath, created);
+      const created = buildMinimalProfileConfig(input.provider, input.model, input.modelSetName, family, input.reasoningEffort ?? null);
+      await atomicYamlWrite(configPath, profilesDir, created);
       return {
         status: "updated",
         profile,
         configPath,
         provider: input.provider,
         model: input.model,
+        reasoningEffort: input.reasoningEffort ?? null,
       };
     }
 
     const current = currentModelBlock(existing);
-    if (current.provider === input.provider && current.model === input.model) {
+    if (current.provider === input.provider && current.model === input.model && current.reasoningEffort === (input.reasoningEffort ?? null)) {
       return { status: "unchanged", profile, configPath };
     }
 
@@ -195,14 +232,16 @@ export async function writeModelToProfileConfig(input: {
       model: input.model,
       modelSetName: input.modelSetName,
       family,
+      reasoningEffort: input.reasoningEffort ?? null,
     });
-    await atomicYamlWrite(configPath, merged);
+    await atomicYamlWrite(configPath, profilesDir, merged);
     return {
       status: "updated",
       profile,
       configPath,
       provider: input.provider,
       model: input.model,
+      reasoningEffort: input.reasoningEffort ?? null,
     };
   } catch (error) {
     return {

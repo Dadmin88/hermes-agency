@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MODEL_SET_PROVIDER_OPTIONS } from "@/lib/model-set-ui";
+import { MODEL_SET_PROVIDER_OPTIONS, REASONING_EFFORT_OPTIONS } from "@/lib/model-set-ui";
 
 export function ModelSets() {
   const { selectedCompanyId } = useCompany();
@@ -57,6 +57,7 @@ export function ModelSets() {
   const [profileAgentId, setProfileAgentId] = useState<string | null>(null);
   const [profileProvider, setProfileProvider] = useState("opencode-go");
   const [profileModel, setProfileModel] = useState("");
+  const [profileReasoningEffort, setProfileReasoningEffort] = useState("");
   const [profileReason, setProfileReason] = useState("");
   const [restartIdleGateways, setRestartIdleGateways] = useState(false);
 
@@ -123,10 +124,13 @@ export function ModelSets() {
       modelSetsApi.updateProfileOverride(companyId, profileAgentId!, {
         provider: profileProvider,
         model: profileModel,
+        ...(profileReasoningEffort ? { reasoningEffort: profileReasoningEffort as (typeof REASONING_EFFORT_OPTIONS)[number] } : {}),
         reason: profileReason || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.profileOverrides(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.costEstimate(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.list(companyId) });
       setProfileDialogOpen(false);
       pushToast({ title: "Profile override saved", tone: "success" });
     },
@@ -139,6 +143,8 @@ export function ModelSets() {
     mutationFn: (agentId: string) => modelSetsApi.deleteProfileOverride(companyId, agentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.profileOverrides(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.costEstimate(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.list(companyId) });
       pushToast({ title: "Profile override removed", tone: "success" });
     },
     onError: (error: Error) => {
@@ -163,10 +169,17 @@ export function ModelSets() {
     }
   }
 
-  function openProfileEditor(agentId: string, provider: string, model: string, reason: string | null) {
+  function openProfileEditor(
+    agentId: string,
+    provider: string,
+    model: string,
+    reasoningEffort: (typeof REASONING_EFFORT_OPTIONS)[number] | null,
+    reason: string | null,
+  ) {
     setProfileAgentId(agentId);
     setProfileProvider(provider);
     setProfileModel(model);
+    setProfileReasoningEffort(reasoningEffort ?? "");
     setProfileReason(reason ?? "");
     setProfileDialogOpen(true);
   }
@@ -226,10 +239,18 @@ export function ModelSets() {
             </SelectContent>
           </Select>
           {activeSet ? (
-            <Button variant="outline" size="sm" onClick={() => void openPreview(activeSet.name)}>
-              <ChevronDown className="mr-1 h-4 w-4" />
-              Preview active
-            </Button>
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/settings/model-sets/${encodeURIComponent(activeSet.name)}?edit=1`}>
+                  <Pencil className="mr-1 h-4 w-4" />
+                  Edit active
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void openPreview(activeSet.name)}>
+                <ChevronDown className="mr-1 h-4 w-4" />
+                Preview active
+              </Button>
+            </>
           ) : null}
         </CardContent>
       </Card>
@@ -352,7 +373,7 @@ export function ModelSets() {
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              openProfileEditor(row.agentId, row.provider, row.model, row.reason)
+                              openProfileEditor(row.agentId, row.provider, row.model, row.reasoningEffort, row.reason)
                             }
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -441,6 +462,17 @@ export function ModelSets() {
               placeholder="Model"
               className="font-mono text-sm"
             />
+            <Select value={profileReasoningEffort || "inherit"} onValueChange={(value) => setProfileReasoningEffort(value === "inherit" ? "" : value)}>
+              <SelectTrigger aria-label="Reasoning effort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Inherit reasoning effort</SelectItem>
+                {REASONING_EFFORT_OPTIONS.map((effort) => (
+                  <SelectItem key={effort} value={effort}>{effort}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               value={profileReason}
               onChange={(event) => setProfileReason(event.target.value)}
@@ -496,7 +528,10 @@ function ModelSetLibraryCard({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button size="sm" variant="outline" asChild>
-          <Link to={`/settings/model-sets/${encodeURIComponent(set.name)}`}>View</Link>
+          <Link to={`/settings/model-sets/${encodeURIComponent(set.name)}?edit=1`}>
+            <Pencil className="mr-1 h-3.5 w-3.5" />
+            Edit
+          </Link>
         </Button>
         <Button size="sm" onClick={onApply}>
           <Play className="mr-1 h-3.5 w-3.5" />

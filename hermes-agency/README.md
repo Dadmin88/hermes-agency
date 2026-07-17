@@ -214,6 +214,10 @@ Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.h
 
 See `docs/agency-model-sets.md` for implementation details and rollout procedure.
 
+## Autonomous workflow playbook
+
+For headless, Kanban-backed autonomous work, follow `docs/agency-night-shift-playbook.md`. It is the canonical intake → execution → validation → handoff loop and sits beneath `AGENTS.md`, the staff contract, and each profile’s `ROUTING.md`.
+
 ## Monitoring
 
 Extended status:
@@ -340,6 +344,8 @@ make test-agency
 make lint-agency
 python -m pip check
 ```
+
+This command set is the default green CI / seam-test rung for the plugin. It proves the in-repo Agency seams and golden-path workflow checks that actually ran; it does not by itself prove live daemon, Docker, or cross-machine Keryx behavior.
 
 Equivalent focused commands:
 

@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { parse as parseEnvContents } from "dotenv";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   agents,
   companies,
@@ -3188,13 +3188,25 @@ describe("resolveShell (shell fallback)", () => {
 });
 
 describe("readLocalServicePortOwner", () => {
-  it("detects the owner of a listening TCP port", async () => {
-    try {
-      await execFileAsync("lsof", ["-v"]);
-    } catch {
-      return;
-    }
+  it("falls back to fuser when lsof is unavailable", async () => {
+    const runCommand = vi.fn(async (command: string) => {
+      if (command === "lsof") throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      return { stdout: " 4242\n", stderr: "" };
+    });
 
+    await expect(
+      readLocalServicePortOwner(43123, { platform: "linux", runCommand }),
+    ).resolves.toBe(4242);
+    expect(runCommand).toHaveBeenNthCalledWith(1, "lsof", [
+      "-nP",
+      "-iTCP:43123",
+      "-sTCP:LISTEN",
+      "-t",
+    ]);
+    expect(runCommand).toHaveBeenNthCalledWith(2, "fuser", ["-n", "tcp", "43123"]);
+  });
+
+  it("detects the owner of a listening TCP port", async () => {
     const server = net.createServer();
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     try {

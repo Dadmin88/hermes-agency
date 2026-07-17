@@ -98,11 +98,27 @@ def test_read_peer_id_uses_latest_log_position_for_mixed_formats(mock_hermes, mo
     new_peer = "12D3KooWNEWCURRENT2222222222222222222222"
     (log_dir / "daemon.log").write_text(
         f"starting old daemon\nPEER_ID={old_peer}\n"
-        f'restarted current daemon\n{{"peer_id":"{new_peer}"}}\n',
+        f'restarted current daemon {{"event":"agentanycastd started","peer_id":"{new_peer}"}}\n',
         encoding="utf-8",
     )
 
     assert roster._read_peer_id("agency-test-agent") == new_peer
+
+
+def test_read_peer_id_ignores_later_remote_json_peer_ids(mock_hermes, monkeypatch):
+    roster = _import_roster(monkeypatch, mock_hermes)
+    profile = mock_hermes / "profiles" / "agency-test-agent"
+    log_dir = profile / ".agency" / "logs"
+    log_dir.mkdir(parents=True)
+    local_peer = "12D3KooWLOCAL111111111111111111111111"
+    attacker_peer = "12D3KooWATTACKER22222222222222222222"
+    (log_dir / "daemon.log").write_text(
+        f"starting daemon\nPEER_ID={local_peer}\n"
+        f'{{"event":"task_received","peer_id":"{attacker_peer}"}}\n',
+        encoding="utf-8",
+    )
+
+    assert roster._read_peer_id("agency-test-agent") == local_peer
 
 
 def test_set_agent_created_by(mock_hermes, monkeypatch):

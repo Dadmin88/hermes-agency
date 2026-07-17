@@ -19,7 +19,7 @@ from typing import Any
 REGISTRY_DEFINITION_PATH = Path(__file__).with_name("registry_definition.json")
 ROSTER_STATE_FILENAME = "roster_state.json"
 OFFLINE_QUEUE_FILENAME = "offline_task_queue.json"
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_PROVIDER = "openai-codex"
 # Test/diagnostic override hooks. Normal runtime uses HERMES_HOME-aware helpers
 # below so profile-scoped gateway sessions still see the shared root roster.
@@ -617,19 +617,18 @@ def _read_peer_id(name: str) -> str | None:
             continue
         try:
             text = log.read_text(encoding="utf-8", errors="ignore")[-50000:]
-            matches = list(
-                re.finditer(
-                    r'"peer_id"\s*:\s*"(12D3KooW[^"]+)"|^PEER_ID=(12D3KooW\S+)',
-                    text,
-                    re.MULTILINE,
-                )
+            matches = re.findall(
+                r'(?:^PEER_ID=|agentanycastd started.*"peer_id"\s*:\s*")'
+                r"(12D3KooW[0-9A-Za-z]+)",
+                text,
+                re.MULTILINE,
             )
             if matches:
-                # Daemon logs are append-only across restarts.  Use the latest
-                # observed peer id, not the first historical one, or roster
-                # overlays can assign stale peer ids to profiles after keys are
-                # regenerated or runners are restarted.
-                return next(group for group in matches[-1].groups() if group)
+                # Daemon logs are append-only and may contain remote peer_id
+                # values from task or discovery events. Only trust explicit
+                # own-node startup markers, then use the latest one in the
+                # checked window so stale IDs do not poison roster overlays.
+                return matches[-1]
         except Exception:
             pass
     return None

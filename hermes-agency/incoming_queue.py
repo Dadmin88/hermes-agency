@@ -86,6 +86,10 @@ class RecoveredIncomingTask:
         del artifacts
 
 
+class IncomingTaskSecurityError(RuntimeError):
+    """Raised when a recovered task no longer passes the remote trust policy."""
+
+
 def _bounded_persistence_value(value: Any, *, depth: int = 0) -> Any:
     """Return a JSON-safe, size-bounded copy of attacker-influenced task data."""
 

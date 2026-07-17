@@ -430,6 +430,34 @@ class OutboundConfig:
 
 
 @dataclass(frozen=True)
+class SkillGovernanceConfig:
+    """Disabled-by-default Agency shared-skill governance settings."""
+
+    enabled: bool = False
+    auto_promote_after_reviews: bool = False
+    poll_interval_seconds: int = 30
+    max_pending_bytes: int = 1572864
+    state_path: Path | None = None
+    shared_skills_path: Path | None = None
+    hub_acquisition_enabled: bool = False
+    hub_max_results: int = 25
+    hub_inspection_ttl_seconds: int = 600
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "auto_promote_after_reviews": self.auto_promote_after_reviews,
+            "poll_interval_seconds": self.poll_interval_seconds,
+            "max_pending_bytes": self.max_pending_bytes,
+            "state_path": str(self.state_path) if self.state_path else None,
+            "shared_skills_path": str(self.shared_skills_path) if self.shared_skills_path else None,
+            "hub_acquisition_enabled": self.hub_acquisition_enabled,
+            "hub_max_results": self.hub_max_results,
+            "hub_inspection_ttl_seconds": self.hub_inspection_ttl_seconds,
+        }
+
+
+@dataclass(frozen=True)
 class AgencyConfig:
     """Resolved Hermes Agency plugin configuration."""
 
@@ -458,6 +486,7 @@ class AgencyConfig:
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     pool: PoolConfig = field(default_factory=PoolConfig)
     moa: AgencyMoAConfig = field(default_factory=AgencyMoAConfig)
+    skill_governance: SkillGovernanceConfig = field(default_factory=SkillGovernanceConfig)
     routing: dict[str, str] = field(default_factory=dict)
     proactive: dict[str, Any] = field(default_factory=dict)
     autonomy: dict[str, Any] = field(default_factory=dict)
@@ -507,6 +536,7 @@ class AgencyConfig:
             "orchestrator": self.orchestrator.as_dict(),
             "pool": self.pool.as_dict(),
             "moa": self.moa.as_dict(),
+            "skill_governance": self.skill_governance.as_dict(),
             "routing": dict(self.routing),
             "proactive": dict(self.proactive),
             "autonomy": dict(self.autonomy),
@@ -1655,6 +1685,52 @@ def _outbound_config(config: dict[str, Any]) -> OutboundConfig:
     )
 
 
+def _skill_governance_config(config: dict[str, Any]) -> SkillGovernanceConfig:
+    root_home = _profile_root_home() or Path(get_hermes_home()).expanduser()
+    raw_state = _clean_optional_str(
+        _cfg_get(config, "agency", "skill_governance", "state_path", default=None)
+    )
+    raw_shared = _clean_optional_str(
+        _cfg_get(config, "agency", "skill_governance", "shared_skills_path", default=None)
+    )
+    return SkillGovernanceConfig(
+        enabled=_bool_cfg(config, "agency", "skill_governance", "enabled", default=False),
+        auto_promote_after_reviews=_bool_cfg(
+            config,
+            "agency",
+            "skill_governance",
+            "auto_promote_after_reviews",
+            default=False,
+        ),
+        poll_interval_seconds=_int_cfg(
+            config, "agency", "skill_governance", "poll_interval_seconds", default=30, floor=5
+        ),
+        max_pending_bytes=_int_cfg(
+            config, "agency", "skill_governance", "max_pending_bytes", default=1572864, floor=1
+        ),
+        state_path=Path(raw_state).expanduser()
+        if raw_state
+        else root_home / ".agency" / "skill-governance",
+        shared_skills_path=Path(raw_shared).expanduser()
+        if raw_shared
+        else root_home / "skills" / "shared",
+        hub_acquisition_enabled=_bool_cfg(
+            config, "agency", "skill_governance", "hub_acquisition_enabled", default=False
+        ),
+        hub_max_results=_int_cfg(
+            config, "agency", "skill_governance", "hub_max_results", default=25, floor=1
+        ),
+        hub_inspection_ttl_seconds=_int_cfg(
+            config,
+            "agency",
+            "skill_governance",
+            "hub_inspection_ttl_seconds",
+            default=600,
+            floor=60,
+        ),
+    )
+
+
 def _dict_config(config: dict[str, Any], key: str) -> dict[str, Any]:
     raw = _cfg_get(config, "agency", key, default={}) or {}
     return dict(raw) if isinstance(raw, dict) else {}
@@ -1755,6 +1831,7 @@ def get_config() -> AgencyConfig:
         orchestrator=_orchestrator_config(config),
         pool=_pool_config(config),
         moa=_agency_moa_config(config),
+        skill_governance=_skill_governance_config(config),
         routing=_routing_config(config),
         proactive=_dict_config(config, "proactive"),
         autonomy=_dict_config(config, "autonomy"),

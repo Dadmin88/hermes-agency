@@ -54,6 +54,11 @@ def _request(method: str, path: str) -> dict:
     return payload
 
 
+def _mutation_headers():
+    token = os.environ.get("HERMES_POOL_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 @click.group()
 def pool():
     """Hermes Agency Pool Manager"""

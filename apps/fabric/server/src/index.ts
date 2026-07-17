@@ -106,6 +106,17 @@ export async function startServer(): Promise<StartedServer> {
   // connection or the HTTP server exists — see instrumentation.ts.
   await instrumentationReady;
   let config = loadConfig();
+  // Opt-in bridge for a preserved pre-rename embedded cluster.
+  // It reuses its original role/database instead of mutating DB credentials.
+  const useLegacyPaperclipEmbeddedDb = process.env.HERMES_FABRIC_LEGACY_PAPERCLIP_DB === "true";
+  const legacyEmbeddedDatabaseIdentity = ["paper", "clip"].join("");
+  const embeddedDatabaseIdentity = useLegacyPaperclipEmbeddedDb
+    ? {
+        user: legacyEmbeddedDatabaseIdentity,
+        password: legacyEmbeddedDatabaseIdentity,
+        database: legacyEmbeddedDatabaseIdentity,
+      }
+    : { user: "fabric", password: "fabric", database: "fabric" };
   initTelemetry({ enabled: config.telemetryEnabled });
   if (!fabricEnvDefined("SECRETS_PROVIDER")) {
     fabricEnvSet("SECRETS_PROVIDER", config.secretsProvider);
@@ -404,7 +415,7 @@ export async function startServer(): Promise<StartedServer> {
     if (runningPid) {
       logger.warn(`Embedded PostgreSQL already running; reusing existing process (pid=${runningPid}, port=${port})`);
     } else {
-      const configuredAdminConnectionString = `postgres://fabric:fabric@127.0.0.1:${configuredPort}/postgres`;
+      const configuredAdminConnectionString = `postgres://${embeddedDatabaseIdentity.user}:${embeddedDatabaseIdentity.password}@127.0.0.1:${configuredPort}/postgres`;
       try {
         const actualDataDir = await getPostgresDataDirectory(configuredAdminConnectionString);
         if (
@@ -413,7 +424,7 @@ export async function startServer(): Promise<StartedServer> {
         ) {
           throw new Error("reachable postgres does not use the expected embedded data directory");
         }
-        await ensurePostgresDatabase(configuredAdminConnectionString, "fabric");
+        await ensurePostgresDatabase(configuredAdminConnectionString, embeddedDatabaseIdentity.database);
         logger.warn(
           `Embedded PostgreSQL appears to already be reachable without a pid file; reusing existing server on configured port ${configuredPort}`,
         );
@@ -426,8 +437,8 @@ export async function startServer(): Promise<StartedServer> {
         logger.info(`Using embedded PostgreSQL because no DATABASE_URL set (dataDir=${dataDir}, port=${port})`);
         embeddedPostgres = new EmbeddedPostgres({
           databaseDir: dataDir,
-          user: "fabric",
-          password: "fabric",
+          user: embeddedDatabaseIdentity.user,
+          password: embeddedDatabaseIdentity.password,
           port,
           persistent: true,
           initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
@@ -466,13 +477,13 @@ export async function startServer(): Promise<StartedServer> {
       }
     }
 
-    const embeddedAdminConnectionString = `postgres://fabric:fabric@127.0.0.1:${port}/postgres`;
-    const dbStatus = await ensurePostgresDatabase(embeddedAdminConnectionString, "fabric");
+    const embeddedAdminConnectionString = `postgres://${embeddedDatabaseIdentity.user}:${embeddedDatabaseIdentity.password}@127.0.0.1:${port}/postgres`;
+    const dbStatus = await ensurePostgresDatabase(embeddedAdminConnectionString, embeddedDatabaseIdentity.database);
     if (dbStatus === "created") {
-      logger.info("Created embedded PostgreSQL database: fabric");
+      logger.info(`Created embedded PostgreSQL database: ${embeddedDatabaseIdentity.database}`);
     }
 
-    const embeddedConnectionString = `postgres://fabric:fabric@127.0.0.1:${port}/fabric`;
+    const embeddedConnectionString = `postgres://${embeddedDatabaseIdentity.user}:${embeddedDatabaseIdentity.password}@127.0.0.1:${port}/${embeddedDatabaseIdentity.database}`;
     const shouldAutoApplyFirstRunMigrations = !clusterAlreadyInitialized || dbStatus === "created";
     if (shouldAutoApplyFirstRunMigrations) {
       logger.info("Detected first-run embedded PostgreSQL setup; applying pending migrations automatically");

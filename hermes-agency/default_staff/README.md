@@ -110,9 +110,9 @@ Profiles may declare a `model_family` in `profile.yaml`. Model Sets resolve the 
 This lets Hermes Agency apply one model strategy across the entire installed workforce without editing 83 profile configs by hand.
 
 ```bash
-hermes agency models plan economic
-hermes agency models apply economic --dry-run
-hermes agency models apply economic --yes --backup
+hermes agency models plan openai-codex-only
+hermes agency models apply openai-codex-only --dry-run
+hermes agency models apply openai-codex-only --yes --backup
 ```
 
 ## Runtime defaults

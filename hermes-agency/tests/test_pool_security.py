@@ -6,9 +6,11 @@ Covers:
 - Agent name validation on wake/sleep/task endpoints
 """
 
+import importlib.util
 import json
 import os
 import sys
+import types
 from pathlib import Path
 from unittest.mock import patch
 
@@ -53,6 +55,10 @@ def registry_file(tmp_home):
     }
     path = tmp_home / "registry_definition.json"
     path.write_text(json.dumps(registry))
+    for agent in registry["agents"]:
+        profile = tmp_home / "profiles" / agent["name"]
+        profile.mkdir()
+        (profile / "config.yaml").write_text("skills: {}\n")
     return path
 
 
@@ -83,6 +89,31 @@ def app_client(tmp_home, registry_file):
             "pool": {"max_active_agents": 10, "idle_timeout_minutes": 5, "port": 8090}
         }
 
+        client = svc_mod.app.test_client()
+        yield client, svc_mod
+
+
+@pytest.fixture()
+def app_client_without_token(tmp_home, registry_file):
+    """Create a Flask test client with mutation authentication unconfigured."""
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "HERMES_HOME": str(tmp_home),
+                "HERMES_POOL_TOKEN": "",
+                "HERMES_POOL_BIND": "127.0.0.1",
+            },
+        ),
+        patch("manager.REGISTRY_DEF", registry_file),
+    ):
+        import importlib
+
+        import service as svc_mod
+
+        importlib.reload(svc_mod)
+        svc_mod.pm.registry = json.loads(registry_file.read_text())
+        svc_mod.pm.active = {}
         client = svc_mod.app.test_client()
         yield client, svc_mod
 
@@ -130,6 +161,91 @@ class TestBearerAuth:
             headers={"Authorization": "Basic dXNlcjpwYXNz"},
         )
         assert resp.status_code == 401
+
+    def test_post_is_disabled_when_server_token_is_unconfigured(self, app_client_without_token):
+        client, svc = app_client_without_token
+        with patch.object(svc.pm, "wake") as wake:
+            resp = client.post("/pool/agents/agency-orchestrator/wake")
+
+        assert resp.status_code == 503
+        assert resp.get_json()["error"] == "mutation authentication is not configured"
+        wake.assert_not_called()
+
+    def test_shared_skill_pool_reads_and_mutates_require_authentication(self, app_client, tmp_home):
+        client, _ = app_client
+        shared = tmp_home / "skills" / "shared" / "reviewer"
+        shared.mkdir(parents=True)
+        (shared / "SKILL.md").write_text("---\nname: reviewer\n---\n# Reviewer\n")
+
+        denied_read = client.get("/pool/skills")
+        denied_write = client.put(
+            "/pool/agents/agency-backend-engineer/skills/shared-pool",
+            json={"enabled": True},
+        )
+        allowed = client.get("/pool/skills", headers={"Authorization": "Bearer test-secret-token"})
+
+        assert denied_read.status_code == 401
+        assert denied_write.status_code == 401
+        assert allowed.status_code == 200
+        assert allowed.get_json() == {"skills": [{"name": "reviewer", "source": "shared"}]}
+
+    def test_effective_skills_respect_explicit_shared_pool_and_local_precedence(
+        self, app_client, tmp_home
+    ):
+        client, _ = app_client
+        profile = tmp_home / "profiles" / "agency-backend-engineer"
+        local = profile / "skills" / "reviewer"
+        local.mkdir(parents=True)
+        (local / "SKILL.md").write_text("---\nname: reviewer\n---\n# Local Reviewer\n")
+        shared = tmp_home / "skills" / "shared" / "reviewer"
+        shared.mkdir(parents=True)
+        (shared / "SKILL.md").write_text("---\nname: reviewer\n---\n# Shared Reviewer\n")
+        other = tmp_home / "skills" / "shared" / "testing"
+        other.mkdir(parents=True)
+        (other / "SKILL.md").write_text("---\nname: testing\n---\n# Testing\n")
+        headers = {"Authorization": "Bearer test-secret-token"}
+
+        before = client.get("/pool/agents/agency-backend-engineer/skills", headers=headers)
+        enabled = client.put(
+            "/pool/agents/agency-backend-engineer/skills/shared-pool",
+            headers=headers,
+            json={"enabled": True},
+        )
+        disabled = client.put(
+            "/pool/agents/agency-backend-engineer/skills/shared-pool",
+            headers=headers,
+            json={"enabled": False},
+        )
+
+        assert before.status_code == 200
+        assert before.get_json()["sharedPoolEnabled"] is False
+        assert before.get_json()["skills"] == [{"name": "reviewer", "source": "local"}]
+        assert enabled.status_code == 200
+        assert enabled.get_json()["sharedPoolEnabled"] is True
+        assert enabled.get_json()["skills"] == [
+            {"name": "reviewer", "source": "local"},
+            {"name": "testing", "source": "shared"},
+        ]
+        assert disabled.status_code == 200
+        assert disabled.get_json()["sharedPoolEnabled"] is False
+        assert disabled.get_json()["skills"] == [{"name": "reviewer", "source": "local"}]
+
+
+def test_pool_cli_mutation_headers_follow_configured_token(monkeypatch):
+    class FakePoolManager:
+        config = {"pool": {"port": 8090}}
+
+    monkeypatch.setitem(sys.modules, "manager", types.SimpleNamespace(PoolManager=FakePoolManager))
+    monkeypatch.setenv("HERMES_POOL_TOKEN", "cli-secret-token")
+
+    spec = importlib.util.spec_from_file_location("pool_cli_under_test", Path(POOL_DIR) / "cli.py")
+    assert spec is not None and spec.loader is not None
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+
+    assert cli._mutation_headers() == {"Authorization": "Bearer cli-secret-token"}
+    monkeypatch.setenv("HERMES_POOL_TOKEN", "")
+    assert cli._mutation_headers() == {}
 
 
 # ---------------------------------------------------------------------------

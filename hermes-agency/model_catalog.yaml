@@ -32,6 +32,33 @@ providers:
   openai-codex:
     label: "OpenAI Codex"
     models:
+      gpt-5.6-sol:
+        label: "GPT-5.6 Sol"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-07-12"
+        source_url: "Hermes OpenAI Codex model catalog"
+      gpt-5.6-terra:
+        label: "GPT-5.6 Terra"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, code, reasoning, tools]
+        last_verified: "2026-07-12"
+        source_url: "Hermes OpenAI Codex model catalog"
+      gpt-5.6-luna:
+        label: "GPT-5.6 Luna"
+        context_window: null
+        input_cost_per_1m: null
+        output_cost_per_1m: null
+        billing_mode: direct_or_plan_metered
+        capabilities: [text, reasoning, tools]
+        last_verified: "2026-07-12"
+        source_url: "Hermes OpenAI Codex model catalog"
       gpt-5.5:
         label: "GPT-5.5"
         context_window: null
