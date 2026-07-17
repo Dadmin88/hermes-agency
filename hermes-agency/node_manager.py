@@ -316,7 +316,7 @@ class NodeState:
             "incoming_completed_count": self.incoming_completed_count,
             "incoming_failed_count": self.incoming_failed_count,
             "last_incoming_activity_at": self.last_incoming_activity_at,
-            "team_context": self.team_context,
+            "team_context": self.team_context if self.config.team.inject_context else "",
             "team_peer_count": self.team_peer_count,
             "team_last_refresh": self.team_last_refresh,
             "team_last_error": self.team_last_error,
@@ -892,6 +892,12 @@ class NodeManager(
         data["orchestrator_tasks"] = self.orchestrator_tasks_sync(limit=20)
         data["announcements"] = recent_announcements(limit=10)
         return data
+
+    def clear_team_context(self, config: AgencyConfig | None = None) -> None:
+        """Clear cached team prompt context when team injection is disabled."""
+
+        self.state.config = config or get_config()
+        self.state.team_context = ""
 
     def cached_team_context(self) -> str:
         """Return the current cached team-context block, refreshing state fields first."""

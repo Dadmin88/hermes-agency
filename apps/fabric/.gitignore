@@ -15,6 +15,7 @@ coverage/
 .DS_Store
 data/
 .fabric/
+.paperclip/
 .pnpm-store/
 tmp-*
 cli/tmp/
@@ -49,6 +50,7 @@ diagnostics/
 .vscode/
 .claude/settings.local.json
 .fabric-local/
+.paperclip-local/
 /.idea/
 /.agents/*
 !/.agents/skills/

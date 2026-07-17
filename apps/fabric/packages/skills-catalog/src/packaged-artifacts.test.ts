@@ -52,5 +52,7 @@ describe("skills catalog package artifacts", () => {
     expect(paths).toContain("catalog/bundled/software-development/github-pr-workflow/SKILL.md");
     expect(paths).toContain("catalog/optional/browser/agent-browser/SKILL.md");
     expect(paths).toContain("package.json");
-  }, 30_000);
+  // A cold catalog build is part of the assertion and can exceed Vitest's
+  // default timeout on CI runners.
+  }, 60_000);
 });

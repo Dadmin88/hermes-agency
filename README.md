@@ -6,8 +6,9 @@ Hermes Agency turns a Hermes installation into an agency-style operating system:
 
 Hermes Agency is the product in this repository. Keryx is the primary transport; AgentAnycast is the legacy compatibility path.
 
+> **Development status:** Hermes Agency is currently unreleased development software. There is no official GitHub or PyPI release yet; install from this repository for evaluation and development.
+
 [![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/hermes-agency?color=3776AB)](https://pypi.org/project/hermes-agency/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
@@ -46,15 +47,9 @@ See [the current boundary](docs/keryx-cross-node-boundary.md) and the active rem
 | `scripts/` | Operational helpers such as batch agent wake scripts. |
 | `docs/` | Focused implementation, operations, current-product boundary notes, and the canonical Night Shift autonomous-workflow playbook. |
 
-## Install
+## Install from source
 
-Hermes Agency is packaged as `hermes-agency` and requires Python 3.11+.
-
-```bash
-python -m pip install hermes-agency
-```
-
-For development from this repository:
+Hermes Agency requires Python 3.11+. Until an official release is published, install it from a checked-out repository:
 
 ```bash
 python -m venv .venv
