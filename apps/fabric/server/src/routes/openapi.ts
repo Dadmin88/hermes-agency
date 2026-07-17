@@ -4243,6 +4243,102 @@ registry.registerPath({
 
 // ─── Hermes Agency ──────────────────────────────────────────────────────────
 
+const hermesAgencySkillMutationBodySchema = z.record(z.string(), z.unknown());
+
+function registerHermesAgencySkillRoute(
+  method: "get" | "post" | "put" | "delete",
+  path: string,
+  summary: string,
+  options: { body?: z.ZodTypeAny; query?: z.ZodTypeAny; created?: boolean } = {},
+) {
+  registerCurrentRoute({
+    method,
+    path,
+    tags: ["hermes-agency"],
+    summary,
+    ...(options.body ? { body: options.body } : {}),
+    ...(options.query ? { query: options.query } : {}),
+    responses: {
+      [options.created ? 201 : 200]: r.ok(),
+      400: r.badRequest,
+      401: r.unauthorized,
+      403: r.forbidden,
+      404: r.notFound,
+      409: r.conflict,
+    },
+  });
+}
+
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/shared-skills",
+  "List shared Hermes Agency skills",
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/shared-skills/{name}",
+  "Get a shared Hermes Agency skill",
+);
+registerHermesAgencySkillRoute(
+  "post",
+  "/api/hermes-agency/shared-skills",
+  "Create a shared Hermes Agency skill",
+  { body: hermesAgencySkillMutationBodySchema, created: true },
+);
+registerHermesAgencySkillRoute(
+  "put",
+  "/api/hermes-agency/shared-skills/{name}",
+  "Update a shared Hermes Agency skill",
+  { body: hermesAgencySkillMutationBodySchema },
+);
+registerHermesAgencySkillRoute(
+  "delete",
+  "/api/hermes-agency/shared-skills/{name}",
+  "Delete a shared Hermes Agency skill",
+  { query: z.object({ confirm: z.enum(["true", "false"]).optional() }) },
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/profiles/{profile}/skills",
+  "List effective skills for a Hermes profile",
+);
+registerHermesAgencySkillRoute(
+  "post",
+  "/api/hermes-agency/profiles/{profile}/skills/{name}",
+  "Enable a shared skill for a Hermes profile",
+);
+registerHermesAgencySkillRoute(
+  "delete",
+  "/api/hermes-agency/profiles/{profile}/skills/{name}",
+  "Disable a shared skill for a Hermes profile",
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/agents/{agentId}/skills",
+  "List effective skills for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "post",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}",
+  "Enable a shared skill for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "delete",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}",
+  "Disable a shared skill for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "get",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}/local",
+  "Get a profile-local skill for a Hermes Fabric agent",
+);
+registerHermesAgencySkillRoute(
+  "put",
+  "/api/hermes-agency/agents/{agentId}/skills/{name}/local",
+  "Update a profile-local skill for a Hermes Fabric agent",
+  { body: hermesAgencySkillMutationBodySchema },
+);
+
 registerCurrentRoute({
   method: "get",
   path: "/api/hermes-agency/roster",
