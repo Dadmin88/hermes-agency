@@ -1,4 +1,4 @@
-import type { ModelPricingItem, ModelSetDefinition } from "../validators/model-set.js";
+import type { ModelPricingItem, ModelSetDefinition, ReasoningEffort } from "../validators/model-set.js";
 
 export type ModelSetListItem = {
   id: string;
@@ -40,14 +40,27 @@ export type ModelCostEstimateMethod =
   | "local_zero"
   | "unknown";
 
+export type ModelResolvedRouting = {
+  provider: string | null;
+  model: string | null;
+  reasoningEffort: ReasoningEffort | null;
+  source: string;
+  setName: string | null;
+  family: string | null;
+  reason: string | null;
+};
+
 export type ModelCostEstimateItem = {
   agentId: string;
   agentName: string;
   provider: string | null;
   model: string | null;
+  reasoningEffort: ReasoningEffort | null;
   source: string;
   setName: string | null;
   family: string | null;
+  reason: string | null;
+  inheritedRouting: ModelResolvedRouting;
   pricingType: string | null;
   monthlyEstimate: number | null;
   monthlyEstimateLabel: string;

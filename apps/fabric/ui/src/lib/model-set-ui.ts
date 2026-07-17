@@ -1,18 +1,116 @@
-import type { ModelSetDefinition } from "@hermes-fabric/shared";
+import type { ModelFamily, ModelSetDefinition } from "@hermes-fabric/shared";
 import type { ModelSetPreviewChange } from "@/api/model-sets";
 
-export const MODEL_SET_PROVIDER_OPTIONS = [
-  "openai-codex",
-  "openai",
-  "xai-oauth",
-  "xai",
-  "opencode-go",
-  "anthropic",
-  "openrouter",
-  "groq",
-  "google",
-  "local",
+export const APPROVED_MODEL_SET_CATALOG = [
+  {
+    provider: "openai-codex",
+    label: "OpenAI Codex",
+    models: [
+      { id: "gpt-5.6-sol", label: "Sol — coding and agent work" },
+      { id: "gpt-5.6-terra", label: "Terra — general-purpose work" },
+      { id: "gpt-5.6-luna", label: "Luna — text, reasoning, and tools" },
+    ],
+  },
 ] as const;
+
+export const MODEL_SET_PROVIDER_OPTIONS = APPROVED_MODEL_SET_CATALOG.map((entry) => entry.provider);
+export const REASONING_EFFORT_OPTIONS = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
+export const CANONICAL_MODEL_SET_FAMILY_KEYS = [
+  "coding_worker",
+  "general_worker",
+  "orchestration",
+  "analysis_worker",
+  "creative_worker",
+  "luna_text_reasoning",
+  "senior_review",
+  "coding_light",
+  "review_worker",
+  "high_reasoning_review",
+  "lightweight_worker",
+] as const;
+
+export interface ModelSetSelectOption {
+  value: string;
+  label: string;
+  legacy?: boolean;
+}
+
+export interface LiveProfileOption {
+  name: string;
+  urlKey?: string | null;
+}
+
+function legacyOption(value: string, kind: string): ModelSetSelectOption[] {
+  return value ? [{ value, label: `Legacy/unavailable ${kind}: ${value}`, legacy: true }] : [];
+}
+
+export function providerOptions(currentProvider = ""): ModelSetSelectOption[] {
+  const approved = APPROVED_MODEL_SET_CATALOG.map(({ provider, label }) => ({ value: provider, label }));
+  return approved.some((option) => option.value === currentProvider)
+    ? approved
+    : [...legacyOption(currentProvider, "provider"), ...approved];
+}
+
+export function modelOptions(provider: string, currentModel = ""): ModelSetSelectOption[] {
+  const catalog = APPROVED_MODEL_SET_CATALOG.find((entry) => entry.provider === provider);
+  const approved = catalog?.models.map(({ id, label }) => ({ value: id, label: `${label} (${id})` })) ?? [];
+  return approved.some((option) => option.value === currentModel)
+    ? approved
+    : [...legacyOption(currentModel, "model"), ...approved];
+}
+
+export function firstApprovedModel(provider: string): string {
+  return APPROVED_MODEL_SET_CATALOG.find((entry) => entry.provider === provider)?.models[0]?.id ?? "";
+}
+
+export function modelFamilyDefinition({
+  provider,
+  model,
+  reasoningEffort,
+  reason,
+}: {
+  provider: string;
+  model: string;
+  reasoningEffort?: string;
+  reason?: string;
+}) {
+  return {
+    provider: provider.trim(),
+    model: model.trim(),
+    reasoning_effort: (reasoningEffort || undefined) as ModelFamily["reasoning_effort"],
+    reason: reason?.trim() || undefined,
+  };
+}
+
+export function unusedCanonicalFamilyKeys(existingKeys: Iterable<string>): string[] {
+  const existing = new Set(existingKeys);
+  return CANONICAL_MODEL_SET_FAMILY_KEYS.filter((key) => !existing.has(key));
+}
+
+export function liveAgencyProfileOptions(
+  profiles: readonly LiveProfileOption[],
+  selectedProfiles: Iterable<string>,
+  currentProfile = "",
+): ModelSetSelectOption[] {
+  const selected = new Set(selectedProfiles);
+  const available = new Map<string, ModelSetSelectOption>();
+  for (const profile of profiles) {
+    const name = profile.name?.startsWith("agency-")
+      ? profile.name
+      : profile.urlKey?.startsWith("agency-")
+        ? profile.urlKey
+        : null;
+    if (!name || (selected.has(name) && name !== currentProfile)) continue;
+    available.set(name, {
+      value: name,
+      label: profile.urlKey && profile.urlKey !== name ? `${name} (${profile.urlKey})` : name,
+    });
+  }
+  const options = Array.from(available.values()).sort((a, b) => a.label.localeCompare(b.label));
+  return options.some((option) => option.value === currentProfile)
+    ? options
+    : [...legacyOption(currentProfile, "profile"), ...options];
+}
 
 const PREMIUM_HINTS = ["gpt-5", "claude-opus", "claude-sonnet-4", "o3", "grok-4"];
 
@@ -24,8 +122,8 @@ export function emptyModelSetDefinition(name = "custom-set"): ModelSetDefinition
     defaults: { family: "general_worker" },
     families: {
       general_worker: {
-        provider: "opencode-go",
-        model: "",
+        provider: "openai-codex",
+        model: "gpt-5.6-sol",
         reason: "Default worker tier",
       },
     },

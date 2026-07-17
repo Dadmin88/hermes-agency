@@ -8,6 +8,7 @@ import {
   type AgentPermissionUpdate,
 } from "../api/agents";
 import { companySkillsApi } from "../api/companySkills";
+import { hermesAgencyApi } from "../api/hermesAgency";
 import { budgetsApi } from "../api/budgets";
 import { modelSetsApi } from "../api/model-sets";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -25,6 +26,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { resolveSkillSummaryText } from "../lib/company-skill-summary";
 import { AgentConfigForm } from "../components/AgentConfigForm";
+import { DirectModelRoutingOverrideCard } from "../components/DirectModelRoutingOverrideCard";
 import { PageTabBar } from "../components/PageTabBar";
 import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -79,6 +81,11 @@ import {
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { SharedSkillEditorDialog } from "../components/SharedSkillPoolPanel";
+import { effectiveSkillActions } from "../lib/shared-skill-ui";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { RunTranscriptView, type TranscriptMode } from "../components/transcript/RunTranscriptView";
 import {
@@ -1625,7 +1632,12 @@ function ConfigurationTab({
   const queryClient = useQueryClient();
   const { pushToast } = useToastActions();
   const [awaitingRefreshAfterSave, setAwaitingRefreshAfterSave] = useState(false);
+  const [otherConfigDirty, setOtherConfigDirty] = useState(false);
   const lastAgentRef = useRef(agent);
+  const handleOtherConfigDirtyChange = useCallback((dirty: boolean) => {
+    setOtherConfigDirty(dirty);
+    onDirtyChange(dirty);
+  }, [onDirtyChange]);
 
   const { data: adapterModels } = useQuery({
     queryKey:
@@ -1706,13 +1718,19 @@ function ConfigurationTab({
 
   return (
     <div className="space-y-6">
+      <DirectModelRoutingOverrideCard
+        agent={agent}
+        companyId={companyId}
+        otherConfigDirty={otherConfigDirty}
+      />
+
       <AgentConfigForm
         mode="edit"
         agent={agent}
         onSave={(patch) => updateAgent.mutateAsync(patch)}
         isSaving={isConfigSaving}
         adapterModels={adapterModels}
-        onDirtyChange={onDirtyChange}
+        onDirtyChange={handleOtherConfigDirtyChange}
         onSaveActionChange={onSaveActionChange}
         onCancelActionChange={onCancelActionChange}
         hideInlineSave
@@ -2626,6 +2644,30 @@ export function AgentSkillsTab({
   };
 
   const queryClient = useQueryClient();
+  const hermesProfile = typeof agent.adapterConfig.hermesProfile === "string"
+    ? agent.adapterConfig.hermesProfile
+    : typeof agent.adapterConfig.profileName === "string"
+      ? agent.adapterConfig.profileName
+      : agent.name.startsWith("agency-") ? agent.name : null;
+  const [poolSelection, setPoolSelection] = useState("");
+  const [sharedEditorName, setSharedEditorName] = useState<string | null>(null);
+  const [localEditorName, setLocalEditorName] = useState<string | null>(null);
+  const [localEditorFiles, setLocalEditorFiles] = useState<Record<string, string> | null>(null);
+  const effectiveSkillsQuery = useQuery({
+    queryKey: ["hermes-agency", "agent-skills", agent.id],
+    queryFn: () => hermesAgencyApi.agentSkills(agent.id),
+    enabled: Boolean(hermesProfile),
+  });
+  const sharedPoolQuery = useQuery({
+    queryKey: ["hermes-agency", "shared-skills"],
+    queryFn: () => hermesAgencyApi.sharedSkills(),
+    enabled: Boolean(hermesProfile),
+  });
+  const refreshEffectiveSkills = () => queryClient.invalidateQueries({ queryKey: ["hermes-agency", "agent-skills", agent.id] });
+  const attachPoolSkill = useMutation({ mutationFn: (name: string) => hermesAgencyApi.attachPoolSkill(agent.id, name), onSuccess: refreshEffectiveSkills });
+  const detachPoolSkill = useMutation({ mutationFn: (name: string) => hermesAgencyApi.detachPoolSkill(agent.id, name), onSuccess: refreshEffectiveSkills });
+  const openLocalEditor = async (name: string) => { const local = await hermesAgencyApi.localSkill(agent.id, name); setLocalEditorName(local.name); setLocalEditorFiles(local.content); };
+  const saveLocalSkill = useMutation({ mutationFn: () => hermesAgencyApi.updateLocalSkill(agent.id, localEditorName!, localEditorFiles!), onSuccess: async () => { await refreshEffectiveSkills(); setLocalEditorName(null); setLocalEditorFiles(null); } });
   const [skillDraft, setSkillDraft] = useState<string[]>([]);
   const [lastSavedSkills, setLastSavedSkills] = useState<string[]>([]);
   const [unmanagedOpen, setUnmanagedOpen] = useState(false);
@@ -2808,6 +2850,35 @@ export function AgentSkillsTab({
           </div>
         ) : null}
       </div>
+
+      {hermesProfile ? (
+        <section className="rounded-xl border border-border">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+            <div><div className="font-medium">Hermes effective skills</div><p className="text-xs text-muted-foreground">Live profile inventory. Edit the canonical source only: shared edits affect all consumers, local edits affect this profile, and built-ins are read-only.</p></div>
+            <div className="flex items-center gap-2">
+              <SearchableSelect
+                value={poolSelection}
+                groups={[{ id: "shared-pool", label: "Shared pool", options: (sharedPoolQuery.data?.skills ?? []).filter((skill) => !effectiveSkillsQuery.data?.skills.some((entry) => entry.name === skill.name && entry.enabled)).map((skill) => ({ key: skill.name, value: skill.name, label: skill.name, searchText: `${skill.category} ${skill.description}` })) }]}
+                onValueChange={(value) => setPoolSelection(value)}
+                placeholder="Add from shared pool…"
+                searchPlaceholder="Search shared skills…"
+                emptyMessage="No available shared skills."
+                loading={sharedPoolQuery.isLoading}
+                ariaLabel="Add existing shared pool skill"
+                triggerClassName="h-9 max-w-56"
+              />
+              <Button size="sm" disabled={!poolSelection || attachPoolSkill.isPending} onClick={() => { attachPoolSkill.mutate(poolSelection); setPoolSelection(""); }}>Add from pool</Button>
+            </div>
+          </div>
+          {effectiveSkillsQuery.isLoading ? <div className="px-4 py-4 text-sm text-muted-foreground">Loading live Hermes skills…</div> : effectiveSkillsQuery.error ? <div className="px-4 py-4 text-sm text-destructive">{effectiveSkillsQuery.error instanceof Error ? effectiveSkillsQuery.error.message : "Unable to read live Hermes profile skills."}</div> : <div>{(effectiveSkillsQuery.data?.skills ?? []).map((skill) => { const actions = effectiveSkillActions(skill); return <div key={`${skill.name}:${skill.origin}:${skill.shadowed}`} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-medium">{skill.name}</span><span className="rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{skill.origin.replace("_", " ")}</span><span className="rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{skill.status}</span>{skill.category ? <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">{skill.category}</span> : null}</div><p className="truncate text-xs text-muted-foreground">{skill.description}</p></div>{actions.detach ? <Button variant="ghost" size="sm" disabled={detachPoolSkill.isPending} onClick={() => detachPoolSkill.mutate(skill.name)}>Detach</Button> : null}{actions.editShared ? <Button variant="ghost" size="sm" onClick={() => setSharedEditorName(skill.name)}>Edit shared</Button> : null}{actions.editLocal ? <Button variant="ghost" size="sm" onClick={() => { void openLocalEditor(skill.name); }}>Edit local</Button> : null}{actions.readOnly ? <span className="text-xs text-muted-foreground">{skill.origin === "builtin" ? "Read-only builtin" : skill.shadowed ? "Shadowed by a higher-precedence source" : "Not effective"}</span> : null}</div>; })}</div>}
+          {attachPoolSkill.error || detachPoolSkill.error ? <p className="px-4 py-2 text-xs text-destructive">{(() => { const error = attachPoolSkill.error ?? detachPoolSkill.error; return error instanceof Error ? error.message : "Shared pool update failed."; })()}</p> : null}
+        </section>
+      ) : null}
+
+      <SharedSkillEditorDialog skillName={sharedEditorName} agentId={agent.id} onClose={() => setSharedEditorName(null)} />
+      <Dialog open={Boolean(localEditorName)} onOpenChange={(open) => { if (!open) { setLocalEditorName(null); setLocalEditorFiles(null); } }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Edit local skill</DialogTitle><DialogDescription>This changes only this agent profile's local skill source.</DialogDescription></DialogHeader>{localEditorFiles ? <div className="space-y-3">{Object.entries(localEditorFiles).map(([path, content]) => <label key={path} className="block text-xs font-medium">{path}<Textarea value={content} onChange={(event) => setLocalEditorFiles({ ...localEditorFiles, [path]: event.target.value })} className="mt-1 min-h-36 font-mono text-xs" aria-label={path}/></label>)}{saveLocalSkill.error ? <p className="text-sm text-destructive">{saveLocalSkill.error instanceof Error ? saveLocalSkill.error.message : "Failed to save local skill."}</p> : null}<DialogFooter><Button variant="ghost" onClick={() => { setLocalEditorName(null); setLocalEditorFiles(null); }}>Cancel</Button><Button onClick={() => saveLocalSkill.mutate()} disabled={saveLocalSkill.isPending}>{saveLocalSkill.isPending ? "Saving…" : "Save local skill"}</Button></DialogFooter></div> : <p className="text-sm text-muted-foreground">Loading local skill…</p>}</DialogContent>
+      </Dialog>
 
       {skillSnapshot?.warnings.length ? (
         <div className="space-y-1 rounded-xl border border-amber-300/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">

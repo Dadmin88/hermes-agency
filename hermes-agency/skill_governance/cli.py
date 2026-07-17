@@ -19,10 +19,8 @@ def _control_plane() -> SkillGovernanceControlPlane:
     config = get_config().skill_governance
     paths = default_paths()
     state_root = config.state_path or paths.state_root
-    skills_root = (
-        config.shared_skills_path.parent if config.shared_skills_path else paths.skills_root
-    )
-    paths = GovernancePaths(state_root, paths.profiles_root, skills_root)
+    shared_path = config.shared_skills_path or paths.shared_skills_path
+    paths = GovernancePaths(state_root, paths.profiles_root, shared_path)
     return SkillGovernanceControlPlane(paths, max_pending_bytes=config.max_pending_bytes)
 
 
@@ -87,7 +85,7 @@ def dispatch(args: Namespace) -> str:
     elif command == "migrate":
         plane = _control_plane()
         paths = plane.paths
-        shared = paths.skills_root / "shared"
+        shared = paths.shared_skills_path
         backups = paths.state_root / "config-backups"
         migration_command = getattr(args, "migration_command", None) or "plan"
         if migration_command == "plan":

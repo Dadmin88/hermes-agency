@@ -33,6 +33,7 @@ import { MarkdownEditor } from "../components/MarkdownEditor";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { CopyText } from "../components/CopyText";
 import { Identity } from "../components/Identity";
+import { SharedSkillPoolPanel } from "../components/SharedSkillPoolPanel";
 import { AgentIcon } from "../components/AgentIconPicker";
 import { useAdapterCapabilities } from "../adapters/use-adapter-capabilities";
 import {
@@ -4665,7 +4666,9 @@ export function CompanySkills() {
       </Dialog>
 
       {isDiscovery ? (
-        <DiscoveryGrid
+        <>
+          <SharedSkillPoolPanel />
+          <DiscoveryGrid
           tab={discoveryTab}
           tabCounts={discoveryTabCounts}
           onTabChange={setDiscoveryTab}
@@ -4689,6 +4692,7 @@ export function CompanySkills() {
           scanPending={scanProjects.isPending}
           scanStatus={scanStatusMessage}
         />
+        </>
       ) : activeView === "installed" && selectedSkillId ? (
         <SkillDetailPage
           detail={activeDetail}

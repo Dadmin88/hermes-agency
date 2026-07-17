@@ -18,7 +18,7 @@ from hermes_agency.skill_governance import (
     restore_migration,
 )
 from hermes_agency.skill_governance.authority import PrincipalAuthenticator
-from hermes_agency.skill_governance.validation import safe_relative_path
+from hermes_agency.skill_governance.validation import canonical_json, safe_relative_path
 
 
 def _plane(tmp_path: Path) -> SkillGovernanceControlPlane:
@@ -59,7 +59,7 @@ def _plane(tmp_path: Path) -> SkillGovernanceControlPlane:
         credential_verifier=identities.get,
     )
     plane = SkillGovernanceControlPlane(
-        GovernancePaths(tmp_path / "state", tmp_path / "profiles", tmp_path / "skills"),
+        GovernancePaths(tmp_path / "state", tmp_path / "profiles", tmp_path / "skills" / "shared"),
         authenticator=authenticator,
     )
     plane._test_credentials = identities
@@ -163,6 +163,59 @@ def test_same_source_id_with_changed_bytes_fails_closed(tmp_path):
     with pytest.raises(ValueError, match="source key collision"):
         plane.ingest_file("agency-writer", source)
     assert plane.store.status()["proposals"] == 1
+
+
+def test_authenticated_audit_anchor_rejects_rewritten_ledger_and_checkpoint(tmp_path):
+    """A database writer without the anchor key cannot manufacture a valid head."""
+    plane = _plane(tmp_path)
+    plane.ingest_file(
+        "agency-writer",
+        _pending(
+            tmp_path,
+            "agency-writer",
+            "anchor-rewrite",
+            {"action": "create", "name": "safe-skill", "content": _skill("safe-skill")},
+        ),
+    )
+    with plane.store.connect() as db:
+        db.execute("DROP TRIGGER audit_events_no_update")
+        rows = db.execute("SELECT * FROM audit_events ORDER BY sequence").fetchall()
+        previous = "0" * 64
+        for row in rows:
+            material = canonical_json(
+                {
+                    "event_id": row["event_id"],
+                    "proposal_id": row["proposal_id"],
+                    "actor": row["actor_principal"],
+                    "action": "FORGED",
+                    "before": row["before_state"],
+                    "after": row["after_state"],
+                    "metadata": json.loads(row["metadata_json"]),
+                    "created_at": row["created_at"],
+                    "previous_hash": previous,
+                }
+            )
+            forged = __import__("hashlib").sha256(material).hexdigest()
+            db.execute(
+                "UPDATE audit_events SET action='FORGED',previous_hash=?,event_hash=? WHERE sequence=?",
+                (previous, forged, row["sequence"]),
+            )
+            previous = forged
+        db.commit()
+    plane.store.audit_anchor.anchor_path.write_text(
+        json.dumps(
+            {
+                "payload": {
+                    "version": 1,
+                    "committed": {"sequence": len(rows), "event_hash": previous},
+                    "pending": None,
+                },
+                "mac": "0" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert plane.store.verify_audit() is False
 
 
 def test_semantic_duplicate_preserves_provenance_and_is_superseded(tmp_path):
@@ -286,6 +339,25 @@ def test_authorization_rejects_target_generation_tampering(tmp_path):
         db.execute(
             "UPDATE reviews SET target_generation='next:forged:generation' WHERE proposal_id=?",
             (proposal_id,),
+        )
+    assert plane.store.authorization_valid(proposal_id) is False
+
+
+def test_authorization_rejects_baseline_digest_tampering(tmp_path):
+    plane = _plane(tmp_path)
+    proposal_id = plane.ingest_file(
+        "agency-writer",
+        _pending(
+            tmp_path,
+            "agency-writer",
+            "baseline-binding",
+            {"action": "create", "name": "safe-skill", "content": _skill("safe-skill")},
+        ),
+    )["proposal_id"]
+    _approve_routine(plane, proposal_id)
+    with plane.store.transaction() as db:
+        db.execute(
+            "UPDATE proposals SET baseline_digest='forged' WHERE proposal_id=?", (proposal_id,)
         )
     assert plane.store.authorization_valid(proposal_id) is False
 

@@ -160,6 +160,88 @@ describeEmbeddedPostgres("model set service", () => {
     expect(stored.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
   });
 
+  it("round-trips family and override reasoning effort while preserving absence", async () => {
+    const { companyId, agentId } = await createCompanyAndAgent(
+      `RE${randomUUID().slice(0, 6).toUpperCase()}`,
+    );
+
+    const definition = buildDefinition("reasoning-effort-set");
+    definition.families.general_worker.reasoning_effort = "high";
+    await svc.createModelSet(companyId, { definition, createdBy: "tester" });
+
+    const storedSet = await svc.getModelSet(companyId, "reasoning-effort-set");
+    expect(storedSet.definition.families.general_worker.reasoning_effort).toBe("high");
+
+    await svc.replaceDepartmentOverrides(companyId, [
+      { department: "engineer", provider: "openai", model: "gpt-5", reasoningEffort: "none" },
+      { department: "reviewer", provider: "openai", model: "gpt-5" },
+    ]);
+    expect(await svc.listDepartmentOverrides(companyId)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ department: "engineer", reasoningEffort: "none" }),
+        expect.objectContaining({ department: "reviewer", reasoningEffort: null }),
+      ]),
+    );
+
+    await svc.upsertProfileOverride(companyId, agentId, {
+      provider: "openai",
+      model: "gpt-5",
+      reasoningEffort: "xhigh",
+    });
+    expect(await svc.listProfileOverrides(companyId)).toEqual([
+      expect.objectContaining({ agentId, reasoningEffort: "xhigh" }),
+    ]);
+
+    await svc.upsertProfileOverride(companyId, agentId, { provider: "openai", model: "gpt-5" });
+    expect(await svc.listProfileOverrides(companyId)).toEqual([
+      expect.objectContaining({ agentId, reasoningEffort: null }),
+    ]);
+
+    await expect(
+      db.insert(modelDepartmentOverrides).values({
+        companyId,
+        department: "invalid-effort",
+        provider: "openai",
+        model: "gpt-5",
+        reasoningEffort: "invalid" as never,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("materializes a company override when editing a packaged model set", async () => {
+    const { companyId } = await createCompanyAndAgent(`MO${randomUUID().slice(0, 6).toUpperCase()}`);
+
+    const packaged = await svc.getModelSet(companyId, "openai-codex-only");
+    expect(packaged.source).toBe("packaged");
+    expect(packaged.definition).toHaveProperty("task_routing");
+
+    const updated = await svc.updateModelSet(companyId, "openai-codex-only", {
+      description: "Company-specific routing policy",
+      definition: {
+        metadata: {
+          ...packaged.definition.metadata,
+          company_override: true,
+        },
+      },
+      updatedBy: "editor-1",
+    });
+
+    expect(updated.source).toBe("custom");
+    expect(updated.name).toBe("openai-codex-only");
+    expect(updated.description).toBe("Company-specific routing policy");
+    expect(updated.definition).toHaveProperty("task_routing");
+    expect(updated.definition.metadata).toMatchObject({ company_override: true });
+
+    const listed = await svc.listModelSets(companyId);
+    expect(listed.filter((row) => row.name === "openai-codex-only")).toHaveLength(1);
+    expect(listed.find((row) => row.name === "openai-codex-only")?.source).toBe("custom");
+
+    await svc.deleteModelSet(companyId, "openai-codex-only");
+    const restored = await svc.getModelSet(companyId, "openai-codex-only");
+    expect(restored.source).toBe("packaged");
+    expect(restored.description).not.toBe("Company-specific routing policy");
+  });
+
   it("computes cost estimates across pricing types and historical fallback", async () => {
     const { companyId, agentId } = await createCompanyAndAgent(
       `MC${randomUUID().slice(0, 6).toUpperCase()}`,
@@ -209,12 +291,40 @@ describeEmbeddedPostgres("model set service", () => {
       estimateMethod: "historical",
       monthlyEstimateLabel: "$12.50",
       actualSpendLast30Days: 12.5,
+      reasoningEffort: null,
+      inheritedRouting: {
+        provider: "openrouter",
+        model: "anthropic/claude-sonnet-4",
+        source: "model_set_default",
+        reasoningEffort: null,
+      },
     });
 
     const listed = await svc.listModelSets(companyId);
     const active = listed.find((row) => row.name === "cost-set");
     expect(active?.monthlyEstimateTotal).toBe(12.5);
     expect(active?.unknownPricingCount).toBe(0);
+
+    await svc.upsertProfileOverride(companyId, agentId, {
+      provider: "openai-codex",
+      model: "gpt-5.6-sol",
+      reasoningEffort: "high",
+      reason: "Agent-specific route",
+    });
+    const overriddenEstimate = await svc.costEstimate(companyId);
+    expect(overriddenEstimate.items[0]).toMatchObject({
+      provider: "openai-codex",
+      model: "gpt-5.6-sol",
+      source: "profile_override",
+      reasoningEffort: "high",
+      reason: "Agent-specific route",
+      inheritedRouting: {
+        provider: "openrouter",
+        model: "anthropic/claude-sonnet-4",
+        source: "model_set_default",
+        reasoningEffort: null,
+      },
+    });
   });
 
   it("apply writes resolved models into Hermes profile config.yaml", async () => {

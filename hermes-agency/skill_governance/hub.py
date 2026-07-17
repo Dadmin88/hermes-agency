@@ -12,6 +12,7 @@ import sqlite3
 import stat
 import time
 import uuid
+from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
@@ -41,6 +42,8 @@ class HubAcquisitionService:
         enabled: bool = False,
         max_results: int = 25,
         inspection_ttl_seconds: int = 600,
+        task_resolver: Callable[[], str | None] | None = None,
+        evidence_verifier: Callable[[Mapping[str, str]], Mapping[str, Any] | None] | None = None,
     ):
         self.control_plane = control_plane
         self.profile = profile
@@ -48,6 +51,8 @@ class HubAcquisitionService:
         self.enabled = enabled
         self.max_results = max(1, min(max_results, 25))
         self.inspection_ttl_seconds = max(60, min(inspection_ttl_seconds, 3600))
+        self.task_resolver = task_resolver or (lambda: os.environ.get("HERMES_KANBAN_TASK"))
+        self.evidence_verifier = evidence_verifier or self._verify_file_receipt
         self.root = profile.home / ".agency" / "skill-acquisition"
         self.db_path = control_plane.paths.state_root / "governance.sqlite3"
         self._secret = secrets.token_bytes(32)
@@ -121,7 +126,10 @@ class HubAcquisitionService:
 
     def inspect(self, identifier: str, *, task_id: str) -> dict[str, Any]:
         self._gate()
-        if not task_id or not identifier or "://" in identifier:
+        active_task = self.task_resolver()
+        if not active_task or task_id != active_task:
+            raise PermissionError("task_id is not the current authenticated task")
+        if not identifier or "://" in identifier:
             raise ValueError("task_id and non-URL identifier are required")
         bundle = self.source.fetch(identifier)
         files = bundle.get("files")
@@ -229,8 +237,8 @@ class HubAcquisitionService:
         destination = self._local_directory("skills", create=True) / row["name"]
         if destination.exists() or destination.is_symlink():
             raise FileExistsError("local skill name already exists")
-        shared = self.control_plane.paths.skills_root / "shared" / row["name"]
-        if shared.exists():
+        shared = self.control_plane.paths.shared_skills_path / row["name"]
+        if shared.exists() or shared.is_symlink():
             raise FileExistsError("shared skill name already exists")
         temp = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
         _copy_regular_tree(source, temp)
@@ -285,15 +293,25 @@ class HubAcquisitionService:
         row = self.status(acquisition_id)
         if row["source_profile"] != self.profile.name or row["state"] != "ACTIVATED":
             raise PermissionError("only the activating profile may report")
+        if self.task_resolver() != row["task_id"]:
+            raise PermissionError("acquisition is not bound to the current authenticated task")
+        installed = self.profile.home / row["installed_relpath"]
+        _, used_digest = tree_manifest(installed)
+        if used_digest != row["installed_digest"]:
+            raise ValueError("installed skill drifted after activation")
         allowed_materiality = {"blocker_resolved", "quality_gain", "time_saved", "error_prevented"}
         material = sorted(set(materiality) & allowed_materiality)
-        concrete = [
-            item
-            for item in validation
-            if item.get("kind") in {"test", "command", "artifact", "review"}
-            and item.get("result") in {"pass", "fail", "mixed"}
-            and item.get("ref")
-        ]
+        concrete = []
+        for item in validation:
+            if (
+                item.get("kind") not in {"test", "command", "artifact", "review"}
+                or item.get("result") not in {"pass", "fail", "mixed"}
+                or not item.get("ref")
+            ):
+                continue
+            receipt = self.evidence_verifier(item)
+            if receipt:
+                concrete.append({**item, "receipt": dict(receipt)})
         recommend = (
             outcome == "helped" and bool(material) and bool(concrete) and bool(summary.strip())
         )
@@ -304,6 +322,7 @@ class HubAcquisitionService:
             "materiality": material,
             "summary": summary.strip()[:1000],
             "validation": concrete,
+            "used_digest": used_digest,
         }
         evidence_digest = hashlib.sha256(canonical_json(evidence)).hexdigest()
         proposal_id = None
@@ -328,8 +347,8 @@ class HubAcquisitionService:
                 profile=self.profile.name,
                 acquisition_id=acquisition_id,
                 skill_name=row["name"],
-                bundle_dir=Path(row["bundle_path"]),
-                bundle_digest=row["bundle_digest"],
+                bundle_dir=installed,
+                bundle_digest=used_digest,
                 evidence_digest=evidence_digest,
             )
         with self._connect() as db:
@@ -381,4 +400,22 @@ class HubAcquisitionService:
             ).fetchone()
         if not row:
             raise KeyError(acquisition_id)
+        if row["source_profile"] != self.profile.name:
+            raise PermissionError("acquisition belongs to another profile")
         return dict(row)
+
+    @staticmethod
+    def _verify_file_receipt(item: Mapping[str, str]) -> Mapping[str, Any] | None:
+        """Resolve durable evidence; caller labels alone are never receipts."""
+        ref = str(item.get("ref") or "")
+        if not ref.startswith("file:"):
+            return None
+        path = Path(ref.removeprefix("file:")).expanduser()
+        try:
+            info = path.lstat()
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_nlink != 1:
+                return None
+            data = path.read_bytes()
+        except OSError:
+            return None
+        return {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}

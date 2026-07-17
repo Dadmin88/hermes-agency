@@ -12,10 +12,16 @@ from hermes_agency.skill_governance import (
 from hermes_agency.skill_governance import (
     migration as migration_module,
 )
+from hermes_agency.skill_governance import promotion as promotion_module
 from hermes_agency.skill_governance.authority import PrincipalAuthenticator
 from hermes_agency.skill_governance.hub import HubAcquisitionService
 from hermes_agency.skill_governance.migration import apply_migration, plan_migration
 from hermes_agency.skill_governance.profile_scope import ProfileScope
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_task(monkeypatch):
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_example")
 
 
 def _skill(name: str) -> str:
@@ -38,7 +44,7 @@ class FakeHub:
         }
 
 
-def _plane(tmp_path: Path):
+def _plane(tmp_path: Path, shared_path: Path | None = None):
     uid = __import__("os").geteuid()
     identities = {
         "orch": {
@@ -77,7 +83,11 @@ def _plane(tmp_path: Path):
         credential_verifier=identities.get,
     )
     plane = SkillGovernanceControlPlane(
-        GovernancePaths(tmp_path / "state", tmp_path / "profiles", tmp_path / "skills"),
+        GovernancePaths(
+            tmp_path / "state",
+            tmp_path / "profiles",
+            shared_path or tmp_path / "skills" / "shared",
+        ),
         authenticator=auth,
     )
     plane._test_credentials = identities
@@ -102,6 +112,15 @@ def test_disabled_hub_lifecycle_has_zero_profile_mutation(tmp_path):
     assert sorted(str(path.relative_to(profile.home)) for path in profile.home.rglob("*")) == before
 
 
+def test_inspection_rejects_a_caller_supplied_noncurrent_task_id(tmp_path):
+    plane = _plane(tmp_path)
+    profile = _profile(tmp_path)
+    service = HubAcquisitionService(plane, profile, FakeHub(), enabled=True)
+
+    with pytest.raises(PermissionError, match="current authenticated task"):
+        service.inspect("skills-sh/focused-testing", task_id="t-other")
+
+
 def test_frozen_bundle_install_activate_material_report_and_cleanup(tmp_path):
     plane = _plane(tmp_path)
     profile = _profile(tmp_path)
@@ -111,12 +130,14 @@ def test_frozen_bundle_install_activate_material_report_and_cleanup(tmp_path):
     installed = service.install(inspected["inspection_token"])
     assert installed["installed_digest"] == inspected["candidate_digest"]
     assert "Run focused tests" in service.activate(inspected["acquisition_id"])
+    receipt = tmp_path / "pytest-receipt.txt"
+    receipt.write_text("1 passed\n", encoding="utf-8")
     reported = service.report(
         inspected["acquisition_id"],
         outcome="helped",
         materiality=["blocker_resolved"],
         summary="The focused procedure identified the failing boundary.",
-        validation=[{"kind": "test", "ref": "pytest:test_boundary", "result": "pass"}],
+        validation=[{"kind": "test", "ref": f"file:{receipt}", "result": "pass"}],
     )
     assert reported["proposal_id"]
     proposal = plane.store.get(reported["proposal_id"])
@@ -156,6 +177,30 @@ def test_install_refuses_local_and_shared_collisions(tmp_path):
         service.install(inspected["inspection_token"])
 
 
+def test_install_refuses_dangling_shared_collision(tmp_path):
+    plane = _plane(tmp_path)
+    profile = _profile(tmp_path)
+    service = HubAcquisitionService(plane, profile, FakeHub(), enabled=True)
+    inspected = service.inspect("skills-sh/focused-testing", task_id="t_example")
+    plane.paths.shared_skills_path.mkdir(parents=True)
+    (plane.paths.shared_skills_path / "focused-testing").symlink_to(tmp_path / "absent")
+    with pytest.raises(FileExistsError, match="shared"):
+        service.install(inspected["inspection_token"])
+
+
+def test_promotion_uses_the_configured_shared_path_exactly(tmp_path):
+    configured = tmp_path / "custom" / "exact-shared"
+    plane = _plane(tmp_path, configured)
+    proposal_id = _proposal(plane, tmp_path, "exact-destination")
+    _authorize(plane, proposal_id)
+
+    plane.promote(proposal_id, authority=plane.authenticator.authenticate_promoter())
+
+    assert configured.is_symlink()
+    assert (configured / "safe-skill" / "SKILL.md").is_file()
+    assert not (configured.parent / "shared").exists()
+
+
 def test_hub_refuses_symlinked_profile_local_roots(tmp_path):
     plane = _plane(tmp_path)
     profile = _profile(tmp_path)
@@ -178,6 +223,33 @@ def test_hub_install_refuses_symlinked_skills_root(tmp_path):
     with pytest.raises(PermissionError, match="non-symlink"):
         service.install(inspected["inspection_token"])
     assert list(outside.iterdir()) == []
+
+
+def test_status_is_profile_owned_and_report_rejects_installed_drift(tmp_path):
+    plane = _plane(tmp_path)
+    profile = _profile(tmp_path)
+    service = HubAcquisitionService(plane, profile, FakeHub(), enabled=True)
+    inspected = service.inspect("skills-sh/focused-testing", task_id="t_example")
+    service.install(inspected["inspection_token"])
+    service.activate(inspected["acquisition_id"])
+    installed = profile.home / "skills" / "focused-testing" / "SKILL.md"
+    installed.write_text(installed.read_text() + "\nchanged\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="drifted"):
+        service.report(
+            inspected["acquisition_id"],
+            outcome="helped",
+            materiality=["quality_gain"],
+            summary="changed bytes",
+            validation=[],
+        )
+    other_home = tmp_path / "profiles" / "agency-writer"
+    other_home.mkdir()
+    (other_home / "config.yaml").write_text("model: test\n", encoding="utf-8")
+    info = other_home.stat()
+    other = ProfileScope(other_home.name, other_home, info.st_dev, info.st_ino, info.st_uid)
+    other_service = HubAcquisitionService(plane, other, FakeHub(), enabled=True)
+    with pytest.raises(PermissionError, match="another profile"):
+        other_service.status(inspected["acquisition_id"])
 
 
 def test_migration_traversal_and_unauthenticated_apply_fail_closed(tmp_path):
@@ -210,6 +282,43 @@ def test_migration_rejects_symlinked_profile_directory(tmp_path):
     plans = plan_migration(profiles, tmp_path / "skills" / "shared", ["agency-writer"])
     assert plans[0].status == "error"
     assert config.read_text(encoding="utf-8") == "safe: true\n"
+
+
+def test_migration_rejects_profile_swap_after_plan(monkeypatch, tmp_path):
+    profiles = tmp_path / "profiles"
+    original_dir = profiles / "agency-writer"
+    original_dir.mkdir(parents=True)
+    (original_dir / "config.yaml").write_text("model: test\n", encoding="utf-8")
+    victim_dir = tmp_path / "victim"
+    victim_dir.mkdir()
+    victim = victim_dir / "config.yaml"
+    victim.write_text("safe: true\n", encoding="utf-8")
+    real_plan = migration_module.plan_migration
+
+    def swap_after_plan(*args, **kwargs):
+        plans = real_plan(*args, **kwargs)
+        original_dir.rename(profiles / "held-writer")
+        original_dir.symlink_to(victim_dir, target_is_directory=True)
+        return plans
+
+    monkeypatch.setattr(migration_module, "plan_migration", swap_after_plan)
+    authenticator = PrincipalAuthenticator(
+        {},
+        promoter_uid=__import__("os").geteuid(),
+        promoter_executable=Path("/proc/self/exe").resolve(),
+    )
+    result = apply_migration(
+        profiles,
+        tmp_path / "skills" / "shared",
+        tmp_path / "backups",
+        profiles=["agency-writer"],
+        dry_run=False,
+        yes=True,
+        authority=authenticator.authenticate_promoter(),
+        authenticator=authenticator,
+    )
+    assert result["ok"] is False
+    assert victim.read_text(encoding="utf-8") == "safe: true\n"
 
 
 def test_expired_review_and_audit_tamper_fail_authorization_and_promotion(tmp_path):
@@ -349,6 +458,63 @@ def test_pointer_swap_failure_is_reconciled_to_promoted(monkeypatch, tmp_path):
     assert (tmp_path / "skills" / "shared" / "safe-skill" / "SKILL.md").is_file()
 
 
+def test_pre_pointer_release_is_authenticated_and_reconciled(monkeypatch, tmp_path):
+    plane = _plane(tmp_path)
+    proposal_id = _proposal(plane, tmp_path, "pre-pointer")
+    _authorize(plane, proposal_id)
+    authority = plane.authenticator.authenticate_promoter()
+    real_symlink = Path.symlink_to
+
+    def fail_shared_pointer(path, target, *args, **kwargs):
+        if path.name.startswith(".shared-"):
+            raise RuntimeError("injected pre-pointer crash")
+        return real_symlink(path, target, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "symlink_to", fail_shared_pointer)
+    with pytest.raises(RuntimeError, match="pre-pointer"):
+        plane.promote(proposal_id, authority=authority)
+    monkeypatch.setattr(Path, "symlink_to", real_symlink)
+    repaired = plane.promoter.reconcile(authority=authority)
+    assert len(repaired) == 1
+    assert plane.paths.shared_skills_path.is_symlink()
+    assert (plane.paths.shared_skills_path / "safe-skill" / "SKILL.md").is_file()
+
+
+def test_same_uid_release_rewrite_fails_durable_digest_verification(tmp_path):
+    plane = _plane(tmp_path)
+    proposal_id = _proposal(plane, tmp_path, "rewrite")
+    _authorize(plane, proposal_id)
+    result = plane.promote(proposal_id, authority=plane.authenticator.authenticate_promoter())
+    release = plane.promoter.release_root / result["generation"]
+    for path in [release, *release.rglob("*")]:
+        __import__("os").chmod(path, 0o700 if path.is_dir() else 0o600)
+    skill = release / "safe-skill" / "SKILL.md"
+    skill.write_text(skill.read_text() + "\nattacker rewrite\n", encoding="utf-8")
+    manifest = release / "MANIFEST.json"
+    envelope = __import__("json").loads(manifest.read_text())
+    files = []
+    for candidate in sorted(release.rglob("*")):
+        if candidate == manifest or candidate.is_dir():
+            continue
+        data = candidate.read_bytes()
+        files.append(
+            {
+                "path": candidate.relative_to(release).as_posix(),
+                "size": len(data),
+                "sha256": __import__("hashlib").sha256(data).hexdigest(),
+            }
+        )
+    digest = __import__("hashlib").sha256(promotion_module.canonical_json(files)).hexdigest()
+    envelope["files"] = files
+    envelope["tree_digest"] = digest
+    manifest.write_text(__import__("json").dumps(envelope), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="durable generation digest"):
+        plane.promoter._verify_generation(
+            release,
+            expected_manifest_digest=plane.promoter._generation_digest(result["generation"]),
+        )
+
+
 def test_delete_publishes_a_generation_without_the_skill(tmp_path):
     plane = _plane(tmp_path)
     create_id = _proposal(plane, tmp_path, "create")
@@ -397,7 +563,7 @@ def test_migration_failure_rolls_back_every_changed_profile(monkeypatch, tmp_pat
         authenticator=authenticator,
     )
     assert result["ok"] is False
-    assert result["rolled_back"] is True
+    assert result["rolled_back"] is False, "preflight failure must occur before any mutation"
     assert all(path.read_bytes() == content for path, content in originals.items())
 
 

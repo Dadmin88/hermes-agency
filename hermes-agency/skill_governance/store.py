@@ -13,11 +13,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from .audit_anchor import HMACAuditAnchor
 from .authority import AuthenticatedPrincipal, PrincipalAuthenticator
 from .models import ProposalState, ReviewRole, RiskClass
 from .validation import POLICY_VERSION, SCANNER_VERSION, VALIDATOR_VERSION, canonical_json
 
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 
 def utc_now() -> str:
@@ -25,11 +26,23 @@ def utc_now() -> str:
 
 
 class GovernanceStore:
-    def __init__(self, path: Path, authenticator: PrincipalAuthenticator | None = None):
+    def __init__(
+        self,
+        path: Path,
+        authenticator: PrincipalAuthenticator | None = None,
+        *,
+        destination: Path | None = None,
+        audit_anchor: HMACAuditAnchor | None = None,
+    ):
         self.path = path
         self.authenticator = authenticator
-        self.checkpoint_path = path.with_suffix(".audit-checkpoint.json")
+        self.destination = (destination or path.parent / "shared").absolute()
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        anchor_root = path.parent.parent
+        self.audit_anchor = audit_anchor or HMACAuditAnchor(
+            anchor_root / ".skill-governance-audit.key",
+            anchor_root / ".skill-governance-audit.anchor",
+        )
         self._lock = threading.RLock()
         self._initialize()
 
@@ -85,6 +98,7 @@ class GovernanceStore:
                     authenticated_channel TEXT NOT NULL, created_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL, policy_version TEXT NOT NULL,
                     destination TEXT NOT NULL, baseline_generation TEXT NOT NULL,
+                    baseline_digest TEXT NOT NULL,
                     target_generation TEXT NOT NULL,
                     UNIQUE(proposal_id, principal_id, role)
                 );
@@ -129,6 +143,7 @@ class GovernanceStore:
                 "policy_version": "TEXT NOT NULL DEFAULT ''",
                 "destination": "TEXT NOT NULL DEFAULT ''",
                 "baseline_generation": "TEXT NOT NULL DEFAULT '<empty>'",
+                "baseline_digest": "TEXT NOT NULL DEFAULT '<empty>'",
                 "target_generation": "TEXT NOT NULL DEFAULT ''",
             }.items():
                 if name not in review_columns:
@@ -138,39 +153,36 @@ class GovernanceStore:
                 (_SCHEMA_VERSION, utc_now()),
             )
         self.path.chmod(0o600)
-        if not self.checkpoint_path.exists():
-            self._write_checkpoint()
+        with self.connect() as db:
+            self.audit_anchor.bootstrap(self._audit_head(db))
+            if not self.audit_anchor.reconcile(self._audit_head(db)):
+                raise RuntimeError("audit anchor does not match the durable ledger")
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
         with self._lock, self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            old_head = self._audit_head(db)
             try:
                 yield db
+                new_head = self._audit_head(db)
+                self.audit_anchor.prepare(old_head, new_head)
                 db.commit()
-                self._write_checkpoint(db)
+                self.audit_anchor.finalize(new_head)
             except Exception:
                 db.rollback()
+                self.audit_anchor.reconcile(self._audit_head(db))
                 raise
 
-    def _write_checkpoint(self, db: sqlite3.Connection | None = None) -> None:
-        owned = db is None
-        connection = db or self.connect()
-        try:
-            row = connection.execute(
-                "SELECT sequence,event_hash FROM audit_events ORDER BY sequence DESC LIMIT 1"
-            ).fetchone()
-            payload = {
-                "sequence": int(row[0]) if row else 0,
-                "event_hash": str(row[1]) if row else "0" * 64,
-            }
-            temp = self.checkpoint_path.with_name(f".{self.checkpoint_path.name}.tmp")
-            temp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
-            temp.chmod(0o600)
-            temp.replace(self.checkpoint_path)
-        finally:
-            if owned:
-                connection.close()
+    @staticmethod
+    def _audit_head(db: sqlite3.Connection) -> dict[str, Any]:
+        row = db.execute(
+            "SELECT sequence,event_hash FROM audit_events ORDER BY sequence DESC LIMIT 1"
+        ).fetchone()
+        return {
+            "sequence": int(row[0]) if row else 0,
+            "event_hash": str(row[1]) if row else "0" * 64,
+        }
 
     def _audit(
         self,
@@ -514,11 +526,14 @@ class GovernanceStore:
             expires_at = (
                 datetime.now(UTC) + timedelta(seconds=max(1, min(expires_in_seconds, 900)))
             ).isoformat()
-            destination = f"shared/{proposal['skill_name']}"
+            destination = str(self.destination / proposal["skill_name"])
             baseline_generation = proposal["baseline_generation"] or "<empty>"
-            target_generation = f"next:{baseline_generation}:{proposal['candidate_digest']}"
+            baseline_digest = proposal["baseline_digest"] or "<empty>"
+            target_generation = (
+                f"next:{baseline_generation}:{baseline_digest}:{proposal['candidate_digest']}"
+            )
             db.execute(
-                "INSERT INTO reviews VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO reviews VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     f"sgr_{uuid.uuid4().hex}",
                     proposal_id,
@@ -534,6 +549,7 @@ class GovernanceStore:
                     proposal["policy_version"],
                     destination,
                     baseline_generation,
+                    baseline_digest,
                     target_generation,
                 ),
             )
@@ -586,6 +602,7 @@ class GovernanceStore:
                     "expires_at": expires_at,
                     "destination": destination,
                     "baseline_generation": baseline_generation,
+                    "baseline_digest": baseline_digest,
                     "target_generation": target_generation,
                 },
             )
@@ -602,7 +619,7 @@ class GovernanceStore:
         }
         with self.connect() as db:
             proposal = db.execute(
-                "SELECT candidate_digest,state,skill_name,policy_version,baseline_generation FROM proposals WHERE proposal_id=?",
+                "SELECT candidate_digest,state,skill_name,policy_version,baseline_generation,baseline_digest FROM proposals WHERE proposal_id=?",
                 (proposal_id,),
             ).fetchone()
             if not proposal or proposal["state"] != ProposalState.AUTHORIZED.value:
@@ -617,7 +634,7 @@ class GovernanceStore:
             for requirement in requirements:
                 row = db.execute(
                     """SELECT r.principal_id,r.candidate_digest,r.expires_at,r.policy_version,
-                              r.destination,r.baseline_generation,r.target_generation,
+                              r.destination,r.baseline_generation,r.baseline_digest,r.target_generation,
                               b.profile_name,b.role,b.peer_id
                        FROM reviews r JOIN principal_bindings b ON b.principal_id=r.principal_id
                        WHERE r.proposal_id=? AND r.role=? AND r.decision='approve' AND b.enabled=1""",
@@ -631,10 +648,14 @@ class GovernanceStore:
                     or row["principal_id"] in principals
                     or datetime.fromisoformat(row["expires_at"]) <= datetime.now(UTC)
                     or row["policy_version"] != proposal["policy_version"]
-                    or row["destination"] != f"shared/{proposal['skill_name']}"
+                    or row["destination"] != str(self.destination / proposal["skill_name"])
                     or row["baseline_generation"] != (proposal["baseline_generation"] or "<empty>")
+                    or row["baseline_digest"] != (proposal["baseline_digest"] or "<empty>")
                     or row["target_generation"]
-                    != f"next:{proposal['baseline_generation'] or '<empty>'}:{proposal['candidate_digest']}"
+                    != (
+                        f"next:{proposal['baseline_generation'] or '<empty>'}:"
+                        f"{proposal['baseline_digest'] or '<empty>'}:{proposal['candidate_digest']}"
+                    )
                     or self.authenticator is None
                     or not self.authenticator.roster_matches(row["profile_name"], row["peer_id"])
                 ):
@@ -731,18 +752,9 @@ class GovernanceStore:
                 ):
                     return False
                 previous = row["event_hash"]
-            try:
-                checkpoint = json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError, json.JSONDecodeError):
-                return False
-            last = connection.execute(
-                "SELECT sequence,event_hash FROM audit_events ORDER BY sequence DESC LIMIT 1"
-            ).fetchone()
-            expected = {
-                "sequence": int(last[0]) if last else 0,
-                "event_hash": str(last[1]) if last else "0" * 64,
-            }
-            return checkpoint == expected
+            return self.audit_anchor.reconcile(self._audit_head(connection))
+        except (OSError, ValueError, json.JSONDecodeError, RuntimeError):
+            return False
         finally:
             if owned:
                 connection.close()

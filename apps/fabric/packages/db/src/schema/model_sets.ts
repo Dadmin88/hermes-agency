@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
+import type { ReasoningEffort } from "@hermes-fabric/shared";
 import {
+  check,
   doublePrecision,
   index,
   jsonb,
@@ -42,6 +45,7 @@ export const modelDepartmentOverrides = pgTable(
     department: text("department").notNull(),
     provider: text("provider").notNull(),
     model: text("model").notNull(),
+    reasoningEffort: text("reasoning_effort").$type<ReasoningEffort>(),
     reason: text("reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -51,6 +55,10 @@ export const modelDepartmentOverrides = pgTable(
     companyDepartmentUq: uniqueIndex("model_department_overrides_company_department_uq").on(
       table.companyId,
       table.department,
+    ),
+    reasoningEffortCheck: check(
+      "model_department_overrides_reasoning_effort_check",
+      sql`${table.reasoningEffort} is null or ${table.reasoningEffort} in ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')`,
     ),
   }),
 );
@@ -67,6 +75,7 @@ export const modelProfileOverrides = pgTable(
       .references(() => agents.id, { onDelete: "cascade" }),
     provider: text("provider").notNull(),
     model: text("model").notNull(),
+    reasoningEffort: text("reasoning_effort").$type<ReasoningEffort>(),
     reason: text("reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -77,6 +86,10 @@ export const modelProfileOverrides = pgTable(
     companyAgentUq: uniqueIndex("model_profile_overrides_company_agent_uq").on(
       table.companyId,
       table.agentId,
+    ),
+    reasoningEffortCheck: check(
+      "model_profile_overrides_reasoning_effort_check",
+      sql`${table.reasoningEffort} is null or ${table.reasoningEffort} in ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')`,
     ),
   }),
 );

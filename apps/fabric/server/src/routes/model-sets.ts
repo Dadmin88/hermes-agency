@@ -200,7 +200,7 @@ export function modelSetRoutes(db: Db) {
       action: "model_override.profile_upserted",
       entityType: "model_profile_override",
       entityId: agentId,
-      details: { provider: result.provider, model: result.model },
+      details: { provider: result.provider, model: result.model, reasoningEffort: result.reasoningEffort ?? null },
     });
     res.json(result);
   });

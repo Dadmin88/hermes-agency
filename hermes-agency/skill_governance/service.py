@@ -42,7 +42,12 @@ _ALLOWED_PAYLOAD_KEYS = {
 class GovernancePaths:
     state_root: Path
     profiles_root: Path
-    skills_root: Path
+    shared_skills_path: Path
+
+    @property
+    def skills_root(self) -> Path:
+        """Compatibility view for code that needs the containing skills directory."""
+        return self.shared_skills_path.parent
 
     @property
     def objects(self) -> Path:
@@ -70,8 +75,12 @@ class SkillGovernanceControlPlane:
         self.paths.state_root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.paths.state_root.chmod(0o700)
         self.authenticator = authenticator or PrincipalAuthenticator({})
-        self.store = GovernanceStore(paths.state_root / "governance.sqlite3", self.authenticator)
-        self.promoter = GenerationPromoter(self.store, paths.skills_root, self.authenticator)
+        self.store = GovernanceStore(
+            paths.state_root / "governance.sqlite3",
+            self.authenticator,
+            destination=paths.shared_skills_path,
+        )
+        self.promoter = GenerationPromoter(self.store, paths.shared_skills_path, self.authenticator)
 
     def _store_object(self, data: bytes, media_type: str) -> tuple[str, Path]:
         digest = sha256_bytes(data)
@@ -174,7 +183,7 @@ class SkillGovernanceControlPlane:
         self.store.transition(
             proposal_id, ProposalState.INGESTED, ProposalState.VALIDATING, actor="validator"
         )
-        shared = self.paths.skills_root / "shared"
+        shared = self.paths.shared_skills_path
         baseline = shared / proposal["skill_name"] if shared.exists() else None
         baseline_digest = None
         baseline_generation = None
@@ -330,7 +339,7 @@ class SkillGovernanceControlPlane:
                 updates={"validation_json": json.dumps(result.as_dict(), sort_keys=True)},
             )
             raise ValueError("hub recommendation failed governance validation")
-        shared = self.paths.skills_root / "shared"
+        shared = self.paths.shared_skills_path
         active_generation = (
             (shared.parent / os.readlink(shared)).resolve().name if shared.is_symlink() else None
         )
@@ -392,7 +401,7 @@ class SkillGovernanceControlPlane:
             "enabled": False,
             "deployment_state": "implementation-only",
             "state_root": str(self.paths.state_root),
-            "shared_path": str(self.paths.skills_root / "shared"),
+            "shared_path": str(self.paths.shared_skills_path),
             **self.store.status(),
         }
 
@@ -401,5 +410,7 @@ def default_paths() -> GovernancePaths:
     home = Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser()
     root = home.parent.parent if home.parent.name == "profiles" else home
     return GovernancePaths(
-        root / ".agency" / "skill-governance", root / "profiles", root / "skills"
+        root / ".agency" / "skill-governance",
+        root / "profiles",
+        root / "skills" / "shared",
     )

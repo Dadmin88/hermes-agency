@@ -15,6 +15,7 @@ import {
   modelSetDefinitionSchema,
   type ModelDepartmentOverrideInput,
   type ModelPricingItem,
+  type ReasoningEffort,
   type ModelSetDefinition,
   type ModelSetDefinitionPatch,
 } from "@hermes-fabric/shared";
@@ -34,7 +35,7 @@ import YAML from "yaml";
 
 type PackagedModelSetMap = Map<string, ModelSetRecord>;
 
-type ModelResolution = {
+export type ModelResolution = {
   provider: string;
   model: string;
   source:
@@ -47,6 +48,7 @@ type ModelResolution = {
   setName: string | null;
   family: string | null;
   reason: string | null;
+  reasoningEffort: ReasoningEffort | null;
 };
 
 type ModelSetRecord = {
@@ -81,7 +83,7 @@ function normalizeApplyModelSetInput(
 }
 
 type ProfileConfigApplySummary = {
-  updated: Array<{ profile: string; provider: string; model: string }>;
+  updated: Array<{ profile: string; provider: string; model: string; reasoningEffort: string | null }>;
   unchanged: string[];
   skipped: Array<{ profile: string; reason: string }>;
   errors: Array<{ profile: string; error: string }>;
@@ -226,30 +228,42 @@ function splitProviderModel(modelId: string): { provider: string; model: string 
   };
 }
 
+function toReasoningEffort(value: unknown): ReasoningEffort | null {
+  return value === "none" || value === "minimal" || value === "low" || value === "medium" ||
+    value === "high" || value === "xhigh" || value === "max" || value === "ultra"
+    ? value
+    : null;
+}
+
+function adapterReasoningEffort(adapterConfig: Record<string, unknown>): ReasoningEffort | null {
+  return toReasoningEffort(
+    adapterConfig.modelReasoningEffort ?? adapterConfig.reasoningEffort ??
+      adapterConfig.effort ?? adapterConfig.reasoning_effort,
+  );
+}
+
 function buildResolvedAdapterConfig(
   adapterType: string,
   adapterConfig: Record<string, unknown>,
   provider: string,
   model: string,
+  reasoningEffort: ReasoningEffort | null,
 ): Record<string, unknown> {
-  if (adapterType === "opencode_local" || adapterType === "pi_local") {
-    return {
-      ...adapterConfig,
-      model: `${provider}/${model}`,
-    };
+  const next = (() => {
+    if (adapterType === "opencode_local" || adapterType === "pi_local") {
+      return { ...adapterConfig, model: `${provider}/${model}` };
+    }
+    return { ...adapterConfig, provider, model };
+  })();
+  if (!reasoningEffort) return next;
+  if (adapterType === "codex_local") return { ...next, modelReasoningEffort: reasoningEffort };
+  if (adapterType === "grok_local") return { ...next, reasoningEffort };
+  if (adapterType === "acpx_local") {
+    return adapterConfig.acpxAgent === "claude"
+      ? { ...next, effort: reasoningEffort }
+      : { ...next, modelReasoningEffort: reasoningEffort };
   }
-  if (adapterType === "hermes_local" || adapterType === "hermes_gateway") {
-    return {
-      ...adapterConfig,
-      provider,
-      model,
-    };
-  }
-  return {
-    ...adapterConfig,
-    provider,
-    model,
-  };
+  return { ...next, reasoningEffort };
 }
 
 async function getInstanceSettingsRow(db: SettingsDb) {
@@ -312,29 +326,29 @@ export function modelSetService(db: Db) {
 
   async function getModelSetRecord(companyId: string, name: string): Promise<ModelSetRecord> {
     const normalizedName = normalizeName(name);
-    const packaged = await loadPackagedModelSets();
-    const packagedRecord = packaged.get(normalizedName);
-    if (packagedRecord) return packagedRecord;
-
     const [row] = await db
       .select()
       .from(modelSets)
       .where(and(eq(modelSets.companyId, companyId), eq(modelSets.name, normalizedName)))
       .limit(1);
-    if (!row) {
-      throw notFound(`Model set "${normalizedName}" not found.`);
+    if (row) {
+      return {
+        id: row.id,
+        companyId: row.companyId,
+        name: row.name,
+        description: row.description,
+        source: row.source === "packaged" ? "packaged" : "custom",
+        definition: modelSetDefinitionSchema.parse(row.definition),
+        createdBy: row.createdBy,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      };
     }
-    return {
-      id: row.id,
-      companyId: row.companyId,
-      name: row.name,
-      description: row.description,
-      source: row.source === "packaged" ? "packaged" : "custom",
-      definition: modelSetDefinitionSchema.parse(row.definition),
-      createdBy: row.createdBy,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    };
+
+    const packaged = await loadPackagedModelSets();
+    const packagedRecord = packaged.get(normalizedName);
+    if (packagedRecord) return packagedRecord;
+    throw notFound(`Model set "${normalizedName}" not found.`);
   }
 
   async function getDepartmentOverrideMap(companyId: string) {
@@ -359,6 +373,11 @@ export function modelSetService(db: Db) {
     departmentOverrideMap: Map<string, typeof modelDepartmentOverrides.$inferSelect>,
     profileOverrideMap: Map<string, typeof modelProfileOverrides.$inferSelect>,
   ): ModelResolution {
+    const familyName = activeSet ? getFamilyForAgent(activeSet.definition, agent.name) : null;
+    const familyEffort = familyName
+      ? activeSet?.definition.families[familyName]?.reasoning_effort ?? null
+      : null;
+    const inheritedEffort = familyEffort ?? adapterReasoningEffort(asRecord(agent.adapterConfig));
     const profileOverride = profileOverrideMap.get(agent.id);
     if (profileOverride) {
       return {
@@ -368,6 +387,7 @@ export function modelSetService(db: Db) {
         setName: activeSet?.name ?? null,
         family: null,
         reason: profileOverride.reason ?? null,
+        reasoningEffort: toReasoningEffort(profileOverride.reasoningEffort) ?? inheritedEffort,
       };
     }
 
@@ -380,11 +400,11 @@ export function modelSetService(db: Db) {
         setName: activeSet?.name ?? null,
         family: null,
         reason: departmentOverride.reason ?? null,
+        reasoningEffort: toReasoningEffort(departmentOverride.reasoningEffort) ?? inheritedEffort,
       };
     }
 
     if (activeSet) {
-      const familyName = getFamilyForAgent(activeSet.definition, agent.name);
       if (familyName) {
         const family = activeSet.definition.families[familyName];
         if (family) {
@@ -399,6 +419,7 @@ export function modelSetService(db: Db) {
             setName: activeSet.name,
             family: familyName,
             reason: family.reason ?? null,
+            reasoningEffort: family.reasoning_effort ?? adapterReasoningEffort(asRecord(agent.adapterConfig)),
           };
         }
       }
@@ -415,6 +436,7 @@ export function modelSetService(db: Db) {
         setName: activeSet?.name ?? null,
         family: null,
         reason: null,
+        reasoningEffort: adapterReasoningEffort(currentConfig),
       };
     }
 
@@ -428,6 +450,7 @@ export function modelSetService(db: Db) {
           setName: activeSet?.name ?? null,
           family: null,
           reason: null,
+          reasoningEffort: adapterReasoningEffort(currentConfig),
         };
       }
     }
@@ -439,6 +462,7 @@ export function modelSetService(db: Db) {
       setName: activeSet?.name ?? null,
       family: null,
       reason: null,
+      reasoningEffort: adapterReasoningEffort(currentConfig),
     };
   }
 
@@ -471,7 +495,9 @@ export function modelSetService(db: Db) {
       const pricingByKey = new Map(
         pricingRows.map((row) => [`${row.provider}/${row.model}`, row] as const),
       );
-      const records = [...Array.from(packaged.values()), ...custom].sort((a, b) =>
+      const recordsByName = new Map(packaged);
+      for (const record of custom) recordsByName.set(record.name, record);
+      const records = Array.from(recordsByName.values()).sort((a, b) =>
         a.name.localeCompare(b.name),
       );
       const summaries = records.map((record) => {
@@ -481,6 +507,8 @@ export function modelSetService(db: Db) {
           historicalByKey,
           resolve: (agentRow) =>
             resolveAgentModelFromContext(agentRow, record, departmentOverrideMap, profileOverrideMap),
+          resolveInherited: (agentRow) =>
+            resolveAgentModelFromContext(agentRow, record, departmentOverrideMap, new Map()),
         });
         return {
           monthlyEstimateTotal,
@@ -524,6 +552,8 @@ export function modelSetService(db: Db) {
         historicalByKey,
         resolve: (agentRow) =>
           resolveAgentModelFromContext(agentRow, record, departmentOverrideMap, profileOverrideMap),
+        resolveInherited: (agentRow) =>
+          resolveAgentModelFromContext(agentRow, record, departmentOverrideMap, new Map()),
       });
       return {
         id: record.id,
@@ -597,17 +627,30 @@ export function modelSetService(db: Db) {
       const updated = await db.transaction(async (tx) => {
         const normalizedName = normalizeName(name);
         const packaged = await loadPackagedModelSets();
-        if (packaged.has(normalizedName)) {
-          throw unprocessable("Packaged model sets cannot be edited.");
-        }
-
-        const [row] = await tx
+        let [row] = await tx
           .select()
           .from(modelSets)
           .where(and(eq(modelSets.companyId, companyId), eq(modelSets.name, normalizedName)))
           .limit(1);
         if (!row) {
-          throw notFound(`Model set "${normalizedName}" not found.`);
+          const packagedRecord = packaged.get(normalizedName);
+          if (!packagedRecord) {
+            throw notFound(`Model set "${normalizedName}" not found.`);
+          }
+          const now = new Date();
+          [row] = await tx
+            .insert(modelSets)
+            .values({
+              companyId,
+              name: packagedRecord.name,
+              description: packagedRecord.description,
+              source: "custom",
+              definition: packagedRecord.definition,
+              createdBy: input.updatedBy ?? "system",
+              createdAt: now,
+              updatedAt: now,
+            })
+            .returning();
         }
 
         const record: ModelSetRecord = {
@@ -627,6 +670,9 @@ export function modelSetService(db: Db) {
           : record.definition;
         const nextName = normalizeName(nextDefinition.name);
         if (nextName !== record.name) {
+          if (packaged.has(nextName)) {
+            throw conflict(`Model set "${nextName}" already exists as a packaged model set.`);
+          }
           const duplicate = await tx
             .select({ id: modelSets.id })
             .from(modelSets)
@@ -714,8 +760,8 @@ export function modelSetService(db: Db) {
         agentId: string;
         agentName: string;
         adapterType: string;
-        before: { provider: string | null; model: string | null };
-        after: { provider: string; model: string };
+        before: { provider: string | null; model: string | null; reasoningEffort: ReasoningEffort | null };
+        after: { provider: string; model: string; reasoningEffort: ReasoningEffort | null };
         family: string | null;
         source: ModelResolution["source"];
       }>;
@@ -742,8 +788,8 @@ export function modelSetService(db: Db) {
           agentId: agentRow.id,
           agentName: agentRow.name,
           adapterType: agentRow.adapterType,
-          before: { provider: currentProvider, model: currentModelValue },
-          after: { provider: resolution.provider, model: resolution.model },
+          before: { provider: currentProvider, model: currentModelValue, reasoningEffort: adapterReasoningEffort(current) },
+          after: { provider: resolution.provider, model: resolution.model, reasoningEffort: resolution.reasoningEffort },
           family: resolution.family,
           source: resolution.source,
         });
@@ -778,6 +824,7 @@ export function modelSetService(db: Db) {
         adapterType: string;
         provider: string;
         model: string;
+        reasoningEffort: ReasoningEffort | null;
         source: ModelResolution["source"];
         profile: string | null;
       }> = [];
@@ -797,6 +844,7 @@ export function modelSetService(db: Db) {
           asRecord(agentRow.adapterConfig),
           resolution.provider,
           resolution.model,
+          resolution.reasoningEffort,
         );
         const changed = JSON.stringify(nextAdapterConfig) !== JSON.stringify(asRecord(agentRow.adapterConfig));
         if (changed) {
@@ -818,20 +866,13 @@ export function modelSetService(db: Db) {
           });
           continue;
         }
-        if (resolution.source === "profile_override") {
-          profileSummary.skipped.push({
-            profile: profileName,
-            reason: "profile_level_override",
-          });
-          continue;
-        }
-
         const writeResult = await writeModelToProfileConfig({
           profileName,
           provider: resolution.provider,
           model: resolution.model,
           modelSetName: record.name,
           family: resolution.family,
+          reasoningEffort: resolution.reasoningEffort,
         });
 
         if (writeResult.status === "updated") {
@@ -839,6 +880,7 @@ export function modelSetService(db: Db) {
             profile: writeResult.profile,
             provider: writeResult.provider,
             model: writeResult.model,
+            reasoningEffort: writeResult.reasoningEffort,
           });
         } else if (writeResult.status === "unchanged") {
           profileSummary.unchanged.push(writeResult.profile);
@@ -855,6 +897,7 @@ export function modelSetService(db: Db) {
             adapterType: agentRow.adapterType,
             provider: resolution.provider,
             model: resolution.model,
+            reasoningEffort: resolution.reasoningEffort,
             source: resolution.source,
             profile: profileName,
           });
@@ -907,6 +950,7 @@ export function modelSetService(db: Db) {
             department: override.department,
             provider: override.provider,
             model: override.model,
+            reasoningEffort: override.reasoningEffort ?? null,
             reason: override.reason ?? null,
             createdAt: now,
             updatedAt: now,
@@ -925,6 +969,7 @@ export function modelSetService(db: Db) {
           agentName: agents.name,
           provider: modelProfileOverrides.provider,
           model: modelProfileOverrides.model,
+          reasoningEffort: modelProfileOverrides.reasoningEffort,
           reason: modelProfileOverrides.reason,
           createdAt: modelProfileOverrides.createdAt,
           updatedAt: modelProfileOverrides.updatedAt,
@@ -939,7 +984,7 @@ export function modelSetService(db: Db) {
     upsertProfileOverride: async (
       companyId: string,
       agentId: string,
-      input: { provider: string; model: string; reason?: string | null },
+      input: { provider: string; model: string; reasoningEffort?: ReasoningEffort; reason?: string | null },
     ) => {
       const [agentRow] = await db
         .select({ id: agents.id, name: agents.name, companyId: agents.companyId })
@@ -957,6 +1002,7 @@ export function modelSetService(db: Db) {
           agentId,
           provider: input.provider,
           model: input.model,
+          reasoningEffort: input.reasoningEffort ?? null,
           reason: input.reason ?? null,
           createdAt: now,
           updatedAt: now,
@@ -966,6 +1012,7 @@ export function modelSetService(db: Db) {
           set: {
             provider: input.provider,
             model: input.model,
+            reasoningEffort: input.reasoningEffort ?? null,
             reason: input.reason ?? null,
             updatedAt: now,
           },
@@ -1090,6 +1137,8 @@ export function modelSetService(db: Db) {
         historicalByKey,
         resolve: (agentRow) =>
           resolveAgentModelFromContext(agentRow, activeSet, departmentOverrideMap, profileOverrideMap),
+        resolveInherited: (agentRow) =>
+          resolveAgentModelFromContext(agentRow, activeSet, departmentOverrideMap, new Map()),
       });
       return {
         companyId,

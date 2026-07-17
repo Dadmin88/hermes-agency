@@ -55,6 +55,10 @@ def registry_file(tmp_home):
     }
     path = tmp_home / "registry_definition.json"
     path.write_text(json.dumps(registry))
+    for agent in registry["agents"]:
+        profile = tmp_home / "profiles" / agent["name"]
+        profile.mkdir()
+        (profile / "config.yaml").write_text("skills: {}\n")
     return path
 
 
@@ -166,6 +170,65 @@ class TestBearerAuth:
         assert resp.status_code == 503
         assert resp.get_json()["error"] == "mutation authentication is not configured"
         wake.assert_not_called()
+
+    def test_shared_skill_pool_reads_and_mutates_require_authentication(self, app_client, tmp_home):
+        client, _ = app_client
+        shared = tmp_home / "skills" / "shared" / "reviewer"
+        shared.mkdir(parents=True)
+        (shared / "SKILL.md").write_text("---\nname: reviewer\n---\n# Reviewer\n")
+
+        denied_read = client.get("/pool/skills")
+        denied_write = client.put(
+            "/pool/agents/agency-backend-engineer/skills/shared-pool",
+            json={"enabled": True},
+        )
+        allowed = client.get("/pool/skills", headers={"Authorization": "Bearer test-secret-token"})
+
+        assert denied_read.status_code == 401
+        assert denied_write.status_code == 401
+        assert allowed.status_code == 200
+        assert allowed.get_json() == {"skills": [{"name": "reviewer", "source": "shared"}]}
+
+    def test_effective_skills_respect_explicit_shared_pool_and_local_precedence(
+        self, app_client, tmp_home
+    ):
+        client, _ = app_client
+        profile = tmp_home / "profiles" / "agency-backend-engineer"
+        local = profile / "skills" / "reviewer"
+        local.mkdir(parents=True)
+        (local / "SKILL.md").write_text("---\nname: reviewer\n---\n# Local Reviewer\n")
+        shared = tmp_home / "skills" / "shared" / "reviewer"
+        shared.mkdir(parents=True)
+        (shared / "SKILL.md").write_text("---\nname: reviewer\n---\n# Shared Reviewer\n")
+        other = tmp_home / "skills" / "shared" / "testing"
+        other.mkdir(parents=True)
+        (other / "SKILL.md").write_text("---\nname: testing\n---\n# Testing\n")
+        headers = {"Authorization": "Bearer test-secret-token"}
+
+        before = client.get("/pool/agents/agency-backend-engineer/skills", headers=headers)
+        enabled = client.put(
+            "/pool/agents/agency-backend-engineer/skills/shared-pool",
+            headers=headers,
+            json={"enabled": True},
+        )
+        disabled = client.put(
+            "/pool/agents/agency-backend-engineer/skills/shared-pool",
+            headers=headers,
+            json={"enabled": False},
+        )
+
+        assert before.status_code == 200
+        assert before.get_json()["sharedPoolEnabled"] is False
+        assert before.get_json()["skills"] == [{"name": "reviewer", "source": "local"}]
+        assert enabled.status_code == 200
+        assert enabled.get_json()["sharedPoolEnabled"] is True
+        assert enabled.get_json()["skills"] == [
+            {"name": "reviewer", "source": "local"},
+            {"name": "testing", "source": "shared"},
+        ]
+        assert disabled.status_code == 200
+        assert disabled.get_json()["sharedPoolEnabled"] is False
+        assert disabled.get_json()["skills"] == [{"name": "reviewer", "source": "local"}]
 
 
 def test_pool_cli_mutation_headers_follow_configured_token(monkeypatch):

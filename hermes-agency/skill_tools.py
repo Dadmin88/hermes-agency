@@ -94,7 +94,7 @@ def _service(context_profile: str | None = None) -> HubAcquisitionService:
     paths = GovernancePaths(
         cfg.state_path or defaults.state_root,
         defaults.profiles_root,
-        cfg.shared_skills_path.parent if cfg.shared_skills_path else defaults.skills_root,
+        cfg.shared_skills_path or defaults.shared_skills_path,
     )
     service = HubAcquisitionService(
         SkillGovernanceControlPlane(paths, max_pending_bytes=cfg.max_pending_bytes),
@@ -103,6 +103,7 @@ def _service(context_profile: str | None = None) -> HubAcquisitionService:
         enabled=cfg.hub_acquisition_enabled,
         max_results=cfg.hub_max_results,
         inspection_ttl_seconds=cfg.hub_inspection_ttl_seconds,
+        task_resolver=lambda: os.environ.get("HERMES_KANBAN_TASK"),
     )
     _SERVICES[str(profile.home)] = service
     return service

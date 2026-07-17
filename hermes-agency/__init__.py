@@ -39,16 +39,12 @@ if __package__:
             return
         if _skill_governance_manager is None:
             defaults = default_paths()
-            skills_root = (
-                governance.shared_skills_path.parent
-                if governance.shared_skills_path
-                else defaults.skills_root
-            )
+            shared_path = governance.shared_skills_path or defaults.shared_skills_path
             plane = SkillGovernanceControlPlane(
                 GovernancePaths(
                     governance.state_path or defaults.state_root,
                     defaults.profiles_root,
-                    skills_root,
+                    shared_path,
                 ),
                 max_pending_bytes=governance.max_pending_bytes,
             )

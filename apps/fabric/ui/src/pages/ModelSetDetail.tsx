@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "@/lib/router";
+import { Link, useLocation, useNavigate, useParams } from "@/lib/router";
 import { ArrowLeft, Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import type { ModelSetDefinition } from "@hermes-fabric/shared";
+import { agentsApi } from "@/api/agents";
 import { modelSetsApi } from "@/api/model-sets";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useToastActions } from "@/context/ToastContext";
 import {
   emptyModelSetDefinition,
-  MODEL_SET_PROVIDER_OPTIONS,
+  firstApprovedModel,
+  liveAgencyProfileOptions,
+  modelFamilyDefinition,
+  modelOptions,
+  providerOptions,
+  REASONING_EFFORT_OPTIONS,
+  unusedCanonicalFamilyKeys,
   validateModelSetDefinition,
 } from "@/lib/model-set-ui";
 import { queryKeys } from "@/lib/queryKeys";
@@ -18,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import {
   Select,
   SelectContent,
@@ -30,6 +38,7 @@ type FamilyRow = {
   key: string;
   provider: string;
   model: string;
+  reasoningEffort: string;
   reason: string;
 };
 
@@ -38,10 +47,37 @@ type ProfileRow = {
   family: string;
 };
 
+const KNOWN_DEFINITION_KEYS = new Set([
+  "version",
+  "name",
+  "description",
+  "defaults",
+  "families",
+  "profiles",
+  "escalation",
+  "budget",
+  "metadata",
+]);
+
+function parseJsonObject(value: string, label: string): { value: Record<string, unknown>; error: string | null } {
+  if (!value.trim()) return { value: {}, error: null };
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { value: {}, error: `${label} must be a JSON object.` };
+    }
+    return { value: parsed as Record<string, unknown>, error: null };
+  } catch {
+    return { value: {}, error: `${label} contains invalid JSON.` };
+  }
+}
+
 export function ModelSetDetail() {
   const { setName: routeSetName = "" } = useParams<{ setName: string }>();
   const isNew = routeSetName === "new";
   const decodedName = isNew ? "" : decodeURIComponent(routeSetName);
+  const location = useLocation();
+  const editRequested = new URLSearchParams(location.search).get("edit") === "1";
   const { selectedCompanyId } = useCompany();
   const companyId = selectedCompanyId ?? "";
   const navigate = useNavigate();
@@ -49,7 +85,7 @@ export function ModelSetDetail() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToastActions();
 
-  const [editing, setEditing] = useState(isNew);
+  const [editing, setEditing] = useState(isNew || editRequested);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [defaultFamily, setDefaultFamily] = useState("general_worker");
@@ -60,11 +96,27 @@ export function ModelSetDetail() {
   const [budgetInput, setBudgetInput] = useState("");
   const [budgetOutput, setBudgetOutput] = useState("");
   const [warnUnknownPricing, setWarnUnknownPricing] = useState(true);
+  const [versionInput, setVersionInput] = useState("1");
+  const [metadataJson, setMetadataJson] = useState("{}");
+  const [additionalSettingsJson, setAdditionalSettingsJson] = useState("{}");
+
+  useEffect(() => {
+    if (isNew || editRequested) setEditing(true);
+  }, [editRequested, isNew]);
 
   const { data: detail, isLoading, error } = useQuery({
     queryKey: queryKeys.modelSets.detail(companyId, decodedName),
     queryFn: () => modelSetsApi.getSet(companyId, decodedName),
     enabled: !!companyId && !isNew,
+  });
+  const {
+    data: agents = [],
+    isLoading: agentsLoading,
+    error: agentsError,
+  } = useQuery({
+    queryKey: queryKeys.agents.list(companyId),
+    queryFn: () => agentsApi.list(companyId),
+    enabled: !!companyId,
   });
 
   useEffect(() => {
@@ -97,6 +149,7 @@ export function ModelSetDetail() {
         key,
         provider: family.provider,
         model: family.model,
+        reasoningEffort: family.reasoning_effort ?? "",
         reason: family.reason ?? "",
       })),
     );
@@ -116,7 +169,19 @@ export function ModelSetDetail() {
         : "",
     );
     setWarnUnknownPricing(definition.budget?.warn_if_unknown_pricing !== false);
+    setVersionInput(String(definition.version ?? 1));
+    setMetadataJson(JSON.stringify(definition.metadata ?? {}, null, 2));
+    const additionalSettings = Object.fromEntries(
+      Object.entries(definition).filter(([key]) => !KNOWN_DEFINITION_KEYS.has(key)),
+    );
+    setAdditionalSettingsJson(JSON.stringify(additionalSettings, null, 2));
   }
+
+  const parsedMetadata = useMemo(() => parseJsonObject(metadataJson, "Metadata"), [metadataJson]);
+  const parsedAdditionalSettings = useMemo(
+    () => parseJsonObject(additionalSettingsJson, "Additional settings"),
+    [additionalSettingsJson],
+  );
 
   const definition = useMemo((): ModelSetDefinition => {
     const familyMap = Object.fromEntries(
@@ -124,11 +189,7 @@ export function ModelSetDetail() {
         .filter((row) => row.key.trim())
         .map((row) => [
           row.key.trim(),
-          {
-            provider: row.provider.trim(),
-            model: row.model.trim(),
-            reason: row.reason.trim() || undefined,
-          },
+          modelFamilyDefinition(row),
         ]),
     );
     const profileMap = Object.fromEntries(
@@ -147,7 +208,8 @@ export function ModelSetDetail() {
     };
 
     return {
-      version: 1,
+      ...parsedAdditionalSettings.value,
+      version: Number(versionInput),
       name: name.trim() || "custom-set",
       description: description.trim() || undefined,
       defaults: { family: defaultFamily.trim() || "general_worker" },
@@ -163,6 +225,7 @@ export function ModelSetDetail() {
         max_output_cost_per_1m: parseBudget(budgetOutput),
         warn_if_unknown_pricing: warnUnknownPricing,
       },
+      metadata: parsedMetadata.value,
     };
   }, [
     name,
@@ -175,9 +238,20 @@ export function ModelSetDetail() {
     budgetInput,
     budgetOutput,
     warnUnknownPricing,
+    versionInput,
+    parsedMetadata.value,
+    parsedAdditionalSettings.value,
   ]);
 
-  const validationErrors = useMemo(() => validateModelSetDefinition(definition), [definition]);
+  const validationErrors = useMemo(() => {
+    const errors = validateModelSetDefinition(definition);
+    if (!Number.isInteger(Number(versionInput)) || Number(versionInput) <= 0) {
+      errors.push("Version must be a positive whole number.");
+    }
+    if (parsedMetadata.error) errors.push(parsedMetadata.error);
+    if (parsedAdditionalSettings.error) errors.push(parsedAdditionalSettings.error);
+    return errors;
+  }, [definition, versionInput, parsedMetadata.error, parsedAdditionalSettings.error]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -197,10 +271,10 @@ export function ModelSetDetail() {
     },
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.list(companyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.modelSets.detail(companyId, saved.name) });
+      queryClient.setQueryData(queryKeys.modelSets.detail(companyId, saved.name), saved);
       pushToast({ title: "Model set saved", tone: "success" });
       setEditing(false);
-      if (isNew) {
+      if (isNew || saved.name !== decodedName) {
         navigate(`/settings/model-sets/${encodeURIComponent(saved.name)}`, { replace: true });
       }
     },
@@ -222,7 +296,22 @@ export function ModelSetDetail() {
   });
 
   const familyOptions = families.map((row) => row.key).filter(Boolean);
-  const readOnly = !editing || detail?.source === "packaged";
+  const addableFamilyKeys = unusedCanonicalFamilyKeys(familyOptions);
+  const selectedProfiles = profiles.map((row) => row.profile).filter(Boolean);
+  const readOnly = !editing;
+
+  function cancelEditing() {
+    if (isNew) {
+      navigate("/settings/model-sets");
+      return;
+    }
+    if (detail) {
+      setName(detail.name);
+      setDescription(detail.description ?? "");
+      hydrateFromDefinition(detail.definition);
+    }
+    setEditing(false);
+  }
 
   if (!companyId) {
     return <div className="p-6 text-sm text-muted-foreground">Select a company first.</div>;
@@ -277,15 +366,13 @@ export function ModelSetDetail() {
             </Button>
           ) : null}
           {readOnly ? (
-            detail?.source !== "packaged" ? (
-              <Button onClick={() => setEditing(true)}>
-                <Pencil className="mr-1 h-4 w-4" />
-                Edit
-              </Button>
-            ) : null
+            <Button onClick={() => setEditing(true)}>
+              <Pencil className="mr-1 h-4 w-4" />
+              Edit
+            </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => (isNew ? navigate("/settings/model-sets") : setEditing(false))}>
+              <Button variant="outline" onClick={cancelEditing}>
                 <X className="mr-1 h-4 w-4" />
                 Cancel
               </Button>
@@ -295,7 +382,7 @@ export function ModelSetDetail() {
                 ) : (
                   <Save className="mr-1 h-4 w-4" />
                 )}
-                Save
+                {detail?.source === "packaged" ? "Save company override" : "Save"}
               </Button>
             </>
           )}
@@ -307,6 +394,13 @@ export function ModelSetDetail() {
           {validationErrors.map((message) => (
             <div key={message}>{message}</div>
           ))}
+        </div>
+      ) : null}
+
+      {editing && detail?.source === "packaged" ? (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-muted-foreground">
+          Saving creates a company-scoped editable override. The packaged baseline remains unchanged and can be
+          restored by deleting the override.
         </div>
       ) : null}
 
@@ -389,59 +483,96 @@ export function ModelSetDetail() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Families</CardTitle>
           {!readOnly ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
+            <Select
+              onValueChange={(key) =>
                 setFamilies((rows) => [
                   ...rows,
-                  { key: `family_${rows.length + 1}`, provider: "opencode-go", model: "", reason: "" },
+                  { key, provider: "openai-codex", model: firstApprovedModel("openai-codex"), reasoningEffort: "", reason: "" },
                 ])
               }
+              disabled={addableFamilyKeys.length === 0}
             >
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              Add family
-            </Button>
+              <SelectTrigger className="w-52">
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                <SelectValue placeholder={addableFamilyKeys.length ? "Add family" : "All families added"} />
+              </SelectTrigger>
+              <SelectContent>
+                {addableFamilyKeys.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {key}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-2">
           {families.map((row, index) => (
-            <div key={`${row.key}-${index}`} className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-4">
-              <Input
-                value={row.key}
-                onChange={(e) =>
-                  setFamilies((rows) => rows.map((item, i) => (i === index ? { ...item, key: e.target.value } : item)))
-                }
-                disabled={readOnly}
-                placeholder="family_name"
-              />
+            <div key={`${row.key}-${index}`} className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-5">
+              <div className="flex min-h-10 items-center rounded-md bg-muted/50 px-3 font-mono text-xs" aria-label={`Family key ${row.key}`}>
+                {row.key}
+              </div>
               <Select
                 value={row.provider}
-                onValueChange={(value) =>
-                  setFamilies((rows) => rows.map((item, i) => (i === index ? { ...item, provider: value } : item)))
+                onValueChange={(provider) =>
+                  setFamilies((rows) =>
+                    rows.map((item, i) =>
+                      i === index
+                        ? { ...item, provider, model: modelOptions(provider, item.model).some((option) => !option.legacy && option.value === item.model) ? item.model : firstApprovedModel(provider) }
+                        : item,
+                    ),
+                  )
                 }
                 disabled={readOnly}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger aria-label={`Provider for ${row.key}`}>
+                  <SelectValue placeholder="Provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MODEL_SET_PROVIDER_OPTIONS.map((provider) => (
-                    <SelectItem key={provider} value={provider}>
-                      {provider}
+                  {providerOptions(row.provider).map((provider) => (
+                    <SelectItem key={provider.value} value={provider.value}>
+                      {provider.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Input
+              <Select
                 value={row.model}
-                onChange={(e) =>
-                  setFamilies((rows) => rows.map((item, i) => (i === index ? { ...item, model: e.target.value } : item)))
+                onValueChange={(model) =>
+                  setFamilies((rows) => rows.map((item, i) => (i === index ? { ...item, model } : item)))
                 }
                 disabled={readOnly}
-                placeholder="model"
-                className="font-mono text-xs"
-              />
+              >
+                <SelectTrigger aria-label={`Model for ${row.key}`}>
+                  <SelectValue placeholder="Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelOptions(row.provider, row.model).map((model) => (
+                    <SelectItem key={model.value} value={model.value}>
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={row.reasoningEffort || "inherit"}
+                onValueChange={(reasoningEffort) =>
+                  setFamilies((rows) => rows.map((item, i) => (i === index ? { ...item, reasoningEffort: reasoningEffort === "inherit" ? "" : reasoningEffort } : item)))
+                }
+                disabled={readOnly}
+              >
+                <SelectTrigger aria-label={`Reasoning effort for ${row.key}`}>
+                  <SelectValue placeholder="Reasoning effort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inherit">Inherit/default</SelectItem>
+                  {REASONING_EFFORT_OPTIONS.map((effort) => (
+                    <SelectItem key={effort} value={effort}>
+                      {effort}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex gap-2">
                 <Input
                   value={row.reason}
@@ -461,6 +592,9 @@ export function ModelSetDetail() {
                   </Button>
                 ) : null}
               </div>
+              {row.model === "gpt-5.6-luna" ? (
+                <p className="md:col-span-5 text-xs text-muted-foreground">Luna supports text, reasoning, and tools.</p>
+              ) : null}
             </div>
           ))}
         </CardContent>
@@ -470,7 +604,12 @@ export function ModelSetDetail() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Profile mappings</CardTitle>
           {!readOnly ? (
-            <Button size="sm" variant="outline" onClick={() => setProfiles((rows) => [...rows, { profile: "", family: defaultFamily }])}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setProfiles((rows) => [...rows, { profile: "", family: defaultFamily }])}
+              disabled={agentsLoading}
+            >
               <Plus className="mr-1 h-3.5 w-3.5" />
               Add mapping
             </Button>
@@ -478,17 +617,34 @@ export function ModelSetDetail() {
         </CardHeader>
         <CardContent className="space-y-2">
           {profiles.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No explicit profile mappings.</p>
+            <p className="text-sm text-muted-foreground">
+              {agentsLoading ? "Loading company profiles…" : "No explicit profile mappings."}
+            </p>
           ) : (
             profiles.map((row, index) => (
               <div key={`${row.profile}-${index}`} className="grid gap-2 md:grid-cols-[2fr_1fr_auto]">
-                <Input
+                <SearchableSelect
                   value={row.profile}
-                  onChange={(e) =>
-                    setProfiles((rows) => rows.map((item, i) => (i === index ? { ...item, profile: e.target.value } : item)))
+                  groups={[{
+                    id: "profiles",
+                    label: "Company Agency profiles",
+                    options: liveAgencyProfileOptions(agents, selectedProfiles, row.profile).map((option) => ({
+                      key: option.value,
+                      value: option.value,
+                      label: option.label,
+                      searchText: option.value,
+                    })),
+                  }]}
+                  onValueChange={(profile) =>
+                    setProfiles((rows) => rows.map((item, i) => (i === index ? { ...item, profile } : item)))
                   }
                   disabled={readOnly}
-                  placeholder="agency-profile-name"
+                  ariaLabel={`Profile mapping ${index + 1}`}
+                  loading={agentsLoading}
+                  placeholder="Select Agency profile"
+                  searchPlaceholder="Search Agency profiles…"
+                  loadingMessage="Loading company profiles…"
+                  emptyMessage={agentsError ? "Could not load company profiles." : "No available Agency profiles. Existing mappings remain available."}
                 />
                 <Select
                   value={row.family}
@@ -545,11 +701,11 @@ export function ModelSetDetail() {
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Max input cost / 1M</span>
-            <Input value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} disabled={readOnly} />
+            <Input type="number" min={0} step="any" value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} disabled={readOnly} />
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Max output cost / 1M</span>
-            <Input value={budgetOutput} onChange={(e) => setBudgetOutput(e.target.value)} disabled={readOnly} />
+            <Input type="number" min={0} step="any" value={budgetOutput} onChange={(e) => setBudgetOutput(e.target.value)} disabled={readOnly} />
           </label>
           <label className="flex items-center gap-2 text-sm md:col-span-2">
             <input
@@ -559,6 +715,48 @@ export function ModelSetDetail() {
               disabled={readOnly}
             />
             Warn when pricing is unknown
+          </label>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Advanced settings</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <label className="max-w-40 space-y-1 text-sm">
+            <span className="text-muted-foreground">Schema version</span>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={versionInput}
+              onChange={(event) => setVersionInput(event.target.value)}
+              disabled={readOnly}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Metadata (JSON)</span>
+            <Textarea
+              value={metadataJson}
+              onChange={(event) => setMetadataJson(event.target.value)}
+              disabled={readOnly}
+              rows={6}
+              className="font-mono text-xs"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Additional top-level settings (JSON)</span>
+            <Textarea
+              value={additionalSettingsJson}
+              onChange={(event) => setAdditionalSettingsJson(event.target.value)}
+              disabled={readOnly}
+              rows={12}
+              className="font-mono text-xs"
+            />
+            <span className="block text-xs text-muted-foreground">
+              Edit routing and other extension fields that are not represented above.
+            </span>
           </label>
         </CardContent>
       </Card>

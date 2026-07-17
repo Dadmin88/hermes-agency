@@ -248,7 +248,7 @@ export async function createApp(
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(userProfileRoutes(db));
-  api.use("/hermes-agency", hermesAgencyRoutes());
+  api.use("/hermes-agency", hermesAgencyRoutes({ db }));
   api.use(sidebarBadgeRoutes(db));
   api.use(sidebarPreferenceRoutes(db));
   api.use(resourceMembershipRoutes(db));
@@ -353,13 +353,17 @@ export async function createApp(
     ];
     const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
     if (uiDist) {
-      // Hashed asset files (Vite emits them under /assets/<name>.<hash>.<ext>)
-      // never change once built, so they can be cached aggressively.
+      // Revalidate core UI assets with ETags. Vite normally changes content-hashed
+      // filenames on every build, but release packaging can replace an asset under
+      // the same name. Revalidation prevents clients from retaining stale UI code.
       app.use(
         "/assets",
         express.static(path.join(uiDist, "assets"), {
-          maxAge: "1y",
-          immutable: true,
+          maxAge: 0,
+          immutable: false,
+          setHeaders(res) {
+            res.set("Cache-Control", "public, max-age=0, must-revalidate");
+          },
         }),
       );
       // Non-hashed static files (favicon.ico, manifest, robots.txt, etc.):

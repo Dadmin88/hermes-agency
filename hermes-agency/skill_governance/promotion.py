@@ -22,15 +22,15 @@ class GenerationPromoter:
     """Publish immutable generations; production must run this under a dedicated UID."""
 
     def __init__(
-        self, store: GovernanceStore, skills_root: Path, authenticator: PrincipalAuthenticator
+        self, store: GovernanceStore, shared_path: Path, authenticator: PrincipalAuthenticator
     ):
         self.store = store
         self.authenticator = authenticator
-        self.skills_root = skills_root
-        self.release_root = skills_root / ".agency-shared" / "releases"
-        self.manifest_root = skills_root / ".agency-shared" / "manifests"
-        self.shared_link = skills_root / "shared"
-        self.lock_path = skills_root / ".agency-shared" / "promotion.lock"
+        self.shared_link = shared_path.absolute()
+        self.skills_root = self.shared_link.parent
+        self.release_root = self.skills_root / ".agency-shared" / "releases"
+        self.manifest_root = self.skills_root / ".agency-shared" / "manifests"
+        self.lock_path = self.skills_root / ".agency-shared" / "promotion.lock"
 
     def _authority(self, authority: PromoterAuthority) -> str:
         if not self.authenticator.verify_promoter(authority):
@@ -55,11 +55,19 @@ class GenerationPromoter:
             raise RuntimeError("shared symlink escapes managed release root")
         return resolved.name, resolved
 
-    def _verify_generation(self, generation: Path) -> tuple[list[dict[str, Any]], str]:
+    def _verify_generation(
+        self, generation: Path, *, expected_manifest_digest: str | None = None
+    ) -> tuple[list[dict[str, Any]], str]:
         manifest_path = generation / "MANIFEST.json"
         if not manifest_path.is_file() or manifest_path.is_symlink():
             raise RuntimeError("generation manifest is missing")
-        envelope = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_bytes = manifest_path.read_bytes()
+        if (
+            expected_manifest_digest is not None
+            and hashlib.sha256(manifest_bytes).hexdigest() != expected_manifest_digest
+        ):
+            raise RuntimeError("generation manifest differs from the durable generation digest")
+        envelope = json.loads(manifest_bytes)
         files = envelope.get("files")
         if not isinstance(files, list):
             raise RuntimeError("generation manifest is invalid")
@@ -81,6 +89,15 @@ class GenerationPromoter:
         if files != actual or envelope.get("tree_digest") != digest:
             raise RuntimeError("generation manifest does not match immutable files")
         return actual, digest
+
+    def _generation_digest(self, generation_id: str) -> str:
+        with self.store.connect() as db:
+            row = db.execute(
+                "SELECT manifest_digest FROM generations WHERE generation_id=?", (generation_id,)
+            ).fetchone()
+        if not row:
+            raise RuntimeError("generation has no durable digest receipt")
+        return str(row[0])
 
     def promote(
         self, proposal_id: str, candidate_dir: Path, *, authority: PromoterAuthority
@@ -115,7 +132,9 @@ class GenerationPromoter:
         active_id, active = self._active_generation()
         baseline_digest = None
         if active is not None:
-            self._verify_generation(active)
+            self._verify_generation(
+                active, expected_manifest_digest=self._generation_digest(active_id)
+            )
             active_skill = active / proposal["skill_name"]
             if active_skill.is_dir() and not active_skill.is_symlink():
                 _, baseline_digest = tree_manifest(active_skill)
@@ -204,6 +223,24 @@ class GenerationPromoter:
                 json.dumps(envelope, sort_keys=True, indent=2) + "\n", encoding="utf-8"
             )
             fsync_tree(temp_path)
+            manifest_bytes = (temp_path / "MANIFEST.json").read_bytes()
+            manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
+            # Persist the release receipt before publication. Reconciliation can
+            # therefore authenticate a release even if the process dies between
+            # the final rename and pointer commit.
+            with self.store.transaction() as db:
+                db.execute(
+                    "INSERT INTO generations VALUES (?,?,?,?,?,?,?)",
+                    (
+                        generation_id,
+                        manifest_digest,
+                        active_id,
+                        "prepared",
+                        proposal_id,
+                        utc_now(),
+                        None,
+                    ),
+                )
             final_path = self.release_root / generation_id
             os.replace(temp_path, final_path)
             for path in sorted(final_path.rglob("*"), reverse=True):
@@ -217,8 +254,6 @@ class GenerationPromoter:
                 os.fsync(parent_fd)
             finally:
                 os.close(parent_fd)
-            manifest_bytes = (final_path / "MANIFEST.json").read_bytes()
-            manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
             with self.store.transaction() as db:
                 now = utc_now()
                 if active_id:
@@ -227,16 +262,8 @@ class GenerationPromoter:
                         (active_id,),
                     )
                 db.execute(
-                    "INSERT INTO generations VALUES (?,?,?,?,?,?,?)",
-                    (
-                        generation_id,
-                        manifest_digest,
-                        active_id,
-                        "published",
-                        proposal_id,
-                        now,
-                        None,
-                    ),
+                    "UPDATE generations SET status='published' WHERE generation_id=?",
+                    (generation_id,),
                 )
                 db.execute(
                     "UPDATE promotion_jobs SET state='promoted', updated_at=? WHERE idempotency_key=?",
@@ -299,13 +326,14 @@ class GenerationPromoter:
         actor: str,
     ) -> dict[str, Any]:
         final_path = self.release_root / generation_id
-        self._verify_generation(final_path)
+        expected_digest = self._generation_digest(generation_id)
+        self._verify_generation(final_path, expected_manifest_digest=expected_digest)
         envelope = json.loads((final_path / "MANIFEST.json").read_text(encoding="utf-8"))
         recorded_predecessor = envelope.get("predecessor")
         if predecessor is not None and recorded_predecessor != predecessor:
             raise RuntimeError("published generation predecessor does not match promotion intent")
         predecessor = recorded_predecessor
-        manifest_digest = hashlib.sha256((final_path / "MANIFEST.json").read_bytes()).hexdigest()
+        manifest_digest = expected_digest
         now = utc_now()
         with self.store.transaction() as db:
             if predecessor:
@@ -313,8 +341,8 @@ class GenerationPromoter:
                     "UPDATE generations SET status='retired' WHERE generation_id=?", (predecessor,)
                 )
             db.execute(
-                "INSERT OR REPLACE INTO generations VALUES (?,?,?,?,?,?,?)",
-                (generation_id, manifest_digest, predecessor, "published", proposal_id, now, None),
+                "UPDATE generations SET predecessor=?,status='published' WHERE generation_id=?",
+                (predecessor, generation_id),
             )
             db.execute(
                 "UPDATE promotion_jobs SET state='promoted',updated_at=?,last_error=NULL WHERE idempotency_key=?",
@@ -348,20 +376,56 @@ class GenerationPromoter:
         actor = self._authority(authority)
         handle = self._locked()
         try:
-            active_id, _active = self._active_generation()
-            if not active_id:
-                return []
             with self.store.connect() as db:
                 rows = db.execute(
-                    "SELECT * FROM promotion_jobs WHERE target_generation=? AND state!='promoted'",
-                    (active_id,),
+                    "SELECT * FROM promotion_jobs WHERE state!='promoted' ORDER BY created_at",
                 ).fetchall()
             repaired = []
             for row in rows:
+                generation_id = row["target_generation"]
+                final_path = self.release_root / generation_id
+                if not final_path.is_dir() or final_path.is_symlink():
+                    with self.store.transaction() as db:
+                        db.execute(
+                            "UPDATE promotion_jobs SET state='failed',last_error=?,updated_at=? WHERE job_id=?",
+                            ("release absent during reconciliation", utc_now(), row["job_id"]),
+                        )
+                        db.execute(
+                            "DELETE FROM generations WHERE generation_id=? AND status='prepared'",
+                            (generation_id,),
+                        )
+                    continue
+                self._verify_generation(
+                    final_path,
+                    expected_manifest_digest=self._generation_digest(generation_id),
+                )
+                envelope = json.loads((final_path / "MANIFEST.json").read_text(encoding="utf-8"))
+                predecessor = envelope.get("predecessor")
+                active_id, _active = self._active_generation()
+                if active_id != generation_id:
+                    if active_id != predecessor:
+                        raise RuntimeError(
+                            "cannot reconcile release over a changed active generation"
+                        )
+                    pointer = self.skills_root / f".shared-{uuid.uuid4().hex}.tmp"
+                    pointer.symlink_to(final_path.relative_to(self.skills_root))
+                    os.replace(pointer, self.shared_link)
+                    parent_fd = os.open(self.skills_root, os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        os.fsync(parent_fd)
+                    finally:
+                        os.close(parent_fd)
                 self._finalize_published_job(
-                    row["proposal_id"], row["idempotency_key"], active_id, None, actor=actor
+                    row["proposal_id"],
+                    row["idempotency_key"],
+                    generation_id,
+                    predecessor,
+                    actor=actor,
                 )
                 repaired.append(row["job_id"])
+            for temp in self.release_root.glob(".tmp-*"):
+                if temp.is_dir() and not temp.is_symlink():
+                    shutil.rmtree(temp)
             return repaired
         finally:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
@@ -394,7 +458,9 @@ class GenerationPromoter:
         if active is None or active_id == generation_id:
             raise ValueError("rollback target must differ from active generation")
         target = self.release_root / generation_id
-        _files, tree_digest = self._verify_generation(target)
+        _files, tree_digest = self._verify_generation(
+            target, expected_manifest_digest=self._generation_digest(generation_id)
+        )
         pointer = self.skills_root / f".shared-{uuid.uuid4().hex}.tmp"
         pointer.symlink_to(target.relative_to(self.skills_root))
         os.replace(pointer, self.shared_link)

@@ -107,3 +107,45 @@ def test_required_target_metadata_validates_every_family(monkeypatch, tmp_path):
         "Family coding_worker violates required model policy" in error
         for error in validation.errors
     )
+
+
+def test_reasoning_effort_parses_resolves_summarizes_and_validates(monkeypatch, tmp_path):
+    model_sets, _ = _load_canonical_set(monkeypatch, tmp_path)
+    preset_dir = tmp_path / "model_sets"
+    preset_dir.mkdir()
+    (preset_dir / "reasoning.yaml").write_text(
+        """version: 1
+name: reasoning
+defaults:
+  family: explicit
+families:
+  explicit:
+    provider: openai-codex
+    model: gpt-5.6-terra
+    reasoning_effort: HIGH
+  inherit:
+    provider: openai-codex
+    model: gpt-5.6-luna
+    reasoning_effort: inherit
+  invalid:
+    provider: openai-codex
+    model: gpt-5.6-sol
+    reasoning_effort: extreme
+profiles:
+  agency-orchestrator: explicit
+  agency-copywriter: inherit
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HERMES_AGENCY_MODEL_SETS_DIR", str(preset_dir))
+
+    model_set = model_sets.load_model_set("reasoning")
+    resolved = model_sets.resolve_profile_model("agency-orchestrator", model_set)
+    inherited = model_sets.resolve_profile_model("agency-copywriter", model_set)
+    validation = model_sets.validate_model_set(model_set)
+    summary = model_sets.model_set_summary(model_set)
+
+    assert resolved.reasoning_effort == "high"
+    assert inherited.reasoning_effort is None
+    assert summary["families"]["explicit"]["reasoning_effort"] == "high"
+    assert any("invalid reasoning_effort 'extreme'" in error for error in validation.errors)

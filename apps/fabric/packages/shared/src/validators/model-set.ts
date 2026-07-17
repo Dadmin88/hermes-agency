@@ -2,10 +2,15 @@ import { z } from "zod";
 
 export const MODEL_SET_SOURCES = ["custom", "packaged"] as const;
 export const MODEL_PRICING_TYPES = ["api", "subscription", "local", "manual"] as const;
+export const REASONING_EFFORTS = [
+  "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
+] as const;
+export const reasoningEffortSchema = z.enum(REASONING_EFFORTS);
 
 export const modelFamilySchema = z.object({
   provider: z.string().trim().min(1).max(120),
   model: z.string().trim().min(1).max(240),
+  reasoning_effort: reasoningEffortSchema.optional(),
   reason: z.string().trim().min(1).max(500).optional(),
 });
 
@@ -32,7 +37,7 @@ export const modelSetDefinitionSchema = z.object({
   escalation: modelEscalationSchema.optional(),
   budget: modelBudgetSchema.optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-});
+}).passthrough();
 
 export const modelSetDefinitionPatchSchema = z.object({
   version: z.number().int().positive().optional(),
@@ -46,7 +51,7 @@ export const modelSetDefinitionPatchSchema = z.object({
   escalation: modelEscalationSchema.optional(),
   budget: modelBudgetSchema.optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-});
+}).passthrough();
 
 export const modelSetCompanyQuerySchema = z.object({
   companyId: z.string().uuid(),
@@ -76,6 +81,7 @@ export const modelDepartmentOverrideSchema = z.object({
   department: z.string().trim().min(1).max(120),
   provider: z.string().trim().min(1).max(120),
   model: z.string().trim().min(1).max(240),
+  reasoningEffort: reasoningEffortSchema.optional(),
   reason: z.string().trim().min(1).max(500).nullable().optional(),
 });
 
@@ -88,6 +94,7 @@ export const upsertProfileOverrideSchema = z.object({
   companyId: z.string().uuid(),
   provider: z.string().trim().min(1).max(120),
   model: z.string().trim().min(1).max(240),
+  reasoningEffort: reasoningEffortSchema.optional(),
   reason: z.string().trim().min(1).max(500).nullable().optional(),
 });
 
@@ -109,6 +116,7 @@ export const putModelPricingSchema = z.object({
 });
 
 export type ModelFamily = z.infer<typeof modelFamilySchema>;
+export type ReasoningEffort = z.infer<typeof reasoningEffortSchema>;
 export type ModelBudget = z.infer<typeof modelBudgetSchema>;
 export type ModelEscalation = z.infer<typeof modelEscalationSchema>;
 export type ModelSetDefinition = z.infer<typeof modelSetDefinitionSchema>;

@@ -97,6 +97,11 @@ def render_target_model(resolved: ResolvedProfileModel) -> dict[str, str]:
     return {"provider": resolved.provider, "default": resolved.model}
 
 
+def _model_target_label(resolved: ResolvedProfileModel) -> str:
+    reasoning = resolved.reasoning_effort or "inherit"
+    return f"{resolved.provider}/{resolved.model} (reasoning_effort={reasoning})"
+
+
 def profile_plan(
     profile: str, model_set: ModelSet, *, base: Path | None = None
 ) -> ProfileWriteResult:
@@ -104,7 +109,7 @@ def profile_plan(
     config_path = root / profile / "config.yaml"
     resolved = resolve_profile_model(profile, model_set)
     target_model = render_target_model(resolved)
-    target_label = f"{resolved.provider}/{resolved.model}"
+    target_label = _model_target_label(resolved)
     current_label = None
     status = "missing"
     message = "Installed profile config.yaml was not found"
@@ -113,15 +118,26 @@ def profile_plan(
         current = data.get("model") if isinstance(data.get("model"), dict) else {}
         current_provider = current.get("provider") if isinstance(current, dict) else None
         current_model = current.get("default") if isinstance(current, dict) else None
-        current_label = (
-            f"{current_provider}/{current_model}" if current_provider or current_model else None
+        agent = data.get("agent") if isinstance(data.get("agent"), dict) else {}
+        current_reasoning = agent.get("reasoning_effort") if isinstance(agent, dict) else None
+        if current_provider or current_model:
+            current_label = f"{current_provider}/{current_model}"
+            if current_reasoning is not None:
+                current_label += f" (reasoning_effort={current_reasoning})"
+        model_matches = (
+            current_provider == target_model["provider"]
+            and current_model == target_model["default"]
         )
-        model_matches = current == target_model
-        status = "unchanged" if model_matches else "drift"
+        reasoning_matches = (
+            resolved.reasoning_effort is None or current_reasoning == resolved.reasoning_effort
+        )
+        status = "unchanged" if model_matches and reasoning_matches else "drift"
         if status == "unchanged":
-            message = "Already matches target model"
+            message = "Already matches target model and reasoning policy"
+            if resolved.reasoning_effort is None and current_reasoning is not None:
+                message += "; inherited reasoning_effort is preserved"
         else:
-            message = "Model block differs from target"
+            message = "Model or explicit reasoning_effort differs from target"
     return ProfileWriteResult(
         profile=profile,
         config_path=str(config_path),
@@ -189,7 +205,20 @@ def apply_model_set(
                 json.dumps(meta, indent=2), encoding="utf-8"
             )
         resolved = resolve_profile_model(profile, model_set)
-        data["model"] = render_target_model(resolved)
+        model = data.setdefault("model", {})
+        if not isinstance(model, dict):
+            model = {}
+            data["model"] = model
+        model.update(render_target_model(resolved))
+        # An omitted/inherited preset effort deliberately leaves the entire
+        # agent section untouched. Existing values may be locally managed, and
+        # profiles without an agent section should not gain an empty mapping.
+        if resolved.reasoning_effort is not None:
+            agent = data.setdefault("agent", {})
+            if not isinstance(agent, dict):
+                agent = {}
+                data["agent"] = agent
+            agent["reasoning_effort"] = resolved.reasoning_effort
         agency = data.setdefault("agency", {})
         if not isinstance(agency, dict):
             agency = {}
@@ -216,7 +245,11 @@ def apply_model_set(
                 current=planned.current,
                 target=planned.target,
                 backup_path=str(backup_path) if backup_path else None,
-                message="Updated model block only",
+                message=(
+                    "Updated model and agent.reasoning_effort"
+                    if resolved.reasoning_effort is not None
+                    else "Updated model; preserved inherited agent.reasoning_effort"
+                ),
                 warnings=planned.warnings,
             )
         )
