@@ -47,6 +47,7 @@ import {
 import { issueRoutes } from "../routes/issues.ts";
 import { errorHandler } from "../middleware/error-handler.ts";
 import { issueService } from "../services/issues.ts";
+import { subscribeCompanyLiveEvents } from "../services/live-events.ts";
 import {
   hermesKanbanReverseSyncService,
   resolveHermesKanbanBoard,
@@ -83,13 +84,13 @@ describe("resolveHermesKanbanDbPath", () => {
 });
 
 describe("resolveHermesKanbanBoard", () => {
-  it("prefers the Fabric-scoped board and falls back to the Hermes board", () => {
+  it("uses only the explicit Fabric-scoped board", () => {
     expect(resolveHermesKanbanBoard({
       FABRIC_HERMES_KANBAN_BOARD: "fabric-board",
       HERMES_KANBAN_BOARD: "ambient-board",
     })).toBe("fabric-board");
     expect(resolveHermesKanbanBoard({ HERMES_KANBAN_BOARD: "ambient-board" }))
-      .toBe("ambient-board");
+      .toBeNull();
   });
 });
 
@@ -289,6 +290,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
   let previousDbEnv: string | undefined;
   let previousCompanyEnv: string | undefined;
+  let previousBoardEnv: string | undefined;
   let previousLegacyCompanyEnv: string | undefined;
   let previousIncludeDetailsEnv: string | undefined;
   let previousRosterPathEnv: string | undefined;
@@ -304,6 +306,8 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
   beforeEach(() => {
     previousDbEnv = process.env.FABRIC_HERMES_KANBAN_DB;
     previousCompanyEnv = process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
+    previousBoardEnv = process.env.FABRIC_HERMES_KANBAN_BOARD;
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "orchestrator";
     previousLegacyCompanyEnv = process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID;
     previousIncludeDetailsEnv = process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
     previousRosterPathEnv = process.env.HERMES_AGENCY_ROSTER_PATH;
@@ -314,6 +318,8 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     else process.env.FABRIC_HERMES_KANBAN_DB = previousDbEnv;
     if (previousCompanyEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_COMPANY_ID;
     else process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = previousCompanyEnv;
+    if (previousBoardEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_BOARD;
+    else process.env.FABRIC_HERMES_KANBAN_BOARD = previousBoardEnv;
     if (previousLegacyCompanyEnv === undefined) delete process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID;
     else process.env.HERMES_FABRIC_HERMES_KANBAN_COMPANY_ID = previousLegacyCompanyEnv;
     if (previousIncludeDetailsEnv === undefined) delete process.env.FABRIC_HERMES_KANBAN_INCLUDE_DETAILS;
@@ -1169,6 +1175,62 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(issueList.map((issue) => issue.title)).not.toContain("Task removed from Hermes");
   });
 
+  it("replaces a legacy/default board projection with the explicitly bound orchestrator source", async () => {
+    const companyId = await seedCompany();
+    const legacy = seedKanbanDb({
+      tasks: [{ id: "t_legacy_default", title: "Legacy default task", status: "todo", priority: 20, createdAt: 1_782_827_060 }],
+    });
+    const canonical = seedKanbanDb({
+      tasks: [{ id: "t_1a1250bb", title: "Canonical orchestrator task", status: "running", priority: 100, createdAt: 1_782_827_120 }],
+    });
+    tempDirs.push(legacy.dir, canonical.dir);
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "default";
+    process.env.FABRIC_HERMES_KANBAN_DB = legacy.dbPath;
+    expect((await syncHermesKanbanIssues(db, companyId)).status).toBe("ok");
+
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "orchestrator";
+    process.env.FABRIC_HERMES_KANBAN_DB = canonical.dbPath;
+    const canonicalEvents: unknown[] = [];
+    const unrelatedEvents: unknown[] = [];
+    const unsubscribeCanonical = subscribeCompanyLiveEvents(companyId, (event) => canonicalEvents.push(event));
+    const unsubscribeUnrelated = subscribeCompanyLiveEvents(randomUUID(), (event) => unrelatedEvents.push(event));
+    try {
+      const sync = await syncHermesKanbanIssues(db, companyId);
+      expect(sync).toMatchObject({ status: "ok", board: "orchestrator", projectedCount: 1 });
+    } finally {
+      unsubscribeCanonical();
+      unsubscribeUnrelated();
+    }
+
+    const projectedRows = await db.select({
+      originId: issues.originId,
+      hiddenAt: issues.hiddenAt,
+      originFingerprint: issues.originFingerprint,
+      executionState: issues.executionState,
+    }).from(issues).where(and(
+      eq(issues.companyId, companyId),
+      eq(issues.originKind, HERMES_KANBAN_TASK_ORIGIN_KIND),
+    ));
+    expect(projectedRows.find((row) => row.originId === "t_legacy_default")?.hiddenAt).not.toBeNull();
+    const canonicalRow = projectedRows.find((row) => row.originId === "t_1a1250bb");
+    expect(canonicalRow?.hiddenAt).toBeNull();
+    expect(canonicalRow?.originFingerprint).toBe("hermes-kanban:orchestrator:t_1a1250bb");
+    expect(canonicalRow?.executionState).toMatchObject({
+      hermesKanbanProjection: {
+        source: { board: "orchestrator", dbPath: canonical.dbPath, companyId },
+      },
+    });
+    expect(canonicalEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        companyId,
+        type: "issue.projection.updated",
+        payload: expect.objectContaining({ board: "orchestrator" }),
+      }),
+    ]));
+    expect(unrelatedEvents).toHaveLength(0);
+  });
+
   it("does not project Hermes tasks into an unrelated company when scope is pinned", async () => {
     const allowedCompanyId = await seedCompany("Allowed");
     const unrelatedCompanyId = await seedCompany("Unrelated");
@@ -1216,6 +1278,37 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     const unrelatedIssueList = await svc.list(unrelatedCompanyId, { includeRoutineExecutions: true });
     expect(unrelatedIssueList.map((issue) => issue.title)).toContain("Existing unrelated native issue");
     expect(unrelatedIssueList.map((issue) => issue.title)).not.toContain("Scoped task");
+  });
+
+  it("rejects unauthenticated and cross-company API reads before projection refresh", async () => {
+    const companyId = await seedCompany("Projected");
+    const otherCompanyId = await seedCompany("Other");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{ id: "t_authorized_only", title: "Authorized only", status: "running", priority: 50, createdAt: 1_782_827_060 }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, nextMiddleware) => {
+      const mode = req.header("x-test-actor");
+      (req as any).actor = mode === "cross-company"
+        ? { type: "agent", agentId: randomUUID(), companyId: otherCompanyId, source: "api_key" }
+        : { type: "none", source: "none" };
+      nextMiddleware();
+    });
+    app.use("/api", issueRoutes(db, {} as any));
+    app.use(errorHandler);
+
+    const unauthenticated = await request(app).get(`/api/companies/${companyId}/issues`);
+    const crossCompany = await request(app)
+      .get(`/api/companies/${companyId}/issues`)
+      .set("x-test-actor", "cross-company");
+    expect(unauthenticated.status).toBe(401);
+    expect(crossCompany.status).toBe(403);
+    expect(await db.select().from(issues).where(eq(issues.originId, "t_authorized_only"))).toHaveLength(0);
   });
 
   it("reports unavailable and leaves native issues alone without explicit projection scope", async () => {
@@ -1620,10 +1713,48 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(commandRunner).toHaveBeenCalledWith(expect.objectContaining({
       taskId: "t_reverse_assignee",
       patch: { assignee: "agency-backend-engineer" },
-      expectedOriginFingerprint: "hermes-kanban:t_reverse_assignee",
+      expectedOriginFingerprint: "hermes-kanban:orchestrator:t_reverse_assignee",
     }));
     const refreshed = await projectedIssueRow("t_reverse_assignee");
     expect(JSON.stringify(refreshed.executionState)).toContain("fabric_manual_override");
+  });
+
+  it("rejects reverse sync when runtime configuration no longer matches the projected board binding", async () => {
+    const companyId = await seedCompany();
+    const firstAgentId = await seedAgent(companyId, "agency-frontend-engineer");
+    const secondAgentId = await seedAgent(companyId, "agency-backend-engineer");
+    const { dir, dbPath } = seedKanbanDb({
+      tasks: [{
+        id: "t_reverse_binding",
+        title: "Reverse binding",
+        status: "todo",
+        priority: 50,
+        assignee: "agency-frontend-engineer",
+        createdAt: 1_782_827_060,
+      }],
+    });
+    tempDirs.push(dir);
+    process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
+    process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "orchestrator";
+    expect((await syncHermesKanbanIssues(db, companyId)).status).toBe("ok");
+    const previous = await projectedIssueRow("t_reverse_binding");
+    expect(previous.assigneeAgentId).toBe(firstAgentId);
+    const [next] = await db.update(issues)
+      .set({ assigneeAgentId: secondAgentId })
+      .where(eq(issues.id, previous.id))
+      .returning();
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "default";
+    const commandRunner = vi.fn(async () => ({ ok: true }));
+    const result = await hermesKanbanReverseSyncService(db, { commandRunner })
+      .syncCommittedIssueUpdate({
+        previous,
+        next: next!,
+        actor: { actorType: "user", actorId: "operator" },
+      });
+    expect(result.accepted).toBe(false);
+    expect(result.warning).toContain("source binding");
+    expect(commandRunner).not.toHaveBeenCalled();
   });
 
   it("does not silently reverse-sync reassignment of a running Hermes task", async () => {
@@ -1670,6 +1801,7 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     tempDirs.push(dir);
     process.env.FABRIC_HERMES_KANBAN_DB = dbPath;
     process.env.FABRIC_HERMES_KANBAN_COMPANY_ID = companyId;
+    process.env.FABRIC_HERMES_KANBAN_BOARD = "agency-quality";
     expect((await syncHermesKanbanIssues(db, companyId)).status).toBe("ok");
     const previous = await svc.getById((await projectedIssueRow("t_reverse_labels")).id);
     const [localLabel, syncedLabel] = await db.insert(labels).values([
@@ -1689,7 +1821,6 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     expect(localResult.attempted).toBe(false);
     expect(commandRunner).not.toHaveBeenCalled();
 
-    process.env.FABRIC_HERMES_KANBAN_BOARD = "agency-quality";
     const synced = await svc.update(previous!.id, {
       labelIds: [...local!.labelIds, syncedLabel!.id],
     });
@@ -1724,7 +1855,6 @@ describeEmbeddedPostgres("syncHermesKanbanIssues", () => {
     });
     expect(idempotentResult.attempted).toBe(false);
     expect(commandRunner).toHaveBeenCalledTimes(2);
-    delete process.env.FABRIC_HERMES_KANBAN_BOARD;
   });
 
   it("serializes project, reviewer, approver, and tightening policy metadata", async () => {

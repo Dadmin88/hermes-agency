@@ -53,6 +53,10 @@ import { createFeedbackTraceShareClientFromConfig } from "./services/feedback-sh
 import { buildRuntimeApiCandidateUrls, choosePrimaryRuntimeApiUrl } from "./runtime-api.js";
 import { createPluginWorkerManager } from "./services/plugin-worker-manager.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
+import {
+  createHermesKanbanProjectionSyncWorker,
+  logHermesKanbanProjectionStartupStatus,
+} from "./services/hermes-kanban-issues.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
 import { maybePersistWorktreeRuntimePorts } from "./worktree-config.js";
@@ -679,6 +683,9 @@ export async function startServer(): Promise<StartedServer> {
     pluginWorkerManager,
   });
   const server = createServer(app as unknown as Parameters<typeof createServer>[0]);
+  const hermesKanbanProjectionWorker = createHermesKanbanProjectionSyncWorker(db as any);
+  logHermesKanbanProjectionStartupStatus();
+  server.once("close", () => hermesKanbanProjectionWorker.stop());
 
   // Increase keep-alive timeouts to safely outlive default idle timeouts
   // of common reverse proxies and load balancers (like AWS ALB, Nginx, or Traefik).
@@ -998,6 +1005,7 @@ export async function startServer(): Promise<StartedServer> {
     server.listen(listenPort, config.host, () => {
       server.off("error", onError);
       logger.info(`Server listening on ${config.host}:${listenPort}`);
+      hermesKanbanProjectionWorker.start();
       if (fabricEnv("OPEN_ON_LISTEN") === "true") {
         const openHost = config.host === "0.0.0.0" || config.host === "::" ? "127.0.0.1" : config.host;
         const url = `http://${openHost}:${listenPort}`;
@@ -1059,6 +1067,7 @@ export async function startServer(): Promise<StartedServer> {
 
       const appShutdown = (app as { locals?: { fabricShutdown?: () => void } }).locals?.fabricShutdown;
       appShutdown?.();
+      hermesKanbanProjectionWorker.stop();
 
       if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
         logger.info({ signal }, "Stopping embedded PostgreSQL");

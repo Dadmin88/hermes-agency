@@ -15,6 +15,28 @@ import { __liveUpdatesTestUtils } from "./LiveUpdatesProvider";
 import { queryKeys } from "../lib/queryKeys";
 
 describe("LiveUpdatesProvider issue invalidation", () => {
+  it("refreshes only the bound company list and changed issue details for projection updates", () => {
+    const invalidations: unknown[] = [];
+    const queryClient = {
+      invalidateQueries: (input: unknown) => {
+        invalidations.push(input);
+      },
+    };
+
+    __liveUpdatesTestUtils.invalidateProjectionQueries(
+      queryClient as never,
+      "company-1",
+      { issueIds: ["issue-1", "issue-2", 42] },
+    );
+
+    expect(invalidations).toEqual([
+      { queryKey: queryKeys.issues.list("company-1") },
+      { queryKey: queryKeys.issues.detail("issue-1") },
+      { queryKey: queryKeys.issues.detail("issue-2") },
+    ]);
+    expect(invalidations).not.toContainEqual({ queryKey: queryKeys.issues.list("company-2") });
+  });
+
   it("refreshes touched inbox queries and only the changed issue data for issue updates", () => {
     const invalidations: unknown[] = [];
     const queryClient = {

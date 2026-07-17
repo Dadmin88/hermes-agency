@@ -1,14 +1,18 @@
 import { execFile } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { promisify } from "node:util";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@hermes-fabric/db";
 import { agents, authUsers, companyMemberships, issues, projects } from "@hermes-fabric/db";
 import { logger } from "../middleware/logger.js";
-import { fabricEnv } from "../fabric-env.js";
 import {
   HERMES_KANBAN_TASK_ORIGIN_KIND,
+  resolveHermesKanbanBoard,
+  resolveHermesKanbanCompanyId,
   resolveHermesKanbanDbPath,
 } from "./hermes-kanban-issues.js";
+
+export { resolveHermesKanbanBoard } from "./hermes-kanban-issues.js";
 
 const execFileAsync = promisify(execFile);
 const REVERSE_SYNC_FIELDS = [
@@ -71,15 +75,6 @@ function nameKey(agent: { name: string; metadata: Record<string, unknown> | null
     : agent.name;
 }
 
-export function resolveHermesKanbanBoard(env: NodeJS.ProcessEnv = process.env): string | null {
-  const configured = env === process.env
-    ? fabricEnv("HERMES_KANBAN_BOARD")
-    : env.FABRIC_HERMES_KANBAN_BOARD;
-  return configured?.trim()
-    || env.HERMES_KANBAN_BOARD?.trim()
-    || null;
-}
-
 async function defaultCommandRunner(command: ReverseSyncCommand) {
   const executable = process.env.FABRIC_HERMES_CLI?.trim() || "hermes";
   const args = [
@@ -109,6 +104,10 @@ function projectionState(value: unknown) {
   const current = asRecord(value) ?? {};
   const projection = asRecord(current.hermesKanbanProjection) ?? {};
   return { current, projection };
+}
+
+function projectionSource(value: unknown) {
+  return asRecord(projectionState(value).projection.source);
 }
 
 function mergeReverseSyncState(
@@ -328,14 +327,32 @@ export function hermesKanbanReverseSyncService(db: Db, options: { commandRunner?
 
       await mark("pending", null);
       try {
+        const configuredBoard = resolveHermesKanbanBoard();
+        const configuredDbPath = resolveHermesKanbanDbPath();
+        const configuredCompanyId = resolveHermesKanbanCompanyId();
+        const source = projectionSource(next.executionState);
+        const canonicalDbPath = configuredDbPath ? realpathSync(configuredDbPath) : null;
+        if (
+          !configuredBoard
+          || !canonicalDbPath
+          || !configuredCompanyId
+          || source?.board !== configuredBoard
+          || source?.dbPath !== canonicalDbPath
+          || source?.companyId !== configuredCompanyId
+          || next.companyId !== configuredCompanyId
+        ) {
+          const warning = "Hermes reverse sync source binding does not match the issue board, database, and company projection identity.";
+          await mark("failed", warning);
+          return { attempted: true, accepted: false, pending: false, warning, fields };
+        }
         const patch = await buildPatch(db, previous, next, fields);
         const response = await commandRunner({
           taskId: next.originId,
           patch,
           actor,
           expectedOriginFingerprint: next.originFingerprint,
-          board: resolveHermesKanbanBoard(),
-          dbPath: resolveHermesKanbanDbPath(),
+          board: configuredBoard,
+          dbPath: canonicalDbPath,
         });
         if (response.ok !== true) {
           const warning = typeof response.error === "string" ? response.error : "Hermes reverse sync was rejected";

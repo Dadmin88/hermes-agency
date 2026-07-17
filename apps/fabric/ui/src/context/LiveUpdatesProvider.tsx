@@ -666,6 +666,20 @@ function invalidateHeartbeatProgressQueries(
   }
 }
 
+function invalidateProjectionQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  companyId: string,
+  payload: Record<string, unknown>,
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
+  const issueIds = Array.isArray(payload.issueIds)
+    ? payload.issueIds.filter((value): value is string => typeof value === "string")
+    : [];
+  for (const issueId of issueIds) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
+  }
+}
+
 function invalidateActivityQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   companyId: string,
@@ -918,6 +932,11 @@ function handleLiveEvent(
     return;
   }
 
+  if (event.type === "issue.projection.updated") {
+    invalidateProjectionQueries(queryClient, expectedCompanyId, payload);
+    return;
+  }
+
   if (event.type === "activity.logged") {
     invalidateActivityQueries(queryClient, expectedCompanyId, payload, currentActor, { pathname });
     if (shouldDeferVisibleIssueCommentActivity(queryClient, pathname, payload)) {
@@ -982,6 +1001,7 @@ export const __liveUpdatesTestUtils = {
   hydrateVisibleIssueComment,
   invalidateActivityQueries,
   invalidateHeartbeatProgressQueries,
+  invalidateProjectionQueries,
   invalidateVisibleIssueRunQueries,
   resolveLiveCompanyId,
   shouldDeferIssueRefetchForVisibleAgentActivity,
