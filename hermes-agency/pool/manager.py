@@ -59,7 +59,7 @@ NODE_RUNNER = Path(
     os.environ.get("HERMES_AGENCY_NODE_RUNNER", PLUGIN_ROOT / "pool" / "agency_node_runner.py")
 ).expanduser()
 PEER_ID_RE = re.compile(r"(12D3KooW[0-9A-Za-z]+)")
-OWN_PEER_ID_RE = re.compile(r'(?:"peer_id"\s*:\s*"|^PEER_ID=)(12D3KooW[0-9A-Za-z]+)', re.MULTILINE)
+OWN_PEER_ID_LINE_RE = re.compile(r"^PEER_ID=(12D3KooW[0-9A-Za-z]+)$")
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 ED25519_PUBLIC_KEY_PREFIX = bytes([0x08, 0x01, 0x12, 0x20])
 IDENTITY_MULTIHASH_CODE = 0x00
@@ -473,7 +473,24 @@ class PoolManager:
             try:
                 if path.exists():
                     data = path.read_text(errors="ignore")[-50000:]
-                    matches = OWN_PEER_ID_RE.findall(data)
+                    matches = []
+                    for line in data.splitlines():
+                        plain_match = OWN_PEER_ID_LINE_RE.fullmatch(line)
+                        if plain_match:
+                            matches.append(plain_match.group(1))
+                            continue
+                        try:
+                            entry = json.loads(line)
+                        except (json.JSONDecodeError, TypeError):
+                            continue
+                        if (
+                            not isinstance(entry, dict)
+                            or entry.get("event") != "agentanycastd started"
+                        ):
+                            continue
+                        peer_id = entry.get("peer_id")
+                        if isinstance(peer_id, str) and PEER_ID_RE.fullmatch(peer_id):
+                            matches.append(peer_id)
                     if matches:
                         return matches[-1], str(path)
             except Exception as exc:

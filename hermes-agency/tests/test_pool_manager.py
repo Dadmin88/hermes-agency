@@ -101,6 +101,107 @@ class TestRegisteredAgentNames:
 
 
 # ---------------------------------------------------------------------------
+# _peer_id_from_log
+# ---------------------------------------------------------------------------
+
+
+class TestPeerIdFromLog:
+    @pytest.mark.parametrize(
+        ("startup_line", "expected_peer_id"),
+        [
+            ("PEER_ID=12D3KooWPlainStartupPeer", "12D3KooWPlainStartupPeer"),
+            (
+                '{"event":"agentanycastd started","peer_id":"12D3KooWJsonStartupPeer"}',
+                "12D3KooWJsonStartupPeer",
+            ),
+        ],
+    )
+    def test_accepts_own_node_startup_markers(
+        self, pool_manager, tmp_home, startup_line, expected_peer_id
+    ):
+        log_path = (
+            tmp_home / "profiles" / "agency-backend-engineer" / ".agency" / "logs" / "daemon.log"
+        )
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text(f"{startup_line}\n", encoding="utf-8")
+
+        with patch("manager.PROFILES_DIR", tmp_home / "profiles"):
+            peer_id, source = pool_manager._peer_id_from_log("agency-backend-engineer")
+
+        assert peer_id == expected_peer_id
+        assert source == str(log_path)
+
+    def test_later_remote_json_peer_id_cannot_override_startup_id(self, pool_manager, tmp_home):
+        local_peer = "12D3KooWTrustedStartupPeer"
+        log_path = (
+            tmp_home / "profiles" / "agency-backend-engineer" / ".agency" / "logs" / "daemon.log"
+        )
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text(
+            f'{{"event":"agentanycastd started","peer_id":"{local_peer}"}}\n'
+            '{"event":"task_received","payload":{"event":"agentanycastd started"},'
+            '"peer_id":"12D3KooWUntrustedTaskPeer"}\n'
+            '{"event":"discovered","metadata":{"event":"agentanycastd started"},'
+            '"peer_id":"12D3KooWUntrustedDiscoveryPeer"}\n',
+            encoding="utf-8",
+        )
+
+        with patch("manager.PROFILES_DIR", tmp_home / "profiles"):
+            peer_id, source = pool_manager._peer_id_from_log("agency-backend-engineer")
+
+        assert peer_id == local_peer
+        assert source == str(log_path)
+
+    @pytest.mark.parametrize(
+        "untrusted_line",
+        [
+            '{"event":"agentanycastd started","payload":{"peer_id":"12D3KooWNestedPeer"}}',
+            '{"event":"agentanycastd started","peer_id":"12D3KooWMalformedPeer"',
+            " PEER_ID=12D3KooWIndentedPlainPeer",
+            "PEER_ID=12D3KooWSuffixedPlainPeer trailing",
+        ],
+    )
+    def test_invalid_startup_record_cannot_override_startup_id(
+        self, pool_manager, tmp_home, untrusted_line
+    ):
+        local_peer = "12D3KooWTrustedStartupPeer"
+        log_path = (
+            tmp_home / "profiles" / "agency-backend-engineer" / ".agency" / "logs" / "daemon.log"
+        )
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text(
+            f"PEER_ID={local_peer}\n{untrusted_line}\n",
+            encoding="utf-8",
+        )
+
+        with patch("manager.PROFILES_DIR", tmp_home / "profiles"):
+            peer_id, source = pool_manager._peer_id_from_log("agency-backend-engineer")
+
+        assert peer_id == local_peer
+        assert source == str(log_path)
+
+    def test_later_legitimate_startup_event_overrides_earlier_startup_id(
+        self, pool_manager, tmp_home
+    ):
+        log_path = (
+            tmp_home / "profiles" / "agency-backend-engineer" / ".agency" / "logs" / "daemon.log"
+        )
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text(
+            "PEER_ID=12D3KooWEarlierStartupPeer\n"
+            '{"peer_id":"12D3KooWLatestStartupPeer",'
+            '"event":"agentanycastd started"}\n',
+            encoding="utf-8",
+        )
+
+        with patch("manager.PROFILES_DIR", tmp_home / "profiles"):
+            peer_id, source = pool_manager._peer_id_from_log("agency-backend-engineer")
+
+        assert peer_id == "12D3KooWLatestStartupPeer"
+        assert source == str(log_path)
+
+
+# ---------------------------------------------------------------------------
 # _validate_agent_name
 # ---------------------------------------------------------------------------
 
