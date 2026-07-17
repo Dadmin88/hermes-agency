@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import express from "express";
 import os from "node:os";
 import path from "node:path";
@@ -100,6 +100,7 @@ describe("Hermes Agency shared skill routes", () => {
 
     const app = createNonAdminApp(rosterPath, { poolRoot, profilesDir, builtinSkillsDir: path.join(root, "builtin") });
     const listed = await request(app).get("/api/hermes-agency/shared-skills");
+    const detail = await request(app).get("/api/hermes-agency/shared-skills/breaking-news");
     const created = await request(app).post("/api/hermes-agency/shared-skills").send({});
 
     expect(listed.status).toBe(200);
@@ -108,7 +109,49 @@ describe("Hermes Agency shared skill routes", () => {
       expect.objectContaining({ name: "broken-yaml", valid: false, actionable: false, diagnostic: expect.objectContaining({ location: "newsjack/broken-yaml/SKILL.md" }) }),
     ] });
     expect(JSON.stringify(listed.body)).not.toContain(root);
+    expect(detail.status).toBe(403);
     expect(created.status).toBe(403);
+  });
+
+  it("rejects agent keys from instance-global shared-skill source details", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const root = path.dirname(rosterPath);
+    const poolRoot = path.join(root, "pool");
+    const skillDir = path.join(poolRoot, "newsjack", "breaking-news");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(path.join(poolRoot, "pool-manifest.json"), JSON.stringify({ version: "1.0", categories: {} }));
+    await writeFile(path.join(skillDir, "SKILL.md"), "---\nname: breaking-news\ndescription: React to news\n---\n");
+
+    const actor = { type: "agent", source: "agent_key", agentId: "agent-1", companyId: "company-1" };
+    const res = await request(createActorApp(rosterPath, actor, { poolRoot }))
+      .get("/api/hermes-agency/shared-skills/breaking-news");
+
+    expect(res.status).toBe(403);
+  });
+
+  it("redacts pre-existing credential-like text from admin detail responses", async () => {
+    const rosterPath = await tempRosterPath({ profiles: [] });
+    const root = path.dirname(rosterPath);
+    const poolRoot = path.join(root, "pool");
+    const skillDir = path.join(poolRoot, "newsjack", "breaking-news");
+    const credentialLikeText = "token=fixture_value_abcdefghijklmnop\n";
+    await mkdir(path.join(skillDir, "scripts"), { recursive: true });
+    await writeFile(path.join(poolRoot, "pool-manifest.json"), JSON.stringify({ version: "1.0", categories: {} }));
+    await writeFile(path.join(skillDir, "SKILL.md"), "---\nname: breaking-news\ndescription: React to news\n---\n");
+    await writeFile(path.join(skillDir, "scripts", "existing.py"), credentialLikeText);
+
+    const res = await request(createApp(rosterPath, { poolRoot })).get("/api/hermes-agency/shared-skills/breaking-news");
+    const updated = await request(createApp(rosterPath, { poolRoot }))
+      .put("/api/hermes-agency/shared-skills/breaking-news")
+      .send({ files: { "SKILL.md": "---\nname: breaking-news\ndescription: Updated safely\n---\n" } });
+
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain(credentialLikeText.trim());
+    expect(res.body.content).not.toHaveProperty("scripts/existing.py");
+    expect(res.body.files).toContainEqual(expect.objectContaining({ path: "scripts/existing.py", editable: false }));
+    expect(updated.status).toBe(200);
+    expect(JSON.stringify(updated.body)).not.toContain(credentialLikeText.trim());
+    expect(await readFile(path.join(skillDir, "scripts", "existing.py"), "utf8")).toBe(credentialLikeText);
   });
 
   it("requires authentication for shared-pool reads", async () => {
@@ -117,7 +160,6 @@ describe("Hermes Agency shared skill routes", () => {
       .get("/api/hermes-agency/shared-skills");
     expect(res.status).toBe(401);
   });
-
   it("rejects cross-company agent profile access before filesystem resolution", async () => {
     const rosterPath = await tempRosterPath({ profiles: [] });
     const db = {

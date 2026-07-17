@@ -37,7 +37,9 @@ export function hermesAgencyRoutes(options: AgencyRouteOptions = {}) {
     return { agent, profile };
   }
   router.get("/shared-skills", async (req, res) => { assertAuthenticated(req); try { res.json({ skills: await listSharedPool(options), canManage: canManageSharedPool(req) }); } catch (error) { poolError(res, error); } });
-  router.get("/shared-skills/:name", async (req, res) => { assertAuthenticated(req); try { res.json(await getSharedPoolSkill(req.params.name, options)); } catch (error) { poolError(res, error); } });
+  // Skill source files may include preserved operator-managed scripts and references.
+  // Metadata is authenticated-readable above, but source content is instance-admin-only.
+  router.get("/shared-skills/:name", async (req, res) => { assertInstanceAdmin(req); try { res.json(await getSharedPoolSkill(req.params.name, options)); } catch (error) { poolError(res, error); } });
   router.post("/shared-skills", async (req, res) => { assertInstanceAdmin(req); try { res.status(201).json(await createSharedPoolSkill(req.body, options)); } catch (error) { poolError(res, error); } });
   router.put("/shared-skills/:name", async (req, res) => { assertInstanceAdmin(req); try { res.json(await updateSharedPoolSkill(req.params.name, req.body, options)); } catch (error) { poolError(res, error); } });
   router.delete("/shared-skills/:name", async (req, res) => { assertInstanceAdmin(req); try { res.json(await deleteSharedPoolSkill(req.params.name, req.query.confirm === "true", options)); } catch (error) { poolError(res, error); } });
