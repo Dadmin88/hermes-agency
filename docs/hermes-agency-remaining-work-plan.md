@@ -1,7 +1,7 @@
 # Hermes Agency Remaining Work Plan
 
 **Created:** 2026-07-14
-**Repository:** `/home/dadmin/repos/Hermes_Agency`
+**Repository:** `<workspace>/Hermes_Agency`
 **Baseline commit:** `8d2317672dece7743b1701639739589a4df9245b`
 **Execution mode:** Direct work only. Do not use Hermes Agency, Agency agents, delegation, or Agency task routing while those systems are unreliable.
 
@@ -16,11 +16,11 @@ The engineering changes have already passed the configured Python gates, determi
 - Execution branch: `audit/hermes-agency-hardening-20260714`
 - Baseline HEAD: `8d2317672dece7743b1701639739589a4df9245b`
 - Eight focused implementation/test commits have been created; documentation closeout is the final local commit.
-- Durable state and validation evidence is stored under `/home/dadmin/.cache/hermes-agency-audit/final-state/`.
-- The original `/tmp/hermes-agency-audit-initial.patch` and staged snapshot were lost during temporary-directory cleanup; the durable replacement snapshot, ownership manifest, and checksums now cover the retained tree.
-- Thirty-one root-owned `node_modules.pre-*` backup trees were moved intact to `/home/dadmin/.cache/hermes-agency-audit/quarantine/root-owned-backups/` using a bounded container mount. No generated dependency backup remains in the repository.
-- The only intentionally preserved unrelated worktree material is the untracked `.hermes/attachments/desktop-office-174.jpg` user attachment; it is excluded from every commit.
-- Canonical Python, package, workflow, Compose, Fabric typecheck, focused bridge, production build, artifact-budget, and policy gates pass. Complete deterministic Fabric lane logs from the unchanged test partition are retained under `/home/dadmin/.cache/hermes-agency-audit/`.
+- Durable state and validation evidence is stored under `<evidence-root>/final-state/`.
+- The original temporary patch and staged snapshot were lost during temporary-directory cleanup; the durable replacement snapshot, ownership manifest, and checksums now cover the retained tree.
+- Thirty-one root-owned `node_modules.pre-*` backup trees were moved intact to `<evidence-root>/quarantine/root-owned-backups/` using a bounded container mount. No generated dependency backup remains in the repository.
+- The only intentionally preserved unrelated worktree material was an untracked user attachment under `.hermes/attachments/`; it was excluded from every commit.
+- Canonical Python, package, workflow, Compose, Fabric typecheck, focused bridge, production build, artifact-budget, and policy gates pass. Complete deterministic Fabric lane logs from the unchanged test partition are retained under `<evidence-root>/`.
 - No deployment has been performed; deployment remains separately approval-gated.
 
 ## 3. Non-Negotiable Safety Rules
@@ -41,7 +41,7 @@ The engineering changes have already passed the configured Python gates, determi
 ### Actions
 
 - Create a durable audit directory outside `/tmp`, for example:
-  - `/home/dadmin/.cache/hermes-agency-audit/final-state/`
+  - `<evidence-root>/final-state/`
 - Save:
   - `git status --porcelain=v1 -z`
   - full unstaged patch
@@ -50,7 +50,7 @@ The engineering changes have already passed the configured Python gates, determi
   - `git diff --stat`
   - current HEAD and branch
   - checksums of all saved evidence
-- Copy the existing verification logs from `/home/dadmin/.cache/hermes-agency-audit/` into a stable evidence subdirectory.
+- Copy the existing verification logs from `<evidence-root>/` into a stable evidence subdirectory.
 
 ### Acceptance Criteria
 
@@ -451,7 +451,7 @@ All local execution actions are complete. The remaining release sequence is auto
 
 ### Ownership and preservation
 
-- Durable snapshot, raw status, patches, untracked metadata, copied logs, and SHA-256 checksums: `/home/dadmin/.cache/hermes-agency-audit/final-state/`.
+- Durable snapshot, raw status, patches, untracked metadata, copied logs, and SHA-256 checksums: `<evidence-root>/final-state/`.
 - Path and hunk classification: `ownership-manifest.json` and `ownership-manifest.md` in that evidence directory.
 - Generated runtime/dependency backups were quarantined rather than deleted.
 - The unrelated desktop attachment remains untracked and unstaged.
@@ -496,5 +496,5 @@ The commits are presented as one integrated PR because the packaging, CI, Fabric
 
 - Before merge: close the PR and delete the remote audit branch; the baseline branch remains unchanged.
 - After merge: revert the focused commits in reverse order, beginning with documentation and test-only commits, then CI/policy, Fabric, lifecycle/security, governance, and model routing.
-- Quarantined generated backups can be restored from `/home/dadmin/.cache/hermes-agency-audit/quarantine/root-owned-backups/` if forensic comparison is required.
+- Quarantined generated backups can be restored from `<evidence-root>/quarantine/root-owned-backups/` if forensic comparison is required.
 - Deployment rollback is not applicable because no deployment was performed.

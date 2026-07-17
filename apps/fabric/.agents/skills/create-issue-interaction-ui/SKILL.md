@@ -5,7 +5,7 @@ description: Developer/maintainer skill for extending typed issue-thread interac
 
 # Create an issue interaction UI
 
-This is a Developer/maintainer skill for contributors changing the Fabric source tree. Do NOT install this on production Paperclip agents. It describes repository internals and is intentionally excluded from the runtime skill bundle under `skills/`.
+This is a Developer/maintainer skill for contributors changing the Fabric source tree. Do NOT install this on production Hermes Fabric agents. It describes repository internals and is intentionally excluded from the runtime skill bundle under `skills/`.
 
 ## Use this skill when
 
@@ -44,8 +44,8 @@ Use this guide when a new typed interaction must be represented in an issue thre
 Run the smallest focused tests first, then the repository handoff gates:
 
 ```sh
-pnpm --filter @paperclipai/server test -- issue-thread-interactions
-pnpm --filter @paperclipai/ui test -- IssueThreadInteractionCard
+pnpm --filter @hermes-fabric/server test -- issue-thread-interactions
+pnpm --filter @hermes-fabric/ui test -- IssueThreadInteractionCard
 pnpm -r typecheck
 pnpm test:run
 pnpm build

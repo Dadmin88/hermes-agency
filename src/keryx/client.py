@@ -125,6 +125,7 @@ class DaemonClient:
         self._closed = False
 
     async def connect(self) -> None:
+        self._closed = False
         if self._channel is None:
             _validate_unix_socket_endpoint(self._daemon_endpoint)
             _assert_unix_peer_owned_by_current_user(self._daemon_endpoint)
@@ -151,11 +152,13 @@ class DaemonClient:
             self._registry = None
             return
         self._closed = True
-        if self._channel is not None and self._owns_channel:
-            await self._channel.close()
+        if self._channel is not None:
+            if self._owns_channel:
+                await self._channel.close()
             self._channel = None
-        if self._registry_channel is not None and self._owns_registry_channel:
-            await self._registry_channel.close()
+        if self._registry_channel is not None:
+            if self._owns_registry_channel:
+                await self._registry_channel.close()
             self._registry_channel = None
         # Detach stubs even when caller owns the underlying channels.
         self._daemon = None

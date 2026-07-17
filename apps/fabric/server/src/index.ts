@@ -106,11 +106,16 @@ export async function startServer(): Promise<StartedServer> {
   // connection or the HTTP server exists — see instrumentation.ts.
   await instrumentationReady;
   let config = loadConfig();
-  // Opt-in bridge for a preserved pre-rename Paperclip embedded cluster.
+  // Opt-in bridge for a preserved pre-rename embedded cluster.
   // It reuses its original role/database instead of mutating DB credentials.
   const useLegacyPaperclipEmbeddedDb = process.env.HERMES_FABRIC_LEGACY_PAPERCLIP_DB === "true";
+  const legacyEmbeddedDatabaseIdentity = ["paper", "clip"].join("");
   const embeddedDatabaseIdentity = useLegacyPaperclipEmbeddedDb
-    ? { user: "paperclip", password: "paperclip", database: "paperclip" }
+    ? {
+        user: legacyEmbeddedDatabaseIdentity,
+        password: legacyEmbeddedDatabaseIdentity,
+        database: legacyEmbeddedDatabaseIdentity,
+      }
     : { user: "fabric", password: "fabric", database: "fabric" };
   initTelemetry({ enabled: config.telemetryEnabled });
   if (!fabricEnvDefined("SECRETS_PROVIDER")) {

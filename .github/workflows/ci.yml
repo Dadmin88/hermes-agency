@@ -149,16 +149,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: "20"
+          version: 9.15.9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
           cache: pnpm
           cache-dependency-path: apps/fabric/pnpm-lock.yaml
 
       - name: Install Fabric dependencies
         run: |
-          corepack enable
-          corepack prepare pnpm@9.15.9 --activate
           pnpm install --frozen-lockfile
 
       - name: Validate, typecheck, and build Fabric
@@ -204,16 +206,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: "20"
+          version: 9.15.9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
           cache: pnpm
           cache-dependency-path: apps/fabric/pnpm-lock.yaml
 
       - name: Install Fabric dependencies
         run: |
-          corepack enable
-          corepack prepare pnpm@9.15.9 --activate
           pnpm install --frozen-lockfile
           pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
 

@@ -60,7 +60,7 @@ Largest file backlogs:
 
 The detailed diagnostic log is retained outside the repository at:
 
-`/home/dadmin/.cache/hermes-agency-audit/final-state/mypy-agency-core.log`
+`<evidence-root>/final-state/mypy-agency-core.log`
 
 ## Remediation order
 

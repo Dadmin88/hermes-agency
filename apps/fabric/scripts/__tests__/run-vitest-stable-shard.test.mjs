@@ -65,7 +65,7 @@ test("shard flags are rejected for the parallel workspace groups", () => {
 test("the CLI workspace project follows the renamed Hermes Fabric package", () => {
   const plan = dryRunJson(["--mode", "general", "--group", "general-workspaces-a"]);
   assert.deepEqual(plan.generalWorkspaceProjects["general-workspaces-a"], [
-    "@paperclipai/ui",
+    "@hermes-fabric/ui",
     "hermes-fabric",
   ]);
   assert.ok(

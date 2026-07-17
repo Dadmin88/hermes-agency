@@ -466,17 +466,34 @@ async function readLinuxProcPortOwner(port: number) {
   return null;
 }
 
-export async function readLocalServicePortOwner(port: number) {
+type PortOwnerCommandRunner = (
+  command: string,
+  args: string[],
+) => Promise<{ stdout: string; stderr: string }>;
+
+export async function readLocalServicePortOwner(
+  port: number,
+  opts?: {
+    platform?: NodeJS.Platform;
+    runCommand?: PortOwnerCommandRunner;
+  },
+) {
+  const platform = opts?.platform ?? process.platform;
+  const runCommand: PortOwnerCommandRunner = opts?.runCommand ?? (async (command, args) => {
+    const { stdout, stderr } = await execFileAsync(command, args, { encoding: "utf8" });
+    return { stdout, stderr };
+  });
+
   if (
     !Number.isInteger(port) ||
     port <= 0 ||
-    process.platform === "win32"
+    platform === "win32"
   ) {
     return null;
   }
 
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await runCommand(
       "lsof",
       ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"],
     );
@@ -490,9 +507,21 @@ export async function readLocalServicePortOwner(port: number) {
     // Fall through to native Linux ownership probes.
   }
 
-  if (process.platform === "linux") {
+  if (platform === "linux") {
     try {
-      const { stdout } = await execFileAsync(
+      const { stdout } = await runCommand("fuser", ["-n", "tcp", String(port)]);
+      const pid = stdout
+        .split(/\s+/)
+        .map((value) => Number.parseInt(value, 10))
+        .find((value) => Number.isInteger(value) && value > 0);
+
+      if (pid) return pid;
+    } catch {
+      // Minimal hosts may not include psmisc.
+    }
+
+    try {
+      const { stdout } = await runCommand(
         "ss",
         ["-H", "-ltnp", `sport = :${port}`],
       );
