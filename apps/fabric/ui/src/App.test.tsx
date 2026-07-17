@@ -155,9 +155,9 @@ describe("CloudAccessGate", () => {
     mockAuthApi.getSession.mockResolvedValue(null);
 
     const root = renderGate(container);
-    await waitForText(container, "Finish setting up Hermes Agency");
+    await waitForText(container, "Finish setting up Hermes Fabric");
 
-    expect(container.textContent).toContain("Finish setting up Hermes Agency");
+    expect(container.textContent).toContain("Finish setting up Hermes Fabric");
     expect(container.textContent).toContain("Sign in / Create account");
     expect(container.textContent).toContain("pnpm hermes-fabric auth bootstrap-ceo");
     expect(mockAccessApi.getCurrentBoardAccess).not.toHaveBeenCalled();
@@ -216,9 +216,9 @@ describe("CloudAccessGate", () => {
     });
 
     const root = renderGate(container);
-    await waitForText(container, "Hermes Agency is waiting on its first admin");
+    await waitForText(container, "Hermes Fabric is waiting on its first admin");
 
-    expect(container.textContent).toContain("Hermes Agency is waiting on its first admin");
+    expect(container.textContent).toContain("Hermes Fabric is waiting on its first admin");
     expect(container.textContent).toContain("invite-only mode");
     expect(container.textContent).not.toContain("Claim this instance");
     expect(container.textContent).not.toContain("Sign in / Create account");

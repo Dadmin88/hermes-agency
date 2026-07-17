@@ -219,7 +219,7 @@ jobs:
       - name: Install Fabric dependencies
         run: |
           pnpm install --frozen-lockfile
-          pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+          pnpm --filter @hermes-fabric/plugin-sdk ensure-build-deps
 
       - name: Run deterministic test lane
         run: ${{ matrix.command }}

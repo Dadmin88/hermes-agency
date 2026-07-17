@@ -127,7 +127,7 @@ describe("SidebarAccountMenu", () => {
     expect(docsPos).toBeLessThan(feedbackPos);
     expect(feedbackPos).toBeLessThan(themePos);
 
-    expect(document.body.textContent).toContain("Hermes Agency v1.2.3");
+    expect(document.body.textContent).toContain("Hermes Fabric v1.2.3");
     expect(document.body.textContent).toContain("jane@example.com");
     expect(document.body.querySelector('[data-slot="popover-content"]')?.className)
       .toContain("w-[277px]");
