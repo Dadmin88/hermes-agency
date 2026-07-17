@@ -4227,12 +4227,14 @@ async def test_incoming_worker_revalidates_recovered_sender_before_execution(
         incoming=cfg_mod.IncomingConfig(mode="delegation"),
     )
     monkeypatch.setattr(nm_mod, "get_config", lambda: cfg)
+    incoming_security_mod = importlib.import_module("hermes_plugin.incoming_security")
     monkeypatch.setattr(
-        nm_mod,
-        "verify_incoming_sender",
+        incoming_security_mod,
+        "authorize_recovered_record",
         lambda *_args, **_kwargs: SimpleNamespace(
             allowed=False,
             reason="peer trust was revoked",
+            action="authorization_rejected",
             sender_peer_id="peer-revoked",
         ),
     )
@@ -4257,8 +4259,9 @@ async def test_incoming_worker_revalidates_recovered_sender_before_execution(
 
     assert called["process"] is False
     assert task.completed is None
-    assert task.failed == "peer trust was revoked"
+    assert task.failed == "authorization_rejected"
     assert record.status == "failed"
+    assert record.error == "peer trust was revoked"
 
 
 @pytest.mark.asyncio
