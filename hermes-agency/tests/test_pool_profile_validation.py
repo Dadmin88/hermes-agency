@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import types
 from pathlib import Path
@@ -113,11 +114,14 @@ def test_wake_and_sleep_reject_unknown_profiles_before_side_effects(
     pool_tools.update_agent_status.assert_not_called()
 
 
-def test_resolver_normalizes_short_name_to_existing_profile(pool_tools, monkeypatch, tmp_path):
+def test_caller_hermes_home_cannot_hijack_temporary_profiles_root(
+    pool_tools, monkeypatch, tmp_path
+):
     profile = tmp_path / "profiles" / "agency-safe"
     profile.mkdir(parents=True)
-    monkeypatch.setattr(pool_tools, "PROFILES", tmp_path / "profiles")
+    monkeypatch.setattr(pool_tools, "PROFILES", profile.parent)
 
+    assert "HERMES_HOME" not in os.environ
     assert pool_tools._resolve_existing_pool_profile("safe") == (
         "agency-safe",
         profile.resolve(),
