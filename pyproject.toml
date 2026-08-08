@@ -7,7 +7,7 @@ name = "hermes-agency"
 version = "0.7.3"
 description = "Hermes Agency: managed multi-agent operations for Hermes Agent with an 83-profile roster, skill routing, Kanban, model sets, and Keryx transport."
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = {text = "AGPL-3.0-only"}
 requires-python = ">=3.11"
 authors = [
     { name = "Hermes Agency Contributors" },
@@ -20,7 +20,7 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -43,10 +43,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/DeployFaith/Hermes_Agency"
-Repository = "https://github.com/DeployFaith/Hermes_Agency"
-Issues = "https://github.com/DeployFaith/Hermes_Agency/issues"
-Changelog = "https://github.com/DeployFaith/Hermes_Agency/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Dadmin88/hermes-agency"
+Repository = "https://github.com/Dadmin88/hermes-agency"
+Issues = "https://github.com/Dadmin88/hermes-agency/issues"
+Changelog = "https://github.com/Dadmin88/hermes-agency/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 crewai = ["crewai>=0.80"]

@@ -8,9 +8,9 @@ Hermes Agency is the product in this repository. Keryx is the primary transport;
 
 > **Development status:** Hermes Agency is currently unreleased development software. There is no official GitHub or PyPI release yet; install from this repository for evaluation and development.
 
-[![CI](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml/badge.svg)](https://github.com/DeployFaith/Hermes_Agency/actions/workflows/ci.yml)
+[![CI](https://github.com/Dadmin88/hermes-agency/actions/workflows/ci.yml/badge.svg)](https://github.com/Dadmin88/hermes-agency/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL--3.0--only-blue)](LICENSE)
 
 ## Operator golden path
 
@@ -60,7 +60,7 @@ python -m pip install -e ".[dev]"
 
 This installs the plugin and the vendored Keryx Python SDK from `src/keryx/`.
 External Keryx binaries (`keryxd`, `keryx-relay`, `keryx-node`) still come from the separate
-[`hermes-keryx`](https://github.com/DeployFaith/hermes-keryx) repository.
+[`hermes-keryx`](https://github.com/Dadmin88/hermes-keryx) repository.
 
 ## Command surfaces
 
@@ -262,4 +262,6 @@ Use `docs/qa-validation-ladder.md` as the source of truth for what each validati
 
 ## License
 
-[Apache License, Version 2.0](LICENSE)
+Current versions are licensed under the **GNU Affero General Public License v3.0 only (AGPL-3.0-only)**. See [LICENSE](LICENSE).
+
+Historical versions published before this licensing change remain available under the license terms that applied to those versions, including Apache-2.0.
