@@ -1,75 +1,83 @@
-# Operator golden path
+# Operator Golden Path
 
-This is the shortest supported path from a clean Hermes install to a managed Agency workforce that can wake specialists, process trusted work, and report status.
+This is the shortest supported path from a clean Hermes installation to a working Hermes Agency setup.
 
-Live multi-process Keryx proof remains `scripts/e2e_agency_keryx.py`. This document is the **operator** path for day-to-day use.
+The goal is not to enable every feature at once. Start with a small local team, run the doctor checks, prove delegation, and only then enable remote work intentionally.
 
 ## Prerequisites
 
 - Python 3.11+
-- Hermes Agent installed (`hermes-agent>=0.18.0`)
-- This package installed editable or from a release: `python -m pip install -e ".[dev]"`
-- Optional for full remote transport: Keryx runtime binaries from `hermes-keryx` (`keryxd`, relay/registry as needed)
+- Hermes Agent 0.18.0+
+- Hermes Agency installed from this repository
+- Keryx runtime binaries only if you want the live cross-process transport proof
 
-## 15-minute path
-
-### 1. Install Agency into the active Hermes environment
+Install Agency for development:
 
 ```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
+```
+
+Confirm the CLI is available:
+
+```bash
 hermes-agency --help
 ```
 
-### 2. Install the starter staff pack (not all 83)
+## Step 1: Install the starter staff
+
+Start with the smaller starter group rather than installing every packaged specialist immediately.
 
 ```bash
-hermes-agency staff starter
 hermes-agency staff install --starter --dry-run
 hermes-agency staff install --starter
 hermes-agency setup-plugins
 ```
 
-Starter pack (12 profiles):
-
-- `agency-orchestrator`
-- `agency-chief-of-staff`
-- `agency-product-manager`
-- `agency-backend-engineer`
-- `agency-frontend-engineer`
-- `agency-code-reviewer`
-- `agency-qa-tester`
-- `agency-docs-writer`
-- `agency-git-steward`
-- `agency-devops-engineer`
-- `agency-security-engineer`
-- `agency-design-reviewer`
-
-Install the full roster only when you need breadth:
+You can inspect the starter profiles with:
 
 ```bash
-hermes-agency staff install --dry-run
-hermes-agency staff install
+hermes-agency staff starter
 ```
 
-### 3. Choose a model set (dry-run first)
+The starter set covers the common engineering and coordination roles needed to test Agency without filling the Hermes home with profiles you may never use.
+
+Install the broader roster later if you actually need it.
+
+## Step 2: Choose a model set
+
+Model sets apply one provider/model strategy across the installed Agency staff.
+
+Inspect first:
 
 ```bash
 hermes-agency models list
 hermes-agency models plan economic
+```
+
+Then dry-run the change:
+
+```bash
 hermes-agency models apply economic --dry-run
-# when ready:
+```
+
+Apply only when the plan looks correct:
+
+```bash
 hermes-agency models apply economic --yes --backup
 ```
 
-### 4. Configure Agency safely
+## Step 3: Start with conservative Agency settings
 
-In the orchestrator profile `config.yaml` (or root Hermes config with inheritance):
+A safe starting configuration looks like this:
 
 ```yaml
 agency:
   enabled: true
   transport_backend: keryx
-  allow_remote_tasks: false   # leave false until you intentionally enable execution
+  allow_remote_tasks: false
   auto_start: false
   keryx:
     daemon_endpoint: 127.0.0.1:50051
@@ -77,21 +85,29 @@ agency:
   incoming:
     tool_access: safe
   relay:
-    allowlist: []            # empty = deny remote senders unless allow_all
+    allowlist: []
 ```
 
-Only open remote execution after trust/allowlist is intentional.
+The important defaults are:
 
-### 5. Doctor
+- remote task execution stays disabled until you enable it intentionally;
+- incoming tool access starts with the safe policy;
+- an empty remote allowlist should not accidentally become broad trust.
+
+Change those settings only after you understand which peers and tools you want to permit.
+
+## Step 4: Run doctor
 
 ```bash
 hermes-agency doctor
 hermes-agency doctor --json
 ```
 
-Fix FAIL/WARN items until the report is acceptable for your environment. Starter pack and model-set drift appear as doctor checks.
+`doctor` is the first place to look when something is not ready. It checks the local setup, installed staff, model-set state, and transport-related configuration that Agency can validate safely.
 
-### 6. Start and inspect
+Fix unexpected failures before moving on.
+
+## Step 5: Start Agency and inspect it
 
 ```bash
 hermes-agency status --extended
@@ -100,45 +116,66 @@ hermes-agency status
 hermes-agency registry
 ```
 
-### 7. Prove a local delegation seam
+At this point you should be able to see the local Agency state and, when transport is configured, the available registry/discovery information.
 
-Prefer the permanent in-process proof for CI/dev:
+## Step 6: Prove local delegation
+
+The permanent in-process golden-path test exercises real Agency modules with a controlled transport adapter:
 
 ```bash
 python -m pytest hermes-agency/tests/test_golden_path.py -q
 ```
 
-For live Keryx multi-process proof (requires hermes-keryx binaries):
+This is the best fast check for development because it proves Agency's own delegation, trust, artifact, and reconciliation seams without requiring a full live Keryx topology.
+
+## Step 7: Optional live Keryx proof
+
+If you have the Keryx Rust binaries available, run the live multi-process proof:
 
 ```bash
-python scripts/e2e_agency_keryx.py --keryx-root <hermes-keryx-checkout> --work-dir .tmp/agency-phase17-e2e
+python scripts/e2e_agency_keryx.py \
+  --keryx-root <hermes-keryx-checkout> \
+  --work-dir .tmp/agency-keryx-e2e
 ```
 
-### 8. Optional guided checklist script
+This is a stronger test. It starts real Keryx processes and proves authenticated cross-process delivery and result return.
+
+Do not describe the ordinary unit test suite as proof of this live path unless this E2E actually ran.
+
+## Step 8: Optional guided helper
+
+The repository also includes a guided operator helper:
 
 ```bash
 python scripts/operator_golden_path.py --dry-run
 python scripts/operator_golden_path.py
 ```
 
-## Success criteria
+Use the dry-run first if you want to see what it plans to check or change.
 
-| Step | Evidence |
-|---|---|
-| Starter pack installed | `hermes-agency staff starter` reports complete |
-| Doctor | No unexpected FAIL for local single-host setup |
-| Status | Node starts; peer id / transport backend reported when transport is available |
-| Golden path test | `test_golden_path.py` passes |
-| Live Keryx (optional) | `e2e_agency_keryx.py` returns terminal artifact |
+## What success looks like
 
-## What this is not
+A basic working setup should have:
 
-- Hermes Fabric live dispatch (default Fabric client remains dry-run/unconfigured)
-- Installing all 83 profiles on first boot
-- Claiming production multi-tenant SaaS readiness
+- the starter staff installed;
+- no unexpected local `doctor` failures;
+- Agency able to start and report status;
+- the in-process golden-path test passing;
+- optional live Keryx proof passing when cross-process transport is being tested.
 
-## Related
+## What this path does not prove
 
-- `docs/plans/2026-07-13-hermes-agency-full-remediation.md`
-- `docs/keryx-cross-node-boundary.md`
-- `hermes-agency/README.md`
+This setup does not automatically prove:
+
+- production multi-tenant readiness;
+- every packaged specialist works for every task;
+- unrestricted remote execution is safe;
+- Hermes Fabric live dispatch is configured;
+- a live Keryx multi-machine path unless the live proof was actually run.
+
+## Next reading
+
+- [Keryx cross-node boundary](keryx-cross-node-boundary.md)
+- [Agency model sets](agency-model-sets.md)
+- [QA validation ladder](qa-validation-ladder.md)
+- [Night Shift playbook](agency-night-shift-playbook.md)
