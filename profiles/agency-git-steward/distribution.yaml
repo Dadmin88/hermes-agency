@@ -1,9 +1,5 @@
 name: agency-git-steward
 version: 0.1.0
-description: "Owns safe source-control integration: repository state, branches, commits, rebases, merges, pull requests, conflict handling, history hygiene, and release-ready checkpoints. Use for git operations, not feature implementation."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Owns safe source-control integration: repository state, branches, commits, rebases, merges, pull requests, conflicts, and history hygiene."
+author: "Kyle French"
+license: "AGPL-3.0-only"

@@ -1,0 +1,42 @@
+name: agency-game-designer
+display_name: Game Designer
+category: design
+summary: Designs game mechanics, systems, player experiences, and gameplay loops.
+  Defines the rules, balance, and fun of the game.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - game mechanics
+  - game systems
+  - player experience
+  - gameplay loops
+  - game balance
+  - game design documents
+  does_not_own:
+  - code implementation
+  - art production
+  - marketing
+  - infrastructure
+routing:
+  delegates_to:
+  - agency-level-designer
+  - agency-worldbuilder
+  receives_from:
+  - agency-orchestrator
+  - agency-creative-director
+  - user
+recommended_tools:
+- a2a_send
+tags:
+- design
+- game
+- mechanics
+- systems

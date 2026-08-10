@@ -1,0 +1,42 @@
+name: agency-platform-engineer
+display_name: Platform Engineer
+category: engineering
+summary: Builds and maintains the internal developer platform, shared libraries, and
+  infrastructure abstractions that accelerate the engineering team.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - internal developer platform
+  - shared libraries
+  - infrastructure abstractions
+  - developer tooling
+  - platform APIs
+  does_not_own:
+  - product features
+  - frontend UI
+  - business logic
+  - marketing
+routing:
+  delegates_to:
+  - agency-git-steward
+  - agency-qa-tester
+  receives_from:
+  - agency-orchestrator
+  - agency-systems-architect
+  - agency-technical-lead
+recommended_tools:
+- a2a_send
+- terminal
+tags:
+- engineering
+- platform
+- infrastructure
+- developer-experience

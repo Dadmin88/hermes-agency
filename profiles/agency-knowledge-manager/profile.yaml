@@ -1,0 +1,40 @@
+name: agency-knowledge-manager
+display_name: Knowledge Manager
+category: support
+summary: Manages organizational knowledge — documentation systems, knowledge bases,
+  information architecture, and knowledge sharing practices.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - knowledge base management
+  - information architecture
+  - knowledge organization
+  - documentation standards
+  - knowledge sharing practices
+  does_not_own:
+  - content creation
+  - code implementation
+  - product decisions
+  - marketing
+routing:
+  delegates_to:
+  - agency-docs-writer
+  - agency-technical-writer
+  receives_from:
+  - agency-orchestrator
+  - agency-operations-manager
+recommended_tools:
+- a2a_send
+tags:
+- support
+- knowledge
+- documentation
+- information-architecture

@@ -1,9 +1,5 @@
 name: agency-brand-designer
 version: 0.1.0
-description: "Owns visual identity for products and public-facing material: brand systems, art direction, typography, color, imagery, logo usage, and campaign visual consistency. Use for identity; not product interaction design."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Creates and maintains visual identity systems including logos, typography, color, imagery, and brand application rules."
+author: "Kyle French"
+license: "AGPL-3.0-only"

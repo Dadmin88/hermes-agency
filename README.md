@@ -1,138 +1,305 @@
 # Hermes Agency
 
-**Hermes Agency is a profile pack. That is the product.**
+Hermes Agency is a curated collection of **83 professional profiles for [Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
 
-It is a curated set of professional [Hermes Agent](https://github.com/NousResearch/hermes-agent) profiles with clear role boundaries, routing descriptions, and shared collaboration rules. Install the profiles, route work to them, and let Hermes provide the runtime.
+The profiles form a multidisciplinary agency covering engineering, product, design, quality assurance, research, marketing, content, leadership, and operations. Each profile has a focused professional role, a routing description, working standards, collaboration expectations, and clear handoff behavior.
 
-Hermes Agency does **not** contain its own web app, server, scheduler, worker runtime, networking layer, database, deployment stack, agent transport, or orchestration framework.
+Profiles can be used independently or coordinated through Hermes Kanban for multi-role work.
 
-## Why this exists
+## Features
 
-A useful multi-agent system needs more than a pile of generic prompts. It needs specialists whose responsibilities are clear enough that a router can answer:
+- **83 specialized profiles** spanning technical, creative, product, business, and operational work.
+- **Hermes-native profile distributions** that install with standard Hermes profile tooling.
+- **Routing-ready descriptions** so profiles can be selected by capability and responsibility.
+- **Professional role definitions** with explicit responsibilities, operating standards, and definitions of done.
+- **Shared collaboration rules** for cross-profile handoffs, independent review, evidence, and escalation.
+- **Selective installation** so a machine can install the complete Agency or only the roles it needs.
 
-- Who should own this task?
-- What decisions is that specialist allowed to make?
-- What should they hand to another role instead?
-- What evidence must they return before the work is considered done?
+## Requirements
 
-Hermes Agency packages those answers as installable Hermes profiles.
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+- Python 3.10 or newer
+- Git
 
-## Roster
+## Installation
 
-### Leadership
-
-| Profile | Responsibility |
-|---|---|
-| `agency-orchestrator` | Decompose goals, route work, manage dependencies, synthesize results. |
-| `agency-product-manager` | Product intent, requirements, scope, priorities, acceptance criteria. |
-| `agency-technical-lead` | Engineering execution strategy, technical coordination, integration risk. |
-
-### Engineering
-
-| Profile | Responsibility |
-|---|---|
-| `agency-software-architect` | System boundaries, interfaces, architecture decisions, migrations. |
-| `agency-backend-engineer` | APIs, services, domain logic, application persistence, backend tests. |
-| `agency-frontend-engineer` | User-facing implementation, client state, accessibility, frontend tests. |
-| `agency-ai-engineer` | Model integration, agent workflows, retrieval, prompts, evals, AI failure controls. |
-| `agency-data-engineer` | Data ingestion, pipelines, transformations, schemas, quality, analytical stores. |
-| `agency-infrastructure-engineer` | CI/CD, environments, deployment, networking, observability, reliability. |
-
-### Quality
-
-| Profile | Responsibility |
-|---|---|
-| `agency-security-engineer` | Threat modeling, auth/authz, secrets, security review and remediation. |
-| `agency-qa-engineer` | Independent behavioral validation, regression testing, bug reproduction. |
-| `agency-code-reviewer` | Independent diff review for correctness, maintainability, compatibility, tests. |
-
-### Design
-
-| Profile | Responsibility |
-|---|---|
-| `agency-product-designer` | User flows, interaction design, UI states, information architecture, UX. |
-| `agency-brand-designer` | Brand identity, art direction, typography, color, visual consistency. |
-
-### Strategy & Content
-
-| Profile | Responsibility |
-|---|---|
-| `agency-researcher` | Technical, product, market, user, and competitive research with evidence. |
-| `agency-marketing-strategist` | Positioning, audience, messaging, campaigns, channel strategy, measurement. |
-| `agency-content-writer` | Public-facing long-form copy, launch copy, articles, scripts, case studies. |
-| `agency-social-media-manager` | Platform-native social posts, demo narratives, capture plans, content cadence. |
-| `agency-technical-writer` | READMEs, tutorials, API/developer docs, runbooks, migrations, release notes. |
-
-### Delivery
-
-| Profile | Responsibility |
-|---|---|
-| `agency-git-steward` | Safe Git integration, staging, commits, branches, rebases, merges, PR hygiene. |
-
-## Install
-
-Hermes profile distributions are normally one Git repository per profile. Hermes Agency intentionally keeps the whole Agency together in one repository, so the included installer installs each `profiles/<name>` directory as a local profile distribution.
+Clone the repository:
 
 ```bash
 git clone https://github.com/Dadmin88/hermes-agency.git
 cd hermes-agency
+```
 
-# Install the complete Agency.
+Install the complete Agency:
+
+```bash
 python3 install.py
+```
 
-# Or install only selected roles.
+Install selected profiles:
+
+```bash
 python3 install.py agency-orchestrator agency-backend-engineer agency-code-reviewer
 ```
 
-Use `--force` to re-apply a distribution over an existing profile while preserving Hermes-owned user data according to Hermes' distribution behavior:
+List available profiles:
+
+```bash
+python3 install.py --list
+```
+
+Install a category:
+
+```bash
+python3 install.py --category engineering
+```
+
+Use `--force` to re-apply profiles that are already installed:
 
 ```bash
 python3 install.py --force
 ```
 
-The installer also writes each curated routing description with `hermes profile describe`, because profile descriptions are part of Hermes' Kanban routing signal.
+The installer uses Hermes profile distributions and registers each profile's curated description with `hermes profile describe`.
 
-## Use with Hermes Kanban
+## Quick start
 
-Hermes already provides the durable multi-profile task board and dispatcher. Agency profiles are designed to be assignees on that board.
+The installer creates shell aliases for installed profiles. A profile can be used directly:
 
-For a gateway/profile that should use the Agency orchestrator for decomposition, configure Hermes with:
+```bash
+agency-market-researcher chat
+agency-software-architect chat
+agency-social-media-manager chat
+```
+
+For multi-role work, install `agency-orchestrator` together with the specialists you want available and use Hermes Kanban to assign work by profile name.
+
+Example Hermes configuration:
 
 ```yaml
 kanban:
   orchestrator_profile: agency-orchestrator
 ```
 
-The `agency-orchestrator` profile deliberately has a narrow tool surface. It coordinates through Kanban instead of becoming another implementation worker.
+## Profile roster
+
+Hermes Agency currently includes:
+
+| Area | Profiles |
+|---|---:|
+| Leadership & Coordination | 8 |
+| Engineering | 18 |
+| Quality & Review | 8 |
+| Design & Creative | 13 |
+| Product & Research | 11 |
+| Marketing & Growth | 9 |
+| Content & Editorial | 9 |
+| Operations & Support | 7 |
+| **Total** | **83** |
+
+### Leadership & Coordination
+
+| Profile | Role |
+|---|---|
+| `agency-chief-of-staff` | Chief of Staff |
+| `agency-operations-manager` | Operations Manager |
+| `agency-orchestrator` | Agency Orchestrator |
+| `agency-project-manager` | Project Manager |
+| `agency-release-manager` | Release Manager |
+| `agency-scrum-master` | Scrum Master |
+| `agency-technical-lead` | Technical Lead |
+| `agency-traffic-manager` | Traffic Manager |
+
+### Engineering
+
+| Profile | Role |
+|---|---|
+| `agency-ai-engineer` | AI Engineer |
+| `agency-automation-engineer` | Automation Engineer |
+| `agency-backend-engineer` | Backend Engineer |
+| `agency-data-engineer` | Data Engineer |
+| `agency-database-engineer` | Database Engineer |
+| `agency-devops-engineer` | DevOps Engineer |
+| `agency-frontend-engineer` | Frontend Engineer |
+| `agency-fullstack-engineer` | Full-Stack Engineer |
+| `agency-git-steward` | Git Steward |
+| `agency-godot-engineer` | Godot Engineer |
+| `agency-infrastructure-engineer` | Infrastructure Engineer |
+| `agency-integration-engineer` | Integration Engineer |
+| `agency-performance-engineer` | Performance Engineer |
+| `agency-platform-engineer` | Platform Engineer |
+| `agency-security-engineer` | Security Engineer |
+| `agency-software-architect` | Software Architect |
+| `agency-systems-architect` | Systems Architect |
+| `agency-tools-engineer` | Tools Engineer |
+
+### Quality & Review
+
+| Profile | Role |
+|---|---|
+| `agency-accessibility-reviewer` | Accessibility Reviewer |
+| `agency-code-reviewer` | Code Reviewer |
+| `agency-compliance-reviewer` | Compliance Reviewer |
+| `agency-design-reviewer` | Design Reviewer |
+| `agency-qa-lead` | QA Lead |
+| `agency-qa-tester` | QA Tester |
+| `agency-red-team` | Red Team |
+| `agency-security-reviewer` | Security Reviewer |
+
+### Design & Creative
+
+| Profile | Role |
+|---|---|
+| `agency-art-director` | Art Director |
+| `agency-asset-artist` | Asset Artist |
+| `agency-audio-designer` | Audio Designer |
+| `agency-brand-designer` | Brand Designer |
+| `agency-creative-director` | Creative Director |
+| `agency-design-systems-designer` | Design Systems Designer |
+| `agency-environment-artist` | Environment Artist |
+| `agency-level-designer` | Level Designer |
+| `agency-motion-designer` | Motion Designer |
+| `agency-product-designer` | Product Designer |
+| `agency-technical-artist` | Technical Artist |
+| `agency-ui-ux-designer` | UI/UX Designer |
+| `agency-worldbuilder` | Worldbuilder |
+
+### Product & Research
+
+| Profile | Role |
+|---|---|
+| `agency-business-analyst` | Business Analyst |
+| `agency-competitive-analyst` | Competitive Analyst |
+| `agency-game-designer` | Game Designer |
+| `agency-launch-manager` | Launch Manager |
+| `agency-market-researcher` | Market Researcher |
+| `agency-monetization-strategist` | Monetization Strategist |
+| `agency-onboarding-specialist` | Onboarding Specialist |
+| `agency-product-manager` | Product Manager |
+| `agency-product-strategist` | Product Strategist |
+| `agency-requirements-analyst` | Requirements Analyst |
+| `agency-user-researcher` | User Researcher |
+
+### Marketing & Growth
+
+| Profile | Role |
+|---|---|
+| `agency-analytics-specialist` | Analytics Specialist |
+| `agency-community-manager` | Community Manager |
+| `agency-email-marketer` | Email Marketer |
+| `agency-growth-marketer` | Growth Marketer |
+| `agency-marketing-strategist` | Marketing Strategist |
+| `agency-partnerships-manager` | Partnerships Manager |
+| `agency-public-relations` | Public Relations |
+| `agency-seo-specialist` | SEO Specialist |
+| `agency-social-media-manager` | Social Media Manager |
+
+### Content & Editorial
+
+| Profile | Role |
+|---|---|
+| `agency-content-writer` | Content Writer |
+| `agency-copywriter` | Copywriter |
+| `agency-dialogue-writer` | Dialogue Writer |
+| `agency-docs-writer` | Documentation Writer |
+| `agency-editor-in-chief` | Editor in Chief |
+| `agency-lore-writer` | Lore Writer |
+| `agency-release-notes-writer` | Release Notes Writer |
+| `agency-scriptwriter` | Scriptwriter |
+| `agency-technical-writer` | Technical Writer |
+
+### Operations & Support
+
+| Profile | Role |
+|---|---|
+| `agency-customer-success` | Customer Success |
+| `agency-finance-ops` | Finance Operations |
+| `agency-knowledge-manager` | Knowledge Manager |
+| `agency-legal-ops` | Legal Operations |
+| `agency-procurement-specialist` | Procurement Specialist |
+| `agency-support-specialist` | Support Specialist |
+| `agency-training-specialist` | Training Specialist |
+
+The machine-readable roster, categories, and profile names are maintained in [`agency.json`](./agency.json). Routing descriptions live with each profile in its `distribution.yaml`.
+
+## How profiles are structured
+
+Each profile lives under `profiles/<profile-name>/` and includes a Hermes distribution manifest and role definition:
+
+```text
+profiles/
+└── agency-backend-engineer/
+    ├── distribution.yaml
+    └── SOUL.md
+```
+
+`distribution.yaml` contains the distribution metadata and routing description.
+
+`SOUL.md` defines the role's responsibilities, authority, operating standards, collaboration behavior, communication standard, and definition of done.
+
+Profiles may include additional Hermes configuration or skills when a role benefits from them. The Agency Orchestrator includes a focused Hermes configuration for coordination work.
 
 ## Repository layout
 
 ```text
 .
-├── AGENCY.md          # collaboration and routing contract
-├── AGENTS.md          # scope guardrails for contributors/agents
-├── agency.json        # machine-readable roster
-├── install.py         # small local installer
+├── README.md
+├── AGENCY.md
+├── AGENTS.md
+├── agency.json
+├── install.py
 └── profiles/
-    ├── agency-orchestrator/
-    │   ├── distribution.yaml
-    │   ├── config.yaml
-    │   └── SOUL.md
-    └── ...
 ```
 
-Each profile is deliberately boring to package:
+- `README.md` provides installation and usage documentation.
+- `AGENCY.md` defines the shared operating model used across the profile pack.
+- `AGENTS.md` contains repository contribution instructions for coding agents and maintainers.
+- `agency.json` is the roster used by the installer.
+- `install.py` installs all, selected, or category-scoped profiles.
+- `profiles/` contains the Hermes profile distributions.
 
-- `distribution.yaml` identifies the Hermes distribution and provides a concise role description.
-- `SOUL.md` contains the professional identity, authority boundaries, working method, collaboration rules, and definition of done.
-- `config.yaml` is shipped only where Agency needs an opinionated capability boundary. The orchestrator is the main example.
+## Operating model
 
-No credentials, memories, sessions, runtime databases, workspaces, or user-specific state belong in this repository.
+Profiles are routed by responsibility and ownership. Complex tasks can move through several specialists, with each profile responsible for a bounded part of the work.
 
-## Design rule
+A typical software delivery flow might involve:
 
-A new profile must create a **meaningfully distinct routing lane**.
+```text
+Product Manager
+      ↓
+Technical Lead / Architect
+      ↓
+Implementation Specialists
+      ↓
+Code Review / QA / Security
+      ↓
+Git Steward / Release Manager
+```
 
-If a proposed role overlaps heavily with an existing profile, improve the existing profile instead of adding another title. The goal is not to simulate an org chart. The goal is to make routing reliable and specialist output excellent.
+A typical public launch might involve:
 
-See [AGENCY.md](./AGENCY.md) for the collaboration contract.
+```text
+Product Manager
+      ↓
+Launch Manager
+      ↓
+Marketing Strategist
+      ↓
+Copy / Content / Social / Brand
+      ↓
+Analytics / Customer Success
+```
+
+See [`AGENCY.md`](./AGENCY.md) for the full collaboration contract.
+
+## Contributing
+
+Profile changes should improve specialization, routing clarity, professional judgment, or collaboration quality.
+
+When adding a profile, make sure the role represents a meaningful specialization with work that can be routed to it unambiguously. Add the profile to `agency.json` in the same change.
+
+See [`AGENTS.md`](./AGENTS.md) for repository-specific contribution rules.
+
+## License
+
+Hermes Agency is licensed under the GNU Affero General Public License v3.0. See [`LICENSE`](./LICENSE).

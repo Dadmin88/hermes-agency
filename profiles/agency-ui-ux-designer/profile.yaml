@@ -1,0 +1,41 @@
+name: agency-ui-ux-designer
+display_name: UI/UX Designer
+category: design
+summary: Designs detailed user interfaces and user experiences — layouts, components,
+  micro-interactions, and responsive patterns.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - UI design
+  - layout design
+  - component design
+  - micro-interactions
+  - responsive patterns
+  - accessibility design
+  does_not_own:
+  - code implementation
+  - product strategy
+  - backend logic
+  - marketing
+routing:
+  delegates_to:
+  - agency-accessibility-reviewer
+  receives_from:
+  - agency-orchestrator
+  - agency-creative-director
+  - agency-product-designer
+recommended_tools:
+- a2a_send
+tags:
+- design
+- ui
+- ux
+- accessibility

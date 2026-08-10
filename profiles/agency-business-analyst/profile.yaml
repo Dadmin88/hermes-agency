@@ -1,0 +1,40 @@
+name: agency-business-analyst
+display_name: Business Analyst
+category: product
+summary: Analyzes business processes, models requirements, quantifies impact, and
+  bridges the gap between business needs and technical solutions.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - business process analysis
+  - requirements modeling
+  - impact quantification
+  - gap analysis
+  - solution evaluation
+  does_not_own:
+  - technical implementation
+  - design execution
+  - product strategy
+  - marketing execution
+routing:
+  delegates_to:
+  - agency-requirements-analyst
+  receives_from:
+  - agency-orchestrator
+  - agency-product-manager
+  - agency-product-strategist
+recommended_tools:
+- a2a_send
+tags:
+- product
+- analysis
+- business
+- requirements

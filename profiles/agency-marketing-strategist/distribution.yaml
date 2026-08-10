@@ -1,9 +1,5 @@
 name: agency-marketing-strategist
 version: 0.1.0
-description: "Owns positioning, audience, messaging strategy, channel choices, campaign plans, launch narrative, and marketing measurement. Use for why/how to market; execution copy belongs to Content/Social specialists."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Owns positioning, audience strategy, messaging architecture, channel choices, campaigns, launch narrative, and marketing measurement."
+author: "Kyle French"
+license: "AGPL-3.0-only"

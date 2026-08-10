@@ -1,0 +1,41 @@
+name: agency-training-specialist
+display_name: Training Specialist
+category: support
+summary: Creates training materials, courses, and programs that help users and team
+  members develop proficiency with the product.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - training materials
+  - course content
+  - training programs
+  - skill assessments
+  - training documentation
+  does_not_own:
+  - feature implementation
+  - product decisions
+  - marketing
+  - infrastructure
+routing:
+  delegates_to:
+  - agency-scriptwriter
+  - agency-docs-writer
+  receives_from:
+  - agency-orchestrator
+  - agency-onboarding-specialist
+  - agency-operations-manager
+recommended_tools:
+- a2a_send
+tags:
+- support
+- training
+- education
+- learning

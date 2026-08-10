@@ -1,9 +1,0 @@
-name: agency-qa-engineer
-version: 0.1.0
-description: "Owns independent quality validation: test strategy, reproducible bug investigation, exploratory testing, regression coverage, end-to-end verification, and release confidence. Use to prove behavior, not to implement the feature."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml

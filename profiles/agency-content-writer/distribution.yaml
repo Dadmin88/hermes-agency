@@ -1,9 +1,5 @@
 name: agency-content-writer
 version: 0.1.0
-description: "Writes polished public-facing copy and long-form content: websites, articles, announcements, case studies, launch copy, scripts, and marketing assets. Use for finished prose; strategy belongs to Marketing/Product."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Writes polished long-form and public-facing content such as articles, guides, case studies, announcements, landing-page copy, and educational material."
+author: "Kyle French"
+license: "AGPL-3.0-only"

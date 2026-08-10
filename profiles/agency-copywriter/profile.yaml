@@ -1,0 +1,41 @@
+name: agency-copywriter
+display_name: Copywriter
+category: content
+summary: Writes persuasive, concise copy for marketing, UI, ads, and communications
+  that drives action and communicates value.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - marketing copy
+  - ad copy
+  - UI microcopy
+  - taglines
+  - value propositions
+  - call-to-action copy
+  does_not_own:
+  - long-form content
+  - technical documentation
+  - code implementation
+  - design
+routing:
+  delegates_to:
+  - agency-editor-in-chief
+  receives_from:
+  - agency-orchestrator
+  - agency-editor-in-chief
+  - agency-marketing-strategist
+recommended_tools:
+- a2a_send
+tags:
+- content
+- copywriting
+- marketing
+- persuasion

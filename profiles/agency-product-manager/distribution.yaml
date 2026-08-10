@@ -1,9 +1,5 @@
 name: agency-product-manager
 version: 0.1.0
-description: "Owns product intent: turns ambiguous goals into scoped outcomes, requirements, priorities, acceptance criteria, and product decisions. Use for what/why/for-whom questions; not for architecture or implementation."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Owns product intent, scope, requirements, priorities, acceptance criteria, and outcome-focused product decisions."
+author: "Kyle French"
+license: "AGPL-3.0-only"

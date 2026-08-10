@@ -1,0 +1,40 @@
+name: agency-finance-ops
+display_name: Finance Operations
+category: support
+summary: Manages financial operations — budgeting, expense tracking, vendor payments,
+  financial reporting, and cost optimization.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - budget management
+  - expense tracking
+  - vendor payments
+  - financial reporting
+  - cost optimization
+  - financial planning
+  does_not_own:
+  - product decisions
+  - marketing campaigns
+  - code implementation
+  - design
+routing:
+  delegates_to:
+  - agency-analytics-specialist
+  receives_from:
+  - agency-orchestrator
+  - agency-chief-of-staff
+recommended_tools:
+- a2a_send
+tags:
+- support
+- finance
+- budget
+- operations

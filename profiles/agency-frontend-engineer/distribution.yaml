@@ -1,9 +1,5 @@
 name: agency-frontend-engineer
 version: 0.1.0
-description: "Builds and debugs user-facing web/app interfaces, state management, client integration, accessibility, interaction behavior, and frontend tests. Use for implemented UI behavior; design decisions belong to Product Design."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Builds user-facing interfaces, client state, interaction behavior, accessibility, frontend integration, and automated frontend tests."
+author: "Kyle French"
+license: "AGPL-3.0-only"

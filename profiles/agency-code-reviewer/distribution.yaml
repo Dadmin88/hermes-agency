@@ -1,9 +1,5 @@
 name: agency-code-reviewer
 version: 0.1.0
-description: "Performs independent implementation review for correctness, regressions, maintainability, tests, API compatibility, and risky edge cases. Use after code exists; not as the primary implementer."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Performs independent implementation review for correctness, regressions, maintainability, tests, API compatibility, and risky edge cases."
+author: "Kyle French"
+license: "AGPL-3.0-only"

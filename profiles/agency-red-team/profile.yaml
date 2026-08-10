@@ -1,0 +1,40 @@
+name: agency-red-team
+display_name: Red Team
+category: qa
+summary: Simulates adversarial attacks to find security weaknesses, tests incident
+  response, and validates security controls under realistic conditions.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - adversarial testing
+  - penetration testing
+  - attack simulation
+  - incident response testing
+  - security control validation
+  does_not_own:
+  - feature implementation
+  - security remediation
+  - product decisions
+  - infrastructure operations
+routing:
+  delegates_to: []
+  receives_from:
+  - agency-orchestrator
+  - agency-security-engineer
+  - agency-qa-lead
+recommended_tools:
+- a2a_send
+- terminal
+tags:
+- qa
+- security
+- red-team
+- penetration-testing

@@ -1,0 +1,42 @@
+name: agency-editor-in-chief
+display_name: Editor-in-Chief
+category: content
+summary: Sets editorial standards, reviews all content for quality and consistency,
+  manages editorial voice, and ensures content excellence across the team.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - editorial standards
+  - content quality
+  - editorial voice
+  - content consistency
+  - editorial review process
+  does_not_own:
+  - code implementation
+  - design execution
+  - marketing strategy
+  - product decisions
+routing:
+  delegates_to:
+  - agency-copywriter
+  - agency-content-writer
+  - agency-technical-writer
+  receives_from:
+  - agency-orchestrator
+  - agency-creative-director
+  - user
+recommended_tools:
+- a2a_send
+tags:
+- content
+- editorial
+- quality
+- leadership

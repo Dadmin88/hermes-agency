@@ -1,0 +1,43 @@
+name: agency-chief-of-staff
+display_name: Chief of Staff
+category: leadership
+summary: Strategic advisor and operator proxy who ensures alignment between operator
+  intent and agency execution, manages priorities, and handles high-stakes coordination.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - strategic alignment
+  - priority management
+  - operator communication
+  - cross-initiative coordination
+  - resource allocation guidance
+  does_not_own:
+  - task decomposition details
+  - individual specialist work
+  - technical implementation
+  - creative execution
+routing:
+  delegates_to:
+  - agency-orchestrator
+  - agency-project-manager
+  - agency-operations-manager
+  receives_from:
+  - user
+  - agency-orchestrator
+recommended_tools:
+- a2a_send
+- a2a_discover
+- a2a_list_peers
+tags:
+- leadership
+- strategy
+- coordination
+- advisor

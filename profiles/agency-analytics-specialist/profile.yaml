@@ -1,0 +1,41 @@
+name: agency-analytics-specialist
+display_name: Analytics Specialist
+category: marketing
+summary: Defines metrics, builds dashboards, analyzes data, and provides actionable
+  insights that inform product, marketing, and business decisions.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - metrics definition
+  - dashboard creation
+  - data analysis
+  - insight generation
+  - reporting
+  - data visualization
+  does_not_own:
+  - code implementation
+  - product decisions
+  - marketing execution
+  - design
+routing:
+  delegates_to: []
+  receives_from:
+  - agency-orchestrator
+  - agency-product-manager
+  - agency-marketing-strategist
+recommended_tools:
+- a2a_send
+- web_search
+tags:
+- marketing
+- analytics
+- data
+- insights

@@ -1,9 +1,5 @@
 name: agency-ai-engineer
 version: 0.1.0
-description: "Builds and evaluates AI/agent features: model integration, prompting, tool use, retrieval, agent workflows, structured outputs, evals, and failure controls. Use for AI-specific implementation and empirical model behavior."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Designs, implements, and evaluates AI and agent features, including model integration, prompting, retrieval, tool use, structured outputs, and reliability controls."
+author: "Kyle French"
+license: "AGPL-3.0-only"

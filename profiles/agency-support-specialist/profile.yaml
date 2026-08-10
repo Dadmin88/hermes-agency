@@ -1,0 +1,42 @@
+name: agency-support-specialist
+display_name: Support Specialist
+category: support
+summary: Handles user support requests — triaging issues, providing solutions, escalating
+  complex problems, and ensuring user satisfaction.
+agency:
+  enabled: true
+  auto_start: false
+  allow_remote_tasks: false
+  skills_from_profile: true
+  incoming:
+    tool_access: full
+  relay_security:
+    auto_allow_team: true
+ownership:
+  owns:
+  - user support
+  - issue triage
+  - solution delivery
+  - support ticket management
+  - user communication
+  - support documentation
+  does_not_own:
+  - feature implementation
+  - product decisions
+  - infrastructure
+  - marketing
+routing:
+  delegates_to:
+  - agency-qa-tester
+  - agency-docs-writer
+  receives_from:
+  - agency-orchestrator
+  - agency-community-manager
+  - user
+recommended_tools:
+- a2a_send
+tags:
+- support
+- user-support
+- triage
+- help

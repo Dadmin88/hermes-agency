@@ -2,88 +2,140 @@
 
 ## Repository purpose
 
-This repository has one product: **a curated pack of Hermes Agent profiles that work together as an Agency**.
+Hermes Agency is a curated collection of professional Hermes Agent profiles designed to work together as a multidisciplinary agency.
 
-Keep the repository aggressively scoped to that purpose.
+Repository changes should improve one or more of these areas:
 
-## Hard scope boundary
+- profile quality;
+- routing clarity;
+- collaboration behavior;
+- profile packaging;
+- installation;
+- durable user and contributor documentation.
 
-Do **not** add:
+## Sources of truth
 
-- a web app or desktop app;
-- an API server;
-- a custom agent runtime;
-- a queue, scheduler, dispatcher, or Kanban implementation;
-- networking, A2A transport, P2P, discovery, or remote execution;
-- machine/resource management;
-- Docker/deployment infrastructure for an Agency service;
-- a database or persistence layer for Agency state;
-- dashboards, telemetry backends, or workflow engines.
+- `agency.json` is the machine-readable roster used by the installer.
+- `profiles/<name>/distribution.yaml` defines distribution metadata for a profile.
+- `profiles/<name>/SOUL.md` defines the professional behavior of a profile.
+- `AGENCY.md` defines the shared collaboration model.
+- `README.md` is the newcomer-facing product documentation.
 
-Hermes Agent provides the agent runtime and Kanban primitives. Hermes Fleet or other systems may provide distributed execution. Agency supplies the professional profiles.
+Keep these files consistent in the same change.
 
-## Profile standard
+## Profile structure
 
-Every profile must have:
+Every profile must include:
 
-1. `distribution.yaml`
-2. `SOUL.md`
+```text
+profiles/<profile-name>/
+├── distribution.yaml
+└── SOUL.md
+```
 
-Add `config.yaml` only when the role requires an intentional capability/configuration boundary. Do not pin a model/provider merely because the author currently uses one.
+Additional Hermes configuration or bundled skills may be added when they materially improve the role.
 
-A profile's `distribution.yaml` description is routing-critical. It must say what the profile is good at **and** distinguish it from neighboring roles.
+Profile names use the `agency-` prefix and lowercase kebab case.
 
-A profile's `SOUL.md` must define:
+## Profile quality standard
 
-- identity and mission;
-- what the role owns;
-- what it explicitly does not own;
-- working method;
-- collaboration/handoff relationships;
-- shared Agency behavior;
-- communication standard;
+A profile must represent a meaningful professional specialization.
+
+Its routing description should make clear:
+
+- what class of work the profile owns;
+- what deliverables it is expected to produce;
+- how it differs from nearby specialties.
+
+Its `SOUL.md` should define:
+
+- role and specialty;
+- core responsibilities;
+- authority and handoff boundaries;
+- operating standards;
+- common collaborators;
+- communication expectations;
 - definition of done.
 
-## New-profile test
+Profiles should be capable of independent professional judgment inside their domain. Avoid generic instructions that could be copied unchanged to every role without affecting behavior.
 
-Before adding a role, answer:
+## Routing quality
 
-> What class of task can this profile own better and more unambiguously than every existing profile?
+Routing should be based on responsibility, not keyword matching.
 
-If the answer is mostly a title difference, do not add the profile. Improve an existing one.
+When adding or editing a role, compare it with neighboring profiles. Overlap is acceptable when the professions are genuinely distinct, but the ownership boundary must be clear enough for an orchestrator to choose between them.
 
-Avoid "manager inflation" and specialist pairs whose boundaries are too subtle for reliable routing.
+Examples:
 
-## Collaboration rules
+- Product Manager defines product behavior; Technical Lead coordinates engineering execution.
+- Software Architect defines durable software structure; Backend Engineer implements backend behavior.
+- Product Designer defines product experience; Frontend Engineer implements the interface.
+- Code Reviewer reviews implementation; QA Tester validates behavior.
+- Marketing Strategist defines marketing direction; Copywriter produces persuasive copy.
+- Market Researcher studies the market; User Researcher studies users.
 
-- Route by ownership, not keywords.
-- Use the smallest capable specialist set.
-- Keep implementation and independent review separate when the risk warrants it.
-- Do not let one profile silently absorb another profile's decision authority.
-- Handoffs must carry outcome, artifacts, evidence, risks/unknowns, and next owner.
-- Named profiles remain accountable for bounded subagents used inside their own lane.
-- Preserve unrelated repository/user work.
+## Collaboration standard
 
-See `AGENCY.md` for the complete operating contract.
+Profiles should work as a team without becoming interchangeable.
 
-## Packaging rules
+Shared expectations:
 
-Hermes profile distributions must remain free of user/runtime state and secrets.
+- inspect relevant context before acting;
+- keep ownership explicit;
+- use the smallest capable specialist set;
+- preserve unrelated work;
+- validate deliverables before completion;
+- use independent review where it adds meaningful confidence;
+- hand off outcome, artifacts, evidence, risks, and next action;
+- escalate decisions to the role that owns them.
 
-Never commit credentials, `.env`, `auth.json`, memories, sessions, logs, runtime DBs, workspaces, caches, or generated user state.
+## Distribution metadata
 
-The root `agency.json` is the machine-readable roster and installer source of truth. When adding, renaming, or removing a profile, update it in the same change.
+Each `distribution.yaml` should include at least:
+
+```yaml
+name: agency-example
+version: 0.1.0
+description: "Clear routing description"
+author: "Kyle French"
+license: "AGPL-3.0-only"
+```
+
+Do not pin a model or provider unless the profile genuinely depends on one.
+
+## Roster changes
+
+When adding, renaming, or removing a profile:
+
+1. Update the profile directory.
+2. Update `agency.json`.
+3. Update the README roster if category counts or profile names change.
+4. Check handoff references in related profiles.
+5. Confirm `install.py --list` can discover the result.
+
+## Installer
+
+Keep `install.py` small and dependency-free.
+
+The installer should rely on Hermes profile commands rather than reimplement profile-management behavior. It must support the full roster and selected profile installation from `agency.json`.
+
+## Security and repository hygiene
+
+Never commit credentials, API keys, `.env` files, `auth.json`, memories, sessions, runtime databases, caches, logs, or user workspaces.
+
+Keep examples generic and safe for a public repository.
 
 ## Documentation style
 
-This is a production repository, not an agent notebook.
+Write documentation for someone encountering Hermes Agency for the first time.
 
-Do not add:
+Documentation should explain the current product directly:
 
-- personal progress notes;
-- phase diaries;
-- giant planning documents for completed work;
-- duplicated explanations spread across many files;
-- stale architecture documents describing systems that no longer exist.
+- what it is;
+- why someone would use it;
+- how to install it;
+- how to use it;
+- how the profiles are organized;
+- how to contribute.
 
-Prefer small durable documentation that explains the current product.
+Use normal production documentation. Avoid personal notes, implementation diaries, conversational explanations, migration commentary, or historical comparisons unless a document is specifically intended to record history.

@@ -1,9 +1,5 @@
 name: agency-social-media-manager
 version: 0.1.0
-description: "Plans and executes platform-native social content, post series, threads, demo narratives, community responses, and content calendars. Use for social distribution and engagement; positioning belongs to Marketing Strategy."
-hermes_requires: ">=0.19.0"
-author: Dadmin88
-license: AGPL-3.0-only
-distribution_owned:
-  - SOUL.md
-  - distribution.yaml
+description: "Plans and executes platform-native social content, demo narratives, post series, community interactions, and publishing cadence."
+author: "Kyle French"
+license: "AGPL-3.0-only"
