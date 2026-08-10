@@ -2,13 +2,14 @@
 
 Hermes Agency is a curated collection of **83 professional profiles for [Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
 
-The profiles form a multidisciplinary agency covering engineering, product, design, quality assurance, research, marketing, content, leadership, and operations. Each profile has a focused professional role, a routing description, working standards, collaboration expectations, and clear handoff behavior.
+The profiles form a multidisciplinary agency covering engineering, product, design, quality assurance, research, marketing, content, leadership, and operations. Each profile combines a focused professional role with bundled task skills, routing metadata, working standards, collaboration expectations, and clear handoff behavior.
 
 Profiles can be used independently or coordinated through Hermes Kanban for multi-role work.
 
 ## Features
 
 - **83 specialized profiles** spanning technical, creative, product, business, and operational work.
+- **Bundled professional skills** that are installed with each profile and loaded by Hermes when relevant.
 - **Hermes-native profile distributions** that install with standard Hermes profile tooling.
 - **Routing-ready descriptions** so profiles can be selected by capability and responsibility.
 - **Professional role definitions** with explicit responsibilities, operating standards, and definitions of done.
@@ -80,6 +81,19 @@ Example Hermes configuration:
 kanban:
   orchestrator_profile: agency-orchestrator
 ```
+
+## Bundled skills
+
+Every Agency profile ships with a `skills/` directory containing task-specific professional playbooks. Hermes profile distributions install those skills together with the profile, and Hermes can load them on demand when the profile encounters matching work.
+
+The distinction is intentional:
+
+- `SOUL.md` defines the specialist's role, authority, working standards, and collaboration behavior.
+- `skills/` defines repeatable procedures for specific classes of work within that specialty.
+
+For example, the Security Engineer includes a threat-modeling skill, the QA Tester includes an exploratory-testing skill, the Product Manager includes a product-requirements skill, and the Social Media Manager includes a social-content-plan skill.
+
+Skill bundles are expected to grow as useful procedures are developed or curated. Third-party skills are reviewed and vendored into the profile rather than fetched from a public marketplace during profile installation.
 
 ## Profile roster
 
@@ -224,20 +238,25 @@ The machine-readable roster, categories, and profile names are maintained in [`a
 
 ## How profiles are structured
 
-Each profile lives under `profiles/<profile-name>/` and includes a Hermes distribution manifest and role definition:
+Each profile lives under `profiles/<profile-name>/` and is a self-contained Hermes profile distribution:
 
 ```text
 profiles/
 └── agency-backend-engineer/
     ├── distribution.yaml
-    └── SOUL.md
+    ├── SOUL.md
+    └── skills/
+        └── backend-service-implementation/
+            └── SKILL.md
 ```
 
-`distribution.yaml` contains the distribution metadata and routing description.
+`distribution.yaml` contains distribution metadata and the routing description.
 
 `SOUL.md` defines the role's responsibilities, authority, operating standards, collaboration behavior, communication standard, and definition of done.
 
-Profiles may include additional Hermes configuration or skills when a role benefits from them. The Agency Orchestrator includes a focused Hermes configuration for coordination work.
+`skills/` contains the professional procedures bundled with that profile. Skills may also contain supporting references or scripts when the procedure requires them.
+
+A profile may include additional Hermes configuration when the specialty benefits from an intentional capability boundary. The Agency Orchestrator includes a focused Hermes configuration for coordination work.
 
 ## Repository layout
 
@@ -256,7 +275,7 @@ Profiles may include additional Hermes configuration or skills when a role benef
 - `AGENTS.md` contains repository contribution instructions for coding agents and maintainers.
 - `agency.json` is the roster used by the installer.
 - `install.py` installs all, selected, or category-scoped profiles.
-- `profiles/` contains the Hermes profile distributions.
+- `profiles/` contains the Hermes profile distributions and their bundled skills.
 
 ## Operating model
 
@@ -294,9 +313,9 @@ See [`AGENCY.md`](./AGENCY.md) for the full collaboration contract.
 
 ## Contributing
 
-Profile changes should improve specialization, routing clarity, professional judgment, or collaboration quality.
+Profile changes should improve specialization, routing clarity, professional judgment, collaboration quality, or the specialist's bundled skills.
 
-When adding a profile, make sure the role represents a meaningful specialization with work that can be routed to it unambiguously. Add the profile to `agency.json` in the same change.
+When adding a profile, make sure the role represents a meaningful specialization with work that can be routed to it unambiguously. Add the profile to `agency.json` in the same change and include at least one useful role-specific skill.
 
 See [`AGENTS.md`](./AGENTS.md) for repository-specific contribution rules.
 
