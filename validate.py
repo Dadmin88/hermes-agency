@@ -12,10 +12,19 @@ from pathlib import Path
 
 PROFILE_RE = re.compile(r"^agency-[a-z0-9]+(?:-[a-z0-9]+)*$")
 SKILL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+EVAL_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 REQUIRED_DISTRIBUTION_FIELDS = ("name", "version", "description", "author", "license")
 SOURCE_FIELDS = ("Canonical source", "Reviewed revision", "Review date", "Upstream author", "License")
+ROUTING_ACTIONS = {
+    "resolve-profile-presence",
+    "route-same-profile-to-ready-node",
+    "place-same-profile-then-route",
+    "reselect-node-without-changing-profile",
+    "decompose-and-resolve-profile-presence",
+    "report-missing-specialization",
+}
 
 
 def load_json(path: Path, errors: list[str]) -> dict:
@@ -116,6 +125,66 @@ def normalize_bundled(value: object, profile: str, errors: list[str]) -> list[st
         return list(value)
     errors.append(f"invalid bundled skill list for {profile}")
     return []
+
+
+def validate_routing_evals(root: Path, roster_set: set[str], errors: list[str]) -> int:
+    eval_path = root / "evals" / "routing.json"
+    data = load_json(eval_path, errors)
+    if not data:
+        return 0
+
+    if data.get("schema_version") != 1:
+        errors.append(
+            f"unsupported routing eval schema_version={data.get('schema_version')!r} in {eval_path}"
+        )
+
+    cases = data.get("cases", [])
+    if not isinstance(cases, list) or not cases:
+        errors.append(f"routing evals must contain a non-empty cases list: {eval_path}")
+        return 0
+
+    seen_ids: set[str] = set()
+    for index, case in enumerate(cases):
+        label = f"routing eval case #{index + 1}"
+        if not isinstance(case, dict):
+            errors.append(f"{label} is not an object")
+            continue
+
+        case_id = case.get("id")
+        if not isinstance(case_id, str) or not EVAL_ID_RE.fullmatch(case_id):
+            errors.append(f"{label} has invalid id: {case_id!r}")
+        elif case_id in seen_ids:
+            errors.append(f"duplicate routing eval id: {case_id}")
+        else:
+            seen_ids.add(case_id)
+
+        task = case.get("task")
+        if not isinstance(task, str) or not task.strip():
+            errors.append(f"{label} has an empty task")
+
+        expected_profile = case.get("expected_profile")
+        if expected_profile is not None:
+            if not isinstance(expected_profile, str) or expected_profile not in roster_set:
+                errors.append(
+                    f"{label} references unknown expected_profile: {expected_profile!r}"
+                )
+
+        action = case.get("expected_runtime_action")
+        if action not in ROUTING_ACTIONS:
+            errors.append(f"{label} has invalid expected_runtime_action: {action!r}")
+            continue
+
+        if action == "report-missing-specialization":
+            if expected_profile is not None:
+                errors.append(
+                    f"{label} reports missing specialization but expected_profile is not null"
+                )
+        elif expected_profile is None:
+            errors.append(
+                f"{label} expects runtime action {action!r} but has no expected_profile"
+            )
+
+    return len(cases)
 
 
 def validate(root: Path) -> tuple[list[str], dict[str, int]]:
@@ -334,11 +403,43 @@ def validate(root: Path) -> tuple[list[str], dict[str, int]]:
             f"agency.json distribution contract mismatch: {distribution_meta!r}"
         )
 
+    if agency.get("schema_version") != 2:
+        errors.append(
+            f"agency.json schema_version must be 2 for Fleet routing contract, got {agency.get('schema_version')!r}"
+        )
+
+    routing_meta = agency.get("routing", {})
+    expected_routing = {
+        "capability_manifest": "skills-map.json",
+        "profile_metadata_template": "profiles/{name}/distribution.yaml",
+        "selection_order": ["professional-profile", "eligible-node"],
+        "live_presence_owner": "hermes-fleet",
+        "missing_presence_behavior": "fleet-locate-or-place",
+    }
+    if routing_meta != expected_routing:
+        errors.append(f"agency.json routing contract mismatch: {routing_meta!r}")
+    else:
+        capability_manifest = root / routing_meta["capability_manifest"]
+        if not capability_manifest.is_file():
+            errors.append(
+                f"agency.json routing capability manifest does not exist: {capability_manifest}"
+            )
+        metadata_template = routing_meta["profile_metadata_template"]
+        for name in roster_names:
+            metadata_path = root / metadata_template.format(name=name)
+            if not metadata_path.is_file():
+                errors.append(
+                    f"routing profile metadata path does not exist for {name}: {metadata_path}"
+                )
+
+    routing_eval_count = validate_routing_evals(root, roster_set, errors)
+
     stats = {
         "profiles": len(roster_names),
         "skills": actual_skill_count,
         "sourced_skills": sourced_skill_count,
         "remaining_targets": target_remaining,
+        "routing_evals": routing_eval_count,
     }
     return errors, stats
 
@@ -365,6 +466,7 @@ def main() -> int:
         f"{stats['profiles']} profiles, "
         f"{stats['skills']} bundled skills, "
         f"{stats['sourced_skills']} sourced skills, "
+        f"{stats['routing_evals']} routing evals, "
         f"{stats['remaining_targets']} remaining baseline targets"
     )
     return 0
