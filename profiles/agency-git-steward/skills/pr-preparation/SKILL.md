@@ -1,29 +1,30 @@
 ---
 name: pr-preparation
-description: Prepare a pull request from reviewed Git state with a minimal coherent diff, correct base/head, accurate summary, validation evidence, migration or risk notes, and no unrelated or stale changes.
+description: Prepare or refresh a pull request from reviewed Git state with a coherent full diff, correct base/head, preserved media, accurate summary, validation evidence, migration or risk notes, and no unrelated or stale changes.
 ---
 # Pull Request Preparation
 
-Use when a branch or commit series is ready to be proposed for integration through a pull request.
+Use when a branch or commit series is ready to be proposed for integration, or when an existing PR/MR description no longer reflects the current branch.
 
 ## Procedure
 1. Verify the intended repository, base branch, head branch, remote ownership, and branch protection/review conventions before opening or updating the PR.
-2. Compare head against the actual target base and inspect the full PR diff/file list, not just the last commit. Remove or split unrelated changes before asking reviewers to reason about them.
-3. Ensure commits are coherent enough for the repository's review style and that generated/lockfile/migration/vendor changes are intentional and explained when non-obvious.
-4. Update from the target base according to project policy when necessary and resolve conflicts before review if that reduces noise without rewriting shared history improperly.
-5. Run or gather the validation appropriate to the proposed change and record exact commands/results or links. Do not claim tests/checks that were not actually run or whose environment was materially incomplete.
-6. Write a PR title and summary describing the resulting behavior and motivation. Include important implementation choices only when they help reviewers understand the change or tradeoff.
-7. Call out migrations, compatibility changes, rollout/rollback needs, security implications, known limitations, screenshots/demos, follow-up work, or manual validation when they materially affect review or release.
-8. Link issues/tasks/designs/specifications that define the accepted intent where useful, but keep the PR body self-contained enough to understand the change.
-9. Request reviewers appropriate to the affected domains and repository policy. Do not use reviewer count as a substitute for selecting people/profiles with relevant ownership.
-10. After creation/update, verify the PR points at the intended head SHA/base and that CI/status checks correspond to that revision.
+2. Determine whether the head branch already has a PR/MR. Update the existing review surface when it represents the same work rather than opening a duplicate.
+3. Compare head against the actual target base and inspect the complete base-to-head diff/file list, not just the latest commit or current working tree.
+4. Ensure commits are coherent enough for the repository's review style and that generated, lockfile, migration, vendor, media, or asset changes are intentional. Do not impose an arbitrary commit count or rewrite shared history merely for aesthetics.
+5. Update from the target base according to repository policy when necessary and resolve conflicts without discarding contributor intent or unrelated work.
+6. Run or gather validation appropriate to the proposed current revision and record exact commands/results or links. Do not claim checks that were not run or belong to an older head SHA.
+7. Draft the title and body from the change as a whole: resulting behavior, motivation, important implementation choices, validation, migration/compatibility/rollout concerns, and known limitations where relevant.
+8. When refreshing an existing PR/MR, read its current body first and preserve screenshots, videos, upload URLs, diagrams, and other intentionally attached media unless the change explicitly replaces them. Verify preserved media still exists in the new body before publishing it.
+9. Link issues, tasks, designs, specifications, and related/sibling PRs when they define scope or provenance. Preserve contributor credit when the branch consolidates or carries forward another contributor's work.
+10. Request reviewers appropriate to affected ownership/risk and verify after creation/update that the forge points at the intended head SHA/base and that status checks correspond to that revision.
 
 ## Decision rules
 - A PR is a review surface, not a development diary.
-- The complete base-to-head diff is what reviewers approve, even if individual commits look clean.
+- The complete base-to-head diff is what reviewers approve.
+- Do not open a duplicate PR when an existing branch review can be refreshed accurately.
+- Do not strip useful screenshots/video from an existing PR description as a side effect of rewriting text.
 - Do not hide known risk or incomplete validation to make the PR appear ready.
-- Avoid giant prose templates when a concise summary, evidence, and risk notes communicate everything material.
 - Reviewer selection should follow affected ownership and risk.
 
 ## Quality gate
-The PR is ready when its diff is coherent and free of unrelated work, base/head are correct, validation evidence is truthful and revision-specific, material migration/risk/rollout information is visible, the description explains the resulting change, and reviewers can evaluate it without reconstructing the branch history themselves.
+The PR/MR is ready for review when its current full diff is coherent and scoped, base/head are correct, description and preserved media reflect the actual branch, validation evidence is truthful and revision-specific, material migration/risk/rollout information is visible, contributor provenance is preserved, and the forge confirms the intended current revision.
