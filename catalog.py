@@ -53,6 +53,13 @@ def _distribution_metadata(path: Path) -> dict[str, str]:
     return values
 
 
+def _validate_distribution_identity(
+    metadata: dict[str, str], expected_name: str, expected_version: str
+) -> None:
+    if metadata.get("name") != expected_name or metadata.get("version") != expected_version:
+        raise ValueError(f"{expected_name}: distribution identity does not match Agency catalog")
+
+
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -112,6 +119,7 @@ def profile_content_digest(profile_dir: Path, name: str, version: str) -> str:
         {
             "path": path.relative_to(profile_dir).as_posix(),
             "sha256": _file_sha256(path),
+            "executable": bool(path.stat().st_mode & 0o111),
         }
         for path in _profile_content_files(profile_dir)
     ]
@@ -174,8 +182,7 @@ def build_catalog() -> dict:
         profile_dir = profile_root / name
         manifest_path = profile_dir / "distribution.yaml"
         metadata = _distribution_metadata(manifest_path)
-        if metadata["name"] != name or metadata["version"] != version:
-            raise ValueError(f"{name}: distribution identity does not match Agency catalog")
+        _validate_distribution_identity(metadata, name, version)
         entries.append(
             {
                 "name": name,
