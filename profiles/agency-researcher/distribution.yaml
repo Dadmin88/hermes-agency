@@ -1,0 +1,9 @@
+name: agency-researcher
+version: 0.1.0
+description: "Investigates technical, product, market, user, and competitive questions using primary evidence where possible; compares options, cites sources, and separates facts from inference. Use when uncertainty should be reduced before a decision."
+hermes_requires: ">=0.19.0"
+author: Dadmin88
+license: AGPL-3.0-only
+distribution_owned:
+  - SOUL.md
+  - distribution.yaml

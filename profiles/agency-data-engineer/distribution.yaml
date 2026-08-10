@@ -1,0 +1,9 @@
+name: agency-data-engineer
+version: 0.1.0
+description: "Builds and maintains data ingestion, transformation, pipelines, schemas, quality checks, analytical stores, and reproducible data workflows. Use when data movement/shape is the product problem, not ordinary app persistence."
+hermes_requires: ">=0.19.0"
+author: Dadmin88
+license: AGPL-3.0-only
+distribution_owned:
+  - SOUL.md
+  - distribution.yaml

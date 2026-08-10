@@ -1,46 +1,39 @@
-# Python
+# Credentials and local Hermes state
+.env
+.env.*
+!.env.EXAMPLE
+auth.json
+auth.lock
+
+# Runtime/user data
+memories/
+sessions/
+logs/
+plans/
+workspace/
+home/
+state.db*
+hermes_state.db
+response_store.db*
+gateway.pid
+gateway_state.json
+processes.json
+active_profile
+.update_check
+
+# Caches/generated artifacts
 __pycache__/
 *.py[cod]
-*$py.class
-*.egg-info/
-*.egg
-dist/
-build/
-.eggs/
+.cache/
+cache/
+*_cache/
+browser_screenshots/
+checkpoints/
+sandboxes/
+backups/
+.worktrees/
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-
-# Type checking / lint
-.mypy_cache/
-.ruff_cache/
-
-# Testing
-.pytest_cache/
-htmlcov/
-.coverage
-coverage.xml
-
-# OS
+# Editor/OS noise
 .DS_Store
-*.swp
-*.swo
-*~
-
-# IDE
 .idea/
 .vscode/
-
-# Daemon binaries / local runtime artifacts
-src/agentanycast/_bin/
-bin/agentanycastd
-.agentanycast/
-*.sock
-*.log
-logs/
-
-# Local compatibility symlinks
-agentanycast_plugin
-.worktrees/

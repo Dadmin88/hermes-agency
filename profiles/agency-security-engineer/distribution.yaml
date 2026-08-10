@@ -1,0 +1,9 @@
+name: agency-security-engineer
+version: 0.1.0
+description: "Owns application and infrastructure security analysis, threat modeling, auth/authz, secrets, trust boundaries, vulnerability remediation, and security validation. Use for security-sensitive design or review."
+hermes_requires: ">=0.19.0"
+author: Dadmin88
+license: AGPL-3.0-only
+distribution_owned:
+  - SOUL.md
+  - distribution.yaml

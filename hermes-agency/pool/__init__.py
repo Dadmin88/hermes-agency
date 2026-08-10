@@ -1,1 +1,0 @@
-# Hermes Agency pool package

@@ -1,267 +1,138 @@
 # Hermes Agency
 
-**A Hermes Agent plugin and local operations layer for running a managed multi-agent team.**
+**Hermes Agency is a profile pack. That is the product.**
 
-Hermes Agency turns a Hermes installation into an agency-style operating system: packaged specialist profiles, skill-based routing, team context injection, Kanban-backed task tracking, model-set controls, orchestration helpers, wake-or-queue lifecycle, and safe delegation. Keryx is the primary transport foundation for AgentCards, registry discovery, daemon/relay routing, mailbox delivery, and encrypted peer networking; AgentAnycast remains available for legacy/fallback deployments.
+It is a curated set of professional [Hermes Agent](https://github.com/NousResearch/hermes-agent) profiles with clear role boundaries, routing descriptions, and shared collaboration rules. Install the profiles, route work to them, and let Hermes provide the runtime.
 
-Hermes Agency is the product in this repository. Keryx is the primary transport; AgentAnycast is the legacy compatibility path.
+Hermes Agency does **not** contain its own web app, server, scheduler, worker runtime, networking layer, database, deployment stack, agent transport, or orchestration framework.
 
-> **Development status:** Hermes Agency is currently unreleased development software. There is no official GitHub or PyPI release yet; install from this repository for evaluation and development.
+## Why this exists
 
-[![CI](https://github.com/Dadmin88/hermes-agency/actions/workflows/ci.yml/badge.svg)](https://github.com/Dadmin88/hermes-agency/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![License](https://img.shields.io/badge/License-AGPL--3.0--only-blue)](LICENSE)
+A useful multi-agent system needs more than a pile of generic prompts. It needs specialists whose responsibilities are clear enough that a router can answer:
 
-## Operator golden path
+- Who should own this task?
+- What decisions is that specialist allowed to make?
+- What should they hand to another role instead?
+- What evidence must they return before the work is considered done?
 
-For a cold install, prefer the starter staff pack and doctor-first path:
+Hermes Agency packages those answers as installable Hermes profiles.
 
-```bash
-hermes-agency staff install --starter
-hermes-agency setup-plugins
-hermes-agency doctor
-```
+## Roster
 
-Full walkthrough: [`docs/operator-golden-path.md`](docs/operator-golden-path.md).  
-Guided helper: `python scripts/operator_golden_path.py --dry-run`.
+### Leadership
 
-## Proof and Keryx boundary
-
-Hermes Agency includes two permanent proofs:
-
-1. **In-process golden path** (`hermes-agency/tests/test_golden_path.py`) — real Agency roster, wake-or-queue, trust, incoming worker, Hermes delegation, artifact, orchestrator-state, and Kanban reconciliation seams with an in-memory transport adapter.
-2. **Live multi-process Keryx round trip** (`scripts/e2e_agency_keryx.py`, CI: `agency-phase17-e2e.yml`) — real relay/registry, two daemons, two edge nodes, production Agency incoming queue, authenticated trust, terminal artifact return, and Kanban reconciliation.
-
-See [the current boundary](docs/keryx-cross-node-boundary.md) and the active remediation plan in [`docs/plans/2026-07-13-hermes-agency-full-remediation.md`](docs/plans/2026-07-13-hermes-agency-full-remediation.md). Hermes Fabric live dispatch remains a separate follow-up; the default Fabric client is unconfigured/dry-run.
-
-## What this repository contains
-
-| Area | Purpose |
+| Profile | Responsibility |
 |---|---|
-| `hermes-agency/` | The Hermes Agency plugin: CLI/slash commands, model tools, config, staff installation, node management, orchestration, Kanban bridges, and pool delegation. |
-| `hermes-agency/default_staff/` | Packaged `agency-*` Hermes profiles that form the default specialist roster. |
-| `hermes-agency/model_sets/` | The single canonical OpenAI Codex Sol/Terra/Luna profile-routing strategy. |
-| `src/keryx/` | Vendored Keryx Python SDK (primary transport). |
-| `src/agentanycast/` | Legacy AgentAnycast compatibility transport (fallback only). |
-| `docker/`, `Dockerfile`, `docker-compose.yml` | Headless setup/node runtime for local or server deployment. |
-| `scripts/` | Operational helpers such as batch agent wake scripts. |
-| `docs/` | Focused implementation, operations, current-product boundary notes, and the canonical Night Shift autonomous-workflow playbook. |
+| `agency-orchestrator` | Decompose goals, route work, manage dependencies, synthesize results. |
+| `agency-product-manager` | Product intent, requirements, scope, priorities, acceptance criteria. |
+| `agency-technical-lead` | Engineering execution strategy, technical coordination, integration risk. |
 
-## Install from source
+### Engineering
 
-Hermes Agency requires Python 3.11+. Until an official release is published, install it from a checked-out repository:
+| Profile | Responsibility |
+|---|---|
+| `agency-software-architect` | System boundaries, interfaces, architecture decisions, migrations. |
+| `agency-backend-engineer` | APIs, services, domain logic, application persistence, backend tests. |
+| `agency-frontend-engineer` | User-facing implementation, client state, accessibility, frontend tests. |
+| `agency-ai-engineer` | Model integration, agent workflows, retrieval, prompts, evals, AI failure controls. |
+| `agency-data-engineer` | Data ingestion, pipelines, transformations, schemas, quality, analytical stores. |
+| `agency-infrastructure-engineer` | CI/CD, environments, deployment, networking, observability, reliability. |
 
-```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
+### Quality
 
-This installs the plugin and the vendored Keryx Python SDK from `src/keryx/`.
-External Keryx binaries (`keryxd`, `keryx-relay`, `keryx-node`) still come from the separate
-[`hermes-keryx`](https://github.com/Dadmin88/hermes-keryx) repository.
+| Profile | Responsibility |
+|---|---|
+| `agency-security-engineer` | Threat modeling, auth/authz, secrets, security review and remediation. |
+| `agency-qa-engineer` | Independent behavioral validation, regression testing, bug reproduction. |
+| `agency-code-reviewer` | Independent diff review for correctness, maintainability, compatibility, tests. |
 
-## Command surfaces
+### Design
 
-Hermes Agency has three related command surfaces. Keep them distinct:
+| Profile | Responsibility |
+|---|---|
+| `agency-product-designer` | User flows, interaction design, UI states, information architecture, UX. |
+| `agency-brand-designer` | Brand identity, art direction, typography, color, visual consistency. |
 
-| Surface | Where it runs | Example |
-|---|---|---|
-| `hermes-agency ...` | Standalone package console script from `pyproject.toml`. | `hermes-agency status` |
-| `hermes agency ...` | Hermes Agent plugin CLI after the plugin is loaded. | `hermes agency status` |
-| `/agency ...` | Slash command inside a Hermes session. | `/agency status` |
+### Strategy & Content
 
-Useful standalone/plugin CLI commands:
+| Profile | Responsibility |
+|---|---|
+| `agency-researcher` | Technical, product, market, user, and competitive research with evidence. |
+| `agency-marketing-strategist` | Positioning, audience, messaging, campaigns, channel strategy, measurement. |
+| `agency-content-writer` | Public-facing long-form copy, launch copy, articles, scripts, case studies. |
+| `agency-social-media-manager` | Platform-native social posts, demo narratives, capture plans, content cadence. |
+| `agency-technical-writer` | READMEs, tutorials, API/developer docs, runbooks, migrations, release notes. |
 
-```bash
-hermes-agency doctor
-hermes-agency status --extended
-hermes-agency staff list
-hermes-agency staff install --dry-run
-hermes-agency models list
-hermes-agency models plan openai-codex-only
-hermes-agency setup-plugins
-hermes-agency start
-hermes-agency registry
-hermes-agency discover <skill>
-```
+### Delivery
 
-The same verbs are available through `hermes agency ...` when Hermes Agent has loaded the plugin. In-session slash commands use `/agency ...`.
+| Profile | Responsibility |
+|---|---|
+| `agency-git-steward` | Safe Git integration, staging, commits, branches, rebases, merges, PR hygiene. |
 
-## Quick start with Docker
+## Install
 
-The current Docker setup is a headless agency runtime. It prepares a Hermes home, installs packaged staff profiles, configures the active model set, initializes agency Kanban boards when the bridge is available, and starts the local Hermes Agency node manager.
+Hermes profile distributions are normally one Git repository per profile. Hermes Agency intentionally keeps the whole Agency together in one repository, so the included installer installs each `profiles/<name>` directory as a local profile distribution.
 
 ```bash
-docker compose up --build
+git clone https://github.com/Dadmin88/hermes-agency.git
+cd hermes-agency
+
+# Install the complete Agency.
+python3 install.py
+
+# Or install only selected roles.
+python3 install.py agency-orchestrator agency-backend-engineer agency-code-reviewer
 ```
 
-Common overrides (current compose wiring still exposes the legacy AgentAnycast relay/registry variables for fallback runs):
+Use `--force` to re-apply a distribution over an existing profile while preserving Hermes-owned user data according to Hermes' distribution behavior:
 
 ```bash
-HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
-AGENTANYCAST_RELAY=<relay-multiaddr> docker compose up --build
-AGENTANYCAST_REGISTRY_ADDRS=<registry-address> docker compose up --build
-HERMES_AGENCY_START_NODE=0 docker compose --profile tools run --rm setup
+python3 install.py --force
 ```
 
-Advanced modes use the same image:
+The installer also writes each curated routing description with `hermes profile describe`, because profile descriptions are part of Hermes' Kanban routing signal.
 
-```bash
-docker compose --profile tools run --rm setup      # setup only
-docker compose --profile split up node              # node service only
+## Use with Hermes Kanban
+
+Hermes already provides the durable multi-profile task board and dispatcher. Agency profiles are designed to be assignees on that board.
+
+For a gateway/profile that should use the Agency orchestrator for decomposition, configure Hermes with:
+
+```yaml
+kanban:
+  orchestrator_profile: agency-orchestrator
 ```
 
-The compose file uses a named volume for runtime data so examples do not rely on maintainer-local paths. It does not currently prove a two-profile remote Keryx execution/result loop.
+The `agency-orchestrator` profile deliberately has a narrow tool surface. It coordinates through Kanban instead of becoming another implementation worker.
 
-## Server deployment (systemd)
-
-For headless VPS or server deployments, use the bundled systemd service template:
-
-```bash
-# Copy and customize for your user/paths
-cp deploy/systemd/hermes-gateway.service.example ~/.config/systemd/user/hermes-gateway.service
-${EDITOR:-vi} ~/.config/systemd/user/hermes-gateway.service
-
-# Enable and start
-systemctl --user daemon-reload
-systemctl --user enable --now hermes-gateway
-
-# Check status and logs
-systemctl --user status hermes-gateway
-journalctl --user -u hermes-gateway -f
-```
-
-Key settings to review in the service file:
-
-| Setting | Default | Purpose |
-|---|---|---|
-| `ExecStart` | `<user>/.hermes/...` | Path to your Hermes venv |
-| `MemoryMax` | `5G` | Hard kill limit (gateway + node runners can spike during multi-agent dispatch) |
-| `MemoryHigh` | `4G` | Soft reclaim limit, triggers GC before hitting `MemoryMax` |
-| `Restart` | `on-failure` | Auto-restart after crashes, OOM kills, or signal exits |
-| `TimeoutStopSec` | `210` | Drain timeout, active sessions can take time to flush |
-
-To adjust limits at runtime without editing the unit file:
-
-```bash
-systemctl --user edit hermes-gateway
-# Add overrides, e.g.:
-#   [Service]
-#   MemoryMax=8G
-#   MemoryHigh=6G
-systemctl --user daemon-reload
-systemctl --user restart hermes-gateway
-```
-
-## How Hermes Agency works
+## Repository layout
 
 ```text
-Hermes Agent profile
-├── SOUL.md + skills/              → public AgentCard source
-├── config.yaml                    → agency.* policy and model-set choice
-├── plugins/hermes-agency/         → plugin entry point, CLI, model tools, hooks
-└── .agency/                       → per-profile node identity, queue, runtime state
-
-Hermes Agency
-├── installs specialist agency-* profiles
-├── builds profile-safe AgentCards
-├── starts/stops per-profile transport nodes
-├── discovers peers and capabilities through the configured transport
-├── selects specialists and attempts wake-or-queue delivery
-├── processes trusted incoming work through Hermes delegation
-├── reconciles results with Hermes Kanban when available
-├── injects compact team/orchestrator context into Hermes calls
-├── applies model-set strategies across installed staff profiles
-└── coordinates optional private escalation paths when configured
+.
+├── AGENCY.md          # collaboration and routing contract
+├── AGENTS.md          # scope guardrails for contributors/agents
+├── agency.json        # machine-readable roster
+├── install.py         # small local installer
+└── profiles/
+    ├── agency-orchestrator/
+    │   ├── distribution.yaml
+    │   ├── config.yaml
+    │   └── SOUL.md
+    └── ...
 ```
 
-Keryx supplies the recommended lower-level transport foundation: daemon lifecycle, relay publication/mailbox delivery, registry discovery, identity, routing policy, encrypted peer networking, claim-next worker dispatch, and terminal result/artifact return. Operators should usually interact with Hermes Agency commands and tools, not the transport API directly. The live multi-process Agency round trip is proven by `scripts/e2e_agency_keryx.py`. Set `agency.transport_backend: agentanycast` only for legacy rollback.
+Each profile is deliberately boring to package:
 
-## Core capabilities
+- `distribution.yaml` identifies the Hermes distribution and provides a concise role description.
+- `SOUL.md` contains the professional identity, authority boundaries, working method, collaboration rules, and definition of done.
+- `config.yaml` is shipped only where Agency needs an opinionated capability boundary. The orchestrator is the main example.
 
-- **Specialist staff roster**: packaged `agency-*` profiles for engineering, design, content, marketing, operations, QA, product, research, management, and business workflows.
-- **Managed delegation**: route work to a profile or capability, attempt wake, persistently queue when unavailable, and reconcile the returned result into local orchestrator state.
-- **Golden-path evidence**: the repository proves wake, trust, delegation, artifact return, queue fallback, and Kanban reconciliation through the real Agency module seams.
-- **Kanban integration**: create and reconcile agency task boards when Hermes Kanban is available.
-- **Team context injection**: bounded summaries of known teammates and orchestrator state can be injected into Hermes calls.
-- **Model sets**: choose a provider/model strategy once and apply it across installed staff profiles.
-- **Orchestrator promotion**: expose `orch_*` tools only for the configured orchestrator profile.
-- **Keryx transport foundation**: Keryx-first daemon, relay, registry, mailbox, routing, claim-next dispatch, terminal result return, and security primitives. Live multi-process Agency proof is shipped; Fabric live dispatch is a separate follow-up.
+No credentials, memories, sessions, runtime databases, workspaces, or user-specific state belong in this repository.
 
-## Model sets
+## Design rule
 
-Model sets let you choose a provider/model strategy once and apply it across installed agency staff profiles.
+A new profile must create a **meaningfully distinct routing lane**.
 
-```bash
-hermes-agency models list
-hermes-agency models show openai-codex-only
-hermes-agency models validate openai-codex-only --strict
-hermes-agency models resolve agency-backend-engineer --set openai-codex-only
-hermes-agency models plan openai-codex-only
-hermes-agency models apply openai-codex-only --dry-run
-hermes-agency models apply openai-codex-only --yes --backup
-```
+If a proposed role overlaps heavily with an existing profile, improve the existing profile instead of adding another title. The goal is not to simulate an org chart. The goal is to make routing reliable and specialist output excellent.
 
-Packaged presets live in `hermes-agency/model_sets/`. User presets live in `~/.hermes/agency/model_sets/` and override packaged presets by name. Presets must never contain API keys, tokens, passwords, or provider credentials.
-
-See `docs/agency-model-sets.md` for implementation details and rollout rules.
-
-## Hermes Agent MoA integration
-
-Hermes Agency can inspect native Hermes Agent Mixture-of-Agents availability and recommend MoA presets for high-leverage agency work. Native presets remain under top-level `moa:` in the active Hermes `config.yaml`; Agency policy lives under `agency.moa:`.
-
-The MoA integration is exposed through model tools such as `agency_moa_status`, `agency_moa_presets`, `agency_moa_show`, and `agency_moa_recommend`. See `docs/agency-moa.md` for the integration contract and policy semantics.
-
-## Security model
-
-Hermes Agency should be safe by default:
-
-- Plugin loading is opt-in through Hermes plugin configuration.
-- Runtime operation is gated by `agency.enabled`.
-- Remote task execution defaults to disabled: `allow_remote_tasks: false`.
-- Tool access for incoming remote tasks defaults to `safe`, not `full`.
-- Incoming work must pass Agency allowlist and trust checks before handler execution.
-- AgentCards must expose only non-secret metadata: no API keys, raw environment variables, private relay addresses, local paths, private peer IDs, Discord channel IDs, or maintainer-local details.
-- Keryx relay/registry endpoints live under `agency.keryx.*`; legacy AgentAnycast relay/bootstrap and `AGENTANYCAST_REGISTRY_ADDRS` remain separate fallback settings.
-
-## Development checks
-
-Run the fastest relevant checks for your change, then the broader checks before pushing:
-
-```bash
-ruff check .
-ruff format --check .
-make test-agency
-make test-sdk
-python -m pytest
-python -m pip check
-```
-
-These commands are the default green CI / seam-test rung. They prove the in-repo logic and golden-path workflow checks that actually ran; they do not by themselves prove live daemon, live relay, Docker, or cross-machine remote-execution behavior.
-
-Manual/live checks:
-
-```bash
-make integration-agency
-make integration-agency-full
-```
-
-The default pytest configuration skips tests marked `integration`. The permanent Agency golden path is part of `make test-agency`. The live multi-process Keryx Agency round trip runs via `scripts/e2e_agency_keryx.py` and `.github/workflows/agency-phase17-e2e.yml`.
-
-Use `docs/qa-validation-ladder.md` as the source of truth for what each validation rung proves, what it does not prove, prerequisites, cost/risk, and when higher gates such as Docker, real-profile/manual checks, or opt-in live Keryx E2E are required.
-
-## Requirements
-
-- Python 3.11+
-- Hermes Agent 0.18.0+
-- Vendored Keryx Python SDK at `src/keryx/` for node startup, daemon lifecycle, and transport integration
-- Optional Keryx daemon, relay, registry, and edge-node services for cross-node infrastructure
-- AgentAnycast package/daemon only for `agency.transport_backend: agentanycast` legacy fallback
-
-## License
-
-Current versions are licensed under the **GNU Affero General Public License v3.0 only (AGPL-3.0-only)**. See [LICENSE](LICENSE).
-
-Historical versions published before this licensing change remain available under the license terms that applied to those versions, including Apache-2.0.
+See [AGENCY.md](./AGENCY.md) for the collaboration contract.

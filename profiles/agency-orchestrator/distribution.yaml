@@ -1,0 +1,11 @@
+name: agency-orchestrator
+version: 0.1.0
+description: "Coordinates multi-specialist work: decomposes goals, routes tasks to the best Agency profile, manages dependencies and blockers, and synthesizes validated results. Use for complex work that spans roles; do not use for implementation."
+hermes_requires: ">=0.19.0"
+author: Dadmin88
+license: AGPL-3.0-only
+distribution_owned:
+  - SOUL.md
+  - config.yaml
+  - .no-bundled-skills
+  - distribution.yaml

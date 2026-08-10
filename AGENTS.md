@@ -1,130 +1,89 @@
-# Hermes Agency — Agent Instructions
+# AGENTS.md
 
-Hermes Agency is the primary product in this repository. It is a Hermes Agent plugin and local operations layer for running a managed multi-agent team: packaged specialist profiles, skill-based routing, Kanban-backed work tracking, model-set controls, orchestration helpers, and P2P delegation.
+## Repository purpose
 
-**Keryx is the primary transport.** AgentAnycast remains only as a legacy/fallback path under `src/agentanycast/`.
+This repository has one product: **a curated pack of Hermes Agent profiles that work together as an Agency**.
 
-Do not present this repository as primarily an AgentAnycast SDK repo in public docs, issue summaries, PR summaries, or generated handoff notes.
+Keep the repository aggressively scoped to that purpose.
 
-## Repository map
+## Hard scope boundary
 
-- `hermes-agency/` — main product area: plugin registration, CLI/slash commands, model tools, config, staff install, node manager, orchestration, Kanban bridges, pool delegation, and plugin-specific tests.
-- `hermes-agency/default_staff/` — packaged `agency-*` staff profiles and their role definitions.
-- `hermes-agency/model_sets/` — packaged model-set strategies for installed staff profiles.
-- `src/keryx/` — **vendored Keryx Python SDK** (import name `keryx`). Source of truth for the Rust runtime remains the separate `hermes-keryx` repo.
-- `src/agentanycast/` — legacy AgentAnycast transport retained for fallback/compat. Touch only for security fixes or explicit fallback work.
-- `docker/`, `Dockerfile`, `docker-compose.yml` — headless setup/node runtime. Current compose is not a dashboard service.
-- `apps/fabric/` — Hermes Fabric frontend (separate Node/React product). Do not treat Fabric as part of the core Python plugin.
-- `scripts/` — operational helpers such as batch agent wake scripts.
-- `docs/` — focused design, operations, and integration notes.
+Do **not** add:
 
-## Transport model
+- a web app or desktop app;
+- an API server;
+- a custom agent runtime;
+- a queue, scheduler, dispatcher, or Kanban implementation;
+- networking, A2A transport, P2P, discovery, or remote execution;
+- machine/resource management;
+- Docker/deployment infrastructure for an Agency service;
+- a database or persistence layer for Agency state;
+- dashboards, telemetry backends, or workflow engines.
 
-| Backend | Path | Role |
-|---------|------|------|
-| `keryx` (default/primary) | `src/keryx/` + external `keryxd`/`keryx-relay` | Production transport |
-| `agentanycast` (legacy) | `src/agentanycast/` | Fallback/compat only |
+Hermes Agent provides the agent runtime and Kanban primitives. Hermes Fleet or other systems may provide distributed execution. Agency supplies the professional profiles.
 
-Config:
+## Profile standard
 
-```yaml
-agency:
-  transport_backend: keryx
-  keryx:
-    daemon_endpoint: 127.0.0.1:50051
-    registry_endpoint: 127.0.0.1:51053   # dual-run default
-    relay_config: {}
-```
+Every profile must have:
 
-Plugin imports should prefer:
+1. `distribution.yaml`
+2. `SOUL.md`
 
-```python
-from keryx import KeryxNode, AgentCard, Skill, peer_id_to_did_key
-```
+Add `config.yaml` only when the role requires an intentional capability/configuration boundary. Do not pin a model/provider merely because the author currently uses one.
 
-Keep transport SDK imports lazy at plugin load time so Hermes can still start if optional runtime pieces are missing.
+A profile's `distribution.yaml` description is routing-critical. It must say what the profile is good at **and** distinguish it from neighboring roles.
 
-Related runtime repo: [DeployFaith/hermes-keryx](https://github.com/DeployFaith/hermes-keryx) (migration + dual-run scripts live there).
+A profile's `SOUL.md` must define:
 
-## Repository priorities
+- identity and mission;
+- what the role owns;
+- what it explicitly does not own;
+- working method;
+- collaboration/handoff relationships;
+- shared Agency behavior;
+- communication standard;
+- definition of done.
 
-- Keep Hermes Agency product-first in public-facing documentation.
-- Describe Keryx as primary transport; AgentAnycast as legacy/fallback only.
-- Use generic placeholders: `<profile-name>`, `<relay-multiaddr>`, `<registry-address>`, `<workspace>`, `<peer-id>`.
-- Never commit maintainer names, machine names, private hostnames, local absolute paths, private relay addresses, private peer IDs, tokens, keys, API keys, environment dumps, gateway logs, or Discord channel IDs.
-- Do not document a dashboard command/container unless the branch actually contains dashboard server/routes and CLI entry points. Current compose runs setup/node only.
+## New-profile test
 
-## Safety defaults
+Before adding a role, answer:
 
-- Remote task execution must be conservative by default:
-  - `allow_remote_tasks: false`
-  - `incoming.tool_access: safe`
-  - progress artifacts opt-in via `incoming.send_progress: true`
-- Plugin discovery must not start daemon processes when transport SDK is absent or `agency.enabled: false`.
-- Management endpoints, pool services, and local APIs should bind to loopback by default unless explicit LAN/remote mode is configured.
-- State-changing HTTP endpoints must require authentication.
-- Do not let remote discovery metadata, handshakes, or advertised names wake arbitrary local profiles.
-- Always transition incoming tasks through `WORKING` before `COMPLETED`.
-- Keep routine model-tool responses compact. Prefer `agency_info({"compact": true})` / `NodeManager.compact_info()` for health checks.
+> What class of task can this profile own better and more unambiguously than every existing profile?
 
-## Install for local development
+If the answer is mostly a title difference, do not add the profile. Improve an existing one.
 
-From the repository root:
+Avoid "manager inflation" and specialist pairs whose boundaries are too subtle for reliable routing.
 
-```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
+## Collaboration rules
 
-This installs the vendored Keryx SDK from `src/keryx/`. External Keryx binaries (`keryxd`, `keryx-relay`) still come from the hermes-keryx repo.
+- Route by ownership, not keywords.
+- Use the smallest capable specialist set.
+- Keep implementation and independent review separate when the risk warrants it.
+- Do not let one profile silently absorb another profile's decision authority.
+- Handoffs must carry outcome, artifacts, evidence, risks/unknowns, and next owner.
+- Named profiles remain accountable for bounded subagents used inside their own lane.
+- Preserve unrelated repository/user work.
 
-## Docker workflow
+See `AGENCY.md` for the complete operating contract.
 
-```bash
-docker compose up --build
-```
+## Packaging rules
 
-Useful overrides:
+Hermes profile distributions must remain free of user/runtime state and secrets.
 
-```bash
-HERMES_AGENCY_MODEL_SET=<model-set> docker compose up --build
-HERMES_AGENCY_START_NODE=0 docker compose --profile tools run --rm setup
-```
+Never commit credentials, `.env`, `auth.json`, memories, sessions, logs, runtime DBs, workspaces, caches, or generated user state.
 
-Legacy AgentAnycast compose vars may still exist for fallback runs; prefer Keryx endpoints for new deployments.
+The root `agency.json` is the machine-readable roster and installer source of truth. When adding, renaming, or removing a profile, update it in the same change.
 
-## Validation before commit
+## Documentation style
 
-```bash
-ruff check .
-ruff format --check .
-make test-agency
-python -m pytest hermes-agency/tests/test_unit.py -q -m "not integration"
-python -m pytest hermes-agency/tests/test_keryx_transport.py -q
-python -m pip check
-```
+This is a production repository, not an agent notebook.
 
-For model-set changes also run:
+Do not add:
 
-```bash
-python -m pytest -q hermes-agency/tests/test_model_sets.py
-```
+- personal progress notes;
+- phase diaries;
+- giant planning documents for completed work;
+- duplicated explanations spread across many files;
+- stale architecture documents describing systems that no longer exist.
 
-## Dispatch and Kanban expectations
-
-- Target-agent dispatch routes through the pool sender so offline agents can wake/queue safely.
-- Kanban tasks must include board, assignee, target, status, and correlation metadata where available.
-- Agency task views aggregate agency boards, not only a default board.
-- Do not hide Kanban failures silently during debugging.
-
-## Documentation expectations
-
-- `README.md` — public product overview
-- `hermes-agency/README.md` — plugin/operator docs
-- `hermes-agency/AGENTS.md` — plugin contributor notes
-- `llms.txt` — compact LLM-oriented summary (Agency first, Keryx primary)
-- `CONTRIBUTING.md` — contribution workflow for this product repo
-- Keep examples copy-pasteable but generic
-- Never include real peer IDs, private relays, private hostnames, or maintainer-local paths
+Prefer small durable documentation that explains the current product.

@@ -1,1 +1,0 @@
-"""Generated protobuf modules for hermes.keryx.v1."""
