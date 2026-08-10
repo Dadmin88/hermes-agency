@@ -35,9 +35,10 @@ def _manifest_identity(path: Path) -> dict[str, str]:
 class DistributionIdentityTests(unittest.TestCase):
     def test_every_profile_distribution_matches_agency_release_identity(self):
         agency_version = AGENCY["version"]
+        profile_root = ROOT / AGENCY["distribution"]["profile_root"]
         for profile in AGENCY["profiles"]:
             name = profile["name"]
-            manifest_path = ROOT / profile["path"] / "distribution.yaml"
+            manifest_path = profile_root / name / "distribution.yaml"
             with self.subTest(profile=name):
                 manifest = _manifest_identity(manifest_path)
                 self.assertEqual(manifest.get("name"), name)
