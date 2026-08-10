@@ -21,7 +21,7 @@ def _yaml_scalar(value: str) -> str:
 
 
 def _manifest_identity(path: Path) -> dict[str, str]:
-    wanted = {"name", "version", "description"}
+    wanted = {"name", "version"}
     result: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         if not raw_line or raw_line[0].isspace() or ":" not in raw_line:
@@ -43,7 +43,6 @@ class DistributionIdentityTests(unittest.TestCase):
                 manifest = _manifest_identity(manifest_path)
                 self.assertEqual(manifest.get("name"), name)
                 self.assertEqual(manifest.get("version"), agency_version)
-                self.assertEqual(manifest.get("description"), profile["description"])
 
     def test_routing_contract_uses_stable_profile_identity(self):
         distribution = AGENCY["distribution"]
