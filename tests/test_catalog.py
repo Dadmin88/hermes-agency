@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -167,6 +168,25 @@ class RuntimeCatalogTests(unittest.TestCase):
             marker_changed = catalog.profile_content_digest(profile, "agency-example", "1.2.3")
             self.assertNotEqual(original, marker_changed)
 
+    def test_content_digest_binds_executable_file_semantics(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = Path(temporary) / "agency-example"
+            skill = profile / "skills" / "tooling"
+            scripts = skill / "scripts"
+            scripts.mkdir(parents=True)
+            (profile / "SOUL.md").write_text("identity\n", encoding="utf-8")
+            (skill / "SKILL.md").write_text("run helper\n", encoding="utf-8")
+            script = scripts / "helper.sh"
+            script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            script.chmod(0o644)
+
+            not_executable = catalog.profile_content_digest(
+                profile, "agency-example", "1.0.0"
+            )
+            script.chmod(0o755)
+            executable = catalog.profile_content_digest(profile, "agency-example", "1.0.0")
+            self.assertNotEqual(not_executable, executable)
+
     def test_content_digest_binds_name_and_version(self):
         with tempfile.TemporaryDirectory() as temporary:
             profile = Path(temporary) / "agency-example"
@@ -200,16 +220,23 @@ class RuntimeCatalogTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "does not permit symlinks"):
                 catalog.profile_content_digest(profile, "agency-example", "1.0.0")
 
-    def test_catalog_fails_when_distribution_identity_drifts(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            manifest = Path(temporary) / "distribution.yaml"
-            manifest.write_text(
-                "name: agency-example\nversion: 9.9.9\ndescription: example\n",
-                encoding="utf-8",
-            )
-            metadata = catalog._distribution_metadata(manifest)
-            self.assertEqual(metadata["name"], "agency-example")
-            self.assertEqual(metadata["version"], "9.9.9")
+    def test_distribution_identity_guard_fails_closed_on_drift(self):
+        matching = {
+            "name": "agency-example",
+            "version": "1.0.0",
+            "description": "example",
+        }
+        catalog._validate_distribution_identity(matching, "agency-example", "1.0.0")
+
+        for drifted in (
+            {**matching, "name": "agency-other"},
+            {**matching, "version": "9.9.9"},
+        ):
+            with self.subTest(drifted=drifted):
+                with self.assertRaisesRegex(ValueError, "does not match Agency catalog"):
+                    catalog._validate_distribution_identity(
+                        drifted, "agency-example", "1.0.0"
+                    )
 
 
 if __name__ == "__main__":
