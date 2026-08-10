@@ -16,7 +16,7 @@ Repository changes should improve one or more of these areas:
 
 ## Sources of truth
 
-- `agency.json` is the machine-readable roster used by the installer.
+- `agency.json` is the machine-readable roster used by the installer and distributed orchestration consumers.
 - `profiles/<name>/distribution.yaml` defines distribution metadata for a profile.
 - `profiles/<name>/SOUL.md` defines the professional behavior of a profile.
 - `profiles/<name>/skills/` contains the task skills bundled with that profile.
@@ -78,7 +78,7 @@ Skills should:
 - complement the profile's `SOUL.md` instead of repeating it;
 - state important validation or quality gates;
 - use supporting references or scripts only when they materially improve the workflow;
-- avoid unnecessary tool, provider, framework, or platform assumptions unless the skill is intentionally specific to them.
+- avoid unnecessary tool, provider, framework, platform, or machine assumptions unless the skill is intentionally specific to them.
 
 A profile can bundle multiple skills. Prefer a small set of strong, distinct procedures over a large collection of overlapping prompts.
 
@@ -88,7 +88,7 @@ A profile can bundle multiple skills. Prefer a small set of strong, distinct pro
 
 For each profile it records:
 
-- the skill currently bundled with the profile;
+- the skills currently bundled with the profile;
 - the target skills still to curate;
 - whether the profile belongs to the high-priority backbone pass;
 - verified legacy skill candidates where an older Agency skill may be worth salvaging.
@@ -113,6 +113,25 @@ Before adding a third-party skill:
 8. Add a `SOURCE.md` beside `SKILL.md` for vendored third-party skills containing the canonical source, reviewed revision, license, review date, and any local adaptations.
 
 Prefer existing Hermes Agency skills and reputable first-party or verified sources when quality is comparable. Popularity, stars, or marketplace ranking are not substitutes for review.
+
+## Fleet interoperability
+
+Hermes Agency profiles are designed to run under distributed orchestration such as Hermes Fleet, with Keryx and Nodescale providing the surrounding node and transport system.
+
+The Agency side of that contract is static and portable:
+
+- the profile `name` is the stable identity used to refer to the same professional profile on every Hermes node;
+- `agency.json` exposes the profile roster and distribution layout for machine consumers;
+- each profile must be independently installable as a Hermes profile distribution;
+- the same profile package should behave consistently regardless of which eligible Hermes node runs it;
+- profiles and skills must not bake in node IDs, hostnames, IP addresses, machine-specific absolute paths, local credentials, or assumptions about a particular Fleet placement;
+- model/provider/runtime requirements should only be declared when the professional capability genuinely depends on them.
+
+Live placement is not stored in this repository. Fleet/Nodescale may maintain a dynamic inventory mapping profile identities to nodes where those profiles are installed and ready, then select among those nodes using live health, capacity, policy, and availability. Keryx may carry authenticated task/handoff transport to the selected node.
+
+If a requested profile is not currently present on an eligible node, distributed orchestration may install the profile distribution on a suitable node and route work after that node reports the profile ready.
+
+Do not add live node registries, scheduling, placement, transport, capacity management, or remote-execution logic to Hermes Agency. Preserve the clean interface: Agency defines portable professional capabilities; distributed orchestration discovers and places them.
 
 ## Routing quality
 
@@ -169,6 +188,8 @@ When adding, renaming, or removing a profile:
 5. Check handoff references in related profiles.
 6. Add or update the role's bundled skills.
 7. Confirm `install.py --list` can discover the result.
+
+Profile names are distributed identities. Renaming a profile is therefore a compatibility change for installers, Fleet inventories, task routing, saved assignments, and other consumers. Treat it deliberately rather than as a cosmetic rename.
 
 ## Installer
 
