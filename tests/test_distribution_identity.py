@@ -4,10 +4,32 @@ import json
 from pathlib import Path
 import unittest
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[1]
 AGENCY = json.loads((ROOT / "agency.json").read_text(encoding="utf-8"))
+
+
+def _yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if value.startswith('"'):
+        parsed = json.loads(value)
+        if not isinstance(parsed, str):
+            raise ValueError("manifest scalar must be a string")
+        return parsed
+    if value.startswith("'") and value.endswith("'"):
+        return value[1:-1].replace("''", "'")
+    return value
+
+
+def _manifest_identity(path: Path) -> dict[str, str]:
+    wanted = {"name", "version", "description"}
+    result: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        if not raw_line or raw_line[0].isspace() or ":" not in raw_line:
+            continue
+        key, value = raw_line.split(":", 1)
+        if key in wanted:
+            result[key] = _yaml_scalar(value)
+    return result
 
 
 class DistributionIdentityTests(unittest.TestCase):
@@ -17,8 +39,7 @@ class DistributionIdentityTests(unittest.TestCase):
             name = profile["name"]
             manifest_path = ROOT / profile["path"] / "distribution.yaml"
             with self.subTest(profile=name):
-                manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-                self.assertIsInstance(manifest, dict)
+                manifest = _manifest_identity(manifest_path)
                 self.assertEqual(manifest.get("name"), name)
                 self.assertEqual(manifest.get("version"), agency_version)
                 self.assertEqual(manifest.get("description"), profile["description"])
