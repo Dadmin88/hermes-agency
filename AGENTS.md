@@ -20,6 +20,7 @@ Repository changes should improve one or more of these areas:
 - `profiles/<name>/distribution.yaml` defines distribution metadata for a profile.
 - `profiles/<name>/SOUL.md` defines the professional behavior of a profile.
 - `profiles/<name>/skills/` contains the task skills bundled with that profile.
+- `skills-map.json` defines the target skill bundle, curation priority, and sourcing queue for every profile.
 - `AGENCY.md` defines the shared collaboration model.
 - `README.md` is the newcomer-facing product documentation.
 
@@ -80,6 +81,21 @@ Skills should:
 - avoid unnecessary tool, provider, framework, or platform assumptions unless the skill is intentionally specific to them.
 
 A profile can bundle multiple skills. Prefer a small set of strong, distinct procedures over a large collection of overlapping prompts.
+
+## Skill map
+
+`skills-map.json` is the curation ledger for the complete Agency skill library.
+
+For each profile it records:
+
+- the skill currently bundled with the profile;
+- the target skills still to curate;
+- whether the profile belongs to the high-priority backbone pass;
+- verified legacy skill candidates where an older Agency skill may be worth salvaging.
+
+The map's target names describe desired professional capabilities. They do not prove that a suitable third-party implementation exists.
+
+When a target skill is added, remove it from that profile's `targets`, update `bundled`, and keep the aggregate counts accurate. When a bundled skill is renamed or removed, update the map in the same change.
 
 ### Third-party skill sourcing
 
@@ -148,10 +164,11 @@ When adding, renaming, or removing a profile:
 
 1. Update the profile directory.
 2. Update `agency.json`.
-3. Update the README roster if category counts or profile names change.
-4. Check handoff references in related profiles.
-5. Add or update the role's bundled skills.
-6. Confirm `install.py --list` can discover the result.
+3. Update `skills-map.json`.
+4. Update the README roster if category counts or profile names change.
+5. Check handoff references in related profiles.
+6. Add or update the role's bundled skills.
+7. Confirm `install.py --list` can discover the result.
 
 ## Installer
 
