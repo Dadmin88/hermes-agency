@@ -19,5 +19,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate profiles and skills
+      - name: Validate profiles, skills, and routing contracts
         run: python validate.py
+
+      - name: Test installer contract
+        run: python -m unittest discover -s tests -v
