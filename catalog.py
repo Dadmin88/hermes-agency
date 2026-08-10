@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -11,6 +12,9 @@ import sys
 ROOT = Path(__file__).resolve().parent
 AGENCY_PATH = ROOT / "agency.json"
 SKILLS_PATH = ROOT / "skills-map.json"
+CONTENT_DIGEST_SCHEMA = "hermes-agency-profile-content.v1"
+_CONTENT_FILES = ("SOUL.md", "config.yaml", "mcp.json", ".no-bundled-skills")
+_CONTENT_DIRS = ("skills", "cron")
 
 
 def _load_json(path: Path) -> dict:
@@ -32,17 +36,98 @@ def _yaml_scalar(value: str) -> str:
     return value
 
 
-def _distribution_description(path: Path) -> str:
+def _distribution_metadata(path: Path) -> dict[str, str]:
+    wanted = {"name", "version", "description"}
+    values: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         if not raw_line or raw_line[0].isspace() or ":" not in raw_line:
             continue
         key, value = raw_line.split(":", 1)
-        if key == "description":
-            description = _yaml_scalar(value)
-            if not description.strip():
-                raise ValueError(f"{path}: description is empty")
-            return description
-    raise ValueError(f"{path}: description is missing")
+        if key in wanted:
+            values[key] = _yaml_scalar(value)
+    missing = wanted - set(values)
+    if missing:
+        raise ValueError(f"{path}: missing distribution fields: {', '.join(sorted(missing))}")
+    if any(not values[key].strip() for key in wanted):
+        raise ValueError(f"{path}: distribution identity fields must be nonempty")
+    return values
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _profile_content_files(profile_dir: Path) -> list[Path]:
+    if not profile_dir.is_dir() or profile_dir.is_symlink():
+        raise ValueError(f"{profile_dir}: profile directory is invalid")
+
+    soul = profile_dir / "SOUL.md"
+    skills = profile_dir / "skills"
+    if not soul.is_file() or soul.is_symlink():
+        raise ValueError(f"{profile_dir}: SOUL.md is missing or invalid")
+    if not skills.is_dir() or skills.is_symlink():
+        raise ValueError(f"{profile_dir}: skills directory is missing or invalid")
+
+    files: list[Path] = []
+    for relative in _CONTENT_FILES:
+        path = profile_dir / relative
+        if path.is_symlink():
+            raise ValueError(f"{path}: content identity does not permit symlinks")
+        if path.exists():
+            if not path.is_file():
+                raise ValueError(f"{path}: expected a regular file")
+            files.append(path)
+
+    for relative in _CONTENT_DIRS:
+        directory = profile_dir / relative
+        if directory.is_symlink():
+            raise ValueError(f"{directory}: content identity does not permit symlinks")
+        if not directory.exists():
+            continue
+        if not directory.is_dir():
+            raise ValueError(f"{directory}: expected a directory")
+        for path in directory.rglob("*"):
+            if path.is_symlink():
+                raise ValueError(f"{path}: content identity does not permit symlinks")
+            if path.is_file():
+                files.append(path)
+            elif not path.is_dir():
+                raise ValueError(f"{path}: unsupported profile content entry")
+
+    return sorted(files, key=lambda path: path.relative_to(profile_dir).as_posix())
+
+
+def profile_content_digest(profile_dir: Path, name: str, version: str) -> str:
+    """Hash the stable Agency-owned behavior bytes for one profile distribution."""
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("profile content identity requires a nonempty name")
+    if not isinstance(version, str) or not version.strip():
+        raise ValueError("profile content identity requires a nonempty version")
+
+    files = [
+        {
+            "path": path.relative_to(profile_dir).as_posix(),
+            "sha256": _file_sha256(path),
+        }
+        for path in _profile_content_files(profile_dir)
+    ]
+    material = {
+        "schema": CONTENT_DIGEST_SCHEMA,
+        "name": name,
+        "version": version,
+        "files": files,
+    }
+    payload = json.dumps(
+        material,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def build_catalog() -> dict:
@@ -86,22 +171,28 @@ def build_catalog() -> dict:
             raise ValueError(f"{name}: priority is invalid")
 
         relative_path = path_template.format(name=name)
-        manifest_path = profile_root / name / "distribution.yaml"
+        profile_dir = profile_root / name
+        manifest_path = profile_dir / "distribution.yaml"
+        metadata = _distribution_metadata(manifest_path)
+        if metadata["name"] != name or metadata["version"] != version:
+            raise ValueError(f"{name}: distribution identity does not match Agency catalog")
         entries.append(
             {
                 "name": name,
                 "version": version,
                 "category": category,
                 "priority": priority,
-                "description": _distribution_description(manifest_path),
+                "description": metadata["description"],
                 "distribution_path": relative_path,
+                "content_digest": profile_content_digest(profile_dir, name, version),
                 "capabilities": sorted(set(bundled)),
             }
         )
 
     entries.sort(key=lambda item: item["name"])
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "content_digest_schema": CONTENT_DIGEST_SCHEMA,
         "agency": {
             "name": agency["name"],
             "version": version,
