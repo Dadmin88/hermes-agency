@@ -1,0 +1,33 @@
+name: Consume surface scrub compare prompt
+
+on:
+  push:
+    branches:
+      - chore/surface-scrub
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  consume:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create and close maintenance PR, then remove branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: chore/surface-scrub
+        run: |
+          set -euo pipefail
+          pr_number="$(gh api --method POST "repos/${GH_REPO}/pulls" \
+            -f title='Archived repository maintenance' \
+            -f head="${BRANCH}" \
+            -f base='main' \
+            -f body='' \
+            --jq '.number')"
+          gh api --method PATCH "repos/${GH_REPO}/pulls/${pr_number}" \
+            -f state='closed' \
+            -f title='Archived repository maintenance' \
+            -f body='' >/dev/null
+          gh api --method DELETE "repos/${GH_REPO}/git/refs/heads/${BRANCH}" >/dev/null
